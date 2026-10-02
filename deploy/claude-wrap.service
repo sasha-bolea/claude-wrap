@@ -1,0 +1,23 @@
+# systemd user unit of the claude-wrap server (installed by deploy/install.sh into ~/.config/systemd/user/).
+# Needs linger (the service runs without a login) — see docs/deploy.md.
+[Unit]
+Description=claude-wrap server (core + WebSocket + PWA)
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/claude-wrap/env
+WorkingDirectory=/srv/apps/claude-wrap/current
+ExecStart=/usr/bin/node packages/server/src/main.ts
+Restart=on-failure
+RestartSec=3
+# SIGTERM to node only: it closes every session (15 s), then whatever is left in the cgroup is killed.
+KillMode=mixed
+TimeoutStopSec=15
+# An out-of-memory kill takes one claude process, not the whole service.
+OOMPolicy=continue
+MemoryHigh=5G
+MemoryMax=6G
+
+[Install]
+WantedBy=default.target

@@ -6,17 +6,21 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { analyzeProject, findGitRoot, isTrusted, tooBroad, trustScope } from './trust.ts'
 
+// Absolute paths of this system (the server runs on Linux, the desktop on Windows).
+const ROOT = process.platform === 'win32' ? 'C:/' : '/'
+const at = (path: string) => ROOT + path
+
 describe('isTrusted', () => {
   it('outside a git repo: trusted if the folder or an ancestor is', () => {
-    expect(isTrusted('C:\\work\\project\\sub', ['C:/work/project'], {})).toBe(true)
-    expect(isTrusted('C:\\work\\other', ['C:/work/project'], {})).toBe(false)
+    expect(isTrusted(at('work/project/sub'), [at('work/project')], {})).toBe(true)
+    expect(isTrusted(at('work/other'), [at('work/project')], {})).toBe(false)
   })
 
   it('inside a git repo, trust does not come from above the repo root (like the CLI)', () => {
-    const cliProjects = { 'C:/Users/Me/Documents': { hasTrustDialogAccepted: true } }
-    expect(isTrusted('C:/Users/Me/Documents/cloned/src', [], cliProjects, 'C:/Users/Me/Documents/cloned')).toBe(false)
-    expect(isTrusted('C:/Users/Me/Documents/cloned/src', ['C:/Users/Me/Documents/cloned'], cliProjects, 'C:/Users/Me/Documents/cloned')).toBe(true)
-    expect(isTrusted('C:/Users/Me/Documents/cloned/src', ['C:/Users/Me/Documents/cloned/src'], {}, 'C:/Users/Me/Documents/cloned')).toBe(true)
+    const cliProjects = { [at('Users/Me/Documents')]: { hasTrustDialogAccepted: true } }
+    expect(isTrusted(at('Users/Me/Documents/cloned/src'), [], cliProjects, at('Users/Me/Documents/cloned'))).toBe(false)
+    expect(isTrusted(at('Users/Me/Documents/cloned/src'), [at('Users/Me/Documents/cloned')], cliProjects, at('Users/Me/Documents/cloned'))).toBe(true)
+    expect(isTrusted(at('Users/Me/Documents/cloned/src'), [at('Users/Me/Documents/cloned/src')], {}, at('Users/Me/Documents/cloned'))).toBe(true)
   })
 
   it('separators and case differ on Windows; CLI entries not accepted do not count', () => {
@@ -26,15 +30,15 @@ describe('isTrusted', () => {
   })
 
   it('a name prefix is not a containing folder', () => {
-    expect(isTrusted('C:/work/project-two', ['C:/work/project'], {})).toBe(false)
+    expect(isTrusted(at('work/project-two'), [at('work/project')], {})).toBe(false)
   })
 
   it('session-only trust applies to that exact folder, not to subfolders', () => {
-    expect(isTrusted('C:/Users/Me', [], {}, undefined, ['C:/Users/Me'])).toBe(true)
-    expect(isTrusted('C:/Users/Me/Downloads/x', [], {}, undefined, ['C:/Users/Me'])).toBe(false)
+    expect(isTrusted(at('Users/Me'), [], {}, undefined, [at('Users/Me')])).toBe(true)
+    expect(isTrusted(at('Users/Me/Downloads/x'), [], {}, undefined, [at('Users/Me')])).toBe(false)
   })
 
-  it('the \\\\?\\ prefix of long Windows paths does not change the comparison', () => {
+  it.runIf(process.platform === 'win32')('the \\\\?\\ prefix of long Windows paths does not change the comparison', () => {
     expect(isTrusted('C:/work/project', ['\\\\?\\C:\\work\\project'], {})).toBe(true)
   })
 })

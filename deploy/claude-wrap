@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# `claude-wrap pair --name <device>`: the server's command line with the service's environment.
+set -euo pipefail
+set -a
+. "$HOME/.config/claude-wrap/env"
+set +a
+exec node /srv/apps/claude-wrap/current/packages/server/src/cli.ts "$@"
