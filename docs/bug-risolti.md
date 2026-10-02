@@ -109,3 +109,53 @@ These were solved in the first attempt. Files refer to that repository. Each ent
 - **Fix:** restore through `process.on('exit')`.
 - **Files:** scratchpad e2e scripts.
 - **v2:** designed out — `CLAUDE_WRAP_STATE_DIR` points every e2e run at a temp folder.
+
+## v2 (`personale/claude-wrap`)
+
+### 2026-10-02 — Desktop window stuck on "Connecting…" (app:// origin)
+- **Symptom:** the built app never connected; the renderer waited forever for its port.
+- **Cause:** the broker compared `new URL(senderFrame.url).origin` with `app://claude-wrap`, but Node's URL gives origin `"null"` for non-special schemes such as `app:`, so every request was refused.
+- **Fix:** compare `protocol + '//' + host` (`originOf`).
+- **Files:** `apps/desktop/src/main/index.ts`.
+
+### 2026-10-02 — The `fatal` frame never reached the client
+- **Symptom:** a version mismatch closed the connection without the `incompatible_protocol` error; the client kept reconnecting.
+- **Cause:** the in-memory channel dropped messages still queued when `close()` ran right after `send()`.
+- **Fix:** frames sent before close are delivered, like a socket.
+- **Files:** `packages/protocol/src/channelPair.ts`.
+
+### 2026-10-02 — Empty "thinking" item with Haiku
+- **Symptom:** an empty thinking row before every Haiku answer.
+- **Cause:** text/thinking items were added at `content_block_start`; Haiku streams a thinking block without any text.
+- **Fix:** text and thinking items are created at their first non-empty delta (or by the final frame).
+- **Files:** `packages/core/src/normalize.ts`.
+
+### 2026-10-02 — A reload after the first turn replaced the live transcript
+- **Symptom:** reloading the window mid-stream (after the first `init`) showed only the stored history; the streamed answer restarted from the middle.
+- **Cause:** `init` gives a new tab its session id; the next subscribe saw a session id with no history loaded yet, read the JSONL and rebuilt the transcript over the live items.
+- **Fix:** history is loaded only if no process ran in this core run (`liveStarted`); `restart` resets it.
+- **Files:** `packages/core/src/tab.ts`.
+
+### 2026-10-02 — Slash commands vanished after resuming a session
+- **Symptom:** a resumed session showed nothing for `/model haiku` and other local commands.
+- **Cause:** the JSONL stores them as `<command-name>/model</command-name>…<command-args>haiku</command-args>` and the normalizer skipped every text starting with `<`.
+- **Fix:** stored commands become a user item with the typed text; `<local-command-stdout>` becomes a `localCommandOutput` item; other markup stays hidden.
+- **Files:** `packages/core/src/normalize.ts`.
+
+### 2026-10-02 — Picking the same folder again emptied the start screen
+- **Symptom:** after "Change folder" → same folder, neither the trust dialog nor "New session" appeared.
+- **Cause:** `choose()` cleared the trust state but the load effect depends on the folder string, which did not change, so it never re-ran.
+- **Fix:** choosing the folder already shown just reloads it.
+- **Files:** `packages/ui/src/StartScreen.tsx`.
+
+### 2026-10-02 — state.json writes failing with ENOENT on rename
+- **Symptom:** unhandled `ENOENT: rename state.json.tmp` when two cores (a restart, tests) used the same state folder.
+- **Cause:** every store wrote the same `state.json.tmp`; one rename moved the other's file away. `closeAll` did not wait for queued writes.
+- **Fix:** temp name unique per process and write (`state.json.<pid>.<n>.tmp`), `flush()` on quit, failed writes caught (the next save rewrites the whole state).
+- **Files:** `packages/core/src/state.ts`, `packages/core/src/workspace.ts`.
+
+### 2026-10-02 — Test-only bugs (e2e harness)
+- **Mode read too early:** the Shift+Tab e2e read the select right after the key; the mode comes back from core a few ms later → `expect.poll`. (`apps/desktop/e2e/chat.e2e.ts`)
+- **Stale "New session" click:** after "+", the start screen still showed the previous folder's buttons; the harness clicked them while the screen switched folders → `openChat(page, folder)` waits for the new folder path first. (`apps/desktop/e2e/harness.ts`)
+- **"Renamed" matched "RenameDelete":** playwright `hasText` is a case-insensitive substring and the entry text ends with "Rename"+"Delete" → filter on the `.session-open` title. (`apps/desktop/e2e/tabs.e2e.ts`)
+- **Utility process lookup:** the core's name is in `ProcessMetric.name` (`serviceName` is `node.mojom.NodeService`). (`apps/desktop/e2e/tabs.e2e.ts`)

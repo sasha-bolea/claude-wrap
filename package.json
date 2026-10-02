@@ -1,0 +1,24 @@
+{
+  "name": "claude-wrap-monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "dev:desktop": "npm run dev -w @claude-wrap/desktop",
+    "start:desktop": "npm run start -w @claude-wrap/desktop",
+    "probe": "node packages/core/scripts/probe.ts",
+    "chat": "node packages/core/scripts/chat.ts",
+    "e2e": "npm run build -w @claude-wrap/desktop && vitest run --config apps/desktop/vitest.e2e.config.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "playwright-core": "^1.63.0",
+    "typescript": "5.9.3",
+    "vitest": "^5.0.3"
+  }
+}
