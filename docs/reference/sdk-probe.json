@@ -1,0 +1,65 @@
+{
+  "systemInit": {
+    "fields": [
+      "type",
+      "subtype",
+      "cwd",
+      "session_id",
+      "tools",
+      "mcp_servers",
+      "model",
+      "permissionMode",
+      "slash_commands",
+      "terminal_slash_commands",
+      "apiKeySource",
+      "claude_code_version",
+      "output_style",
+      "agents",
+      "skills",
+      "plugins",
+      "capabilities",
+      "analytics_disabled",
+      "product_feedback_disabled",
+      "uuid",
+      "memory_paths",
+      "messaging_socket_path",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "per_turn_effort_active",
+      "view_mode",
+      "powershell_path"
+    ],
+    "model": "claude-sonnet-5-5",
+    "permissionMode": "default",
+    "claude_code_version": "2.1.285",
+    "output_style": "default",
+    "apiKeySource": "none",
+    "capabilities": [
+      "interrupt_receipt_v1",
+      "interrupt_cancel_queued_v1",
+      "msg_lifecycle_v1",
+      "mcp_read_resource_v1",
+      "mcp_tool_ui_meta_v1"
+    ],
+    "terminal_slash_commands": [
+      "doctor",
+      "color",
+      "focus",
+      "reload-plugins"
+    ],
+    "fast_mode_state": "off",
+    "counts": {
+      "tools": 37,
+      "mcp_servers": 22,
+      "slash_commands": 133,
+      "skills": 93,
+      "agents": 16,
+      "plugins": 6
+    }
+  },
+  "initialization": {
+    "fields": []
+  },
+  "builtinCommands": [],
+  "builtinAgents": []
+}
