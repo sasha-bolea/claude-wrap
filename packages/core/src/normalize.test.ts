@@ -14,6 +14,7 @@ function recorder() {
       ops.push(`update ${item.itemId}`)
       items[items.findIndex((existing) => existing.itemId === item.itemId)] = item
     },
+    addBlob: () => `img-${items.length}`,
     appendText: (itemId, text) => {
       ops.push(`text ${itemId}`)
       const item = items.find((existing) => existing.itemId === itemId)
@@ -66,6 +67,15 @@ describe('normalizer — live messages', () => {
     const { items, normalizer } = recorder()
     normalizer.live(sdk.assistant('m9', [{ type: 'text', text: 'Context usage: …' }]))
     expect(items).toEqual([expect.objectContaining({ kind: 'assistantText', itemId: 'm9:0', text: 'Context usage: …' })])
+  })
+
+  it('ignores a message the CLI emits again after /compact (same uuid, new message id)', () => {
+    const { items, normalizer } = recorder()
+    const original = sdk.assistant('synthetic-1', [{ type: 'text', text: 'Set effort level to low' }])
+    normalizer.live(original)
+    normalizer.live(sdk.compactBoundary())
+    normalizer.live({ ...original, message: { ...(original as { message: object }).message, id: 'synthetic-2' } } as typeof original)
+    expect(items.map((item) => item.kind)).toEqual(['assistantText', 'compactBoundary'])
   })
 
   it('attaches tool results to the tool call', () => {

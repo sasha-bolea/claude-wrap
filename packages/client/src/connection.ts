@@ -60,13 +60,17 @@ export class Connection {
   private retryMs: number
   private reconnectTimer?: ReturnType<typeof setTimeout>
   private stopped = false
+  private started = false
 
   constructor(options: ConnectionOptions) {
     this.options = options
     this.retryMs = options.retry?.initialMs ?? 250
   }
 
+  // Connects (once: later calls do nothing, so a host may start it and a view may too).
   start(): void {
+    if (this.started) return
+    this.started = true
     void this.connect()
   }
 
@@ -90,6 +94,14 @@ export class Connection {
     this.positions.delete(tabStream(tabId))
     this.store.dropTab(tabId)
     return this.request('tab.unsubscribe', { tabId })
+  }
+
+  // Reconnects at once when offline (page back on screen, network back) instead of waiting for the backoff.
+  reconnectNow(): void {
+    if (this.stopped || this.channel) return
+    clearTimeout(this.reconnectTimer)
+    this.retryMs = this.options.retry?.initialMs ?? 250
+    void this.connect()
   }
 
   // Stops for good: no reconnect, pending commands rejected.

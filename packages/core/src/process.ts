@@ -1,8 +1,9 @@
 // Spawning the sessions' claude processes and cleaning up after them (port of the first attempt's processi.ts).
 // On Windows, when claude exits, the stdio MCP servers it started (npx + node) stay alive: an orphan keeps the
 // dead parent's PID, so after the exit they are found and killed with their whole tree.
-// Linux (process groups) comes with the server in Phase 3.
+// On Linux claude and `!` commands start in their own process group, so killTree reaches the whole tree.
 import { execFile, spawn, type ChildProcess } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { promisify } from 'node:util'
 import type { SpawnOptions } from '@anthropic-ai/claude-agent-sdk'
 import type { LivePid } from './state.ts'
@@ -57,17 +58,20 @@ async function listProcesses(): Promise<ProcessInfo[]> {
     })
 }
 
-// Kills a process tree. Errors are ignored: the process may already be gone.
+// Kills a process tree (Linux: its process group). Errors are ignored: the process may already be gone.
 export async function killTree(pid: number): Promise<void> {
-  if (process.platform === 'win32') await run('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true }).catch(() => undefined)
-  else {
+  if (process.platform === 'win32') return void (await run('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true }).catch(() => undefined))
+  for (const target of [-pid, pid]) {
     try {
-      process.kill(pid, 'SIGKILL')
+      return void process.kill(target, 'SIGKILL')
     } catch {
-      // already gone
+      // no such group (not a group leader) or already gone: try the next target
     }
   }
 }
+
+// Own process group on Linux (see killTree); on Windows a detached child would get its own console.
+const OWN_GROUP = process.platform !== 'win32'
 
 // Kills the trees of the children left behind by an exited claude.
 async function killOrphans(parentPid: number, parentStart: number): Promise<void> {
@@ -79,7 +83,7 @@ async function killOrphans(parentPid: number, parentStart: number): Promise<void
 // onStderr: receives stderr chunks (the session keeps a tail).
 export function spawnClaude({ command, args, cwd, env, signal }: SpawnOptions, onStderr: (chunk: string) => void): ChildProcess {
   const started = Date.now() - START_MARGIN_MS
-  const child = spawn(command, args, { cwd, env, signal, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+  const child = spawn(command, args, { cwd, env, signal, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, detached: OWN_GROUP })
   child.stderr?.setEncoding('utf8').on('data', onStderr)
   child.on('exit', () => {
     if (process.platform !== 'win32' || !child.pid) return
@@ -92,4 +96,43 @@ export function spawnClaude({ command, args, cwd, env, signal }: SpawnOptions, o
 // Resolves when the cleanups in progress are done (quit).
 export async function waitForCleanups(): Promise<void> {
   await Promise.all([...cleanups])
+}
+
+// `!` commands: a bash like the CLI's (Git Bash on Windows, found as the CLI finds it), else the system shell.
+const SHELL_TIMEOUT_MS = 120_000
+const SHELL_OUTPUT_CHARS = 30_000
+const GIT_BASH = 'C:\Program Files\Git\bin\bash.exe'
+
+export type ShellResult = { stdout: string; stderr: string; exitCode: number }
+
+// Executable and arguments that run one command line.
+function shellCommand(command: string): [string, string[]] {
+  if (process.platform !== 'win32') return [existsSync('/bin/bash') ? '/bin/bash' : '/bin/sh', ['-c', command]]
+  const bash = [process.env.CLAUDE_CODE_GIT_BASH_PATH, GIT_BASH].find((path) => path && existsSync(path))
+  return bash ? [bash, ['-c', command]] : [process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', command]]
+}
+
+// Output cut to SHELL_OUTPUT_CHARS (the CLI's limit for its Bash tool).
+const capped = (text: string) => (text.length > SHELL_OUTPUT_CHARS ? `${text.slice(0, SHELL_OUTPUT_CHARS)}\n[output truncated]` : text)
+
+// Runs a command line in a folder. The abort signal and a 2-minute timeout kill its whole tree.
+export function runShell(command: string, cwd: string, signal: AbortSignal): Promise<ShellResult> {
+  const [file, args] = shellCommand(command)
+  return new Promise((resolve) => {
+    let stdout = ''
+    let stderr = ''
+    const child = spawn(file, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: OWN_GROUP })
+    const stop = () => void (child.pid && killTree(child.pid))
+    const timer = setTimeout(stop, SHELL_TIMEOUT_MS)
+    signal.addEventListener('abort', stop)
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout = stdout.length > SHELL_OUTPUT_CHARS ? stdout : stdout + chunk))
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr = stderr.length > SHELL_OUTPUT_CHARS ? stderr : stderr + chunk))
+    const done = (exitCode: number) => {
+      clearTimeout(timer)
+      signal.removeEventListener('abort', stop)
+      resolve({ stdout: capped(stdout), stderr: capped(stderr), exitCode })
+    }
+    child.on('error', (error) => ((stderr += error.message), done(127)))
+    child.on('close', (code) => done(code ?? 1))
+  })
 }

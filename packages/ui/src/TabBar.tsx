@@ -5,7 +5,7 @@ import type { MessageKey } from './i18n/en.ts'
 
 type Badge = 'working' | 'waiting' | 'error' | 'idle'
 
-const BADGE_LABEL: Record<Badge, MessageKey> = { working: 'badgeWorking', waiting: 'badgeWaiting', error: 'badgeError', idle: 'badgeIdle' }
+export const BADGE_LABEL: Record<Badge, MessageKey> = { working: 'badgeWorking', waiting: 'badgeWaiting', error: 'badgeError', idle: 'badgeIdle' }
 
 // Badge of a tab from its status: working, waiting for the user (request or trust), error, idle.
 export function badgeOf(tab: TabMeta): Badge {

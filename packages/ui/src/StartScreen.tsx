@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Connection } from '@claude-wrap/client'
 import type { SessionInfo } from '@claude-wrap/protocol'
+import { FolderBrowser } from './FolderBrowser.tsx'
 import { t } from './i18n.ts'
 import { SessionList } from './SessionList.tsx'
 import { TrustDialog, type TrustCheck } from './TrustDialog.tsx'
@@ -39,12 +40,14 @@ function useFolder(connection: Connection, backendId: string, onError: (failure:
   return { folder, trust, sessions, choose, reload: () => void load().catch(onError) }
 }
 
-// Start screen of a new tab: pick the working folder, trust it if needed, then open a new session or resume
-// a stored one (an already open one goes to its tab).
+// Start screen of a new tab: pick the working folder (native dialog on the desktop, the backend's folder browser
+// elsewhere), trust it if needed, then open a new session or resume a stored one (an open one goes to its tab).
 export function StartScreen({ connection, backendId, chooseFolder, onOpen }: StartScreenProps) {
   const [error, setError] = useState<string>()
   const onError = useCallback((failure: unknown) => setError(t('openFailed', { message: errorText(failure) })), [])
   const { folder, trust, sessions, choose, reload } = useFolder(connection, backendId, onError)
+  const [browsing, setBrowsing] = useState(false)
+  const showBrowser = !chooseFolder && (browsing || !folder)
 
   const create = (session?: SessionInfo) => {
     if (!folder) return
@@ -67,11 +70,18 @@ export function StartScreen({ connection, backendId, chooseFolder, onOpen }: Sta
           </button>
           {folder && <span className="muted">{folder}</span>}
         </div>
+      ) : showBrowser ? (
+        <FolderBrowser connection={connection} initial={folder} onChoose={(path) => (setBrowsing(false), choose(path))} onError={onError} />
       ) : (
-        <p className="muted">{t('noFolderPicker')}</p>
+        <div className="actions">
+          <button className="button" onClick={() => setBrowsing(true)}>
+            {t('changeFolder')}
+          </button>
+          <span className="muted">{folder}</span>
+        </div>
       )}
-      {folder && trust && !trust.trusted && <TrustDialog cwd={folder} check={trust} onAccept={grant} onCancel={() => choose(undefined)} />}
-      {folder && trust?.trusted && (
+      {!showBrowser && folder && trust && !trust.trusted && <TrustDialog cwd={folder} check={trust} onAccept={grant} onCancel={() => choose(undefined)} />}
+      {!showBrowser && folder && trust?.trusted && (
         <>
           <div className="actions">
             <button className="button primary" onClick={() => create()}>

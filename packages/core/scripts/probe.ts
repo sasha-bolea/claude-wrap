@@ -6,10 +6,13 @@ import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { deleteSession, query, type SDKMessage, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import { unclassifiedSettings } from '../src/settingsKeys.ts'
+import { publicProbe } from './probePublic.ts'
 
 // Local command: makes the CLI emit system/init without calling the model.
 const PROBE_PROMPT = '/context'
+// Committed: SDK facts and shapes only. Local (git-ignored): everything, the user's own setup included.
 const OUTPUT_PATH = new URL('../../../docs/reference/sdk-probe.json', import.meta.url)
+const LOCAL_OUTPUT_PATH = new URL('../../../docs/reference/sdk-probe.local.json', import.meta.url)
 const CWD = process.cwd()
 
 // Streaming input that stays open until end(): control methods only work while it is open.
@@ -27,8 +30,9 @@ function createInput() {
   }
   return {
     stream: stream(),
-    push(text: string) {
-      queue.push({ type: 'user', message: { role: 'user', content: text }, parent_tool_use_id: null })
+    // extra: more message fields (shouldQuery: false for a transcript-only message).
+    push(text: string, extra: Partial<SDKUserMessage> = {}) {
+      queue.push({ type: 'user', message: { role: 'user', content: text }, parent_tool_use_id: null, ...extra })
       wake?.()
     },
     end() {
@@ -62,12 +66,15 @@ async function readTurn(messages: AsyncIterator<SDKMessage>): Promise<SDKMessage
 const describeType = (message: SDKMessage) => ('subtype' in message ? `${message.type}/${message.subtype}` : message.type)
 const findInit = (turn: SDKMessage[]) => turn.find((message) => message.type === 'system' && message.subtype === 'init')
 
-// Replaces the account email so the committed probe carries no personal data.
+// Replaces every email address (the account email also appears inside the organization name) so the committed
+// probe carries no personal data.
 function redact<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value, (key, field) => (key === 'email' ? '<redacted>' : field)))
+  // Alphabetic TLD required, so `package@1.2.3` strings stay.
+  return JSON.parse(JSON.stringify(value).replace(/[\w.+-]+@[\w-]+(\.[\w-]+)*\.[A-Za-z]{2,}\b/g, '<redacted>'))
 }
 
-// First session: inventory, two turns, setPermissionMode in between. Returns the raw observations.
+// First session: inventory, two turns, setPermissionMode in between, then a transcript-only message (the `!`
+// shell output). Returns the raw observations.
 async function probeFirstSession() {
   const { input, session, messages } = openSession()
   try {
@@ -83,7 +90,9 @@ async function probeFirstSession() {
     await session.setPermissionMode('acceptEdits')
     input.push(PROBE_PROMPT)
     const secondTurn = await readTurn(messages)
-    return { initialization, commands, models, agents, account, firstTurn, secondTurn }
+    input.push('<bash-input>echo probe</bash-input>', { shouldQuery: false })
+    const silentTurn = await readTurn(messages)
+    return { initialization, commands, models, agents, account, firstTurn, secondTurn, silentTurn }
   } finally {
     input.end()
     session.close()
@@ -126,6 +135,10 @@ async function main(): Promise<void> {
       resumeKeepsSessionId: resumedSessionId === sessionId,
       resumedSessionId: resumedSessionId === sessionId ? undefined : resumedSessionId,
       internalCommands: first.commands.filter((command) => command.name.startsWith('__')).map((command) => command.name),
+      // tab.ts drops one empty result (num_turns 0) per transcript-only message: it must still come.
+      silentMessageEmitsEmptyResult: first.silentTurn.some((message) => message.type === 'result' && message.num_turns === 0),
+      // How a local command's output arrives (the normalizer shows both forms).
+      localCommandOutputAs: first.firstTurn.some((message) => describeType(message) === 'system/local_command_output') ? 'system/local_command_output' : 'assistant',
       // Settings keys that may run something and the trust gate has not classified: must stay empty.
       unclassifiedSettings: unclassifiedSettings(readFileSync(join(dirname(sdkEntry), 'sdk.d.ts'), 'utf8'))
     },
@@ -136,9 +149,11 @@ async function main(): Promise<void> {
     agents: first.agents,
     account: first.account,
     firstTurnMessageTypes: first.firstTurn.map(describeType),
-    secondTurnMessageTypes: first.secondTurn.map(describeType)
+    secondTurnMessageTypes: first.secondTurn.map(describeType),
+    silentTurnMessageTypes: first.silentTurn.map(describeType)
   }
-  writeFileSync(OUTPUT_PATH, JSON.stringify(redact(result), null, 2) + '\n')
+  writeFileSync(OUTPUT_PATH, JSON.stringify(publicProbe(redact(result)), null, 2) + '\n')
+  writeFileSync(LOCAL_OUTPUT_PATH, JSON.stringify(redact(result), null, 2) + '\n')
   console.log(JSON.stringify({ sdkVersion: result.sdkVersion, cliVersion: result.cliVersion, ...result.facts }, null, 2))
   if (result.facts.unclassifiedSettings.length) {
     console.error(`Classify these settings in packages/core/src/trust.ts (CLASSIFIED_SETTINGS): ${result.facts.unclassifiedSettings.join(', ')}`)

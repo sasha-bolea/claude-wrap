@@ -11,12 +11,14 @@
     "dist": "electron-vite build && electron-builder --win --dir"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.287"
+    "@anthropic-ai/claude-agent-sdk": "0.3.287",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@claude-wrap/client": "*",
     "@claude-wrap/core": "*",
     "@claude-wrap/protocol": "*",
+    "@claude-wrap/server": "*",
     "@claude-wrap/ui": "*",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "44.5.1",

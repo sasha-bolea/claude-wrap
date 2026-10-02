@@ -1,1 +1,5 @@
 export { App, type AppProps, type Capabilities } from './App.tsx'
+export { PairScreen, codeFromInput } from './PairScreen.tsx'
+export type { PushCapability } from './SettingsScreen.tsx'
+export { t } from './i18n.ts'
+export { DesktopShell, type BackendEntry } from './DesktopShell.tsx'

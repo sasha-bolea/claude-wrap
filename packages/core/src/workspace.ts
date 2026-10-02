@@ -1,8 +1,11 @@
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
 import { WORKSPACE_STREAM, tabStream } from '@claude-wrap/protocol'
 import type { CoreConfig, SdkApi } from './config.ts'
 import { CoreError } from './errors.ts'
 import { waitForCleanups } from './process.ts'
+import { PromptHistory } from './promptHistory.ts'
 import type { StateStore } from './state.ts'
 import { DEFAULT_RING, Stream } from './stream.ts'
 import { Tab, type TabEnvironment, type TabInit } from './tab.ts'
@@ -18,6 +21,8 @@ export class Workspace {
   readonly stream: Stream
   readonly trust: TrustGate
   readonly sdk: SdkApi
+  readonly prompts: PromptHistory
+  readonly allowedRoots: 'any' | string[]
   private readonly sessionIndex = new Map<string, string>() // sessionId → tabId
   private readonly store: StateStore
   private readonly env: TabEnvironment
@@ -28,6 +33,9 @@ export class Workspace {
     this.store = store
     this.sdk = { ...claudeSdk, ...config.sdk }
     this.trust = new TrustGate(store)
+    this.allowedRoots = config.allowedRoots ?? 'any'
+    const claudeDir = config.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude')
+    this.prompts = new PromptHistory(config.stateDir && join(config.stateDir, 'history.jsonl'), join(claudeDir, 'history.jsonl'))
     this.stream = new Stream(WORKSPACE_STREAM, () => ({ kind: 'workspace', tabs: [...this.tabs.values()].map((tab) => tab.meta()) }), config.ring ?? DEFAULT_RING)
     this.env = this.environment(config)
     for (const saved of store.data.tabs) this.add(new Tab({ ...saved, resume: saved.sessionId }, this.env))
@@ -136,7 +144,7 @@ export class Workspace {
       },
       prepareStart: async (cwd) => {
         const folder = await canonicalFolder(cwd)
-        checkRoots(folder, config.allowedRoots ?? 'any')
+        checkRoots(folder, this.allowedRoots)
         if (!(await this.trust.isTrusted(folder))) throw new CoreError('needs_trust', `folder not trusted: ${folder}`)
         return folder
       },
@@ -150,6 +158,7 @@ export class Workspace {
         if (previous && this.sessionIndex.get(previous) === tab.tabId) this.sessionIndex.delete(previous)
         if (tab.sessionId) this.sessionIndex.set(tab.sessionId, tab.tabId)
       },
+      promptSent: (tab, text) => this.prompts.add(text, tab.cwd, tab.sessionId),
       notify: (tab, kind, detail) => config.notifier?.({ kind, tabId: tab.tabId, title: tab.title, detail }),
       processStarted: (pid, startedAt) => this.trackProcess(pid, startedAt),
       processExited: (pid) => this.trackProcess(pid)

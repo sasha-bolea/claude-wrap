@@ -11,10 +11,13 @@ import { Workspace } from './workspace.ts'
 
 export type { CoreConfig, Notice, SdkApi } from './config.ts'
 
+// Who is on the other end of a channel, when the host knows (the remote server after token authentication).
+export type Identity = { deviceId: string; label: string }
+
 export interface Core {
   // Resolves once the state is loaded and a previous crash's orphans are swept; hello is answered only after.
   ready: Promise<void>
-  attach(channel: Channel): void
+  attach(channel: Channel, identity?: Identity): void
   // Closes every tab (quit). Resolves when processes are gone, at most after a few seconds.
   closeAll(): Promise<void>
 }
@@ -27,12 +30,16 @@ async function start(config: CoreConfig): Promise<Runtime> {
   await sweepOrphans(store.data.livePids)
   await store.update((data) => (data.livePids = []))
   const workspace = new Workspace(config, store)
-  return { workspace, handlers: createHandlers(workspace) }
+  return { workspace, handlers: createHandlers(workspace, config.hostCommands) }
 }
 
 // Creates the backend core: owns tabs, sessions, transcripts, queues and requests; clients attach channels.
 export function createCore(config: CoreConfig): Core {
-  const runtime = start(config)
+  // Attached clients that said hello (their visibility goes with every notice).
+  const greeted = new Set<Connection>()
+  const visibleDevices = () => [...new Set([...greeted].flatMap((connection) => (connection.visible && connection.deviceId ? [connection.deviceId] : [])))]
+  const notifier = config.notifier
+  const runtime = start({ ...config, notifier: notifier && ((notice) => notifier({ ...notice, visibleDevices: visibleDevices() })) })
   const replies = new ReplyCache()
   const welcome: Welcome = { t: 'welcome', protocolVersion: PROTOCOL_VERSION, backendId: config.backendId, backendKind: config.backendKind, ...readVersions(), limits: LIMITS }
 
@@ -59,7 +66,7 @@ export function createCore(config: CoreConfig): Core {
 
   // Attaches one client connection: the first frame must be a valid hello of the same protocol major.
   // Frames wait for the startup to finish, in arrival order.
-  function attach(channel: Channel): void {
+  function attach(channel: Channel, identity?: Identity): void {
     let connection: Connection | undefined
     const send: Send = (frame: CoreFrame) => channel.send(frame)
     const refuse = (code: ErrorCode, message: string) => {
@@ -75,7 +82,8 @@ export function createCore(config: CoreConfig): Core {
         if (frame.protocolVersion !== PROTOCOL_VERSION) {
           return refuse('incompatible_protocol', `core speaks protocol ${PROTOCOL_VERSION}, client ${frame.protocolVersion}`)
         }
-        connection = { clientId: frame.clientId, send }
+        connection = { clientId: frame.clientId, send, label: identity?.label ?? frame.clientId, deviceId: identity?.deviceId, visible: frame.visible }
+        greeted.add(connection)
         send(welcome)
         return void resumeStreams(started, frame, connection)
       }
@@ -87,6 +95,7 @@ export function createCore(config: CoreConfig): Core {
     channel.onMessage((raw) => void runtime.then((started) => handle(started, raw)))
     channel.onClose(() =>
       void runtime.then(({ workspace }) => {
+        if (connection) greeted.delete(connection)
         workspace.stream.detach(send)
         for (const tab of workspace.tabs.values()) tab.unsubscribe(send)
       })

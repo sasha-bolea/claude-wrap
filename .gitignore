@@ -4,3 +4,5 @@ dist/
 *.log
 .env
 .env.*
+# Full SDK probe with the local user's own setup (the committed sdk-probe.json is the public view)
+docs/reference/sdk-probe.local.json

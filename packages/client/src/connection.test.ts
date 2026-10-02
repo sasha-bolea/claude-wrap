@@ -121,6 +121,22 @@ describe('Connection', () => {
     expect(core.links).toHaveLength(2)
   })
 
+  it('reconnectNow skips the backoff while offline and does nothing while connected', async () => {
+    const core = scriptedCore()
+    let online = false
+    connection = new Connection({ openChannel: () => (online ? core.openChannel() : Promise.reject(new Error('offline'))), clientId: 'c1', retry: { initialMs: 60_000, maxMs: 60_000 } })
+    connection.start()
+    await tick()
+    expect(core.links).toHaveLength(0)
+    online = true
+    connection.reconnectNow()
+    await tick()
+    expect(core.links).toHaveLength(1)
+    connection.reconnectNow()
+    await tick()
+    expect(core.links).toHaveLength(1)
+  })
+
   it('stops on incompatible_protocol and tells the store', async () => {
     const core = scriptedCore()
     connection = new Connection({ openChannel: core.openChannel, clientId: 'c1', retry: { initialMs: 1, maxMs: 1 } })

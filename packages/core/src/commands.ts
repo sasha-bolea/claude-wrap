@@ -1,14 +1,22 @@
-import { COMMANDS, LIMITS, type Cmd, type CommandArgs, type CommandName, type CommandResult, type ErrorCode, type Reply } from '@claude-wrap/protocol'
+import { COMMANDS, LIMITS, type Cmd, type CommandArgs, type CommandName, type CommandResult, type ErrorCode, type Image, type Reply } from '@claude-wrap/protocol'
 import { CoreError, messageOf } from './errors.ts'
+import { browseFolders, makeFolder } from './folders.ts'
 import type { Send } from './stream.ts'
 import type { Workspace } from './workspace.ts'
 
 const DEFAULT_HISTORY_PAGE = 200
 
-// One attached client.
-export type Connection = { clientId: string; send: Send }
+// One attached client. label: how other clients see it (device name on the server, else the clientId);
+// deviceId: the paired device (remote only); visible: its page is on screen.
+export type Connection = { clientId: string; send: Send; label: string; deviceId?: string; visible: boolean }
 type Handler<N extends CommandName> = (args: CommandArgs<N>, connection: Connection, cmdId: string) => Promise<CommandResult<N>> | CommandResult<N>
 export type Handlers = { [N in CommandName]: Handler<N> }
+// Commands the host implements itself (the remote server's device management).
+export type HostCommands = Partial<Pick<Handlers, 'devices.list' | 'devices.pairStart' | 'devices.revoke' | 'push.config' | 'push.subscribe' | 'push.unsubscribe'>>
+
+const notHere = () => {
+  throw new CoreError('not_found', 'devices and push exist only on the remote server')
+}
 
 // Copies a tab's session (up to an item, if given) into a new tab next to it. Refused while a turn runs: the
 // copy would contain a tool call without result, "running" forever.
@@ -50,8 +58,16 @@ async function deleteSession(workspace: Workspace, { cwd, sessionId }: CommandAr
   return {}
 }
 
-// The command handlers, one per protocol command, acting on the workspace.
-export function createHandlers(workspace: Workspace): Handlers {
+// Refuses a message over the protocol limits (LIMITS): too many images, an image or the whole message too big.
+function checkSize(text: string, images: Image[]): void {
+  const imageBytes = images.map((image) => Math.floor((image.data.length * 3) / 4))
+  if (images.length > LIMITS.images) throw new CoreError('too_large', `at most ${LIMITS.images} images`)
+  if (imageBytes.some((bytes) => bytes > LIMITS.imageBytes)) throw new CoreError('too_large', 'image too large')
+  if (Buffer.byteLength(text) + imageBytes.reduce((sum, bytes) => sum + bytes, 0) > LIMITS.sendTotalBytes) throw new CoreError('too_large', 'message too large')
+}
+
+// The command handlers, one per protocol command, acting on the workspace; host: the host's own commands.
+export function createHandlers(workspace: Workspace, host: HostCommands = {}): Handlers {
   const tabOf = (tabId: string) => workspace.tabOf(tabId)
   return {
     'tab.create': (init) => ({ tabId: workspace.create(init) }),
@@ -63,11 +79,19 @@ export function createHandlers(workspace: Workspace): Handlers {
     'tab.subscribe': async ({ tabId }, connection) => (await tabOf(tabId).subscribe(connection.send), {}),
     'tab.unsubscribe': ({ tabId }, connection) => (tabOf(tabId).unsubscribe(connection.send), {}),
     'tab.history': ({ tabId, beforeItemId, limit }) => tabOf(tabId).history(beforeItemId, limit ?? DEFAULT_HISTORY_PAGE),
-    'tab.send': ({ tabId, text }, connection, cmdId) => {
-      if (Buffer.byteLength(text) > LIMITS.sendTotalBytes) throw new CoreError('too_large', 'message too large')
-      return tabOf(tabId).send(text, cmdId, connection.clientId)
+    'tab.send': ({ tabId, text, images, pastes }, connection, cmdId) => {
+      checkSize(text, images ?? [])
+      return tabOf(tabId).send({ queueId: cmdId, text, from: connection.label, images, pastes })
     },
     'tab.unqueue': ({ tabId, queueId }) => (tabOf(tabId).unqueue(queueId), {}),
+    'tab.sendNow': async ({ tabId, queueId }) => (await tabOf(tabId).sendNow(queueId), {}),
+    'tab.shell': ({ tabId, command }, _connection, cmdId) => tabOf(tabId).shell(command, cmdId),
+    'tab.suggestFiles': async ({ tabId, query }) => ({ paths: await tabOf(tabId).suggestFiles(query) }),
+    'blob.get': ({ tabId, imageId }) => {
+      const image = tabOf(tabId).transcript.blob(imageId)
+      if (!image) throw new CoreError('not_found', 'image not found')
+      return image
+    },
     'tab.interrupt': async ({ tabId }) => (await tabOf(tabId).interrupt(), {}),
     'tab.setModel': async ({ tabId, model }) => (await tabOf(tabId).setModel(model), {}),
     'tab.setMode': async ({ tabId, mode }) => (await tabOf(tabId).setMode(mode), {}),
@@ -80,9 +104,20 @@ export function createHandlers(workspace: Workspace): Handlers {
       return {}
     },
     'sessions.delete': (args) => deleteSession(workspace, args),
+    'prompts.history': async ({ cwd }) => ({ prompts: await workspace.prompts.list(cwd) }),
+    'fs.browse': ({ path }) => browseFolders(path, workspace.allowedRoots),
+    'fs.mkdir': ({ path, name }) => makeFolder(path, name, workspace.allowedRoots),
+    'devices.list': notHere,
+    'devices.pairStart': notHere,
+    'devices.revoke': notHere,
+    'push.config': notHere,
+    'push.subscribe': notHere,
+    'push.unsubscribe': notHere,
+    ...host,
+    'client.visibility': ({ visible }, connection) => ((connection.visible = visible), {}),
     'trust.check': ({ cwd }) => workspace.trust.check(cwd),
     'trust.grant': async ({ cwd }) => (await workspace.grantTrust(cwd), {}),
-    'request.answer': ({ tabId, requestId, ...answer }, connection) => (tabOf(tabId).answer(requestId, answer, connection.clientId), {})
+    'request.answer': ({ tabId, requestId, ...answer }, connection) => (tabOf(tabId).answer(requestId, answer, connection.label), {})
   }
 }
 

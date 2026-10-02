@@ -1,0 +1,23 @@
+{
+  "name": "@claude-wrap/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "claude-wrap": "./src/cli.ts"
+  },
+  "dependencies": {
+    "@claude-wrap/core": "*",
+    "@claude-wrap/protocol": "*",
+    "web-push": "^3.6.7",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@claude-wrap/client": "*",
+    "@types/web-push": "^3.6.4",
+    "@types/ws": "^8.18.2"
+  }
+}

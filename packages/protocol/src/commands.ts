@@ -1,14 +1,27 @@
 import { z } from 'zod'
-import { itemSchema, permissionModeSchema, projectConfigSchema, sessionInfoSchema } from './model.ts'
+import { IMAGE_TYPES, itemSchema, permissionModeSchema, projectConfigSchema, sessionInfoSchema } from './model.ts'
 
 // Commands a client can send (`{t:'cmd', id, name, args}`), with the schema of their args and result.
-// Phase 1 set; later phases add blob.get, files.upload, devices.*, …
+// Phases 1-3 set; later phases add files.upload, …
 
 const tabId = z.string().min(1)
 const empty = z.object({})
 
 export const modelInfoSchema = z.looseObject({ value: z.string(), displayName: z.string(), description: z.string() })
 export const slashCommandSchema = z.looseObject({ name: z.string(), description: z.string(), argumentHint: z.string() })
+// An image attached to a message: base64 bytes (size limits checked by core, LIMITS in index.ts).
+export const imageSchema = z.object({ mediaType: z.enum(IMAGE_TYPES), data: z.string().min(1) })
+export const promptSchema = z.object({ text: z.string(), timestamp: z.number() })
+// A paired device of the remote server; current = the device asking.
+export const deviceSchema = z.object({ deviceId: z.string(), name: z.string(), createdAt: z.number(), lastSeenAt: z.number().optional(), current: z.boolean() })
+// A folder name to create: no separators or characters Windows forbids, not `.` or `..`.
+const folderName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .regex(/^[^\\/:*?"<>|]+$/)
+  .refine((name) => name !== '.' && name !== '..', 'invalid folder name')
 
 export const COMMANDS = {
   'tab.create': {
@@ -39,8 +52,21 @@ export const COMMANDS = {
     result: z.object({ items: z.array(itemSchema), hasMore: z.boolean() })
   },
   // The cmd id becomes the SDK user-message uuid and the queueId when the message is queued.
-  'tab.send': { args: z.object({ tabId, text: z.string().min(1) }), result: z.object({ queued: z.boolean() }) },
+  // pastes: long pasted texts that are still inside `text` (the CLI may wrap them in <pasted_content>).
+  'tab.send': {
+    args: z
+      .object({ tabId, text: z.string(), images: z.array(imageSchema).optional(), pastes: z.array(z.string()).optional() })
+      .refine((args) => args.text.trim() || args.images?.length, 'empty message'),
+    result: z.object({ queued: z.boolean() })
+  },
   'tab.unqueue': { args: z.object({ tabId, queueId: z.string() }), result: empty },
+  // Sends a queued message now: a running turn is interrupted and the message goes out next.
+  'tab.sendNow': { args: z.object({ tabId, queueId: z.string() }), result: empty },
+  // Runs a `!` command in the tab's folder; output becomes a shell item and context for Claude's next turn.
+  'tab.shell': { args: z.object({ tabId, command: z.string().trim().min(1) }), result: z.object({ exitCode: z.number() }) },
+  // Files and folders of the tab's folder matching a query, best first (`@` mentions).
+  'tab.suggestFiles': { args: z.object({ tabId, query: z.string() }), result: z.object({ paths: z.array(z.string()) }) },
+  'blob.get': { args: z.object({ tabId, imageId: z.string() }), result: imageSchema },
   'tab.interrupt': { args: z.object({ tabId }), result: empty },
   // model undefined = the default model.
   'tab.setModel': { args: z.object({ tabId, model: z.string().optional() }), result: empty },
@@ -51,6 +77,27 @@ export const COMMANDS = {
   'sessions.list': { args: z.object({ cwd: z.string().min(1) }), result: z.object({ sessions: z.array(sessionInfoSchema) }) },
   'sessions.rename': { args: z.object({ cwd: z.string().min(1), sessionId: z.string(), title: z.string().trim().min(1) }), result: empty },
   'sessions.delete': { args: z.object({ cwd: z.string().min(1), sessionId: z.string() }), result: empty },
+  // Prompts sent in a folder, newest first: the app's own and the terminal CLI's (~/.claude/history.jsonl).
+  'prompts.history': { args: z.object({ cwd: z.string().min(1) }), result: z.object({ prompts: z.array(promptSchema) }) },
+  // Folders of the backend (remote folder picker), confined to its allowed roots. path absent = the first root
+  // (desktop: the home folder); parent absent at the top.
+  'fs.browse': {
+    args: z.object({ path: z.string().optional() }),
+    result: z.object({ path: z.string(), parent: z.string().optional(), folders: z.array(z.string()) })
+  },
+  'fs.mkdir': { args: z.object({ path: z.string().min(1), name: folderName }), result: z.object({ path: z.string() }) },
+  // Paired devices (remote server only; other backends answer not_found). pairStart returns a one-time code
+  // for a new device; revoke also removes the devices and codes the revoked one created.
+  'devices.list': { args: empty, result: z.object({ devices: z.array(deviceSchema) }) },
+  'devices.pairStart': { args: z.object({ name: z.string().trim().min(1).max(60) }), result: z.object({ code: z.string(), expiresAt: z.number() }) },
+  'devices.revoke': { args: z.object({ deviceId: z.string() }), result: empty },
+  // Web Push of the asking device (remote server only): the server's public VAPID key and whether this device
+  // has a subscription; subscribe stores the browser's PushSubscription for this device.
+  'push.config': { args: empty, result: z.object({ publicKey: z.string(), subscribed: z.boolean() }) },
+  'push.subscribe': { args: z.object({ endpoint: z.url(), keys: z.object({ p256dh: z.string(), auth: z.string() }) }), result: empty },
+  'push.unsubscribe': { args: empty, result: empty },
+  // The client's page is shown or hidden (push notifications skip devices with a visible client).
+  'client.visibility': { args: z.object({ visible: z.boolean() }), result: empty },
   // Folder trust: what the folder would load and run, and where an accepted trust applies.
   'trust.check': {
     args: z.object({ cwd: z.string().min(1) }),
@@ -76,3 +123,6 @@ export type CommandArgs<N extends CommandName> = z.infer<(typeof COMMANDS)[N]['a
 export type CommandResult<N extends CommandName> = z.infer<(typeof COMMANDS)[N]['result']>
 export type ModelInfo = z.infer<typeof modelInfoSchema>
 export type SlashCommand = z.infer<typeof slashCommandSchema>
+export type Image = z.infer<typeof imageSchema>
+export type Prompt = z.infer<typeof promptSchema>
+export type Device = z.infer<typeof deviceSchema>

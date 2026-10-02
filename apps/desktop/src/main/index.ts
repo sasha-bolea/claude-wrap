@@ -2,10 +2,12 @@ import { app, BrowserWindow, dialog, ipcMain, MessageChannelMain, Notification, 
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import type { Notice } from '@claude-wrap/core'
+import { APP_ORIGIN, BackendStore } from './backends.ts'
 import { CoreProcess } from './coreProcess.ts'
+import { bridgeRemote } from './remoteBridge.ts'
+import { RemoteNotices } from './remoteNotices.ts'
 
 const APP_ID = 'dev.claude-wrap'
-const APP_ORIGIN = 'app://claude-wrap'
 const CSP =
   "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
 const MIME_TYPES: Record<string, string> = {
@@ -20,14 +22,15 @@ const MIME_TYPES: Record<string, string> = {
 }
 // Notification texts, by UI language (the renderer's dictionaries live in the page).
 const NOTICE_TEXT = {
-  en: { request: 'Claude needs you: {detail}', turnFinished: 'Claude has finished', error: 'The Claude process stopped' },
-  it: { request: 'Claude ha bisogno di te: {detail}', turnFinished: 'Claude ha finito', error: 'Il processo di Claude si è fermato' }
+  en: { request: 'Claude needs you', turnFinished: 'Claude has finished', error: 'The Claude process stopped' },
+  it: { request: 'Claude ha bisogno di te', turnFinished: 'Claude ha finito', error: 'Il processo di Claude si è fermato' }
 }
 // Dev server URL set by electron-vite in `npm run dev:desktop`; absent in built runs.
 const DEV_URL = process.env.ELECTRON_RENDERER_URL
 
 let mainWindow: BrowserWindow | undefined
-const core = new CoreProcess({ notify: showNotice, failed: () => mainWindow?.webContents.send('core-failed') })
+let backends: BackendStore
+const core = new CoreProcess({ notify: (notice) => showNotice(notice, 'local'), failed: () => mainWindow?.webContents.send('core-failed') })
 
 // State folder: e2e and dev runs that are not the real app use their own; the app uses %APPDATA%/claude-wrap
 // (the same in development and packaged).
@@ -71,13 +74,24 @@ function serveAppProtocol(): void {
   })
 }
 
-// Brokers a new connection: one end of a MessageChannel goes to the core, the other to the asking renderer.
-// Only the local backend exists for now.
+// Brokers a new connection: one end of a MessageChannel goes to the asking renderer, the other to the local core
+// or to a WebSocket that main opens to a remote server (whose notices main shows itself).
 function brokerConnection(event: IpcMainEvent, backendId: unknown, requestId: unknown): void {
-  if (!fromOurPage(event) || backendId !== 'local' || typeof requestId !== 'string') return
+  if (!fromOurPage(event) || typeof backendId !== 'string' || typeof requestId !== 'string') return
+  const server = backendId === 'local' ? undefined : backends.connection(backendId)
+  if (backendId !== 'local' && !server) return
   const { port1, port2 } = new MessageChannelMain()
-  core.attach(port1)
+  if (server) {
+    const notices = new RemoteNotices()
+    bridgeRemote(port1, server, (frame) => notices.feed(frame).forEach((notice) => showNotice(notice, backendId)))
+  } else core.attach(port1)
   event.sender.postMessage('port', { requestId }, [port2])
+}
+
+// Pairs with a remote server from a pasted link; rejects with an error code the page translates.
+function addBackend(event: IpcMainInvokeEvent, link: unknown, name: unknown) {
+  if (!fromOurPage(event) || typeof link !== 'string') throw new Error('invalid_link')
+  return backends.add(link, typeof name === 'string' ? name : '')
 }
 
 // Native folder picker for the start screen. Returns the chosen path or undefined.
@@ -93,17 +107,19 @@ function openExternal(event: IpcMainEvent, url: unknown): void {
   if (URL.canParse(url) && new URL(url).protocol === 'https:') void shell.openExternal(url)
 }
 
-// System notification for a notice of the core, only while the window is not focused. Clicking it brings the
-// window back on that tab.
-function showNotice(notice: Notice): void {
+// System notification for a notice of a backend, only while the window is not focused. Clicking it brings the
+// window back on that backend and tab. A remote backend's name prefixes the title.
+function showNotice(notice: Notice, backendId: string): void {
   if (!Notification.isSupported() || mainWindow?.isFocused()) return
   const text = NOTICE_TEXT[app.getLocale().toLowerCase().startsWith('it') ? 'it' : 'en'][notice.kind]
-  const notification = new Notification({ title: notice.title, body: text.replace('{detail}', notice.detail ?? '') })
+  const server = backends.list().find((backend) => backend.id === backendId && backend.kind === 'remote')
+  const body = notice.detail ? `${text}: ${notice.detail}` : text
+  const notification = new Notification({ title: server ? `${server.name} · ${notice.title}` : notice.title, body })
   notification.on('click', () => {
     if (mainWindow?.isMinimized()) mainWindow.restore()
     mainWindow?.show()
     mainWindow?.focus()
-    mainWindow?.webContents.send('activate-tab', notice.tabId)
+    mainWindow?.webContents.send('activate-tab', notice.tabId, backendId)
   })
   notification.show()
 }
@@ -147,8 +163,12 @@ function startApp(): void {
   app.setAppUserModelId(APP_ID)
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => callback(permission === 'notifications'))
   if (!DEV_URL) serveAppProtocol()
+  backends = new BackendStore(join(app.getPath('userData'), 'backends.json'))
   core.start()
   ipcMain.on('connect', brokerConnection)
+  ipcMain.handle('backends:list', (event) => (fromOurPage(event) ? backends.list() : []))
+  ipcMain.handle('backends:add', addBackend)
+  ipcMain.handle('backends:remove', (event, id: unknown) => (fromOurPage(event) && typeof id === 'string' && id !== 'local' ? backends.remove(id) : undefined))
   ipcMain.handle('choose-folder', chooseFolder)
   ipcMain.on('open-external', openExternal)
   quitGracefully()

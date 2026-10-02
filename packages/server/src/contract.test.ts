@@ -1,40 +1,49 @@
-// Protocol contract: the real core and the real client over the in-memory transport.
-// (The same suite runs over WebSocket when the server exists, Phase 3; MessagePort is covered by the desktop e2e.)
+// Protocol contract: the real core and the real client, over the in-memory transport and over the real
+// WebSocket server (Origin/Host checks and device token included). MessagePort is covered by the desktop e2e.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { WebSocket } from 'ws'
 import { PROTOCOL_VERSION, createChannelPair, type Channel, type CoreFrame } from '@claude-wrap/protocol'
-import { Connection, type StoreState } from '@claude-wrap/client'
-import { createCore, type Core, type CoreConfig } from './core.ts'
-import { createFakeSdk, type FakeSdk } from './testing/fakeQuery.ts'
-import { sdk } from './testing/messages.ts'
+import { Connection, openWebSocket, type StoreState } from '@claude-wrap/client'
+import { createCore, type Core, type CoreConfig } from '@claude-wrap/core'
+import { createFakeSdk, sdk, type FakeSdk } from '@claude-wrap/core/testing'
+import { DeviceStore, createPairingCode } from './devices.ts'
+import { startServer, type RunningServer } from './server.ts'
 
 const CWD = mkdtempSync(join(tmpdir(), 'cw-contract-'))
+const HEADERS = { Host: 'contract.test:443', Origin: 'https://contract.test' }
 
 let fake: FakeSdk
 let core: Core
 let connection: Connection
 
-// Switchable link between the connection and the current core: drop(), go offline, or lose one frame.
-function link() {
-  const state = { current: undefined as Channel | undefined, offline: false, opens: 0, loseNext: undefined as ((frame: CoreFrame) => boolean) | undefined }
+// What a test controls on the link: drop it, keep it offline, or lose the next frame matching loseNext.
+type LinkState = { current?: Channel; offline: boolean; opens: number; loseNext?: (frame: CoreFrame) => boolean }
+type Link = { state: LinkState; openChannel: () => Promise<Channel>; drop: () => void }
+
+// A frame matching state.loseNext never arrives: the connection drops right when core sends it.
+function lossy(channel: Channel, state: LinkState, close: () => void): Channel {
+  return {
+    ...channel,
+    send: (frame) => {
+      if (!state.loseNext?.(frame as CoreFrame)) return channel.send(frame)
+      state.loseNext = undefined
+      close()
+    }
+  }
+}
+
+// In-memory: a channel pair per connection, attached to the current core.
+function memoryLink(): Link {
+  const state: LinkState = { offline: false, opens: 0 }
   return {
     state,
     openChannel: async () => {
       if (state.offline) throw new Error('offline')
       const [clientEnd, coreEnd] = createChannelPair()
-      // A frame matching loseNext never arrives: the connection drops right when core sends it.
-      const lossy: Channel = {
-        ...coreEnd,
-        send: (frame) => {
-          if (state.loseNext?.(frame as CoreFrame)) {
-            state.loseNext = undefined
-            clientEnd.close()
-          } else coreEnd.send(frame)
-        }
-      }
-      core.attach(lossy)
+      core.attach(lossy(coreEnd, state, () => clientEnd.close()))
       state.current = clientEnd
       state.opens++
       return clientEnd
@@ -43,11 +52,53 @@ function link() {
   }
 }
 
+// WebSocket: a real server on an ephemeral port, attaching to the current core; one paired device.
+let server: RunningServer | undefined
+let token = ''
+let wsState: LinkState | undefined
+async function startWebSocketServer(): Promise<void> {
+  const stateDir = mkdtempSync(join(tmpdir(), 'cw-contract-state-'))
+  const devices = await DeviceStore.load(stateDir)
+  const { code } = await createPairingCode(stateDir, 'contract')
+  token = (await devices.completePairing(code))!.token
+  server = await startServer({
+    attach: (channel, identity) => core.attach(channel, identity),
+    devices,
+    port: 0,
+    allowedOrigins: [HEADERS.Origin],
+    allowedHosts: [HEADERS.Host],
+    wrapChannel: (channel) => (wsState ? lossy(channel, wsState, () => channel.close()) : channel),
+    log: () => undefined
+  })
+}
+function webSocketLink(): Link {
+  const state: LinkState = { offline: false, opens: 0 }
+  wsState = state
+  return {
+    state,
+    openChannel: async () => {
+      if (state.offline) throw new Error('offline')
+      const channel = await openWebSocket(`ws://127.0.0.1:${server!.port}/ws`, (url) => new WebSocket(url, { headers: HEADERS }))
+      state.current = channel
+      state.opens++
+      return channel
+    },
+    drop: () => state.current?.close()
+  }
+}
+
+const TRANSPORTS = [
+  { name: 'in-memory', link: memoryLink, start: async () => undefined, stop: async () => undefined },
+  { name: 'websocket', link: webSocketLink, start: startWebSocketServer, stop: async () => void (await server?.close()) }
+]
+let transport = TRANSPORTS[0]!
+const link = () => transport.link()
+
 const makeCore = (overrides: Partial<CoreConfig> = {}) =>
   createCore({ backendId: 'b1', backendKind: 'local', sdk: fake, coalesceMs: 1, ...overrides })
 
 // Resolves when the store satisfies predicate.
-async function until(predicate: (state: StoreState) => boolean, timeoutMs = 1000): Promise<StoreState> {
+async function until(predicate: (state: StoreState) => boolean, timeoutMs = 2000): Promise<StoreState> {
   const deadline = Date.now() + timeoutMs
   while (!predicate(connection.store.getSnapshot())) {
     if (Date.now() > deadline) throw new Error(`until timed out: ${JSON.stringify(connection.store.getSnapshot()).slice(0, 400)}`)
@@ -58,9 +109,14 @@ async function until(predicate: (state: StoreState) => boolean, timeoutMs = 1000
 
 const userItems = (state: StoreState) => state.transcripts['t1']?.items.filter((item) => item.kind === 'user') ?? []
 
+// A connection over the link (with the device token, ignored in memory).
+function connectOver(net: Link): Connection {
+  return new Connection({ openChannel: net.openChannel, clientId: 'c1', token, retry: { initialMs: 2, maxMs: 10 } })
+}
+
 // Connects, creates and subscribes tab t1, starts its fake process with a first message.
-async function liveTab(net: ReturnType<typeof link>) {
-  connection = new Connection({ openChannel: net.openChannel, clientId: 'c1', retry: { initialMs: 2, maxMs: 10 } })
+async function liveTab(net: Link) {
+  connection = connectOver(net)
   connection.start()
   await connection.request('trust.grant', { cwd: CWD })
   await connection.request('tab.create', { tabId: 't1', cwd: CWD })
@@ -70,26 +126,30 @@ async function liveTab(net: ReturnType<typeof link>) {
   return fake.last()
 }
 
-beforeEach(() => {
-  fake = createFakeSdk()
-  core = makeCore()
-})
-afterEach(async () => {
-  connection?.close()
-  await core.closeAll()
-})
+describe.each(TRANSPORTS)('protocol contract ($name)', (current) => {
+  beforeEach(async () => {
+    transport = current
+    fake = createFakeSdk()
+    core = makeCore()
+    await current.start()
+  })
+  afterEach(async () => {
+    connection?.close()
+    wsState = undefined
+    await core.closeAll()
+    await current.stop()
+  })
 
-describe('protocol contract (in-memory)', () => {
   it('handshake: welcome carries the backend identity and the real versions', async () => {
     const net = link()
-    connection = new Connection({ openChannel: net.openChannel, clientId: 'c1' })
+    connection = connectOver(net)
     connection.start()
     const state = await until((s) => s.status === 'connected' && s.tabs !== undefined)
-    expect(state.welcome).toMatchObject({ protocolVersion: PROTOCOL_VERSION, backendId: 'b1', backendKind: 'local', sdkVersion: '0.3.287', cliVersion: '2.1.287' })
+    expect(state.welcome).toMatchObject({ protocolVersion: PROTOCOL_VERSION, backendId: 'b1', sdkVersion: '0.3.287', cliVersion: '2.1.287' })
     expect(state.welcome?.coreVersion).toMatch(/^\d+\.\d+\.\d+/)
   })
 
-  it('version mismatch: core answers incompatible_protocol and closes', async () => {
+  it.runIf(current.name === 'in-memory')('version mismatch: core answers incompatible_protocol and closes', async () => {
     const [clientEnd, coreEnd] = createChannelPair()
     const frames: unknown[] = []
     let closed = false

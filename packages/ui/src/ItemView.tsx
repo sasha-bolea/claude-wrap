@@ -1,9 +1,14 @@
-import type { Item } from '@claude-wrap/protocol'
+import { useEffect, useState } from 'react'
+import type { Image, ImageRef, Item } from '@claude-wrap/protocol'
 import { t } from './i18n.ts'
+import { dataUrl } from './images.ts'
 import { Markdown } from './Markdown.tsx'
 
 type ToolCall = Extract<Item, { kind: 'toolCall' }>
 type TurnEnd = Extract<Item, { kind: 'turnEnd' }>
+type Shell = Extract<Item, { kind: 'shell' }>
+// Fetches an image of the tab's blob store (blob.get).
+export type LoadImage = (imageId: string) => Promise<Image>
 
 // One-line summary of a tool call: the most telling field of its input.
 function toolSummary(input: unknown): string {
@@ -30,6 +35,30 @@ function ToolCard({ item }: { item: ToolCall }) {
   )
 }
 
+// Thumbnail of an image sent with a user message, fetched from core when shown (a label until then).
+function ImageThumb({ image, n, loadImage }: { image: ImageRef; n: number; loadImage?: LoadImage }) {
+  const [src, setSrc] = useState<string>()
+  useEffect(() => {
+    let shown = true
+    loadImage?.(image.imageId).then((loaded) => shown && setSrc(dataUrl(loaded)), () => undefined)
+    return () => void (shown = false)
+  }, [image.imageId, loadImage])
+  const alt = t('imageAlt', { n: String(n) })
+  return src ? <img className="image-thumb" src={src} alt={alt} /> : <span className="chip">{alt}</span>
+}
+
+// A `!` command: the command line, its output, and the exit code when it failed (or "running…").
+function ShellItem({ item }: { item: Shell }) {
+  return (
+    <div className={`item shell${item.exitCode ? ' failed' : ''}`}>
+      <pre className="shell-command">$ {item.command}</pre>
+      {item.output && <pre>{item.output}</pre>}
+      {item.exitCode === undefined && <p className="muted">{t('toolRunning')}</p>}
+      {Boolean(item.exitCode) && <p className="muted">{t('shellExit', { code: String(item.exitCode) })}</p>}
+    </div>
+  )
+}
+
 // End of a turn: interruption, error, or duration and cost.
 function turnEndText(item: TurnEnd): string {
   if (item.interrupted) return t('interrupted')
@@ -38,10 +67,21 @@ function turnEndText(item: TurnEnd): string {
 }
 
 // One transcript item, rendered by kind.
-export function ItemView({ item, openExternal }: { item: Item; openExternal?: (url: string) => void }) {
+export function ItemView({ item, openExternal, loadImage }: { item: Item; openExternal?: (url: string) => void; loadImage?: LoadImage }) {
   switch (item.kind) {
     case 'user':
-      return <div className="item user">{item.text}</div>
+      return (
+        <div className="item user">
+          {item.images && (
+            <div className="user-images">
+              {item.images.map((image, index) => (
+                <ImageThumb key={image.imageId} image={image} n={index + 1} loadImage={loadImage} />
+              ))}
+            </div>
+          )}
+          {item.text}
+        </div>
+      )
     case 'assistantText':
       return (
         <div className="item assistant-text">
@@ -60,5 +100,7 @@ export function ItemView({ item, openExternal }: { item: Item; openExternal?: (u
       return <div className="item notice info">{t('compacted')}</div>
     case 'localCommandOutput':
       return <pre className="item local-output">{item.text}</pre>
+    case 'shell':
+      return <ShellItem item={item} />
   }
 }

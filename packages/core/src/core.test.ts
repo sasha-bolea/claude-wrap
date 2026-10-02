@@ -6,12 +6,12 @@
 // 5. I reopen a past session and read it without starting anything;
 // 6. reloads, dropped connections and retries never lose or duplicate anything.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mkdirSync, mkdtempSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { PermissionUpdate } from '@anthropic-ai/claude-agent-sdk'
-import { WORKSPACE_STREAM, tabStream, type Item, type TabMeta, type TabSnapshot, type WorkspaceEvent } from '@claude-wrap/protocol'
-import { createCore, type Core, type CoreConfig } from './core.ts'
+import { PROTOCOL_VERSION, WORKSPACE_STREAM, createChannelPair, tabStream, type Item, type TabMeta, type TabSnapshot, type WorkspaceEvent } from '@claude-wrap/protocol'
+import { createCore, type Core, type CoreConfig, type Notice } from './core.ts'
 import { createFakeSdk, type FakeSdk } from './testing/fakeQuery.ts'
 import { RawClient } from './testing/rawClient.ts'
 import { sdk, stored } from './testing/messages.ts'
@@ -432,5 +432,232 @@ describe('close and process lifecycle', () => {
     expect(await client.fails('tab.send', { tabId: 'nope', text: 'x' })).toMatchObject({ code: 'not_found' })
     await client.ok('tab.create', { tabId: 't1', cwd: CWD })
     expect(await client.fails('tab.send', { tabId: 't1', text: 'x'.repeat(31 * 1024 * 1024) })).toMatchObject({ code: 'too_large' })
+  })
+})
+
+// Phase 2 user stories: I attach images and long pastes; I send a queued message now; I run a `!` command and
+// Claude sees its output; I mention files with `@`; I recall what I sent before (here and in the terminal CLI).
+describe('composer (Phase 2)', () => {
+  const PNG = { mediaType: 'image/png' as const, data: Buffer.from('fake png').toString('base64') }
+
+  it('images go to the CLI as content blocks; the item references them and blob.get returns the bytes', async () => {
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD })
+    await client.ok('tab.subscribe', { tabId: 't1' })
+    await client.ok('tab.send', { tabId: 't1', text: 'what is this?', images: [PNG] }, cmd(1))
+    const session = fake.last()
+    await session.waitForInput(1)
+    expect(session.received[0]!.message.content).toEqual([
+      { type: 'image', source: { type: 'base64', media_type: 'image/png', data: PNG.data } },
+      { type: 'text', text: 'what is this?' }
+    ])
+    const item = items(client)[0]
+    expect(item).toMatchObject({ kind: 'user', text: 'what is this?', images: [{ mediaType: 'image/png' }] })
+    const imageId = item?.kind === 'user' ? item.images![0]!.imageId : ''
+    expect(await client.ok('blob.get', { tabId: 't1', imageId })).toEqual(PNG)
+  })
+
+  it('an image-only message is accepted; an empty one and an oversize image are refused', async () => {
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD })
+    expect(await client.fails('tab.send', { tabId: 't1', text: '  ' })).toMatchObject({ code: 'invalid_args' })
+    const big = { mediaType: 'image/png', data: 'A'.repeat(7 * 1024 * 1024) }
+    expect(await client.fails('tab.send', { tabId: 't1', text: '', images: [big] })).toMatchObject({ code: 'too_large' })
+    expect(await client.ok('tab.send', { tabId: 't1', text: '', images: [PNG] })).toEqual({ queued: false })
+  })
+
+  it('a queued image message shows its image count and carries the images when dispatched', async () => {
+    const session = await startedTab()
+    await client.ok('tab.send', { tabId: 't1', text: 'and this', images: [PNG, PNG] }, cmd(2))
+    expect(meta(client)?.queue).toEqual([{ queueId: cmd(2), text: 'and this', images: 2, from: 'client-a' }])
+    session.emit(sdk.success())
+    await session.waitForInput(2)
+    expect(session.received[1]!.message.content).toHaveLength(3)
+  })
+
+  it('stored image blocks of a resumed session come back as image references', async () => {
+    const content = [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'abc' } }, { type: 'text', text: 'look' }]
+    fake.histories.set('s1', [stored.user('u1', content)])
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD, resume: 's1' })
+    await client.ok('tab.subscribe', { tabId: 't1' })
+    const item = items(client)[0]
+    expect(item).toMatchObject({ kind: 'user', text: 'look', images: [{ mediaType: 'image/jpeg' }] })
+    const imageId = item?.kind === 'user' ? item.images![0]!.imageId : ''
+    expect(await client.ok('blob.get', { tabId: 't1', imageId })).toEqual({ mediaType: 'image/jpeg', data: 'abc' })
+  })
+
+  it('long pastes are passed as inline_pastes', async () => {
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD })
+    await client.ok('tab.send', { tabId: 't1', text: 'fix this:\nLOG', pastes: ['LOG'] })
+    await fake.last().waitForInput(1)
+    expect(fake.last().received[0]).toMatchObject({ message: { content: 'fix this:\nLOG' }, inline_pastes: ['LOG'] })
+  })
+
+  it('"send now" on a queued message interrupts the turn and dispatches it next', async () => {
+    const session = await startedTab()
+    await client.ok('tab.send', { tabId: 't1', text: 'later' }, cmd(2))
+    await client.ok('tab.send', { tabId: 't1', text: 'urgent' }, cmd(3))
+    await client.ok('tab.sendNow', { tabId: 't1', queueId: cmd(3) })
+    expect(session.count('interrupt')).toBe(1)
+    session.emit(sdk.aborted())
+    await session.waitForInput(2)
+    expect(session.received[1]).toMatchObject({ uuid: cmd(3) })
+    await tick()
+    expect(meta(client)?.queue.map((entry) => entry.queueId)).toEqual([cmd(2)])
+  })
+
+  it('"send now" after an interrupted turn dispatches at once', async () => {
+    const session = await startedTab()
+    await client.ok('tab.send', { tabId: 't1', text: 'waiting' }, cmd(2))
+    session.emit(sdk.aborted())
+    await tick()
+    await client.ok('tab.sendNow', { tabId: 't1', queueId: cmd(2) })
+    await session.waitForInput(2)
+    expect(session.count('interrupt')).toBe(0)
+    expect(meta(client)).toMatchObject({ queue: [], status: 'running' })
+  })
+
+  it('a shell command runs in the folder, becomes a shell item and is appended for Claude without a turn', async () => {
+    const session = await startedTab()
+    session.emit(sdk.success())
+    await tick()
+    const turnsBefore = client.events(WORKSPACE_STREAM).filter((ev) => ev.type === 'turn.finished').length
+    expect(await client.ok('tab.shell', { tabId: 't1', command: 'echo hi' })).toEqual({ exitCode: 0 })
+    // The CLI answers each transcript-only message with an empty result: no turn end, no "finished" notification.
+    session.emit(sdk.success({ num_turns: 0 }), sdk.success({ num_turns: 0 }))
+    await tick()
+    expect(items(client).at(-1)).toMatchObject({ kind: 'shell', command: 'echo hi', output: expect.stringContaining('hi'), exitCode: 0 })
+    expect(client.events(WORKSPACE_STREAM).filter((ev) => ev.type === 'turn.finished')).toHaveLength(turnsBefore)
+    expect(session.received.slice(1)).toMatchObject([
+      { shouldQuery: false, message: { content: '<bash-input>echo hi</bash-input>' } },
+      { shouldQuery: false, message: { content: expect.stringMatching(/^<bash-stdout>hi\s*<\/bash-stdout><bash-stderr><\/bash-stderr>$/) } }
+    ])
+    expect(meta(client)?.status).toBe('idle')
+    expect(await client.ok('tab.shell', { tabId: 't1', command: 'exit 3' })).toEqual({ exitCode: 3 })
+  })
+
+  it('a shell command is refused while a turn runs', async () => {
+    await startedTab()
+    expect(await client.fails('tab.shell', { tabId: 't1', command: 'echo hi' })).toMatchObject({ code: 'session_busy' })
+  })
+
+  it('stored shell commands of a resumed session come back as shell items', async () => {
+    fake.histories.set('s1', [stored.user('u1', '<bash-input>ls</bash-input>'), stored.user('u2', '<bash-stdout>a.txt</bash-stdout><bash-stderr></bash-stderr>')])
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD, resume: 's1' })
+    await client.ok('tab.subscribe', { tabId: 't1' })
+    expect(items(client)).toEqual([{ kind: 'shell', itemId: 'u1', sourceUuid: 'u1', command: 'ls', output: 'a.txt' }])
+  })
+
+  it('file suggestions rank basename matches first and skip dependency folders', async () => {
+    const folder = join(mkdtempSync(join(tmpdir(), 'cw-files-')), 'proj')
+    for (const file of ['src/main.ts', 'docs/domain.md', 'README.md', 'node_modules/pkg/main.js']) {
+      mkdirSync(join(folder, file, '..'), { recursive: true })
+      writeFileSync(join(folder, file), '')
+    }
+    await client.ok('trust.grant', { cwd: folder })
+    await client.ok('tab.create', { tabId: 't1', cwd: folder })
+    const { paths } = await client.ok('tab.suggestFiles', { tabId: 't1', query: 'main' })
+    expect(paths[0]).toBe('src/main.ts')
+    expect(paths).toContain('docs/domain.md')
+    expect(paths.some((path) => path.includes('node_modules'))).toBe(false)
+    expect((await client.ok('tab.suggestFiles', { tabId: 't1', query: 'src' })).paths[0]).toBe('src/')
+    expect(fake.sessions).toHaveLength(0)
+  })
+
+  it('file suggestions need a trusted folder', async () => {
+    const folder = join(mkdtempSync(join(tmpdir(), 'cw-files-')), 'untrusted')
+    mkdirSync(folder)
+    await client.ok('tab.create', { tabId: 't1', cwd: folder })
+    expect(await client.fails('tab.suggestFiles', { tabId: 't1', query: '' })).toMatchObject({ code: 'needs_trust' })
+  })
+
+  it('prompt history merges the app and terminal CLI prompts of the folder, newest first, without duplicates', async () => {
+    const claudeDir = mkdtempSync(join(tmpdir(), 'cw-claude-'))
+    const line = (display: string, timestamp: number, project = CWD, pastedContents = {}) => JSON.stringify({ display, pastedContents, timestamp, project })
+    const lines = [
+      line('old', 1000),
+      line('elsewhere', 1500, 'C:/other'),
+      line('hello', 1800),
+      line('see [Pasted text #1 +2 lines]', 2000, CWD, { 1: { id: 1, type: 'text', content: 'a\nb\nc' } })
+    ]
+    writeFileSync(join(claudeDir, 'history.jsonl'), lines.join('\n') + '\n')
+    core = makeCore({ claudeConfigDir: claudeDir })
+    client = await connect(core)
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD })
+    await client.ok('tab.send', { tabId: 't1', text: 'hello' })
+    const { prompts } = await client.ok('prompts.history', { cwd: CWD })
+    expect(prompts.map((prompt) => prompt.text)).toEqual(['hello', 'see a\nb\nc', 'old'])
+  })
+})
+
+// Phase 3 user stories (core side): from the phone I browse and create folders, never outside the server's root;
+// other devices see my device name on what I send; device commands exist only on the server.
+describe('remote backend support (Phase 3)', () => {
+  const ROOT = mkdtempSync(join(tmpdir(), 'cw-root-'))
+  mkdirSync(join(ROOT, 'alpha'))
+  mkdirSync(join(ROOT, 'beta'))
+  mkdirSync(join(ROOT, '.hidden'))
+
+  it('fs.browse lists the root by default, hides dot folders, and stops at the root', async () => {
+    core = makeCore({ allowedRoots: [ROOT] })
+    client = await connect(core)
+    expect(await client.ok('fs.browse', {})).toEqual({ path: ROOT, folders: ['alpha', 'beta'] })
+    expect(await client.ok('fs.browse', { path: join(ROOT, 'alpha') })).toEqual({ path: join(ROOT, 'alpha'), parent: ROOT, folders: [] })
+    expect(await client.fails('fs.browse', { path: join(ROOT, '..') })).toMatchObject({ code: 'outside_root' })
+    expect(await client.fails('fs.browse', { path: join(ROOT, 'missing') })).toMatchObject({ code: 'not_found' })
+  })
+
+  it('fs.mkdir creates a folder inside the roots only, with a safe name', async () => {
+    core = makeCore({ allowedRoots: [ROOT] })
+    client = await connect(core)
+    expect(await client.ok('fs.mkdir', { path: ROOT, name: 'gamma' })).toEqual({ path: join(ROOT, 'gamma') })
+    expect(await client.fails('fs.mkdir', { path: ROOT, name: 'gamma' })).toMatchObject({ code: 'invalid_args' })
+    expect(await client.fails('fs.mkdir', { path: ROOT, name: '../escape' })).toMatchObject({ code: 'invalid_args' })
+    expect(await client.fails('fs.mkdir', { path: tmpdir(), name: 'nope' })).toMatchObject({ code: 'outside_root' })
+  })
+
+  it('device commands answer not_found unless the host provides them', async () => {
+    expect(await client.fails('devices.list', {})).toMatchObject({ code: 'not_found' })
+    core = makeCore({
+      hostCommands: { 'devices.list': (_args, connection) => ({ devices: [{ deviceId: connection.deviceId ?? '-', name: connection.label, createdAt: 1, current: true }] }) }
+    })
+    const host = new RawClient(core, 'client-x')
+    await host.hello()
+    expect((await host.ok('devices.list', {})).devices[0]).toMatchObject({ deviceId: '-', name: 'client-x' })
+  })
+
+  it('a connection attached with an identity shows its device name on what it sends', async () => {
+    await startedTab()
+    const [clientEnd, coreEnd] = createChannelPair()
+    core.attach(coreEnd, { deviceId: 'd1', label: 'phone' })
+    clientEnd.send({ t: 'hello', protocolVersion: PROTOCOL_VERSION, clientId: 'pwa', visible: true, resume: {} })
+    clientEnd.send({ t: 'cmd', id: cmd(5), name: 'tab.send', args: { tabId: 't1', text: 'from the phone' } })
+    await tick()
+    expect(meta(client)?.queue).toEqual([expect.objectContaining({ text: 'from the phone', from: 'phone' })])
+  })
+})
+
+// Phase 3b: a push goes only to devices that are not looking: every notice carries the devices with a client on screen.
+describe('notices and client visibility (Phase 3b)', () => {
+  it('notices list the paired devices with a visible client; client.visibility updates it', async () => {
+    const notices: Notice[] = []
+    core = makeCore({ notifier: (notice) => notices.push(notice) })
+    client = await connect(core)
+    const attach = (deviceId: string, visible: boolean) => {
+      const [clientEnd, coreEnd] = createChannelPair()
+      core.attach(coreEnd, { deviceId, label: deviceId })
+      clientEnd.send({ t: 'hello', protocolVersion: PROTOCOL_VERSION, clientId: deviceId, visible, resume: {} })
+      return clientEnd
+    }
+    const phone = attach('phone', true)
+    attach('tablet', false)
+    const session = await startedTab()
+    session.emit(sdk.success())
+    await tick()
+    expect(notices.at(-1)).toMatchObject({ kind: 'turnFinished', visibleDevices: ['phone'] })
+    phone.send({ t: 'cmd', id: cmd(8), name: 'client.visibility', args: { visible: false } })
+    await tick()
+    await client.ok('tab.send', { tabId: 't1', text: 'again' })
+    session.emit(sdk.success())
+    await tick()
+    expect(notices.at(-1)).toMatchObject({ kind: 'turnFinished', visibleDevices: [] })
   })
 })

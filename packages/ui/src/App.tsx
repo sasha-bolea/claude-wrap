@@ -3,6 +3,8 @@ import type { Connection, StoreState } from '@claude-wrap/client'
 import type { TabMeta } from '@claude-wrap/protocol'
 import { ChatView } from './ChatView.tsx'
 import { t } from './i18n.ts'
+import { MobileApp } from './MobileApp.tsx'
+import type { PushCapability } from './SettingsScreen.tsx'
 import { StartScreen } from './StartScreen.tsx'
 import { TabBar } from './TabBar.tsx'
 import { readActiveTab, writeActiveTab } from './viewState.ts'
@@ -15,6 +17,15 @@ export type Capabilities = {
   onActivateTab?: (listener: (tabId: string) => void) => () => void
   // The local backend crashed too often and will not come back.
   onCoreFailed?: (listener: () => void) => () => void
+  // Local path of a dropped file (desktop; with a remote backend files will be uploaded instead, Phase 3).
+  pathForFile?: (file: File) => string
+  // Touch layout (the PWA): one screen at a time instead of the tab bar.
+  layout?: 'desktop' | 'mobile'
+  push?: PushCapability
+  // Link that pairs a new device with a one-time code (the server's address).
+  pairLink?: (code: string) => string
+  // Forgets this device's pairing (the PWA goes back to its pairing screen).
+  logout?: () => void
 }
 
 export interface AppProps {
@@ -65,6 +76,21 @@ export function App({ connection, capabilities }: AppProps) {
   if (state.error) return <Status role="alert" text={t('connectionFailed', { code: state.error.code, message: state.error.message })} />
   if (!state.welcome || !state.tabs) return <Status role="status" text={t('connecting')} />
   const tabs = state.tabs
+  if (capabilities.layout === 'mobile') {
+    return (
+      <div className="app mobile">
+        {state.status !== 'connected' && (
+          <p className="connection-banner" role="status">
+            {t('connecting')}
+          </p>
+        )}
+        <MobileApp connection={connection} state={{ ...state, welcome: state.welcome, tabs }} capabilities={capabilities} />
+        <div className="sr-only" aria-live="assertive">
+          {waiting}
+        </div>
+      </div>
+    )
+  }
 
   // Closing asks first if Claude is at work; the neighbour (or the start screen) is shown next.
   const close = (tab: TabMeta) => {
@@ -90,7 +116,7 @@ export function App({ connection, capabilities }: AppProps) {
       </div>
       {active ? (
         <div className="tab-panel" role="tabpanel" id={`panel-${active.tabId}`} aria-labelledby={`tab-${active.tabId}`}>
-          <ChatView key={active.tabId} connection={connection} backendId={backendId} meta={active} view={state.transcripts[active.tabId]} openExternal={capabilities.openExternal} onOpenTab={choose} />
+          <ChatView key={active.tabId} connection={connection} backendId={backendId} meta={active} view={state.transcripts[active.tabId]} openExternal={capabilities.openExternal} pathForFile={capabilities.pathForFile} onOpenTab={choose} />
         </div>
       ) : (
         <StartScreen connection={connection} backendId={backendId} chooseFolder={capabilities.chooseFolder} onOpen={choose} />

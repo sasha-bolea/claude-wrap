@@ -1,9 +1,12 @@
+import { randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
 import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
-import { tabStream, type Item, type ModelInfo, type PermissionMode, type QueuedMessage, type SlashCommand, type StreamPosition, type TabMeta, type TabStatus } from '@claude-wrap/protocol'
+import { tabStream, type Image, type Item, type ModelInfo, type PermissionMode, type SlashCommand, type StreamPosition, type TabMeta, type TabStatus } from '@claude-wrap/protocol'
 import type { Notice, SdkApi } from './config.ts'
 import { CoreError, messageOf } from './errors.ts'
+import { suggestFiles } from './fileSuggestions.ts'
 import { Normalizer } from './normalize.ts'
+import { runShell } from './process.ts'
 import { Requests, modeSetBy, type Answer } from './requests.ts'
 import { Session } from './session.ts'
 import type { PersistedTab } from './state.ts'
@@ -36,7 +39,12 @@ export interface TabEnvironment {
   turnFinished(tab: Tab): void
   // The CLI announced or moved the session id (→ session index).
   sessionIdChanged(tab: Tab, previous: string | undefined): void
+  // A prompt was accepted (→ prompt history).
+  promptSent(tab: Tab, text: string): void
 }
+
+// A user message on its way: queueId is the cmd id (SDK message uuid); pastes are long pasted texts inside text.
+export type Outgoing = { queueId: string; text: string; from: string; images?: Image[]; pastes?: string[] }
 
 export type TabInit = {
   tabId: string
@@ -68,7 +76,12 @@ export class Tab {
   private lifecycle: Lifecycle = 'dormant'
   private turnRunning = false
   private error?: string
-  private queue: QueuedMessage[] = []
+  private queue: Outgoing[] = []
+  // "Send now" interrupted the turn: the head of the queue goes out even though the turn ended aborted.
+  private sendNowPending = false
+  private shellAbort?: AbortController
+  // Empty results still due for transcript-only messages (the CLI answers each one with a result, num_turns 0).
+  private silentResults = 0
   private normalizer: Normalizer
   private readonly requests: Requests
   private readonly env: TabEnvironment
@@ -136,7 +149,8 @@ export class Tab {
 
   meta(): TabMeta {
     const { tabId, title, cwd, sessionId, status, model, activeModel, mode, error } = this
-    return { tabId, title, cwd, sessionId, status, model, activeModel, mode, error, queue: [...this.queue], pendingRequests: this.requests.size }
+    const queue = this.queue.map(({ queueId, text, from, images }) => ({ queueId, text, from, images: images?.length }))
+    return { tabId, title, cwd, sessionId, status, model, activeModel, mode, error, queue, pendingRequests: this.requests.size }
   }
 
   // Subscribes a connection to the transcript (loading a resumed session's history first, without a process).
@@ -149,26 +163,16 @@ export class Tab {
     this.transcript.stream.detach(send)
   }
 
-  // Sends a user message, or queues it while a turn runs. uuid: the cmd id (SDK message uuid and queueId).
-  async send(text: string, uuid: string, from: string): Promise<{ queued: boolean }> {
+  // Sends a user message, or queues it while a turn runs (or a queue waits after an interrupt).
+  async send(message: Outgoing): Promise<{ queued: boolean }> {
     this.assertOpen()
+    if (message.text.trim()) this.env.promptSent(this, message.text)
     if (this.turnRunning || this.queue.length) {
-      this.queue.push({ queueId: uuid, text, from })
+      this.queue.push(message)
       this.changed()
       return { queued: true }
     }
-    this.turnRunning = true
-    try {
-      const session = await this.ensureSession()
-      // Already delivered (a retry after a core restart): the stored history, loaded at start, contains it.
-      if (this.transcript.has(uuid)) this.turnRunning = false
-      else this.dispatch(session, { queueId: uuid, text, from })
-    } catch (error) {
-      this.turnRunning = false
-      throw error
-    } finally {
-      this.changed()
-    }
+    await this.deliver(message)
     return { queued: false }
   }
 
@@ -177,10 +181,63 @@ export class Tab {
     this.changed()
   }
 
+  // Sends a queued message now: a running turn is interrupted and the message goes out when it ends; with no turn
+  // running (the queue waits after an interrupt) it goes out at once.
+  async sendNow(queueId: string): Promise<void> {
+    const message = this.queue.find((entry) => entry.queueId === queueId)
+    if (!message) throw new CoreError('not_found', 'message no longer queued')
+    this.queue = [message, ...this.queue.filter((entry) => entry !== message)]
+    this.changed()
+    if (this.turnRunning) {
+      this.sendNowPending = true
+      return this.interrupt()
+    }
+    this.queue.shift()
+    await this.deliver(message).catch((error: unknown) => {
+      this.queue.unshift(message)
+      throw error
+    })
+  }
+
+  // Stops the running turn, or the running `!` command.
   async interrupt(): Promise<void> {
+    if (this.shellAbort) return this.shellAbort.abort()
     await this.session?.query.interrupt().catch((error: unknown) => {
       throw new CoreError('sdk_error', messageOf(error))
     })
+  }
+
+  // Runs a `!` command in the folder (trust gate first, through the session start). The output becomes a shell item
+  // and, as in the CLI's bash mode, two transcript-only messages (no turn) that Claude reads with the next prompt.
+  // uuid: the cmd id (item id and stored message uuid).
+  async shell(command: string, uuid: string): Promise<{ exitCode: number }> {
+    this.assertOpen()
+    if (this.turnRunning) throw new CoreError('session_busy', 'wait for the turn to end')
+    this.turnRunning = true
+    this.changed()
+    try {
+      const session = await this.ensureSession()
+      this.env.promptSent(this, `!${command}`)
+      const item = { kind: 'shell' as const, itemId: uuid, sourceUuid: uuid, command, output: '' }
+      this.transcript.add(item)
+      this.shellAbort = new AbortController()
+      const { stdout, stderr, exitCode } = await runShell(command, this.cwd, this.shellAbort.signal)
+      this.transcript.update({ ...item, output: [stdout, stderr].map((text) => text.trimEnd()).filter(Boolean).join('\n'), exitCode })
+      this.silentResults += 2
+      session.push(transcriptOnly(uuid, `<bash-input>${command}</bash-input>`))
+      session.push(transcriptOnly(randomUUID(), `<bash-stdout>${stdout}</bash-stdout><bash-stderr>${stderr}</bash-stderr>`))
+      return { exitCode }
+    } finally {
+      this.shellAbort = undefined
+      this.turnRunning = false
+      this.dispatchNext()
+      this.changed()
+    }
+  }
+
+  // Files and folders of the tab's folder for an `@` mention (trusted folders only; starts no process).
+  async suggestFiles(query: string): Promise<string[]> {
+    return suggestFiles(await this.env.prepareStart(this.cwd), query)
   }
 
   // Changes the model: live → setModel; dormant → only stored, passed at spawn. undefined = default model.
@@ -358,16 +415,52 @@ export class Tab {
     }
   }
 
-  // Appends the user item and hands the message to the CLI (stamped as human input).
-  private dispatch(session: Session, { queueId, text, from }: QueuedMessage): void {
-    this.transcript.add({ kind: 'user', itemId: queueId, sourceUuid: queueId, text, from })
-    // queueId is the client's cmd id, validated as a UUID by the protocol.
-    session.push({ type: 'user', uuid: queueId as SDKUserMessage['uuid'], message: { role: 'user', content: text }, parent_tool_use_id: null, origin: { kind: 'human' } })
+  // Starts a turn with a message (starting the session if needed).
+  private async deliver(message: Outgoing): Promise<void> {
+    this.turnRunning = true
+    try {
+      const session = await this.ensureSession()
+      // Already delivered (a retry after a core restart): the stored history, loaded at start, contains it.
+      if (this.transcript.has(message.queueId)) this.turnRunning = false
+      else this.dispatch(session, message)
+    } catch (error) {
+      this.turnRunning = false
+      throw error
+    } finally {
+      this.changed()
+    }
+  }
+
+  // Appends the user item (images moved to the blob store) and hands the message to the CLI, stamped as human input.
+  private dispatch(session: Session, { queueId, text, from, images = [], pastes = [] }: Outgoing): void {
+    const refs = images.map((image) => ({ imageId: this.transcript.addBlob(image), mediaType: image.mediaType }))
+    this.transcript.add({ kind: 'user', itemId: queueId, sourceUuid: queueId, text, from, ...(refs.length ? { images: refs } : {}) })
+    const blocks = images.map((image) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: image.mediaType, data: image.data } }))
+    const content = blocks.length ? [...blocks, ...(text ? [{ type: 'text' as const, text }] : [])] : text
+    session.push({
+      type: 'user',
+      // queueId is the client's cmd id, validated as a UUID by the protocol.
+      uuid: queueId as SDKUserMessage['uuid'],
+      message: { role: 'user', content },
+      parent_tool_use_id: null,
+      origin: { kind: 'human' },
+      ...(pastes.length ? { inline_pastes: pastes } : {})
+    })
     this.changed()
   }
 
-  // Applies one SDK message: transcript items via the normalizer, metadata here.
+  // The next queued message goes out, if the session is live and no turn runs.
+  private dispatchNext(): void {
+    const next = this.session && !this.turnRunning ? this.queue.shift() : undefined
+    if (!next) return
+    this.turnRunning = true
+    this.dispatch(this.session!, next)
+  }
+
+  // Applies one SDK message: transcript items via the normalizer, metadata here. The empty results of
+  // transcript-only messages are dropped (they end no turn; the probe checks the CLI still sends them).
   private onMessage(message: SDKMessage): void {
+    if (message.type === 'result' && this.silentResults > 0 && message.num_turns === 0) return void this.silentResults--
     this.normalizer.live(message)
     if (message.type === 'system' && message.subtype === 'init') {
       this.setSessionId(message.session_id)
@@ -384,16 +477,14 @@ export class Tab {
     }
   }
 
-  // End of a turn: the next queued message goes out, unless the turn was interrupted (the queue then waits).
+  // End of a turn: the next queued message goes out, unless the turn was interrupted (the queue then waits) by
+  // anything but "send now".
   private endTurn(interrupted: boolean): void {
     this.turnRunning = false
     this.env.turnFinished(this)
     this.env.notify(this, 'turnFinished')
-    const next = !interrupted && this.session ? this.queue.shift() : undefined
-    if (next) {
-      this.turnRunning = true
-      this.dispatch(this.session!, next)
-    }
+    if (!interrupted || this.sendNowPending) this.dispatchNext()
+    this.sendNowPending = false
     this.changed()
   }
 
@@ -456,6 +547,15 @@ export class Tab {
     this.env.changed(this)
   }
 }
+
+// A message appended to the conversation without starting a turn (the CLI merges it into the next prompt).
+const transcriptOnly = (uuid: string, content: string): SDKUserMessage => ({
+  type: 'user',
+  uuid: uuid as SDKUserMessage['uuid'],
+  message: { role: 'user', content },
+  parent_tool_use_id: null,
+  shouldQuery: false
+})
 
 // Commands without the CLI's internal `__` ones.
 const visibleCommands = (commands: SlashCommand[]) => commands.filter((command) => !command.name.startsWith('__'))

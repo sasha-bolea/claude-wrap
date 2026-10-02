@@ -50,12 +50,16 @@ export async function canonicalFolder(cwd: string): Promise<string> {
   return process.platform === 'win32' ? cwd : realpath(cwd)
 }
 
-// Throws outside_root unless the folder lies inside one of the allowed roots.
-export function checkRoots(folder: string, roots: 'any' | string[]): void {
-  if (roots === 'any') return
-  const inside = roots.some((root) => {
+// True if the folder lies inside one of the allowed roots (or is one).
+export function withinRoots(folder: string, roots: 'any' | string[]): boolean {
+  if (roots === 'any') return true
+  return roots.some((root) => {
     const path = relative(root, folder)
     return !path.startsWith('..') && !isAbsolute(path)
   })
-  if (!inside) throw new CoreError('outside_root', `folder outside the allowed roots: ${folder}`)
+}
+
+// Throws outside_root unless the folder lies inside one of the allowed roots.
+export function checkRoots(folder: string, roots: 'any' | string[]): void {
+  if (!withinRoots(folder, roots)) throw new CoreError('outside_root', `folder outside the allowed roots: ${folder}`)
 }

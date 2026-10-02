@@ -1,4 +1,5 @@
-import type { Item, Request, TabEvent, TabSnapshot } from '@claude-wrap/protocol'
+import { randomUUID } from 'node:crypto'
+import type { Image, Item, Request, TabEvent, TabSnapshot } from '@claude-wrap/protocol'
 import type { TranscriptWriter } from './normalize.ts'
 import { Stream, type RingLimits } from './stream.ts'
 
@@ -8,11 +9,13 @@ export type TranscriptOptions = { coalesceMs: number; snapshotItems: number; rin
 // deltas wait in `pending` and reach the items only when their item.text event gets a seq, and every other
 // event or snapshot flushes them first, so a snapshot and its seq are always consistent.
 // Items are replaced, never mutated (the stream ring keeps references to emitted items).
+// Image bytes live in a blob store next to the items, which only carry references (`blob.get`).
 export class Transcript implements TranscriptWriter {
   readonly stream: Stream
   private items: Item[] = []
   private readonly index = new Map<string, number>()
   private readonly pending = new Map<string, string>()
+  private readonly blobs = new Map<string, Image>()
   private timer?: ReturnType<typeof setTimeout>
   private silent = false
   private readonly options: TranscriptOptions
@@ -49,6 +52,17 @@ export class Transcript implements TranscriptWriter {
     this.flush()
     this.items[position] = item
     this.emit({ type: 'item.updated', item })
+  }
+
+  // Stores an image; returns its id for the item's image reference.
+  addBlob(image: Image): string {
+    const imageId = randomUUID()
+    this.blobs.set(imageId, image)
+    return imageId
+  }
+
+  blob(imageId: string): Image | undefined {
+    return this.blobs.get(imageId)
   }
 
   // Queues streamed text for an item; it is applied and sent at the next flush (every coalesceMs).
@@ -93,6 +107,7 @@ export class Transcript implements TranscriptWriter {
   rebuildFrom(write: () => void): void {
     this.rebuildWith(() => {
       this.pending.clear()
+      this.blobs.clear()
       this.items = []
       this.index.clear()
       write()

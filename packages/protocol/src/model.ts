@@ -11,8 +11,12 @@ export const TAB_STATUSES = ['dormant', 'starting', 'idle', 'running', 'requires
 
 const itemBase = { itemId: z.string(), sourceUuid: z.string().optional() }
 
+export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const
+// An image of a user message, by reference: the bytes stay in the tab's blob store (`blob.get`).
+export const imageRefSchema = z.object({ imageId: z.string(), mediaType: z.enum(IMAGE_TYPES) })
+
 export const itemSchema = z.discriminatedUnion('kind', [
-  z.object({ ...itemBase, kind: z.literal('user'), text: z.string(), from: z.string().optional() }),
+  z.object({ ...itemBase, kind: z.literal('user'), text: z.string(), images: z.array(imageRefSchema).optional(), from: z.string().optional() }),
   z.object({ ...itemBase, kind: z.literal('assistantText'), text: z.string() }),
   z.object({ ...itemBase, kind: z.literal('thinking'), text: z.string() }),
   // itemId is the tool_use id.
@@ -27,7 +31,9 @@ export const itemSchema = z.discriminatedUnion('kind', [
   }),
   z.object({ ...itemBase, kind: z.literal('notice'), level: z.enum(['info', 'warning', 'error']), text: z.string() }),
   z.object({ ...itemBase, kind: z.literal('compactBoundary') }),
-  z.object({ ...itemBase, kind: z.literal('localCommandOutput'), text: z.string() })
+  z.object({ ...itemBase, kind: z.literal('localCommandOutput'), text: z.string() }),
+  // A `!` shell command run by core in the tab's folder; exitCode undefined while it runs.
+  z.object({ ...itemBase, kind: z.literal('shell'), command: z.string(), output: z.string(), exitCode: z.number().optional() })
 ])
 
 // ---- Requests from Claude that wait for an answer (permission, question, plan approval) ----
@@ -51,7 +57,8 @@ export const requestSchema = z.object({
 
 // ---- Tabs (workspace stream) ----
 
-export const queuedMessageSchema = z.object({ queueId: z.string(), text: z.string(), from: z.string().optional() })
+// images: how many images the message carries (the bytes stay in core).
+export const queuedMessageSchema = z.object({ queueId: z.string(), text: z.string(), images: z.number().int().optional(), from: z.string().optional() })
 
 export const tabMetaSchema = z.object({
   tabId: z.string(),
@@ -118,6 +125,8 @@ export const tabStream = (tabId: string) => `tab:${tabId}`
 export type PermissionMode = z.infer<typeof permissionModeSchema>
 export type TabStatus = (typeof TAB_STATUSES)[number]
 export type Item = z.infer<typeof itemSchema>
+export type ImageRef = z.infer<typeof imageRefSchema>
+export type ImageType = (typeof IMAGE_TYPES)[number]
 export type Request = z.infer<typeof requestSchema>
 export type QueuedMessage = z.infer<typeof queuedMessageSchema>
 export type TabMeta = z.infer<typeof tabMetaSchema>

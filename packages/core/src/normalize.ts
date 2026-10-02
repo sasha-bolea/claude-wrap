@@ -1,5 +1,5 @@
 import type { SDKMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
-import type { Item } from '@claude-wrap/protocol'
+import { IMAGE_TYPES, type Image, type ImageRef, type ImageType, type Item } from '@claude-wrap/protocol'
 
 // Turns SDK messages (live) and stored JSONL messages (history) into transcript items.
 // Port of the first attempt's chat/stato.ts reducer, moved into core.
@@ -14,10 +14,23 @@ export interface TranscriptWriter {
   add(item: Item): void
   update(item: Item): void
   appendText(itemId: string, text: string): void
+  // Stores image bytes, returns the id items reference them by.
+  addBlob(image: Image): string
 }
 
 // Messages API content block, typed only in the fields used here.
-type Block = { type: string; text?: string; thinking?: string; id?: string; name?: string; input?: unknown; tool_use_id?: string; content?: unknown; is_error?: boolean }
+type Block = {
+  type: string
+  text?: string
+  thinking?: string
+  id?: string
+  name?: string
+  input?: unknown
+  tool_use_id?: string
+  content?: unknown
+  is_error?: boolean
+  source?: { type: string; media_type?: string; data?: string }
+}
 type StreamEvent = { type: string; index?: number; message?: { id?: string }; content_block?: Block; delta?: { type: string; text?: string; thinking?: string } }
 
 // Text of a tool_result content (string or blocks).
@@ -49,6 +62,9 @@ function storedCommand(text: string): string | undefined {
   return args ? `${name} ${args}` : name
 }
 
+// Text between <tag> and </tag>, or undefined when the tag is absent.
+const tagged = (text: string, tag: string) => new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(text)?.[1]
+
 // Turn-end item of a result: cost and duration, an interruption (Esc/Stop), or the error.
 function turnEnd(message: Extract<SDKMessage, { type: 'result' }>): Item {
   const base = { kind: 'turnEnd' as const, itemId: message.uuid, sourceUuid: message.uuid }
@@ -62,6 +78,11 @@ export class Normalizer {
   // Message being streamed (from message_start), and final blocks already seen per message id.
   private streamingMessageId = ''
   private readonly finalBlocks = new Map<string, number>()
+  // Live assistant messages already applied: after /compact the CLI emits the preserved ones again, with the same
+  // uuid and a new message id.
+  private readonly appliedAssistants = new Set<string>()
+  // Last stored `!` command, which the next stored <bash-stdout> message completes.
+  private lastShell?: Extract<Item, { kind: 'shell' }>
 
   constructor(out: TranscriptWriter) {
     this.out = out
@@ -74,6 +95,8 @@ export class Normalizer {
       case 'stream_event':
         return this.streamEvent(message.event as StreamEvent)
       case 'assistant':
+        if (this.appliedAssistants.has(message.uuid)) return
+        this.appliedAssistants.add(message.uuid)
         return this.assistantBlocks(message.message.id ?? message.uuid, message.message.content as Block[], message.uuid)
       case 'user':
         // The user's own text is added by core at dispatch; from the live stream only tool results matter.
@@ -86,8 +109,8 @@ export class Normalizer {
     }
   }
 
-  // Applies a stored message of a resumed session: here the user's text is shown too, and so are slash commands
-  // and their local output; other CLI markup is not.
+  // Applies a stored message of a resumed session: here the user's text and images are shown too, and so are slash
+  // commands with their local output and `!` commands with theirs; other CLI markup is not.
   history(message: SessionMessage): void {
     if (message.parent_tool_use_id || message.type === 'system') return
     const { content, id } = message.message as { content: string | Block[]; id?: string }
@@ -97,10 +120,18 @@ export class Normalizer {
     // Marker the CLI stores when a turn is interrupted.
     if (text.startsWith('[Request interrupted')) return this.out.add({ ...base, kind: 'turnEnd', interrupted: true })
     const command = storedCommand(text)
-    const output = /<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/.exec(text)?.[1]
+    const output = tagged(text, 'local-command-stdout')
+    const shell = tagged(text, 'bash-input')
+    const shellOutput = tagged(text, 'bash-stdout')
+    const images = Array.isArray(content) ? this.storeImages(content) : []
     if (command) this.out.add({ ...base, kind: 'user', text: command })
     else if (output) this.out.add({ ...base, kind: 'localCommandOutput', text: output })
-    else if (text && !text.startsWith('<')) this.out.add({ ...base, kind: 'user', text })
+    else if (shell !== undefined) this.out.add((this.lastShell = { ...base, kind: 'shell', command: shell, output: '' }))
+    else if (shellOutput !== undefined && this.lastShell) {
+      const stderr = tagged(text, 'bash-stderr')
+      this.out.update({ ...this.lastShell, output: [shellOutput, stderr].filter(Boolean).join('\n') })
+      this.lastShell = undefined
+    } else if ((text && !text.startsWith('<')) || images.length) this.out.add({ ...base, kind: 'user', text, ...(images.length ? { images } : {}) })
     if (Array.isArray(content)) this.toolResults(content)
   }
 
@@ -131,6 +162,17 @@ export class Normalizer {
       if (this.out.get(item.itemId)) this.out.update(item)
       else this.out.add(item)
     }
+  }
+
+  // Moves the base64 image blocks of a stored user message into the blob store; returns their references.
+  private storeImages(blocks: Block[]): ImageRef[] {
+    return blocks.flatMap((block) => {
+      const { source } = block
+      const mediaType = source?.media_type as ImageType
+      if (block.type !== 'image' || source?.type !== 'base64' || !source.data || !IMAGE_TYPES.includes(mediaType)) return []
+      const image: Image = { mediaType, data: source.data }
+      return [{ imageId: this.out.addBlob(image), mediaType: image.mediaType }]
+    })
   }
 
   // Attaches tool_result blocks to their tool call items.

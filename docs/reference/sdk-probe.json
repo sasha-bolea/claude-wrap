@@ -1,5 +1,5 @@
 {
-  "created": "2026-10-02T12:37:14.003Z",
+  "created": "2026-10-02T15:27:57.816Z",
   "sdkVersion": "0.3.287",
   "cliVersion": "2.1.287",
   "facts": {
@@ -10,6 +10,8 @@
     "internalCommands": [
       "__remote-workflow"
     ],
+    "silentMessageEmitsEmptyResult": true,
+    "localCommandOutputAs": "assistant",
     "unclassifiedSettings": []
   },
   "systemInit": {
@@ -66,7 +68,7 @@
     ],
     "fast_mode_state": "off",
     "counts": {
-      "tools": 95,
+      "tools": 142,
       "mcp_servers": 78,
       "slash_commands": 252,
       "skills": 209,
@@ -678,6 +680,10 @@
     "system/init",
     "system/commands_changed",
     "assistant",
+    "result/success"
+  ],
+  "silentTurnMessageTypes": [
+    "system/init",
     "result/success"
   ]
 }

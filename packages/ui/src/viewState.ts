@@ -24,5 +24,15 @@ export const readActiveTab = (backendId: string) => read(key(backendId, 'activeT
 export const writeActiveTab = (backendId: string, tabId: string | undefined) => write(key(backendId, 'activeTab'), tabId)
 export const readDraft = (backendId: string, tabId: string) => read(key(backendId, `draft:${tabId}`)) ?? ''
 export const writeDraft = (backendId: string, tabId: string, text: string) => write(key(backendId, `draft:${tabId}`), text)
+// Long pastes of a draft, by placeholder number (the draft text holds their placeholders).
+export function readPastes(backendId: string, tabId: string): Record<number, string> {
+  try {
+    return JSON.parse(read(key(backendId, `pastes:${tabId}`)) ?? '{}') as Record<number, string>
+  } catch {
+    return {}
+  }
+}
+export const writePastes = (backendId: string, tabId: string, pastes: Record<number, string>) =>
+  write(key(backendId, `pastes:${tabId}`), Object.keys(pastes).length ? JSON.stringify(pastes) : undefined)
 export const readRecentFolder = (backendId: string) => read(key(backendId, 'recentFolder'))
 export const writeRecentFolder = (backendId: string, folder: string) => write(key(backendId, 'recentFolder'), folder)
