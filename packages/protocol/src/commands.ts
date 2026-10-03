@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { EFFORT_LEVELS, IMAGE_TYPES, effortSchema, itemSchema, permissionModeSchema, projectConfigSchema, sessionInfoSchema } from './model.ts'
+import { EFFORT_LEVELS, IMAGE_TYPES, contextUsageSchema, effortSchema, itemSchema, permissionModeSchema, projectConfigSchema, sessionInfoSchema, usageSchema } from './model.ts'
 
 // Commands a client can send (`{t:'cmd', id, name, args}`), with the schema of their args and result.
 
@@ -114,6 +114,10 @@ export const COMMANDS = {
   'tab.setMode': { args: z.object({ tabId, mode: permissionModeSchema }), result: empty },
   'tab.models': { args: z.object({ tabId }), result: z.object({ models: z.array(modelInfoSchema) }) },
   'tab.commands': { args: z.object({ tabId }), result: z.object({ commands: z.array(slashCommandSchema) }) },
+  // The session's context window (as /context) and its cost with the account's plan limits (as /usage); a dormant
+  // tab starts its process to answer (no message is sent).
+  'tab.context': { args: z.object({ tabId }), result: contextUsageSchema },
+  'tab.usage': { args: z.object({ tabId }), result: usageSchema },
   // Stored sessions of a folder, or (no cwd) of every folder inside the backend's roots, newest first.
   // rename/delete are refused with session_busy while a tab references the session.
   'sessions.list': { args: z.object({ cwd: z.string().min(1).optional() }), result: z.object({ sessions: z.array(sessionInfoSchema) }) },

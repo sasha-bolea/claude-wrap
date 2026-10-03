@@ -272,6 +272,34 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .empty-line { padding: 8px 4px; }
 .mono-line { font: 13px var(--font-mono); overflow-wrap: anywhere; }
 
+/* Context and usage panels: the window as a bar (accent shades per category, the compaction reserve in grey at
+   the end, the free part empty), rows with a number on the right, plan windows as meters */
+.ctx-total { margin: 0; font-size: 15px; display: flex; align-items: baseline; gap: 6px; }
+.ctx-total strong { font-size: 26px; }
+.ctx-percent { margin-left: auto; font-size: 20px; font-weight: 600; color: var(--accent); }
+.ctx-bar { display: block; width: 100%; height: 12px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+.ctx-bar .reserve { fill: var(--border); }
+.ctx-bar .shade0 { fill: var(--accent); } .ctx-swatch.shade0 { background: var(--accent); }
+.ctx-bar .shade1 { fill: color-mix(in srgb, var(--accent) 78%, var(--surface-2)); } .ctx-swatch.shade1 { background: color-mix(in srgb, var(--accent) 78%, var(--surface-2)); }
+.ctx-bar .shade2 { fill: color-mix(in srgb, var(--accent) 58%, var(--surface-2)); } .ctx-swatch.shade2 { background: color-mix(in srgb, var(--accent) 58%, var(--surface-2)); }
+.ctx-bar .shade3 { fill: color-mix(in srgb, var(--accent) 40%, var(--surface-2)); } .ctx-swatch.shade3 { background: color-mix(in srgb, var(--accent) 40%, var(--surface-2)); }
+.ctx-bar .shade4 { fill: color-mix(in srgb, var(--accent) 25%, var(--surface-2)); } .ctx-swatch.shade4 { background: color-mix(in srgb, var(--accent) 25%, var(--surface-2)); }
+.ctx-swatch { flex: none; width: 12px; height: 12px; border-radius: 3px; }
+.ctx-swatch.free { background: var(--surface-2); border: 1px solid var(--border); }
+.ctx-swatch.buffer { background: var(--border); }
+.ctx-swatch.deferred { background: none; border: 1px dashed var(--border); }
+.row.ctx-row { padding-right: 14px; }
+.ctx-num { flex: none; font-variant-numeric: tabular-nums; font-size: 14px; white-space: nowrap; }
+.row.usage-row { padding: 10px 14px; }
+.usage-head { display: flex; align-items: baseline; gap: 8px; }
+.usage-head .row-title { flex: 1; }
+.usage-meter { width: 100%; height: 8px; margin: 4px 0 2px; border: 0; border-radius: 4px; background: var(--surface-2); -webkit-appearance: none; appearance: none; }
+.usage-meter::-webkit-meter-bar { background: var(--surface-2); border: 0; border-radius: 4px; height: 8px; }
+.usage-meter::-webkit-meter-optimum-value, .usage-meter::-webkit-meter-suboptimum-value, .usage-meter::-webkit-meter-even-less-good-value { background: var(--accent); border-radius: 4px; }
+.usage-meter::-moz-meter-bar { background: var(--accent); border-radius: 4px; }
+.usage-meter.high::-webkit-meter-optimum-value, .usage-meter.high::-webkit-meter-suboptimum-value, .usage-meter.high::-webkit-meter-even-less-good-value { background: var(--danger); }
+.usage-meter.high::-moz-meter-bar { background: var(--danger); }
+
 /* Home: folders */
 .check-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 2px; }
 .check-row input { width: 22px; height: 22px; margin: 0; accent-color: var(--accent); flex: none; }

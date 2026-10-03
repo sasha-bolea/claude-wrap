@@ -10,6 +10,7 @@ import { FolderSessionsScreen, HomeScreen } from './HomeScreen.tsx'
 import { Icon } from './icons.tsx'
 import { useKeyboard } from './keyboard.ts'
 import { LaterScreen } from './LaterScreen.tsx'
+import { ContextScreen, UsageScreen } from './UsageScreens.tsx'
 import { NoteScreen, NotesScreen } from './NotesScreen.tsx'
 import { applyStoredTheme, EnablePushSheet, SettingsScreen } from './SettingsScreen.tsx'
 import { SheetHost, type SheetEntry } from './SheetHost.tsx'
@@ -49,6 +50,10 @@ function ScreenView({ screen }: { screen: Screen }): ReactNode {
       return <SettingsScreen />
     case 'later':
       return <LaterScreen which={screen.key} tabId={screen.tabId} />
+    case 'context':
+      return <ContextScreen tabId={screen.tabId} />
+    case 'usage':
+      return <UsageScreen tabId={screen.tabId} />
   }
 }
 

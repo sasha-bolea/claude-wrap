@@ -47,6 +47,32 @@ export function modelShortName(id: string): string {
 // A file size for a row ("820 KB", "1.2 MB", in the language's number format).
 export const sizeLabel = (bytes: number) => (bytes >= 1e6 ? `${(bytes / 1e6).toLocaleString(undefined, { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1e3))} KB`)
 
+// Tokens for a panel ("850", "48.5k", "1.2M", in the language's number format).
+export function tokenLabel(tokens: number, locale?: string): string {
+  const short = (value: number) => value.toLocaleString(locale, { maximumFractionDigits: 1 })
+  return tokens >= 1e6 ? `${short(tokens / 1e6)}M` : tokens >= 1e3 ? `${short(tokens / 1e3)}k` : String(Math.round(tokens))
+}
+
+// A duration for a panel: "45 s", "1 min 35 s", "2 h 5 min".
+export function durationLabel(ms: number): string {
+  const seconds = Math.round(ms / 1000)
+  if (seconds < 60) return `${seconds} s`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return seconds % 60 ? `${minutes} min ${seconds % 60} s` : `${minutes} min`
+  return minutes % 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${Math.floor(minutes / 60)} h`
+}
+
+// When a usage window resets: the time if it is today, else day and time ("22:00", "Thu 8 Oct, 11:00").
+export function resetLabel(iso: string, now = new Date(), locale?: string): string {
+  const at = new Date(iso)
+  const time = at.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+  if (at.toDateString() === now.toDateString()) return time
+  return `${at.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`
+}
+
+// An amount in dollars, as the CLI reports costs ("$0.42").
+export const usdLabel = (usd: number, locale?: string) => usd.toLocaleString(locale, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: usd < 1 ? 3 : 2 })
+
 // A name not taken yet ("image (2).jpg"…), added to taken: photos from the iPhone all come as image.jpg.
 export function freeName(name: string, taken: Set<string>): string {
   const dot = name.lastIndexOf('.')

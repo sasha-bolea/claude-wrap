@@ -158,6 +158,48 @@ export const projectConfigSchema = z.object({
 
 export const WORKSPACE_STREAM = 'workspace'
 // Name of the transcript stream of one tab.
+// Context window of a session, as /context shows it: tokens in use over the window, rows by category ('used' fill
+// the window, 'free' is what is left, 'buffer' the compaction reserve, 'deferred' tool schemas outside it), and the
+// memory files and MCP servers that weigh on it.
+export const contextUsageSchema = z.object({
+  model: z.string(),
+  totalTokens: z.number(),
+  maxTokens: z.number(),
+  percentage: z.number(),
+  categories: z.array(z.object({ name: z.string(), tokens: z.number(), kind: z.enum(['used', 'free', 'buffer', 'deferred']) })),
+  autoCompact: z.boolean(),
+  autoCompactThreshold: z.number().optional(),
+  memoryFiles: z.array(z.object({ path: z.string(), type: z.string(), tokens: z.number() })),
+  mcpServers: z.array(z.object({ name: z.string(), tools: z.number(), tokens: z.number() }))
+})
+
+// A plan usage window: percentage used (0-100) and when it resets (ISO 8601), each null when unknown.
+const limitWindowSchema = z.object({ utilization: z.number().nullable(), resetsAt: z.string().nullable() })
+
+// Cost and usage of a session, and the plan's usage limits of its account, as /usage shows them. limits is null
+// where plan limits do not apply (API key) or could not be read.
+export const usageSchema = z.object({
+  session: z.object({
+    costUsd: z.number(),
+    durationMs: z.number(),
+    apiDurationMs: z.number(),
+    linesAdded: z.number(),
+    linesRemoved: z.number(),
+    models: z.array(z.object({ model: z.string(), inputTokens: z.number(), outputTokens: z.number(), cacheReadTokens: z.number(), cacheWriteTokens: z.number(), costUsd: z.number() }))
+  }),
+  subscription: z.string().nullable(),
+  limits: z
+    .object({
+      fiveHour: limitWindowSchema.optional(),
+      sevenDay: limitWindowSchema.optional(),
+      sevenDayOpus: limitWindowSchema.optional(),
+      sevenDaySonnet: limitWindowSchema.optional(),
+      models: z.array(limitWindowSchema.extend({ name: z.string() })),
+      extra: z.object({ enabled: z.boolean(), utilization: z.number().nullable(), usedCredits: z.number().nullable(), monthlyLimit: z.number().nullable(), currency: z.string().nullable() }).optional()
+    })
+    .nullable()
+})
+
 export const tabStream = (tabId: string) => `tab:${tabId}`
 
 export type PermissionMode = z.infer<typeof permissionModeSchema>
@@ -178,3 +220,5 @@ export type WorkspaceSnapshot = z.infer<typeof workspaceSnapshotSchema>
 export type TabSnapshot = z.infer<typeof tabSnapshotSchema>
 export type SessionInfo = z.infer<typeof sessionInfoSchema>
 export type ProjectConfig = z.infer<typeof projectConfigSchema>
+export type ContextUsage = z.infer<typeof contextUsageSchema>
+export type Usage = z.infer<typeof usageSchema>

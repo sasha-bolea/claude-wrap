@@ -19,6 +19,9 @@ updates itself from `main`. Details per session: [storico-sessioni.md](storico-s
   keeping its conversation; usage limits are per account, with "Passa a …" in the chat. Real-CLI check
   `smoke:accounts`: the account's token reaches the CLI (a bad one fails with 401), back to the login in the same
   conversation.
+- **Context and usage panels** (Sasha's request, ahead of Phase 4): session menu → Contesto (window bar, categories,
+  memory files, MCP servers, "Compatta ora") and Consumo e limiti (5-hour and weekly windows with reset times, session
+  cost, tokens per model), through `tab.context` / `tab.usage`. Real-CLI check `smoke:usage` (zero tokens) green.
 - **Desktop:** still the Phase 1–3 UI (tab bar, start screen, old chat and composer) on the new core; it moves to the
   touch elements in **C2**.
 - **Next:** C2 (desktop with the same elements, widths 300/380/~780 px), then D (native rewind, cleanup, prototype
@@ -56,6 +59,7 @@ updates itself from `main`. Details per session: [storico-sessioni.md](storico-s
 | 2026-10-03 | Open session = a tab of the core; saved session = the CLI's JSONL. Past lists exclude open ones; a chat left with nothing sent and an empty composer is closed; never-used tabs are not restored; the tab title follows Claude Code's title until the user renames it | Sasha saw the same session twice and empty sessions kept |
 | 2026-10-03 | ~~Portrait only~~ (reverted the same day: both orientations, text never enlarged in landscape); no zoom; no emoji in UI badges (icons of the set) | Sasha's choices |
 | 2026-10-03 | Rewind stays a 🔜 placeholder until D (built with the core) | Its screens depend on what `rewindFiles` dry runs return |
+| 2026-10-03 | Context and usage panels before C2; the window is `rawMaxTokens` (the autocompact window, as /context); the usage call is the SDK's experimental one, kept in `core/src/usage.ts` and checked by `smoke:usage` at every SDK bump; reset times normalized to plain ISO in core | Sasha asked for them now; the experimental API may be renamed |
 | 2026-10-03 | Claude accounts: tokens from `claude setup-token` pasted in the app, kept by core in `accounts.json` (0600, never sent back), passed to the CLI as `CLAUDE_CODE_OAUTH_TOKEN`; per session with a default for new ones; Claude Code's own login stays; a switch restarts the process on the same stored session (at the turn's end if busy); usage limits per account | Sasha: "voglio poter usare la stessa conversazione con più account, esattamente come faccio qui" — like /login in the terminal |
 
 ## Backlog
@@ -66,5 +70,5 @@ updates itself from `main`. Details per session: [storico-sessioni.md](storico-s
 3. Server dev workspace for working on claude-wrap from the phone (`/srv/progetti/claude-wrap`, requested
    2026-10-03; set up by linux stup).
 4. Restrict the server's GitHub key (read-only deploy key, or push only from a dev clone Sasha accepts).
-5. Phase 4+ — data panels (context, usage, tasks, todo, diff, MCP, hooks, status), config pages, advanced editor.
+5. Phase 4+ — data panels (tasks, todo, diff, MCP, hooks, status; context and usage done in the PWA), config pages, advanced editor.
 6. Move the desktop/packaged real-CLI smoke scripts into the repo.

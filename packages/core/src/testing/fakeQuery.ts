@@ -1,10 +1,59 @@
 import { randomUUID } from 'node:crypto'
-import type { CanUseTool, ModelInfo, Options, PermissionResult, Query, SDKMessage, SDKSessionInfo, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { CanUseTool, ModelInfo, Options, PermissionResult, Query, SDKControlGetContextUsageResponse, SDKControlGetUsageResponse, SDKMessage, SDKSessionInfo, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
 
 // Scriptable stand-in for the SDK's query(): messages are pushed by hand with emit(), control methods are
 // recorded. Plain code (no vitest) so the hosts can also drive it for deterministic e2e runs.
 
 export type ControlCall = { method: string; args: unknown[] }
+
+// A /context answer: 48.5k of a 200k window, two MCP tools of one server, one memory file.
+const FAKE_CONTEXT = {
+  categories: [
+    { name: 'System prompt', tokens: 3100, color: 'gray', kind: 'used' },
+    { name: 'System tools', tokens: 11800, color: 'gray', kind: 'used' },
+    { name: 'MCP tools', tokens: 2600, color: 'cyan', kind: 'used' },
+    { name: 'Memory files', tokens: 1500, color: 'orange', kind: 'used' },
+    { name: 'Messages', tokens: 29500, color: 'purple', kind: 'used' },
+    { name: 'Free space', tokens: 106500, color: 'gray', kind: 'free' },
+    { name: 'Autocompact buffer', tokens: 45000, color: 'gray', kind: 'buffer' }
+  ],
+  totalTokens: 48500,
+  maxTokens: 200000,
+  rawMaxTokens: 200000,
+  percentage: 24,
+  gridRows: [],
+  model: 'fake-model',
+  memoryFiles: [{ path: '/home/user/.claude/CLAUDE.md', type: 'User', tokens: 1500 }],
+  mcpTools: [
+    { name: 'mcp__docs__search', serverName: 'docs', tokens: 1600 },
+    { name: 'mcp__docs__read', serverName: 'docs', tokens: 1000 }
+  ],
+  agents: [],
+  autoCompactThreshold: 155000,
+  isAutoCompactEnabled: true,
+  apiUsage: null
+} as SDKControlGetContextUsageResponse
+
+// A /usage answer on a Max plan: $0.42 spent with one model, 5-hour window at 37 %, weekly at 12 %.
+const FAKE_USAGE = {
+  session: {
+    total_cost_usd: 0.42,
+    total_api_duration_ms: 21000,
+    total_duration_ms: 95000,
+    total_lines_added: 12,
+    total_lines_removed: 3,
+    model_usage: { 'fake-model': { inputTokens: 1200, outputTokens: 3400, cacheReadInputTokens: 52000, cacheCreationInputTokens: 8000, webSearchRequests: 0, costUSD: 0.42, contextWindow: 200000, maxOutputTokens: 32000 } }
+  },
+  subscription_type: 'max',
+  rate_limits_available: true,
+  rate_limits: {
+    five_hour: { utilization: 37, resets_at: '2026-10-03T22:00:00.000000+00:00' },
+    seven_day: { utilization: 12, resets_at: '2026-10-08T09:00:00Z' },
+    seven_day_opus: null,
+    model_scoped: [{ display_name: 'Fable', utilization: 5, resets_at: '2026-10-08T09:00:00Z' }]
+  },
+  behaviors: null
+} as SDKControlGetUsageResponse
 
 // One fake CLI process, created by each query() call.
 export class FakeSession {
@@ -20,6 +69,9 @@ export class FakeSession {
     { name: 'compact', description: 'Compact', argumentHint: '' },
     { name: '__internal', description: '', argumentHint: '' }
   ]
+  // Answers of getContextUsage and of the /usage call (set to change them; a usage of undefined rejects).
+  contextUsage: SDKControlGetContextUsageResponse = FAKE_CONTEXT
+  usage: SDKControlGetUsageResponse | undefined = FAKE_USAGE
   private pending: SDKMessage[] = []
   private wake?: () => void
   private finished = false
@@ -114,6 +166,12 @@ export class FakeSession {
       applyFlagSettings: async (settings: object) => (record('applyFlagSettings', [settings]), maybeReject()),
       supportedModels: async () => (record('supportedModels', []), this.models),
       supportedCommands: async () => (record('supportedCommands', []), this.commands),
+      getContextUsage: async () => (record('getContextUsage', []), this.contextUsage),
+      usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: async (opts?: object) => {
+        record('usage', [opts])
+        if (!this.usage) throw new Error('usage unavailable')
+        return this.usage
+      },
       close: () => {
         record('close', [])
         this.closed = true

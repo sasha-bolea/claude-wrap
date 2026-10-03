@@ -523,6 +523,32 @@ describe('controls', () => {
     expect(meta(client)?.model).toBe('haiku')
   })
 
+  it('context and usage come from the CLI, reduced for the panels; an API-key session has no plan limits', async () => {
+    const session = await startedTab()
+    const context = await client.ok('tab.context', { tabId: 't1' })
+    expect(context).toMatchObject({ model: 'fake-model', totalTokens: 48500, maxTokens: 200000, percentage: 24, autoCompact: true, autoCompactThreshold: 155000 })
+    expect(context.categories.find((row) => row.kind === 'free')).toEqual({ name: 'Free space', tokens: 106500, kind: 'free' })
+    expect(context.mcpServers).toEqual([{ name: 'docs', tools: 2, tokens: 2600 }])
+    const usage = await client.ok('tab.usage', { tabId: 't1' })
+    expect(session.calls.at(-1)).toEqual({ method: 'usage', args: [{ skipBehaviors: true }] })
+    expect(usage.session).toMatchObject({ costUsd: 0.42, linesAdded: 12, models: [{ model: 'fake-model', inputTokens: 1200, outputTokens: 3400, cacheReadTokens: 52000, cacheWriteTokens: 8000, costUsd: 0.42 }] })
+    expect(usage.limits).toEqual({
+      fiveHour: { utilization: 37, resetsAt: '2026-10-03T22:00:00.000Z' },
+      sevenDay: { utilization: 12, resetsAt: '2026-10-08T09:00:00.000Z' },
+      models: [{ name: 'Fable', utilization: 5, resetsAt: '2026-10-08T09:00:00.000Z' }]
+    })
+    session.usage = { ...session.usage!, subscription_type: null, rate_limits_available: false, rate_limits: null }
+    expect((await client.ok('tab.usage', { tabId: 't1' })).limits).toBeNull()
+    session.usage = undefined
+    expect(await client.fails('tab.usage', { tabId: 't1' })).toMatchObject({ code: 'sdk_error' })
+  })
+
+  it('a dormant tab starts its process to tell its context, without sending anything', async () => {
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD })
+    expect((await client.ok('tab.context', { tabId: 't1' })).totalTokens).toBe(48500)
+    expect(fake.last().received).toHaveLength(0)
+  })
+
   it('commands hide internal ones; models come from the CLI', async () => {
     await startedTab()
     expect((await client.ok('tab.commands', { tabId: 't1' })).commands.map((command) => command.name)).toEqual(['compact'])

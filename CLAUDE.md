@@ -70,6 +70,7 @@ deploy/             install.sh (--when-idle), rollback.sh, systemd units (servic
 - `npm run e2e:mobile` — build the PWA + its e2e in the system Chrome on the fake SDK (~3 min).
 - `npm run smoke:composer` — real CLI (haiku): palette, image, shell, mid-turn, send now, effort, history.
 - `npm run smoke:accounts` — real CLI: an account's token reaches the CLI; back to the login in the same conversation.
+- `npm run smoke:usage` — real CLI, zero tokens: `tab.context` and `tab.usage` answer and pass the protocol (the usage call is the SDK's experimental one).
 - `npm run dev:server` (env `CLAUDE_WRAP_ROOT`, `CLAUDE_WRAP_PUBLIC_URL`) / `npm run start:server` (PWA build + server).
 - `node apps/mobile/scripts/icons.ts` — PWA icons and iPhone splash screens.
 - `npm run probe` — SDK probe, zero tokens; exit 1 on unclassified risky settings.

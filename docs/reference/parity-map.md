@@ -42,7 +42,7 @@ Rows and methods refer to the addendum.
 | `/color` | D | ✓b | prompt; color picker in the UI |
 | `/compact` | D | ✓b | prompt → `status: compacting` + `compact_boundary` |
 | `/config` (`/settings`) | R | ✓b | `key=value` form via prompt. Panel: `resolveSettings()` (provenance) + `getSettings()`\*; JSON write per scope; `updateSettings`/`applyFlagSettings` where sufficient |
-| `/context` | U | ✓b | `getContextUsage()` (`gridRows` grid, categories) |
+| `/context` | U | ✓ PWA | `getContextUsage()` → `tab.context`: window bar, categories, memory files, MCP servers, "Compatta ora" |
 | `/copy` | R | ✗ | copy button (Electron clipboard) |
 | `/dataviz` | D | ✓s | prompt |
 | `/debug` | D | ✓s | prompt; `Options.debug/debugFile` |
@@ -126,7 +126,7 @@ Rows and methods refer to the addendum.
 | `/ultrareview` | D\* | ? | `launchUltrareview()`; stable alternative: `claude ultrareview --json` in a subprocess |
 | `/update-config` | D | ✓s | prompt |
 | `/upgrade` | R | ✗ | `shell.openExternal` |
-| `/usage` (`/cost`, `/stats`) | U | ✓b | `usage_EXPERIMENTAL()` + `result.total_cost_usd`/`modelUsage` |
+| `/usage` (`/cost`, `/stats`) | U | ✓ PWA | `usage_EXPERIMENTAL()` → `tab.usage`: plan windows with reset times, session cost, tokens per model (no behaviors yet) |
 | `/usage-credits` | D | ✓b | prompt |
 | `/verify` | D | ✓s | prompt |
 | `/vim` | N | — | removed; vim mode is in Part B |

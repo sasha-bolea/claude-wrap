@@ -199,7 +199,7 @@ screen size, generated from the token colours by [apps/mobile/scripts/icons.ts](
 `.device`: the app box (full screen on a phone or touch device, a framed 410 px box on a wide screen). `.screen-host`
 wraps each stack entry (`display: contents`, `hidden` below the top). `.screen`: one screen — top bar, `.scroll` body
 with a `.pad` grid (16 px gaps; `.tight` 10 px; `.settings` 22 px), optional `.sticky-actions`.
-Examples: [TouchApp.tsx:219](../packages/ui/src/touch/TouchApp.tsx#L219), [TouchApp.tsx:226](../packages/ui/src/touch/TouchApp.tsx#L226), [FilesScreen.tsx:218](../packages/ui/src/touch/FilesScreen.tsx#L218).
+Examples: [TouchApp.tsx:224](../packages/ui/src/touch/TouchApp.tsx#L224), [TouchApp.tsx:231](../packages/ui/src/touch/TouchApp.tsx#L231), [FilesScreen.tsx:218](../packages/ui/src/touch/FilesScreen.tsx#L218).
 
 ### Top bar — `.topbar`, `h1` (`.sub`, `.pad-left`), `.title-btn` (`.title-text`)
 52 px bar: back icon button, the title with its small `.sub` line (path, state), icon buttons on the right. In the
@@ -301,7 +301,18 @@ Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [N
 ### Bars and notices — `.update-bar`, `.banner`, `.toast`, `.snack`, `.viewer`, `.empty-line`
 `.update-bar`: "New version available · Update · ×" under the top bar of Home and chat. `.banner`: the server cannot
 be reached. `.toast` / `.snack`: rule 7. `.viewer`: a photo full screen.
-Examples: [parts.tsx:88](../packages/ui/src/touch/parts.tsx#L88), [parts.tsx:103](../packages/ui/src/touch/parts.tsx#L103), [TouchApp.tsx:233](../packages/ui/src/touch/TouchApp.tsx#L233), [TouchApp.tsx:248](../packages/ui/src/touch/TouchApp.tsx#L248).
+Examples: [parts.tsx:88](../packages/ui/src/touch/parts.tsx#L88), [parts.tsx:103](../packages/ui/src/touch/parts.tsx#L103), [TouchApp.tsx:238](../packages/ui/src/touch/TouchApp.tsx#L238), [TouchApp.tsx:253](../packages/ui/src/touch/TouchApp.tsx#L253).
+
+### Context and usage panels — `.ctx-total` (`.ctx-percent`), `.ctx-bar` (`.shade0`–`.shade4`, `.reserve`), `.ctx-swatch` (`.free`, `.buffer`, `.deferred`), `.ctx-row`, `.ctx-num`, `.usage-row`, `.usage-head`, `.usage-meter` (`.high`)
+Two screens from the session menu (rows without 🔜, above the panels to come). **Context**: a card with "48,5k / 200k
+token" and the share in accent, the window as a bar (accent shades per category that fills it, the compaction reserve
+in grey at the end, the free part empty), when it compacts by itself and "Compatta ora" (writes `/compact` into the
+composer, back to the chat); then the categories as rows with their swatch, tokens and share, the memory files and
+the MCP servers. **Usage and limits**: the account and plan in the top bar's sub line; plan windows as rows with a
+`meter` (accent, `--danger` from 90%) and "Si azzera …" (time today, else day and time); extra usage; then this
+session's cost (with "estimated" under a subscription), time, lines and tokens per model. Both ask again each time
+they come back on top; "Lo chiedo a Claude Code…" while waiting.
+Examples: [UsageScreens.tsx:55](../packages/ui/src/touch/UsageScreens.tsx#L55), [UsageScreens.tsx:21](../packages/ui/src/touch/UsageScreens.tsx#L21), [UsageScreens.tsx:174](../packages/ui/src/touch/UsageScreens.tsx#L174), [UsageScreens.tsx:153](../packages/ui/src/touch/UsageScreens.tsx#L153).
 
 ### Placeholders to come — `.later-list`, `.later-skeleton` (`.w70`, `.w80`, `.w90`)
 A 🔜 panel or settings page: what it will show, a grey skeleton, and the `/` command to use meanwhile.

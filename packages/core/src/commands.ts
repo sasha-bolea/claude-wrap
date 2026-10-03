@@ -133,6 +133,8 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'tab.setMode': async ({ tabId, mode }) => (await tabOf(tabId).setMode(mode), {}),
     'tab.models': async ({ tabId }) => ({ models: await tabOf(tabId).models() }),
     'tab.commands': async ({ tabId }) => ({ commands: await tabOf(tabId).commands() }),
+    'tab.context': ({ tabId }) => tabOf(tabId).contextUsage(),
+    'tab.usage': ({ tabId }) => tabOf(tabId).usage(),
     'sessions.list': ({ cwd }) => listSessions(workspace, cwd),
     'sessions.rename': async ({ cwd, sessionId, title }) => {
       if (workspace.tabOfSession(sessionId)) throw new CoreError('session_busy', 'rename it from its tab')

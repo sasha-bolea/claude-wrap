@@ -4,6 +4,7 @@ import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-a
 import {
   EFFORT_LEVELS,
   tabStream,
+  type ContextUsage,
   type Effort,
   type Image,
   type Item,
@@ -13,7 +14,8 @@ import {
   type SlashCommand,
   type StreamPosition,
   type TabMeta,
-  type TabStatus
+  type TabStatus,
+  type Usage
 } from '@claude-wrap/protocol'
 import type { Notice, SdkApi } from './config.ts'
 import { CoreError, messageOf } from './errors.ts'
@@ -25,6 +27,7 @@ import { Session } from './session.ts'
 import type { PersistedTab } from './state.ts'
 import type { Send } from './stream.ts'
 import { Transcript, type TranscriptOptions } from './transcript.ts'
+import { readUsage, toContextUsage, toUsage } from './usage.ts'
 
 // Options every session gets (architettura.md; same as the first attempt).
 const BASE_OPTIONS: Options = {
@@ -436,6 +439,18 @@ export class Tab {
     const session = await this.ensureSession()
     this.cachedCommands = visibleCommands(await session.query.supportedCommands())
     return this.cachedCommands
+  }
+
+  // Context window of the session, as /context (live session, else starts the process).
+  async contextUsage(): Promise<ContextUsage> {
+    const session = await this.ensureSession()
+    return toContextUsage(await session.query.getContextUsage().catch((error: unknown) => this.sdkFailure('Context usage failed', error)))
+  }
+
+  // Cost of the session and its account's plan limits, as /usage (live session, else starts the process).
+  async usage(): Promise<Usage> {
+    const session = await this.ensureSession()
+    return toUsage(await readUsage(session.query).catch((error: unknown) => this.sdkFailure('Usage failed', error)))
   }
 
   // Answers an open request. by: the answering client. A mode set by the answer becomes the tab's mode.

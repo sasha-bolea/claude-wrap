@@ -19,6 +19,8 @@ export type Screen =
   | { name: 'note'; tabId: string; noteId?: string }
   | { name: 'settings' }
   | { name: 'later'; key: LaterKey; tabId?: string }
+  | { name: 'context'; tabId: string }
+  | { name: 'usage'; tabId: string }
 
 // A bottom sheet: its title, an optional mono line under it (a path), and its body — a component that reads live
 // state. field: the sheet is for typing (the cursor goes to its first field; otherwise the focus goes to the title,
