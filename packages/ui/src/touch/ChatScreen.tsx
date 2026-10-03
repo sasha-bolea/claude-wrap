@@ -100,6 +100,19 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const ghostElement = useRef<HTMLButtonElement>(null)
   const { ghost, update: updateGhost, dismiss: dismissGhost } = useGhost(conversation)
   const { thumb, place: placeThumb } = useScrollThumb(conversation, dock)
+  // The ghost on screen: once `ghost` goes away it stays for its slide back up (`.leaving`), then it is removed.
+  const [lastGhost, setLastGhost] = useState(ghost)
+  const shownGhost = ghost ?? lastGhost
+  useLayoutEffect(() => {
+    if (ghost) {
+      setLastGhost(ghost)
+      // Back while sliding away after a drag: it starts again from its place, not from where the finger left it.
+      if (ghostElement.current) ghostElement.current.style.transform = ghostElement.current.style.opacity = ''
+      return
+    }
+    const timer = setTimeout(() => setLastGhost(undefined), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 200)
+    return () => clearTimeout(timer)
+  }, [ghost])
   const askTrust = useTrustPrompt()
   const loadImage = useCallback((imageId: string) => connection.request('blob.get', { tabId, imageId }), [connection, tabId])
 
@@ -176,8 +189,9 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const onGhostEnd = () => {
     const drag = ghostDrag.current
     if (!drag || !ghostElement.current) return
-    ghostElement.current.style.transform = ghostElement.current.style.opacity = ''
+    // Put away: it slides on up from where the finger left it; otherwise back in its place.
     if (drag.dy < -GHOST_AWAY) dismissGhost()
+    else ghostElement.current.style.transform = ghostElement.current.style.opacity = ''
     if (drag.dy > -6) ghostDrag.current = undefined
   }
   const onGhostClick = () => {
@@ -207,16 +221,18 @@ export function ChatScreen({ tabId }: { tabId: string }) {
           <Conversation meta={meta} view={view} loadImage={loadImage} onAnswer={answer} onRestart={() => void connection.request('tab.restart', { tabId }).catch(fail)} onTrust={() => askTrust(meta.cwd, () => undefined)} onActions={openActions} onSendNow={sendNow} />
         </div>
         <div className="scroll-thumb" ref={thumb} aria-hidden="true" />
-        {ghost && (
+        {shownGhost && (
           <>
-            <button className="ghost" ref={ghostElement} aria-label={t('ghostLabel', { text: ghost.text })} onClick={onGhostClick} onTouchStart={onGhostStart} onTouchMove={onGhostMove} onTouchEnd={onGhostEnd}>
+            <button className={`ghost${ghost ? '' : ' leaving'}`} ref={ghostElement} aria-hidden={ghost ? undefined : true} tabIndex={ghost ? undefined : -1} aria-label={t('ghostLabel', { text: shownGhost.text })} onClick={onGhostClick} onTouchStart={onGhostStart} onTouchMove={onGhostMove} onTouchEnd={onGhostEnd}>
               <span className="ghost-bubble">
-                <span className="clamp-2">{ghost.text}</span>
+                <span className="clamp-2">{shownGhost.text}</span>
               </span>
             </button>
-            <button className="sr-only" onClick={dismissGhost}>
-              {t('ghostHide')}
-            </button>
+            {ghost && (
+              <button className="sr-only" onClick={dismissGhost}>
+                {t('ghostHide')}
+              </button>
+            )}
           </>
         )}
         {!follow && (
