@@ -1,5 +1,5 @@
 import type { Query, SDKControlGetContextUsageResponse, SDKControlGetUsageResponse } from '@anthropic-ai/claude-agent-sdk'
-import type { ContextUsage, Usage } from '@claude-wrap/protocol'
+import type { ContextGauge, ContextUsage, PlanLimits, Usage } from '@claude-wrap/protocol'
 
 // /context and /usage data from the CLI, reduced to what the panels show.
 
@@ -75,6 +75,18 @@ export function toUsage(answer: SDKControlGetUsageResponse): Usage {
           }
         : null
   }
+}
+
+// The composer's gauge of the context window, from a /context answer.
+export function toContextGauge(answer: SDKControlGetContextUsageResponse): ContextGauge {
+  return { percentage: answer.percentage, totalTokens: answer.totalTokens, maxTokens: answer.rawMaxTokens }
+}
+
+// The composer's plan windows (5 hours, week) from a usage answer; undefined where plan limits do not apply.
+export function toPlanLimits(usage: Usage): PlanLimits | undefined {
+  if (!usage.limits) return undefined
+  const { fiveHour, sevenDay } = usage.limits
+  return { ...(fiveHour ? { fiveHour } : {}), ...(sevenDay ? { sevenDay } : {}) }
 }
 
 // Asks the CLI for the /usage data. The SDK marks this method experimental (its name will change): it stays here,

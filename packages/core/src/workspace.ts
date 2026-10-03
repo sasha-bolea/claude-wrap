@@ -1,7 +1,7 @@
 import { homedir } from 'node:os'
 import { basename, join, relative } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
-import { WORKSPACE_STREAM, tabStream, type Home } from '@claude-wrap/protocol'
+import { WORKSPACE_STREAM, tabStream, type Home, type PlanLimits } from '@claude-wrap/protocol'
 import { AccountStore } from './accounts.ts'
 import { ActivityFile } from './activity.ts'
 import type { CoreConfig, SdkApi } from './config.ts'
@@ -17,6 +17,8 @@ import { TrustGate, canonicalFolder, checkRoots, withinRoots } from './trustGate
 
 // Upper bound for closing everything on quit.
 const QUIT_CAP_MS = 8000
+// The plan windows of an account are read again at the end of a turn at most this often (ms).
+const PLAN_READ_MS = 60_000
 const DAY_MS = 24 * 3600 * 1000
 
 // All tabs of the backend (in order), the session index over them (dormant included), the workspace stream,
@@ -38,6 +40,8 @@ export class Workspace {
   private readonly env: TabEnvironment
   private readonly activity?: ActivityFile
   private readonly trashTimer?: NodeJS.Timeout
+  // Plan windows per account ('' = the login) for the composer gauges, and when they were read.
+  private readonly plans = new Map<string, { limits?: PlanLimits; readAt: number }>()
   // Usage limits per account ('' = Claude Code's own login): until when, and the timer that ends them.
   private readonly limits = new Map<string, { until: number; timer: NodeJS.Timeout }>()
   private savedTabs = ''
@@ -236,6 +240,22 @@ export class Workspace {
     return limit && limit.until > Date.now() ? limit.until : undefined
   }
 
+  // The plan windows of an account as last read (composer gauges).
+  planLimits(account: string | undefined): PlanLimits | undefined {
+    return this.plans.get(account ?? '')?.limits
+  }
+
+  // A new read of an account's plan windows is due (at most one a minute, at the end of turns).
+  planLimitsDue(account: string | undefined): boolean {
+    return Date.now() - (this.plans.get(account ?? '')?.readAt ?? 0) >= PLAN_READ_MS
+  }
+
+  // Stores an account's plan windows: every session of that account shows them.
+  setPlanLimits(account: string | undefined, limits: PlanLimits | undefined): void {
+    this.plans.set(account ?? '', { limits, readAt: Date.now() })
+    for (const tab of this.tabsOf(account)) this.env.changed(tab)
+  }
+
   // The Claude account of every session and of the new ones (undefined = Claude Code's own login).
   async useAccount(accountId: string | undefined): Promise<void> {
     await this.accounts.setDefault(accountId)
@@ -332,6 +352,9 @@ export class Workspace {
       notify: (tab, kind, detail) => config.notifier?.({ kind, tabId: tab.tabId, title: tab.title, detail }),
       rateLimited: (until, account) => this.rateLimited(until, account),
       limitedUntil: (account) => this.limitedUntil(account),
+      planLimits: (account) => this.planLimits(account),
+      planLimitsDue: (account) => this.planLimitsDue(account),
+      setPlanLimits: (account, limits) => this.setPlanLimits(account, limits),
       accountToken: (account) => this.accounts.token(account),
       processStarted: (pid, startedAt) => this.trackProcess(pid, startedAt),
       processExited: (pid) => this.trackProcess(pid)

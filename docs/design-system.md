@@ -281,7 +281,7 @@ Examples: [ChatScreen.tsx:266](../packages/ui/src/touch/ChatScreen.tsx#L266), [C
 One box floating over the chat behind a blurred fade: the text on top; + (photos and files), model · effort, the
 permission mode icon, Stop (while Claude works or waits) and Send below. Queue mode: dashed border, Send adds to the
 queue. A linked note shows above the box (× unlinks it).
-Examples: [ChatScreen.tsx:286](../packages/ui/src/touch/ChatScreen.tsx#L286), [TouchComposer.tsx:215](../packages/ui/src/touch/TouchComposer.tsx#L215), [TouchComposer.tsx:208](../packages/ui/src/touch/TouchComposer.tsx#L208).
+Examples: [ChatScreen.tsx:286](../packages/ui/src/touch/ChatScreen.tsx#L286), [TouchComposer.tsx:216](../packages/ui/src/touch/TouchComposer.tsx#L216), [TouchComposer.tsx:209](../packages/ui/src/touch/TouchComposer.tsx#L209).
 
 ### Queue — `.queue-tray`, `.q-stack`, `.q-card` (`.k0-3`, `.m0-3`), `.q-line`, `.q-play`, `.q-sheet-item`
 The deck under the composer: the first card shows the next message, the others peek out on the right; ▶/⏸ beside

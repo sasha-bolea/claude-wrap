@@ -347,6 +347,25 @@ describe('PWA (fake SDK)', () => {
     await usage.getByText('$0.42').first().waitFor()
   })
 
+  it('the composer gauge shows the highest of context, 5-hour and weekly use; its sheet has the three bars and compacts now', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    expect(await page.locator('.gauge-btn').count()).toBe(0)
+    await send(page, 'hello')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo: hello')
+    const gauge = page.getByRole('button', { name: 'Context and limits: 37% at most' })
+    await gauge.click()
+    const sheet = page.getByRole('dialog')
+    await sheet.getByText('48.5k / 200k tokens').waitFor()
+    expect(await sheet.locator('.gauge-bar').allTextContents()).toEqual([
+      expect.stringContaining('24%'),
+      expect.stringMatching(/Session \(5 hours\).*37% · Resets/),
+      expect.stringMatching(/Week.*12% · Resets/)
+    ])
+    await sheet.getByRole('button', { name: 'Compact now' }).click()
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Ran /compact')
+  })
+
   it('the theme chosen in Settings applies and stays after a reload', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await button(page, 'Settings').click()

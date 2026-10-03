@@ -550,6 +550,44 @@ describe('controls', () => {
     expect(await client.fails('tab.usage', { tabId: 't1' })).toMatchObject({ code: 'sdk_error' })
   })
 
+  it('after each turn the tab shows its context share and its account plan windows; the plan is read at most once a minute', async () => {
+    const session = await startedTab()
+    await client.ok('tab.create', { tabId: 't2', cwd: CWD })
+    session.emit(sdk.success())
+    await client.waitFor(() => meta(client)?.planLimits !== undefined)
+    expect(meta(client)).toMatchObject({
+      context: { percentage: 24, totalTokens: 48500, maxTokens: 200000 },
+      planLimits: { fiveHour: { utilization: 37, resetsAt: '2026-10-03T22:00:00.000Z' }, sevenDay: { utilization: 12 } }
+    })
+    expect(meta(client, 't2')?.planLimits?.fiveHour?.utilization).toBe(37)
+    expect(meta(client, 't2')?.context).toBeUndefined()
+    expect(session.calls.find((call) => call.method === 'getContextUsage')?.args).toEqual([{ detail: 'summary' }])
+    await client.ok('tab.send', { tabId: 't1', text: 'again' }, cmd(2))
+    await session.waitForInput(2)
+    session.emit(sdk.success())
+    await client.waitFor(() => session.calls.filter((call) => call.method === 'getContextUsage').length === 2)
+    await tick()
+    expect(session.calls.filter((call) => call.method === 'usage')).toHaveLength(1)
+    await client.ok('tab.refreshGauges', { tabId: 't1' })
+    expect(session.calls.filter((call) => call.method === 'usage')).toHaveLength(2)
+  })
+
+  it('refreshing the gauges of a dormant tab starts no process; its last context share comes back after a restart', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'cw-gauges-'))
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    const session = await startedTab()
+    session.emit(sdk.init('s-gauge'), sdk.success())
+    await client.waitFor(() => meta(client)?.context !== undefined)
+    await core.closeAll()
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    const sessions = fake.sessions.length
+    await client.ok('tab.refreshGauges', { tabId: 't1' })
+    expect(fake.sessions).toHaveLength(sessions)
+    expect(meta(client)?.context?.percentage).toBe(24)
+  })
+
   it('a dormant tab starts its process to tell its context, without sending anything', async () => {
     await client.ok('tab.create', { tabId: 't1', cwd: CWD })
     expect((await client.ok('tab.context', { tabId: 't1' })).totalTokens).toBe(48500)

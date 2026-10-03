@@ -166,7 +166,7 @@ export class FakeSession {
       applyFlagSettings: async (settings: object) => (record('applyFlagSettings', [settings]), maybeReject()),
       supportedModels: async () => (record('supportedModels', []), this.models),
       supportedCommands: async () => (record('supportedCommands', []), this.commands),
-      getContextUsage: async () => (record('getContextUsage', []), this.contextUsage),
+      getContextUsage: async (opts?: object) => (record('getContextUsage', opts ? [opts] : []), this.contextUsage),
       usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: async (opts?: object) => {
         record('usage', [opts])
         if (!this.usage) throw new Error('usage unavailable')

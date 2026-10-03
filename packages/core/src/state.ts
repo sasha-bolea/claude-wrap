@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import type { Effort, ModelInfo, PermissionMode, QueuePause, SlashCommand } from '@claude-wrap/protocol'
+import type { ContextGauge, Effort, ModelInfo, PermissionMode, QueuePause, SlashCommand } from '@claude-wrap/protocol'
 import type { Outgoing } from './tab.ts'
 
 // What a tab keeps across restarts (it comes back dormant). Transcripts are not here: the CLI JSONL is the truth.
@@ -23,6 +23,8 @@ export type PersistedTab = {
   account?: string
   // Claude was stopped mid-work by a usage limit or an account switch, until "Continua" or a message.
   interrupted?: 'limit' | 'switch'
+  // The context window after the last turn (composer gauge).
+  context?: ContextGauge
 }
 
 // A claude process started by this core, recorded to kill it if the core dies without closing it.

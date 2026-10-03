@@ -10,6 +10,7 @@ import { noteUsed } from '../notes.ts'
 import type { Option } from '../Suggestions.tsx'
 import { readLinkedNote, writeLinkedNote, type LinkedNote } from '../viewState.ts'
 import { useTouch } from './context.tsx'
+import { GaugeButton } from './gauge.tsx'
 import { Icon, modeIcon } from './icons.tsx'
 import { sizeLabel } from './model.ts'
 import { ModelSheet, ModeSheet, modelLabel, useModels } from './modelSheets.tsx'
@@ -235,6 +236,7 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusFi
             <span>{modelLabel(meta, models)}</span>
             <Icon name="down" />
           </button>
+          <GaugeButton meta={meta} />
           <button className="icon-btn mode-btn" data-mode={meta.mode} aria-label={t('modeButtonLabel', { mode: t(modeLabel(meta.mode)) })} onClick={() => openSheet({ title: t('modeTitle'), body: <ModeSheet tabId={tabId} /> })}>
             <Icon name={modeIcon(meta.mode)} />
           </button>

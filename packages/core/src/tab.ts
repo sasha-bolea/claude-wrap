@@ -4,12 +4,14 @@ import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-a
 import {
   EFFORT_LEVELS,
   tabStream,
+  type ContextGauge,
   type ContextUsage,
   type Effort,
   type Image,
   type Item,
   type ModelInfo,
   type PermissionMode,
+  type PlanLimits,
   type QueuePause,
   type SlashCommand,
   type StreamPosition,
@@ -27,7 +29,7 @@ import { Session } from './session.ts'
 import type { PersistedTab } from './state.ts'
 import type { Send } from './stream.ts'
 import { Transcript, type TranscriptOptions } from './transcript.ts'
-import { readUsage, toContextUsage, toUsage } from './usage.ts'
+import { readUsage, toContextGauge, toContextUsage, toPlanLimits, toUsage } from './usage.ts'
 
 // Options every session gets (architettura.md; same as the first attempt).
 const BASE_OPTIONS: Options = {
@@ -61,6 +63,10 @@ export interface TabEnvironment {
   // A usage limit of an account (undefined = the login) until `until` (ms); limitedUntil: when it ends, if limited.
   rateLimited(until: number, account: string | undefined): void
   limitedUntil(account: string | undefined): number | undefined
+  // Plan windows per account (composer gauges): the last read, whether a new read is due, and storing one.
+  planLimits(account: string | undefined): PlanLimits | undefined
+  planLimitsDue(account: string | undefined): boolean
+  setPlanLimits(account: string | undefined, limits: PlanLimits | undefined): void
   // The token of an account (undefined for the login).
   accountToken(account: string | undefined): Promise<string | undefined>
 }
@@ -86,6 +92,8 @@ export type TabInit = {
   account?: string
   // Stopped mid-work by a usage limit or an account switch.
   interrupted?: 'limit' | 'switch'
+  // The context window after the last turn.
+  context?: ContextGauge
 }
 
 // Lifecycle of the tab's process; the visible status adds the turn state on top of `live`.
@@ -110,6 +118,8 @@ export class Tab {
   private switchPending = false
   // Claude was stopped mid-work by a usage limit or an account switch, until "Continua" or a message of the user.
   private interrupted?: 'limit' | 'switch'
+  // The context window after the last turn (composer gauge).
+  private contextGauge?: ContextGauge
   sessionId?: string
   model?: string
   activeModel?: string
@@ -151,6 +161,7 @@ export class Tab {
     this.autoTitle = init.autoTitle ?? !init.title
     this.account = init.account
     this.interrupted = init.interrupted
+    this.contextGauge = init.context
     this.sessionId = init.resume
     this.model = init.model
     this.effort = init.effort
@@ -192,7 +203,8 @@ export class Tab {
   // What survives a restart (the tab comes back dormant).
   persisted(): PersistedTab {
     const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause, autoTitle, account, interrupted } = this
-    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account, interrupted }
+    const context = this.contextGauge
+    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account, interrupted, context }
   }
 
   // The stored-session uuid behind an item (fork up to that item).
@@ -203,8 +215,10 @@ export class Tab {
   meta(): TabMeta {
     const { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queuePause, account, interrupted } = this
     const limitedUntil = this.env.limitedUntil(account)
+    const planLimits = this.env.planLimits(account)
+    const context = this.contextGauge
     const queue = this.queue.map(({ queueId, text, from, images }) => ({ queueId, text, from, images: images?.length }))
-    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}), ...(interrupted ? { interrupted } : {}) }
+    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}), ...(interrupted ? { interrupted } : {}), ...(context ? { context } : {}), ...(planLimits ? { planLimits } : {}) }
   }
 
   // Subscribes a connection to the transcript (loading a resumed session's history first, without a process).
@@ -480,6 +494,22 @@ export class Tab {
     return toUsage(await readUsage(session.query).catch((error: unknown) => this.sdkFailure('Usage failed', error)))
   }
 
+  // The composer's gauges, read from the live process only (none is started): the context window (a summary answer,
+  // no token counting) and, when due for its account or forced, the plan windows. Failures leave the last values.
+  async refreshGauges(force = false): Promise<void> {
+    const session = this.session
+    if (!session) return
+    const answer = await session.query.getContextUsage({ detail: 'summary' }).catch(() => undefined)
+    if (answer) {
+      this.contextGauge = toContextGauge(answer)
+      this.changed()
+    }
+    const account = this.account
+    if (!force && !this.env.planLimitsDue(account)) return
+    const usage = await readUsage(session.query).catch(() => undefined)
+    if (usage) this.env.setPlanLimits(account, toPlanLimits(toUsage(usage)))
+  }
+
   // Answers an open request. by: the answering client. A mode set by the answer becomes the tab's mode.
   answer(requestId: string, answer: Answer, by: string): void {
     const mode = modeSetBy(this.requests.answer(requestId, answer, by))
@@ -714,6 +744,7 @@ export class Tab {
     this.turnRunning = false
     this.env.turnFinished(this)
     this.env.notify(this, 'turnFinished')
+    void this.refreshGauges()
     // An account switch asked during the turn: the process goes first, the queue then starts a new one.
     if (this.switchPending) void this.releaseProcess().then(() => this.dispatchNext())
     else this.dispatchNext()

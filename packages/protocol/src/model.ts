@@ -67,6 +67,9 @@ export const queuedMessageSchema = z.object({ queueId: z.string(), text: z.strin
 // Why the queue waits: paused by hand (⏸), after Stop, or by a usage limit until `until` (ms).
 export const queuePauseSchema = z.object({ reason: z.enum(['user', 'stop', 'limit']), until: z.number().optional() })
 
+// A plan usage window: percentage used (0-100) and when it resets (ISO 8601), each null when unknown.
+export const limitWindowSchema = z.object({ utilization: z.number().nullable(), resetsAt: z.string().nullable() })
+
 export const tabMetaSchema = z.object({
   tabId: z.string(),
   title: z.string(),
@@ -89,7 +92,11 @@ export const tabMetaSchema = z.object({
   limitedUntil: z.number().optional(),
   // Claude was stopped in the middle of its work by a usage limit or by an account switch: once the account is free
   // (no limitedUntil) the chat offers "Continua", which resumes every session stopped this way.
-  interrupted: z.enum(['limit', 'switch']).optional()
+  interrupted: z.enum(['limit', 'switch']).optional(),
+  // Gauges for the composer, kept by core without starting a process: the context window after the last turn, and
+  // the plan windows of the session's account (5 hours, week) as last read.
+  context: z.object({ percentage: z.number(), totalTokens: z.number(), maxTokens: z.number() }).optional(),
+  planLimits: z.object({ fiveHour: limitWindowSchema.optional(), sevenDay: limitWindowSchema.optional() }).optional()
 })
 
 // A Claude account of the backend added with a token made by `claude setup-token` (the token never leaves core).
@@ -176,9 +183,6 @@ export const contextUsageSchema = z.object({
   mcpServers: z.array(z.object({ name: z.string(), tools: z.number(), tokens: z.number() }))
 })
 
-// A plan usage window: percentage used (0-100) and when it resets (ISO 8601), each null when unknown.
-const limitWindowSchema = z.object({ utilization: z.number().nullable(), resetsAt: z.string().nullable() })
-
 // Cost and usage of a session, and the plan's usage limits of its account, as /usage shows them. limits is null
 // where plan limits do not apply (API key) or could not be read.
 export const usageSchema = z.object({
@@ -225,3 +229,6 @@ export type SessionInfo = z.infer<typeof sessionInfoSchema>
 export type ProjectConfig = z.infer<typeof projectConfigSchema>
 export type ContextUsage = z.infer<typeof contextUsageSchema>
 export type Usage = z.infer<typeof usageSchema>
+export type LimitWindow = z.infer<typeof limitWindowSchema>
+export type ContextGauge = NonNullable<TabMeta['context']>
+export type PlanLimits = NonNullable<TabMeta['planLimits']>

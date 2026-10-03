@@ -413,6 +413,16 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .model-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .model-btn svg.i { width: 16px; height: 16px; }
 .mode-btn { margin-left: auto; }
+/* The composer's gauge: a ring filled to the highest of context, 5-hour and weekly use, the share beside it */
+.gauge-btn { flex: none; min-height: 44px; display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; border-radius: 12px; padding: 0 6px; color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.gauge-btn:active { background: var(--surface-2); }
+.gauge-ring { width: 20px; height: 20px; transform: rotate(-90deg); }
+.gauge-ring circle { fill: none; stroke-width: 3.2; }
+.gauge-track { stroke: var(--surface-2); }
+.gauge-fill { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .4s ease-out; }
+.gauge-btn.high { color: var(--danger); }
+.gauge-btn.high .gauge-fill { stroke: var(--danger); }
+.gauge-bar { display: grid; gap: 4px; }
 .input-tools .mode-btn[data-mode="acceptEdits"] { color: var(--success); }
 .input-tools .mode-btn[data-mode="plan"] { color: var(--accent); }
 .input-tools .mode-btn[data-mode="auto"], .input-tools .mode-btn[data-mode="dontAsk"] { color: var(--danger); }

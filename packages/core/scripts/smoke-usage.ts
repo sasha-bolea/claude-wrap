@@ -1,7 +1,8 @@
 // Context and usage on the real CLI (`npm run smoke:usage`; no message is sent, zero tokens): a fresh tab starts its
 // process for tab.context and tab.usage, and both answers pass the protocol's schemas with sane numbers (a window, a
-// share, the categories; the session's cost; plan limits or null). The usage call is the SDK's experimental one: this
-// is the check that an SDK bump did not rename or break it. Works in a temp folder. Runs directly on Node 24.
+// share, the categories; the session's cost; plan limits or null), and the composer's gauges are read from the live
+// process. The usage call is the SDK's experimental one: this is the check that an SDK bump did not rename or break
+// it. Works in a temp folder. Runs directly on Node 24.
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -40,6 +41,11 @@ async function main(): Promise<void> {
     console.log(`limits: ${usage.limits ? JSON.stringify(usage.limits) : 'none (API key or unreadable)'}`)
     if (usage.subscription && !usage.limits) console.log('note: a subscription without readable limits (the claude.ai endpoint did not answer)')
   }
+  // The composer's gauges: read from the live process (a summary context answer, the plan windows).
+  await connection.request('tab.refreshGauges', { tabId: TAB_ID }).catch((error: unknown) => void problems.push(`tab.refreshGauges failed: ${String(error)}`))
+  const meta = connection.store.getSnapshot().tabs?.find((tab) => tab.tabId === TAB_ID)
+  console.log(`gauges: context ${JSON.stringify(meta?.context)}, plan ${JSON.stringify(meta?.planLimits)}`)
+  if (!meta?.context?.maxTokens) problems.push('no context gauge after tab.refreshGauges')
   await core.closeAll()
   rmSync(cwd, { recursive: true, force: true })
   console.log(problems.length ? `PROBLEMS:\n- ${problems.join('\n- ')}` : 'OK: context and usage answer from the real CLI and pass the protocol')
