@@ -289,7 +289,9 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 
 /* Rewind (sub-phase D) and quotes of a message */
 .rewind-quote { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
-.msg-user { -webkit-touch-callout: none; }
+/* A long press opens the message's actions (Copy text is there): iOS must not start a selection or its callout, which
+   spread over the whole screen */
+.msg-user, .msg-user-row { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .msg-user.pressed { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Notes */
