@@ -1,8 +1,8 @@
 // Context and usage on the real CLI (`npm run smoke:usage`; no message is sent, zero tokens): a fresh tab starts its
 // process for tab.context and tab.usage, and both answers pass the protocol's schemas with sane numbers (a window, a
 // share, the categories; the session's cost; plan limits or null), and the composer's gauges are read from the live
-// process. The usage call is the SDK's experimental one: this is the check that an SDK bump did not rename or break
-// it. Works in a temp folder. Runs directly on Node 24.
+// process, and the auto-compact window set in the app reaches the CLI. The usage call is the SDK's experimental one:
+// this is the check that an SDK bump did not rename or break it. Works in a temp folder. Runs directly on Node 24.
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -46,6 +46,12 @@ async function main(): Promise<void> {
   const meta = connection.store.getSnapshot().tabs?.find((tab) => tab.tabId === TAB_ID)
   console.log(`gauges: context ${JSON.stringify(meta?.context)}, plan ${JSON.stringify(meta?.planLimits)}`)
   if (!meta?.context?.maxTokens) problems.push('no context gauge after tab.refreshGauges')
+  // The auto-compact window set in the app reaches the process (it restarts to read it, as at spawn).
+  await connection.request('settings.setAutoCompactWindow', { tokens: 100_000 }).catch((error: unknown) => void problems.push(`settings.setAutoCompactWindow failed: ${String(error)}`))
+  const compacting = await connection.request('tab.context', { tabId: TAB_ID }).catch(() => undefined)
+  console.log(`auto-compact window 100k: window ${compacting?.maxTokens}, compacts at ${compacting?.autoCompactThreshold}`)
+  if (compacting && compacting.maxTokens > 100_000) problems.push(`the 100k auto-compact window did not reach the CLI (window ${compacting.maxTokens})`)
+  await connection.request('settings.setAutoCompactWindow', {})
   await core.closeAll()
   rmSync(cwd, { recursive: true, force: true })
   console.log(problems.length ? `PROBLEMS:\n- ${problems.join('\n- ')}` : 'OK: context and usage answer from the real CLI and pass the protocol')

@@ -366,6 +366,18 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Ran /compact')
   })
 
+  it('automatic compaction in Settings: Default, then a size for every session', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await button(page, 'Settings').click()
+    const group = page.getByRole('radiogroup', { name: 'Compact when the conversation reaches' })
+    expect(await group.getByRole('radio', { name: 'Default' }).isChecked()).toBe(true)
+    await group.getByText('200k').click()
+    await page.getByText('Sessions compact by themselves at 200k').waitFor()
+    await page.reload()
+    await button(page, 'Settings').click()
+    expect(await page.getByRole('radiogroup', { name: 'Compact when the conversation reaches' }).getByRole('radio', { name: '200k' }).isChecked()).toBe(true)
+  })
+
   it('the theme chosen in Settings applies and stays after a reload', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await button(page, 'Settings').click()

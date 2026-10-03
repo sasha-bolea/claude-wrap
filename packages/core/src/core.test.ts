@@ -588,6 +588,28 @@ describe('controls', () => {
     expect(meta(client)?.context?.percentage).toBe(24)
   })
 
+  it("the auto-compact window set in the app reaches every process at spawn: a live one restarts at the end of its turn; unset, Claude Code's own applies", async () => {
+    const session = await startedTab()
+    session.emit(sdk.init('s-compact'))
+    await client.ok('settings.setAutoCompactWindow', { tokens: 150_000 })
+    expect((client.events(WORKSPACE_STREAM) as { type: string; autoCompactWindow?: number }[]).find((ev) => ev.type === 'settings.updated')?.autoCompactWindow).toBe(150_000)
+    await tick()
+    expect(session.closed).toBe(false)
+    session.emit(sdk.success())
+    await client.waitFor(() => session.closed)
+    await client.ok('tab.send', { tabId: 't1', text: 'again' }, cmd(2))
+    await client.waitFor(() => fake.sessions.length === 2)
+    expect(fake.last().options).toMatchObject({ resume: 's-compact', settings: { autoCompactWindow: 150_000 } })
+    expect(await client.fails('settings.setAutoCompactWindow', { tokens: 50_000 })).toMatchObject({ code: 'invalid_args' })
+    fake.last().emit(sdk.success())
+    await client.waitFor(() => meta(client)?.status === 'idle')
+    await client.ok('settings.setAutoCompactWindow', {})
+    await client.waitFor(() => fake.last().closed)
+    await client.ok('tab.send', { tabId: 't1', text: 'once more' }, cmd(3))
+    await client.waitFor(() => fake.sessions.length === 3)
+    expect(fake.last().options.settings).toBeUndefined()
+  })
+
   it('a dormant tab starts its process to tell its context, without sending anything', async () => {
     await client.ok('tab.create', { tabId: 't1', cwd: CWD })
     expect((await client.ok('tab.context', { tabId: 't1' })).totalTokens).toBe(48500)

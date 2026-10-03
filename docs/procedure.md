@@ -84,7 +84,8 @@ title can contain "fork"); hidden screens of the stack are in the DOM: scope loc
 `usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET`: its name will change).
 - No message is sent (zero tokens): a fresh tab starts its process; `tab.context` must give a window, tokens and
   categories, `tab.usage` the session cost and the plan limits (or null for an API key), `tab.refreshGauges` the
-  composer's gauges. It prints them: compare with
+  composer's gauges, and a 100k auto-compact window set in the app must show as the window (compacts at ~67k). It
+  prints them: compare with
   `/context` and `/usage` in the terminal when in doubt.
 - If the SDK renamed the usage call: update `readUsage` in `usage.ts` (and the fake in `testing/fakeQuery.ts`).
 

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { EFFORT_LEVELS, IMAGE_TYPES, contextUsageSchema, effortSchema, itemSchema, permissionModeSchema, projectConfigSchema, sessionInfoSchema, usageSchema } from './model.ts'
+import { AUTO_COMPACT_WINDOW, EFFORT_LEVELS, IMAGE_TYPES, contextUsageSchema, effortSchema, itemSchema, permissionModeSchema, projectConfigSchema, sessionInfoSchema, usageSchema } from './model.ts'
 
 // Commands a client can send (`{t:'cmd', id, name, args}`), with the schema of their args and result.
 
@@ -120,6 +120,9 @@ export const COMMANDS = {
   'tab.context': { args: z.object({ tabId }), result: contextUsageSchema },
   'tab.usage': { args: z.object({ tabId }), result: usageSchema },
   // Reads the composer's gauges again (TabMeta.context, planLimits) if the session's process is live; starts none.
+  // Claude Code's auto-compact window for every session (as /autocompact; tokens, clamped by the CLI to the model's
+  // window): passed at spawn and applied to live sessions. undefined = Claude Code's own setting applies.
+  'settings.setAutoCompactWindow': { args: z.object({ tokens: z.number().int().min(AUTO_COMPACT_WINDOW.min).max(AUTO_COMPACT_WINDOW.max).optional() }), result: empty },
   'tab.refreshGauges': { args: z.object({ tabId }), result: empty },
   // Stored sessions of a folder, or (no cwd) of every folder inside the backend's roots, newest first.
   // rename/delete are refused with session_busy while a tab references the session.

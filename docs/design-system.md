@@ -219,7 +219,7 @@ a `⋯` icon button or an action button (`.end-pad`). Folders (`.ficon.dir` = pr
 devices, trash items. `.stacked`: a row holding a control under its title (theme). A folder of the Home ends with a
 plain row for the files right inside it ("12 file di cui 3 nascosti", never shown with 0 files) that opens the file
 explorer on that folder.
-Examples: [HomeScreen.tsx:47](../packages/ui/src/touch/HomeScreen.tsx#L47), [HomeScreen.tsx:144](../packages/ui/src/touch/HomeScreen.tsx#L144), [sessions.tsx:88](../packages/ui/src/touch/sessions.tsx#L88), [FilesScreen.tsx:230](../packages/ui/src/touch/FilesScreen.tsx#L230), [SettingsScreen.tsx:164](../packages/ui/src/touch/SettingsScreen.tsx#L164).
+Examples: [HomeScreen.tsx:47](../packages/ui/src/touch/HomeScreen.tsx#L47), [HomeScreen.tsx:144](../packages/ui/src/touch/HomeScreen.tsx#L144), [sessions.tsx:88](../packages/ui/src/touch/sessions.tsx#L88), [FilesScreen.tsx:230](../packages/ui/src/touch/FilesScreen.tsx#L230), [SettingsScreen.tsx:166](../packages/ui/src/touch/SettingsScreen.tsx#L166).
 
 ### Path — `.crumbs.path-bar` (`.sep`, `[aria-current]`)
 The path from the root as mono buttons, scrolled to its end; a part jumps there (`Crumbs` component).
@@ -234,7 +234,7 @@ Examples: [SheetHost.tsx:49](../packages/ui/src/touch/SheetHost.tsx#L49), [ChatS
 ### Buttons and fields — `.button` (`.primary`, `.danger`, `.block`), `.link-btn`, `.field` (`.mono`), `.check-row`, `.segmented` (`.effort`, `.cols-N`), `.toggle-input`
 Same roles as on the desktop; `.link-btn`: the light text actions under a list ("Sessioni passate · + Nuova
 sessione"); `.segmented`: a radio group as one control (theme, effort levels — `.cols-N` for N levels).
-Examples: [HomeScreen.tsx:164](../packages/ui/src/touch/HomeScreen.tsx#L164), [HomeScreen.tsx:312](../packages/ui/src/touch/HomeScreen.tsx#L312), [SettingsScreen.tsx:168](../packages/ui/src/touch/SettingsScreen.tsx#L168), [modelSheets.tsx:66](../packages/ui/src/touch/modelSheets.tsx#L66).
+Examples: [HomeScreen.tsx:164](../packages/ui/src/touch/HomeScreen.tsx#L164), [HomeScreen.tsx:312](../packages/ui/src/touch/HomeScreen.tsx#L312), [SettingsScreen.tsx:170](../packages/ui/src/touch/SettingsScreen.tsx#L170), [modelSheets.tsx:66](../packages/ui/src/touch/modelSheets.tsx#L66).
 
 ### Cards, chips, badges — `.card` (`.compact`, `.bad`), `.chip` (`.changed`), `.badge` (`.waiting`, `.working`, `.error`)
 `.card`: a framed block (session info in the menu, error and trust notices, the 🔜 placeholder). `.chip`: small
@@ -307,6 +307,12 @@ Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [N
 be reached. `.toast` / `.snack`: rule 7. `.viewer`: a photo full screen.
 Examples: [parts.tsx:88](../packages/ui/src/touch/parts.tsx#L88), [parts.tsx:103](../packages/ui/src/touch/parts.tsx#L103), [TouchApp.tsx:238](../packages/ui/src/touch/TouchApp.tsx#L238), [TouchApp.tsx:253](../packages/ui/src/touch/TouchApp.tsx#L253).
 
+### Settings → automatic compaction (existing `.list`, `.row.stacked`, `.segmented.cols-5`, `.row-sub.wrap`)
+A row "Compatta quando la conversazione arriva a" with five segments: Standard (Claude Code's own setting), 100k,
+200k, 500k, 1M — Claude Code's `autoCompactWindow` (as /autocompact) for every session — and a wrapping hint under
+it. A change restarts the live processes (idle now, working at the end of their turn) with the conversations kept.
+Examples: [SettingsScreen.tsx:190](../packages/ui/src/touch/SettingsScreen.tsx#L190).
+
 ### Composer gauge — `.gauge-btn` (`.high`), `.gauge-ring` (`.gauge-track`, `.gauge-fill`), `.gauge-bar`
 Right of the model in the composer: a 20 px ring filled to the **highest** of three shares — context window (after the
 last turn), the 5-hour and the weekly plan windows of the session's account — with that share beside it (12 px,
@@ -349,7 +355,7 @@ Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [account
 The launch screen until the server answers (same mark as the iOS splash). The pairing screen: install steps in iPhone
 Safari, the link-or-code field in the installed app; right after pairing a sheet offers the notifications once.
 `.code-box`: a one-time pairing code (Settings → Add device).
-Examples: [Splash.tsx:13](../packages/ui/src/touch/Splash.tsx#L13), [PairScreen.tsx:41](../packages/ui/src/PairScreen.tsx#L41), [SettingsScreen.tsx:284](../packages/ui/src/touch/SettingsScreen.tsx#L284).
+Examples: [Splash.tsx:13](../packages/ui/src/touch/Splash.tsx#L13), [PairScreen.tsx:41](../packages/ui/src/PairScreen.tsx#L41), [SettingsScreen.tsx:319](../packages/ui/src/touch/SettingsScreen.tsx#L319).
 
 ## Desktop with several backends
 ### Backend switcher — `.shell`, `.backend-bar`, `.backend` (`[aria-pressed]`, `.add`), `.servers-panel`

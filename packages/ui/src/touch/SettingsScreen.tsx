@@ -5,6 +5,7 @@ import { useAvailableUpdate } from '../appUpdate.ts'
 import { AccountsGroup } from './accounts.tsx'
 import { useTouch, type LaterKey, type Touch } from './context.tsx'
 import { Icon } from './icons.tsx'
+import { tokenLabel } from './model.ts'
 import { IconButton, Title } from './parts.tsx'
 import { when } from './sessions.tsx'
 
@@ -83,6 +84,7 @@ export function SettingsScreen() {
         <div className="pad settings">
           <AppGroup />
           <AccountsGroup />
+          <AutoCompactGroup />
           {capabilities.push && <NotificationsGroup />}
           <DevicesGroup />
           <div className="group">
@@ -173,6 +175,39 @@ function AppGroup() {
               </label>
             ))}
           </div>
+        </li>
+      </ul>
+    </div>
+  )
+}
+
+// Choices of the auto-compact window (tokens; undefined = Claude Code's own setting).
+const AUTO_COMPACT_CHOICES = [undefined, 100_000, 200_000, 500_000, 1_000_000] as const
+
+// Settings → Compattazione automatica: Claude Code's own auto-compact window (as /autocompact) for every session —
+// "Come Claude Code" leaves its own setting; a size makes it compact once the conversation reaches it (never beyond
+// the model's window).
+function AutoCompactGroup() {
+  const { state, connection, toast, fail } = useTouch()
+  const pick = (tokens: number | undefined) =>
+    connection.request('settings.setAutoCompactWindow', tokens ? { tokens } : {}).then(() => toast(tokens ? t('autoCompactSet', { tokens: tokenLabel(tokens) }) : t('autoCompactCli')), fail)
+  return (
+    <div className="group">
+      <p className="label">{t('autoCompactTitle')}</p>
+      <ul className="list">
+        <li className="row stacked">
+          <span className="row-title" id="autocompact-label">
+            {t('autoCompactWindow')}
+          </span>
+          <div className="segmented cols-5" role="radiogroup" aria-labelledby="autocompact-label">
+            {AUTO_COMPACT_CHOICES.map((tokens) => (
+              <label key={tokens ?? 'cli'}>
+                <input type="radio" name="autocompact" checked={state.autoCompactWindow === tokens} onChange={() => void pick(tokens)} />
+                <span>{tokens ? tokenLabel(tokens) : t('autoCompactAuto')}</span>
+              </label>
+            ))}
+          </div>
+          <span className="row-sub wrap">{t('autoCompactHint')}</span>
         </li>
       </ul>
     </div>

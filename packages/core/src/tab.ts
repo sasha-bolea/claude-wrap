@@ -67,6 +67,8 @@ export interface TabEnvironment {
   planLimits(account: string | undefined): PlanLimits | undefined
   planLimitsDue(account: string | undefined): boolean
   setPlanLimits(account: string | undefined, limits: PlanLimits | undefined): void
+  // Claude Code's auto-compact window set from the app (undefined: Claude Code's own setting).
+  autoCompactWindow(): number | undefined
   // The token of an account (undefined for the login).
   accountToken(account: string | undefined): Promise<string | undefined>
 }
@@ -113,7 +115,8 @@ export class Tab {
   title: string
   // The title follows the CLI's own title of the session until the user gives the tab one.
   private autoTitle: boolean
-  // The Claude account (undefined = Claude Code's own login); switchPending: the process changes at the turn's end.
+  // The Claude account (undefined = Claude Code's own login); switchPending: the process restarts at the turn's end
+  // (an account switch, a new auto-compact window).
   private account?: string
   private switchPending = false
   // Claude was stopped mid-work by a usage limit or an account switch, until "Continua" or a message of the user.
@@ -494,6 +497,15 @@ export class Tab {
     return toUsage(await readUsage(session.query).catch((error: unknown) => this.sdkFailure('Usage failed', error)))
   }
 
+  // The auto-compact window changed in the app. The CLI reads it only at spawn (a live applyFlagSettings does not
+  // move it, checked on CLI 2.1.287), so a live process restarts on the same stored session: an idle one now, one at
+  // work at the end of its turn. A dormant one gets it at spawn.
+  async applyAutoCompactWindow(): Promise<void> {
+    if (!this.session) return
+    if (this.busy) this.switchPending = true
+    else await this.releaseProcess()
+  }
+
   // The composer's gauges, read from the live process only (none is started): the context window (a summary answer,
   // no token counting) and, when due for its account or forced, the plan windows. Failures leave the last values.
   async refreshGauges(force = false): Promise<void> {
@@ -631,6 +643,7 @@ export class Tab {
 
   // token: the account's token (CLAUDE_CODE_OAUTH_TOKEN of the process); absent: Claude Code's own login.
   private sessionOptions(token?: string): Options {
+    const autoCompactWindow = this.env.autoCompactWindow()
     return {
       ...BASE_OPTIONS,
       ...this.env.sdkOptions,
@@ -639,6 +652,7 @@ export class Tab {
       resume: this.sessionId,
       model: this.model,
       effort: this.effort,
+      ...(autoCompactWindow ? { settings: { autoCompactWindow } } : {}),
       permissionMode: this.mode,
       canUseTool: this.requests.ask
     }

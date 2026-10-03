@@ -272,6 +272,7 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .later-list { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
 .toggle-input { width: 24px; height: 24px; accent-color: var(--accent); flex: none; }
 .row.stacked { display: grid; gap: 8px; padding: 10px 14px; }
+.row-sub.wrap { white-space: normal; }
 .empty-line { padding: 8px 4px; }
 .mono-line { font: 13px var(--font-mono); overflow-wrap: anywhere; }
 

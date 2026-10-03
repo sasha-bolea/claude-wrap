@@ -110,6 +110,9 @@ export const homeSchema = z.discriminatedUnion('kind', [
 
 // ---- Stream events and snapshots ----
 
+// Bounds of Claude Code's auto-compact window (tokens), as /autocompact and --autocompact accept it.
+export const AUTO_COMPACT_WINDOW = { min: 100_000, max: 1_000_000 } as const
+
 export const workspaceEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('tab.added'), tab: tabMetaSchema }),
   z.object({ type: z.literal('tab.updated'), tab: tabMetaSchema }),
@@ -121,7 +124,9 @@ export const workspaceEventSchema = z.discriminatedUnion('type', [
   // The notes of a folder changed: clients showing them read them again.
   z.object({ type: z.literal('notes.changed'), cwd: z.string() }),
   // The accounts or the default one changed (defaultAccount undefined = Claude Code's own login).
-  z.object({ type: z.literal('accounts.updated'), accounts: z.array(accountSchema), defaultAccount: z.string().optional() })
+  z.object({ type: z.literal('accounts.updated'), accounts: z.array(accountSchema), defaultAccount: z.string().optional() }),
+  // Backend settings for every session changed (autoCompactWindow undefined = Claude Code's own setting).
+  z.object({ type: z.literal('settings.updated'), autoCompactWindow: z.number().int().optional() })
 ])
 
 export const tabEventSchema = z.discriminatedUnion('type', [
@@ -140,7 +145,9 @@ export const workspaceSnapshotSchema = z.object({
   home: homeSchema,
   projects: z.array(z.string()),
   accounts: z.array(accountSchema),
-  defaultAccount: z.string().optional()
+  defaultAccount: z.string().optional(),
+  // Claude Code's auto-compact window set for every session (tokens); undefined = Claude Code's own setting.
+  autoCompactWindow: z.number().int().optional()
 })
 export const tabSnapshotSchema = z.object({ kind: z.literal('tab'), items: z.array(itemSchema), hasMore: z.boolean(), requests: z.array(requestSchema) })
 

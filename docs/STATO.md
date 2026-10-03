@@ -26,6 +26,8 @@ updates itself from `main`. Details per session: [storico-sessioni.md](storico-s
   cost, tokens per model), through `tab.context` / `tab.usage`. Real-CLI check `smoke:usage` (zero tokens) green.
   A gauge right of the model in the composer shows the highest of context / 5-hour / weekly use; its sheet has the
   three bars and "Compatta ora" (values kept by core in `TabMeta.context` / `planLimits`, read at each turn end).
+  Settings → Compattazione automatica: Claude Code's own `autoCompactWindow` (Standard, 100k, 200k, 500k, 1M) for
+  every session.
 - **Desktop:** still the Phase 1–3 UI (tab bar, start screen, old chat and composer) on the new core; it moves to the
   touch elements in **C2**.
 - **Next:** C2 (desktop with the same elements, widths 300/380/~780 px), then D (native rewind, cleanup, prototype
@@ -63,6 +65,7 @@ updates itself from `main`. Details per session: [storico-sessioni.md](storico-s
 | 2026-10-03 | Open session = a tab of the core; saved session = the CLI's JSONL. Past lists exclude open ones; a chat left with nothing sent and an empty composer is closed; never-used tabs are not restored; the tab title follows Claude Code's title until the user renames it | Sasha saw the same session twice and empty sessions kept |
 | 2026-10-03 | ~~Portrait only~~ (reverted the same day: both orientations, text never enlarged in landscape); no zoom; no emoji in UI badges (icons of the set) | Sasha's choices |
 | 2026-10-03 | Rewind stays a 🔜 placeholder until D (built with the core) | Its screens depend on what `rewindFiles` dry runs return |
+| 2026-10-03 | Automatic compaction in Settings = Claude Code's official `autoCompactWindow` (tokens, 100k–1M), not a percentage: the only percentage is the undocumented test env `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`. Passed as flag settings at spawn; a live `applyFlagSettings` does not move it (CLI 2.1.287), so live processes restart (idle now, working at the turn's end) | Sasha chose B ("only if it is a native Claude Code setting") |
 | 2026-10-03 | One account for every session (a switch anywhere moves all sessions and the new ones); a switch stops a session at work at once; sessions stopped mid-work by a limit or a switch are marked (`TabMeta.interrupted`, persisted) and wait — queue included — for "Continua" (`tabs.continue`, sends "continua") or a message | Sasha: "quando cambio account in una chat si cambi in tutte le sessioni" + a continue card after a switch or a reset |
 | 2026-10-03 | Context and usage panels before C2; the window is `rawMaxTokens` (the autocompact window, as /context); the usage call is the SDK's experimental one, kept in `core/src/usage.ts` and checked by `smoke:usage` at every SDK bump; reset times normalized to plain ISO in core | Sasha asked for them now; the experimental API may be renamed |
 | 2026-10-03 | Claude accounts: tokens from `claude setup-token` pasted in the app, kept by core in `accounts.json` (0600, never sent back), passed to the CLI as `CLAUDE_CODE_OAUTH_TOKEN`; per session with a default for new ones; Claude Code's own login stays; a switch restarts the process on the same stored session (at the turn's end if busy); usage limits per account | Sasha: "voglio poter usare la stessa conversazione con più account, esattamente come faccio qui" — like /login in the terminal |

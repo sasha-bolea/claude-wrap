@@ -63,7 +63,8 @@ export class Workspace {
         home: this.home(),
         projects: this.projects(),
         accounts: this.accounts.list(),
-        defaultAccount: this.accounts.defaultAccount
+        defaultAccount: this.accounts.defaultAccount,
+        autoCompactWindow: this.store.data.autoCompactWindow
       }),
       config.ring ?? DEFAULT_RING
     )
@@ -240,6 +241,14 @@ export class Workspace {
     return limit && limit.until > Date.now() ? limit.until : undefined
   }
 
+  // Claude Code's auto-compact window for every session (undefined: Claude Code's own setting): saved, announced,
+  // and taken by every process at its next start (live ones restart, at the end of a running turn).
+  async setAutoCompactWindow(tokens: number | undefined): Promise<void> {
+    await this.store.update((data) => (data.autoCompactWindow = tokens))
+    this.stream.emit({ type: 'settings.updated', autoCompactWindow: tokens })
+    await Promise.all([...this.tabs.values()].map((tab) => tab.applyAutoCompactWindow()))
+  }
+
   // The plan windows of an account as last read (composer gauges).
   planLimits(account: string | undefined): PlanLimits | undefined {
     return this.plans.get(account ?? '')?.limits
@@ -353,6 +362,7 @@ export class Workspace {
       rateLimited: (until, account) => this.rateLimited(until, account),
       limitedUntil: (account) => this.limitedUntil(account),
       planLimits: (account) => this.planLimits(account),
+      autoCompactWindow: () => this.store.data.autoCompactWindow,
       planLimitsDue: (account) => this.planLimitsDue(account),
       setPlanLimits: (account, limits) => this.setPlanLimits(account, limits),
       accountToken: (account) => this.accounts.token(account),
