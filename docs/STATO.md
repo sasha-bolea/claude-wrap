@@ -1,6 +1,6 @@
 # STATO — claude-wrap
 
-_Last updated: 2026-10-03 17:49_
+_Last updated: 2026-10-03 18:21_
 
 ## Current state
 **Phases 0–3 are done, and so are sub-phases A, B and C1 of the realigned plan** ([piano.md](piano.md) §4): the
@@ -14,6 +14,11 @@ updates itself from `main`. Details per session: [storico-sessioni.md](storico-s
   and global, chat with requests inside the conversation, ghost and jump, floating composer with queue deck, "Invia
   ora" on waiting messages, file explorer with previews (also from the Home, without a session), notes (20% rule),
   settings (theme, devices, notifications), 🔜 placeholders, portrait only, no zoom, splash screens, update bar.
+- **Claude accounts** (after the buonanotte, Sasha's request): besides Claude Code's own login, accounts added in
+  Settings with a token made by `claude setup-token`; each session picks one (menu ⋯ → Account) and can switch
+  keeping its conversation; usage limits are per account, with "Passa a …" in the chat. Real-CLI check
+  `smoke:accounts`: the account's token reaches the CLI (a bad one fails with 401), back to the login in the same
+  conversation.
 - **Desktop:** still the Phase 1–3 UI (tab bar, start screen, old chat and composer) on the new core; it moves to the
   touch elements in **C2**.
 - **Next:** C2 (desktop with the same elements, widths 300/380/~780 px), then D (native rewind, cleanup, prototype
@@ -51,6 +56,7 @@ updates itself from `main`. Details per session: [storico-sessioni.md](storico-s
 | 2026-10-03 | Open session = a tab of the core; saved session = the CLI's JSONL. Past lists exclude open ones; a chat left with nothing sent and an empty composer is closed; never-used tabs are not restored; the tab title follows Claude Code's title until the user renames it | Sasha saw the same session twice and empty sessions kept |
 | 2026-10-03 | Portrait only (manifest; on iPhone a "turn your phone upright" notice: iOS cannot lock); no zoom; no emoji in UI badges (icons of the set) | Sasha's choices |
 | 2026-10-03 | Rewind stays a 🔜 placeholder until D (built with the core) | Its screens depend on what `rewindFiles` dry runs return |
+| 2026-10-03 | Claude accounts: tokens from `claude setup-token` pasted in the app, kept by core in `accounts.json` (0600, never sent back), passed to the CLI as `CLAUDE_CODE_OAUTH_TOKEN`; per session with a default for new ones; Claude Code's own login stays; a switch restarts the process on the same stored session (at the turn's end if busy); usage limits per account | Sasha: "voglio poter usare la stessa conversazione con più account, esattamente come faccio qui" — like /login in the terminal |
 
 ## Backlog
 1. **C2** — desktop with the same elements ([piano.md](piano.md) §4; prototype delivery on the server: `/srv/progetti/claude-wrap-prototipo/NOTE-CONSEGNA.md` §5, read it before `index.html`).

@@ -55,7 +55,11 @@ export interface TabEnvironment {
   // A prompt was accepted (→ prompt history).
   promptSent(tab: Tab, text: string): void
   // A usage limit was hit: every queue waits until `until` (ms).
-  rateLimited(until: number): void
+  // A usage limit of an account (undefined = the login) until `until` (ms); limitedUntil: when it ends, if limited.
+  rateLimited(until: number, account: string | undefined): void
+  limitedUntil(account: string | undefined): number | undefined
+  // The token of an account (undefined for the login).
+  accountToken(account: string | undefined): Promise<string | undefined>
 }
 
 // A user message on its way: queueId is the cmd id (SDK message uuid); pastes are long pasted texts inside text.
@@ -75,6 +79,8 @@ export type TabInit = {
   queuePause?: QueuePause
   // The title follows the CLI's own title (default: when no title is given).
   autoTitle?: boolean
+  // The Claude account (undefined = Claude Code's own login).
+  account?: string
 }
 
 // Lifecycle of the tab's process; the visible status adds the turn state on top of `live`.
@@ -94,6 +100,9 @@ export class Tab {
   title: string
   // The title follows the CLI's own title of the session until the user gives the tab one.
   private autoTitle: boolean
+  // The Claude account (undefined = Claude Code's own login); switchPending: the process changes at the turn's end.
+  private account?: string
+  private switchPending = false
   sessionId?: string
   model?: string
   activeModel?: string
@@ -133,6 +142,7 @@ export class Tab {
     this.cwd = init.cwd
     this.title = init.title || basename(init.cwd) || init.cwd
     this.autoTitle = init.autoTitle ?? !init.title
+    this.account = init.account
     this.sessionId = init.resume
     this.model = init.model
     this.effort = init.effort
@@ -173,8 +183,8 @@ export class Tab {
 
   // What survives a restart (the tab comes back dormant).
   persisted(): PersistedTab {
-    const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause, autoTitle } = this
-    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle }
+    const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause, autoTitle, account } = this
+    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account }
   }
 
   // The stored-session uuid behind an item (fork up to that item).
@@ -183,9 +193,10 @@ export class Tab {
   }
 
   meta(): TabMeta {
-    const { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queuePause } = this
+    const { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queuePause, account } = this
+    const limitedUntil = this.env.limitedUntil(account)
     const queue = this.queue.map(({ queueId, text, from, images }) => ({ queueId, text, from, images: images?.length }))
-    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size }
+    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}) }
   }
 
   // Subscribes a connection to the transcript (loading a resumed session's history first, without a process).
@@ -283,6 +294,40 @@ export class Tab {
     await this.session?.query.interrupt().catch((error: unknown) => {
       throw new CoreError('sdk_error', messageOf(error))
     })
+  }
+
+  // The Claude account of the session (undefined = Claude Code's own login). The conversation stays: an idle process
+  // is closed now and the next message starts one with the new account on the same stored session (as /login in the
+  // terminal); a process at work is closed at the end of its turn. A queue held by the old account's usage limit goes
+  // on when the new account is free.
+  async setAccount(accountId: string | undefined): Promise<void> {
+    this.assertOpen()
+    if (accountId === this.account) return
+    this.account = accountId
+    if (this.queuePause?.reason === 'limit' && !this.env.limitedUntil(accountId)) this.resumeQueue('limit')
+    this.changed()
+    if (!this.session) return
+    if (this.busy) this.switchPending = true
+    else await this.releaseProcess()
+  }
+
+  // The account (for the workspace: limits and removed accounts).
+  get accountId(): string | undefined {
+    return this.account
+  }
+
+  // Ends the CLI process, keeping the tab and its transcript: dormant at once, the next message starts a new process
+  // on the same stored session.
+  private async releaseProcess(): Promise<void> {
+    this.switchPending = false
+    const session = this.session
+    if (!session) return
+    this.session = undefined
+    this.turnRunning = false
+    this.held.clear()
+    this.lifecycle = 'dormant'
+    this.changed()
+    await session.close(this.env.closeTimeoutMs)
   }
 
   // "Send now" on a message the CLI has not read yet: the CLI's own send-now (an interrupt request with send_now and
@@ -490,7 +535,8 @@ export class Tab {
       await this.refreshHistory()
       this.cwd = await this.env.prepareStart(this.cwd)
       this.assertOpen()
-      const session = new Session(this.env.sdk.query, this.sessionOptions(), {
+      const token = await this.env.accountToken(this.account)
+      const session = new Session(this.env.sdk.query, this.sessionOptions(token), {
         message: (message) => this.onMessage(message),
         handlerError: (error) => this.notice('warning', `Internal error while reading the session: ${messageOf(error)}`),
         processStarted: (pid, startedAt) => this.env.processStarted(pid, startedAt),
@@ -511,10 +557,12 @@ export class Tab {
     }
   }
 
-  private sessionOptions(): Options {
+  // token: the account's token (CLAUDE_CODE_OAUTH_TOKEN of the process); absent: Claude Code's own login.
+  private sessionOptions(token?: string): Options {
     return {
       ...BASE_OPTIONS,
       ...this.env.sdkOptions,
+      ...(token ? { env: { ...(this.env.sdkOptions.env ?? process.env), CLAUDE_CODE_OAUTH_TOKEN: token } } : {}),
       cwd: this.cwd,
       resume: this.sessionId,
       model: this.model,
@@ -591,7 +639,7 @@ export class Tab {
     } else if (message.type === 'conversation_reset') {
       this.resetConversation(message.new_conversation_id)
     } else if (message.type === 'rate_limit_event' && message.rate_limit_info.status === 'rejected' && message.rate_limit_info.resetsAt) {
-      this.env.rateLimited(message.rate_limit_info.resetsAt * 1000)
+      this.env.rateLimited(message.rate_limit_info.resetsAt * 1000, this.account)
     } else if (message.type === 'result') {
       this.endTurn()
     }
@@ -623,7 +671,9 @@ export class Tab {
     this.turnRunning = false
     this.env.turnFinished(this)
     this.env.notify(this, 'turnFinished')
-    this.dispatchNext()
+    // An account switch asked during the turn: the process goes first, the queue then starts a new one.
+    if (this.switchPending) void this.releaseProcess().then(() => this.dispatchNext())
+    else this.dispatchNext()
     this.changed()
     void this.followCliTitle()
   }

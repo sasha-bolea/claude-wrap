@@ -1,4 +1,4 @@
-import type { Home, Item, ProtocolError, Request, TabEvent, TabMeta, TabSnapshot, Welcome, WorkspaceEvent, WorkspaceSnapshot } from '@claude-wrap/protocol'
+import type { Account, Home, Item, ProtocolError, Request, TabEvent, TabMeta, TabSnapshot, Welcome, WorkspaceEvent, WorkspaceSnapshot } from '@claude-wrap/protocol'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'offline' | 'incompatible' | 'unauthorized'
 
@@ -15,6 +15,9 @@ export type StoreState = {
   // The backend's Home and its project folders (from the same snapshot).
   home?: Home
   projects?: string[]
+  // Claude accounts of the backend (no tokens) and the account of new sessions (undefined = Claude Code's own login).
+  accounts?: Account[]
+  defaultAccount?: string
   // Transcripts of the subscribed tabs, by tabId.
   transcripts: Record<string, TabView>
   // Bumped when a folder's notes change (by folder): a screen showing them reads them again.
@@ -40,7 +43,7 @@ export class Store {
   }
 
   applyWorkspaceReset(snapshot: WorkspaceSnapshot): void {
-    this.set({ ...this.state, tabs: snapshot.tabs, home: snapshot.home, projects: snapshot.projects })
+    this.set({ ...this.state, tabs: snapshot.tabs, home: snapshot.home, projects: snapshot.projects, accounts: snapshot.accounts, defaultAccount: snapshot.defaultAccount })
   }
 
   applyTabReset(tabId: string, snapshot: TabSnapshot): void {
@@ -63,6 +66,7 @@ export class Store {
       this.dropTab(ev.tabId)
     }
     if (ev.type === 'folders.updated') this.set({ ...this.state, home: ev.home, projects: ev.projects })
+    if (ev.type === 'accounts.updated') this.set({ ...this.state, accounts: ev.accounts, defaultAccount: ev.defaultAccount })
     if (ev.type === 'notes.changed') {
       const notesVersion = { ...this.state.notesVersion, [ev.cwd]: (this.state.notesVersion[ev.cwd] ?? 0) + 1 }
       this.set({ ...this.state, notesVersion })

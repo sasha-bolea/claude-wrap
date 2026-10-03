@@ -82,8 +82,15 @@ export const tabMetaSchema = z.object({
   queue: z.array(queuedMessageSchema),
   queuePause: queuePauseSchema.optional(),
   pendingRequests: z.number().int().nonnegative(),
-  error: z.string().optional()
+  error: z.string().optional(),
+  // The Claude account the session runs with (an accountId); undefined = Claude Code's own login of the backend.
+  account: z.string().optional(),
+  // That account reached its usage limit, until this time (ms).
+  limitedUntil: z.number().optional()
 })
+
+// A Claude account of the backend added with a token made by `claude setup-token` (the token never leaves core).
+export const accountSchema = z.object({ accountId: z.string(), name: z.string(), addedAt: z.number() })
 
 // Home of the backend: the folder sessions live under (remote server), or the folders added on this PC.
 export const homeSchema = z.discriminatedUnion('kind', [
@@ -102,7 +109,9 @@ export const workspaceEventSchema = z.discriminatedUnion('type', [
   // The home or the project folders changed (any client may have changed them).
   z.object({ type: z.literal('folders.updated'), home: homeSchema, projects: z.array(z.string()) }),
   // The notes of a folder changed: clients showing them read them again.
-  z.object({ type: z.literal('notes.changed'), cwd: z.string() })
+  z.object({ type: z.literal('notes.changed'), cwd: z.string() }),
+  // The accounts or the default one changed (defaultAccount undefined = Claude Code's own login).
+  z.object({ type: z.literal('accounts.updated'), accounts: z.array(accountSchema), defaultAccount: z.string().optional() })
 ])
 
 export const tabEventSchema = z.discriminatedUnion('type', [
@@ -115,7 +124,14 @@ export const tabEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('request.cancelled'), requestId: z.string() })
 ])
 
-export const workspaceSnapshotSchema = z.object({ kind: z.literal('workspace'), tabs: z.array(tabMetaSchema), home: homeSchema, projects: z.array(z.string()) })
+export const workspaceSnapshotSchema = z.object({
+  kind: z.literal('workspace'),
+  tabs: z.array(tabMetaSchema),
+  home: homeSchema,
+  projects: z.array(z.string()),
+  accounts: z.array(accountSchema),
+  defaultAccount: z.string().optional()
+})
 export const tabSnapshotSchema = z.object({ kind: z.literal('tab'), items: z.array(itemSchema), hasMore: z.boolean(), requests: z.array(requestSchema) })
 
 // ---- Stored sessions and folder trust ----
@@ -155,6 +171,7 @@ export type QueuePause = z.infer<typeof queuePauseSchema>
 export type Effort = z.infer<typeof effortSchema>
 export type Home = z.infer<typeof homeSchema>
 export type TabMeta = z.infer<typeof tabMetaSchema>
+export type Account = z.infer<typeof accountSchema>
 export type WorkspaceEvent = z.infer<typeof workspaceEventSchema>
 export type TabEvent = z.infer<typeof tabEventSchema>
 export type WorkspaceSnapshot = z.infer<typeof workspaceSnapshotSchema>

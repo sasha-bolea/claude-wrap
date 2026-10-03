@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Device } from '@claude-wrap/protocol'
 import { t } from '../i18n.ts'
 import { useAvailableUpdate } from '../appUpdate.ts'
+import { AccountsGroup } from './accounts.tsx'
 import { useTouch, type LaterKey, type Touch } from './context.tsx'
 import { Icon } from './icons.tsx'
 import { IconButton, Title } from './parts.tsx'
@@ -67,7 +68,7 @@ export function EnablePushSheet() {
   )
 }
 
-// Settings: the app (version, reload, theme), notifications, paired devices, the server, the pages to come, unpair.
+// Settings: the app (version, reload, theme), Claude accounts, notifications, paired devices, the server, the pages to come, unpair.
 export function SettingsScreen() {
   const { state, capabilities, back, go, openSheet } = useTouch()
   const welcome = state.welcome
@@ -81,6 +82,7 @@ export function SettingsScreen() {
       <div className="scroll">
         <div className="pad settings">
           <AppGroup />
+          <AccountsGroup />
           {capabilities.push && <NotificationsGroup />}
           <DevicesGroup />
           <div className="group">

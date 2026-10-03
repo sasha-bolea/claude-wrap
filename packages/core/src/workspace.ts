@@ -2,6 +2,7 @@ import { homedir } from 'node:os'
 import { basename, join, relative } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
 import { WORKSPACE_STREAM, tabStream, type Home } from '@claude-wrap/protocol'
+import { AccountStore } from './accounts.ts'
 import { ActivityFile } from './activity.ts'
 import type { CoreConfig, SdkApi } from './config.ts'
 import { CoreError } from './errors.ts'
@@ -27,6 +28,7 @@ export class Workspace {
   readonly sdk: SdkApi
   readonly prompts: PromptHistory
   readonly notes: NoteStore
+  readonly accounts: AccountStore
   readonly allowedRoots: 'any' | string[]
   // The app's trash (remote server); the desktop moves things to the system trash instead.
   readonly trash?: Trash
@@ -36,7 +38,8 @@ export class Workspace {
   private readonly env: TabEnvironment
   private readonly activity?: ActivityFile
   private readonly trashTimer?: NodeJS.Timeout
-  private limitTimer?: NodeJS.Timeout
+  // Usage limits per account ('' = Claude Code's own login): until when, and the timer that ends them.
+  private readonly limits = new Map<string, { until: number; timer: NodeJS.Timeout }>()
   private savedTabs = ''
 
   // config: core configuration; store: the loaded state (tabs come back dormant).
@@ -50,8 +53,18 @@ export class Workspace {
     this.notes = new NoteStore(config.stateDir && join(config.stateDir, 'notes.json'))
     this.stream = new Stream(
       WORKSPACE_STREAM,
-      () => ({ kind: 'workspace', tabs: [...this.tabs.values()].map((tab) => tab.meta()), home: this.home(), projects: this.projects() }),
+      () => ({
+        kind: 'workspace',
+        tabs: [...this.tabs.values()].map((tab) => tab.meta()),
+        home: this.home(),
+        projects: this.projects(),
+        accounts: this.accounts.list(),
+        defaultAccount: this.accounts.defaultAccount
+      }),
       config.ring ?? DEFAULT_RING
+    )
+    this.accounts = new AccountStore(config.stateDir && join(config.stateDir, 'accounts.json'), () =>
+      this.stream.emit({ type: 'accounts.updated', accounts: this.accounts.list(), defaultAccount: this.accounts.defaultAccount })
     )
     this.env = this.environment(config)
     // A tab where nothing was ever sent (no stored session, nothing queued) does not come back.
@@ -73,9 +86,8 @@ export class Workspace {
       void trash.expire()
       this.trashTimer = setInterval(() => void trash.expire(), DAY_MS).unref()
     }
-    // A usage limit still running from before the restart.
-    const limitedUntil = Math.max(0, ...store.data.tabs.flatMap((tab) => (tab.queuePause?.reason === 'limit' ? [tab.queuePause.until ?? 0] : [])))
-    if (limitedUntil) this.rateLimited(limitedUntil)
+    // Usage limits still running from before the restart (per account).
+    for (const tab of store.data.tabs) if (tab.queuePause?.reason === 'limit' && tab.queuePause.until) this.rateLimited(Math.max(tab.queuePause.until, this.limitedUntil(tab.account) ?? 0), tab.account)
   }
 
   // The Home of this backend: the root sessions live under (remote server) or the folders added on this PC.
@@ -109,7 +121,7 @@ export class Workspace {
   create(init: TabInit): string {
     const existing = this.tabs.get(init.tabId) ?? (init.resume ? this.tabOfSession(init.resume) : undefined)
     if (existing) return existing.tabId
-    const tab = new Tab(init, this.env)
+    const tab = new Tab({ ...init, account: init.account ?? this.accounts.defaultAccount }, this.env)
     this.add(tab)
     this.stream.emit({ type: 'tab.added', tab: tab.meta() })
     this.persist()
@@ -197,21 +209,41 @@ export class Workspace {
     return entry.path
   }
 
-  // A usage limit was hit: every tab's queue waits until `until` (ms), then goes on by itself.
-  rateLimited(until: number): void {
-    for (const tab of this.tabs.values()) tab.pauseQueue({ reason: 'limit', until })
-    clearTimeout(this.limitTimer)
-    this.limitTimer = setTimeout(() => {
-      for (const tab of this.tabs.values()) tab.resumeQueue('limit')
+  // A usage limit of an account (undefined = Claude Code's own login) was hit: the queues of its sessions wait until
+  // `until` (ms), then go on by themselves; its sessions show until when.
+  rateLimited(until: number, account: string | undefined): void {
+    const key = account ?? ''
+    clearTimeout(this.limits.get(key)?.timer)
+    const timer = setTimeout(() => {
+      this.limits.delete(key)
+      for (const tab of this.tabsOf(account)) (tab.resumeQueue('limit'), this.env.changed(tab))
     }, Math.max(0, until - Date.now()))
-    this.limitTimer.unref()
+    timer.unref()
+    this.limits.set(key, { until, timer })
+    for (const tab of this.tabsOf(account)) (tab.pauseQueue({ reason: 'limit', until }), this.env.changed(tab))
+  }
+
+  // When the usage limit of an account ends, while it lasts.
+  limitedUntil(account: string | undefined): number | undefined {
+    const limit = this.limits.get(account ?? '')
+    return limit && limit.until > Date.now() ? limit.until : undefined
+  }
+
+  // Removes an account: its sessions go back to Claude Code's own login.
+  async removeAccount(accountId: string): Promise<void> {
+    await this.accounts.remove(accountId)
+    for (const tab of this.tabsOf(accountId)) await tab.setAccount(undefined)
+  }
+
+  private tabsOf(account: string | undefined): Tab[] {
+    return [...this.tabs.values()].filter((tab) => tab.accountId === account)
   }
 
   // Closes every tab (quit), keeping their queues. Resolves when processes and orphan cleanups are done, at most
   // after QUIT_CAP_MS.
   async closeAll(): Promise<void> {
     clearInterval(this.trashTimer)
-    clearTimeout(this.limitTimer)
+    for (const { timer } of this.limits.values()) clearTimeout(timer)
     const closing = Promise.all([...this.tabs.values()].map((tab) => tab.close(true))).then(waitForCleanups)
     await Promise.race([closing, new Promise((resolve) => setTimeout(resolve, QUIT_CAP_MS).unref())])
     await this.store.flush()
@@ -278,7 +310,9 @@ export class Workspace {
       },
       promptSent: (tab, text) => this.prompts.add(text, tab.cwd, tab.sessionId),
       notify: (tab, kind, detail) => config.notifier?.({ kind, tabId: tab.tabId, title: tab.title, detail }),
-      rateLimited: (until) => this.rateLimited(until),
+      rateLimited: (until, account) => this.rateLimited(until, account),
+      limitedUntil: (account) => this.limitedUntil(account),
+      accountToken: (account) => this.accounts.token(account),
       processStarted: (pid, startedAt) => this.trackProcess(pid, startedAt),
       processExited: (pid) => this.trackProcess(pid)
     }

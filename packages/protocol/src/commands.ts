@@ -104,6 +104,9 @@ export const COMMANDS = {
   // "Send now" on a message sent while Claude works and not read yet (its user item is pending): the CLI's own
   // send-now, so that Claude reads it now instead of at its next step. Not a Stop: the queue is not paused.
   'tab.sendPendingNow': { args: z.object({ tabId, itemId: z.string().min(1) }), result: empty },
+  // The Claude account of a session (undefined = Claude Code's own login). The conversation stays: a live idle
+  // process restarts at the next message on the same stored session; one at work switches at the end of its turn.
+  'tab.setAccount': { args: z.object({ tabId, accountId: z.string().optional() }), result: empty },
   // model undefined = the default model. An effort level the new model does not offer moves to its highest one below.
   'tab.setModel': { args: z.object({ tabId, model: z.string().optional() }), result: empty },
   // Reasoning effort (as /effort); undefined = the model's default.
@@ -164,6 +167,12 @@ export const COMMANDS = {
   // noteId absent: a new note.
   'notes.save': { args: z.object({ cwd: z.string().min(1), noteId: z.string().optional(), text: z.string().trim().min(1) }), result: z.object({ note: noteSchema }) },
   'notes.delete': { args: z.object({ cwd: z.string().min(1), noteId: z.string() }), result: empty },
+  // Claude accounts of the backend besides Claude Code's own login: a name and a token made with
+  // `claude setup-token` (sk-ant-oat…), kept owner-only in core and never sent back. Removing one sends its sessions
+  // back to the login. setDefault: the account of new sessions (undefined = the login).
+  'accounts.add': { args: z.object({ name: z.string().trim().min(1).max(40), token: z.string().trim().min(1) }), result: z.object({ accountId: z.string() }) },
+  'accounts.remove': { args: z.object({ accountId: z.string() }), result: empty },
+  'accounts.setDefault': { args: z.object({ accountId: z.string().optional() }), result: empty },
   // Paired devices (remote server only; other backends answer not_found). pairStart returns a one-time code
   // for a new device; revoke also removes the devices and codes the revoked one created.
   'devices.list': { args: empty, result: z.object({ devices: z.array(deviceSchema) }) },

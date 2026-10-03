@@ -93,6 +93,11 @@ async function respond(turn: Turn, text: string, images: number): Promise<void> 
   if (keyword === 'plan') return stream(turn, `Plan: ${await ask(turn, 'ExitPlanMode', { plan: '1. Do the thing\n2. Check it' })}`)
   if (keyword === 'slow') return stream(turn, SLOW_TEXT)
   if (keyword === 'markdown') return stream(turn, 'Image: ![tracker](https://example.com/pixel.png) and a [link](https://example.com).')
+  if (keyword === 'limit') {
+    // The account's usage limit, for an hour (as the CLI reports it before refusing).
+    session.emit(sdk.rateLimit('rejected', Math.ceil(Date.now() / 1000) + 3600))
+    return stream(turn, "You've hit your session limit")
+  }
   return stream(turn, `Echo: ${text}${images ? ` [${images} images]` : ''}`)
 }
 

@@ -17,7 +17,8 @@
     "chat": "node packages/core/scripts/chat.ts",
     "smoke:composer": "node packages/core/scripts/smoke-composer.ts",
     "e2e": "npm run build -w @claude-wrap/desktop && vitest run --config apps/desktop/vitest.e2e.config.ts",
-    "e2e:mobile": "npm run build -w @claude-wrap/mobile && vitest run --config apps/mobile/vitest.e2e.config.ts"
+    "e2e:mobile": "npm run build -w @claude-wrap/mobile && vitest run --config apps/mobile/vitest.e2e.config.ts",
+    "smoke:accounts": "node packages/core/scripts/smoke-accounts.ts"
   },
   "devDependencies": {
     "@types/node": "^24.19.1",

@@ -252,6 +252,30 @@ describe('PWA (fake SDK)', () => {
     expect(await page.getByRole('button', { name: 'Mention in chat' }).count()).toBe(0)
   })
 
+  it('accounts: added with a token in Settings, picked for a session, and offered when the account hits its usage limit', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await button(page, 'Settings').click()
+    await button(page, 'Add account').click()
+    await page.getByRole('textbox', { name: 'Name' }).fill('Second')
+    await page.locator('#account-token').fill('not a token')
+    await page.getByRole('dialog').getByRole('button', { name: 'Add account' }).click()
+    await page.getByRole('status').filter({ hasText: 'setup-token' }).waitFor()
+    await page.locator('#account-token').fill(`sk-ant-oat01-${'x'.repeat(40)}`)
+    await page.getByRole('dialog').getByRole('button', { name: 'Add account' }).click()
+    await page.getByRole('button', { name: 'Use Second for new sessions' }).waitFor()
+    // The token is never sent back to the app.
+    expect(await page.content()).not.toContain('x'.repeat(40))
+    await button(page, 'Back').click()
+    await openProject(page)
+    await send(page, 'limit')
+    const card = page.getByRole('status').filter({ hasText: 'Usage limit of Claude Code login reached until' })
+    await card.waitFor()
+    await card.getByRole('button', { name: 'Switch to Second' }).click()
+    await card.waitFor({ state: 'detached' })
+    await button(page, 'More actions').click()
+    await page.getByRole('button', { name: /^Account Second/ }).waitFor()
+  })
+
   it('the theme chosen in Settings applies and stays after a reload', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await button(page, 'Settings').click()

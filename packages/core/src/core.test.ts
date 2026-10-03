@@ -6,7 +6,7 @@
 // 5. I reopen a past session and read it without starting anything;
 // 6. reloads, dropped connections and retries never lose or duplicate anything.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { PermissionUpdate } from '@anthropic-ai/claude-agent-sdk'
@@ -1091,6 +1091,103 @@ describe('notes', () => {
     expect((await client.ok('notes.list', { cwd: CWD })).notes).toMatchObject([{ noteId: first.noteId, text: 'first, edited' }])
     expect(await client.fails('notes.delete', { cwd: CWD, noteId: 'missing' })).toMatchObject({ code: 'not_found' })
     expect(await client.fails('notes.list', { cwd: join(CWD, 'missing') })).toMatchObject({ code: 'not_found' })
+  })
+})
+
+// The Claude accounts of the backend (last accounts.updated seen by a client, or the snapshot's).
+function accounts(of: RawClient): { accounts?: { accountId: string; name: string; addedAt: number }[]; defaultAccount?: string } {
+  const event = of.events(WORKSPACE_STREAM).filter((ev) => ev.type === 'accounts.updated').at(-1)
+  if (event?.type === 'accounts.updated') return { accounts: event.accounts, defaultAccount: event.defaultAccount }
+  const snapshot = of.lastReset(WORKSPACE_STREAM)?.snapshot as WorkspaceSnapshot | undefined
+  return { accounts: snapshot?.accounts, defaultAccount: snapshot?.defaultAccount }
+}
+
+const TOKEN_B = 'sk-ant-oat01-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+
+// Accounts: Claude Code's own login of the backend, plus tokens made with `claude setup-token`; a session runs with
+// its account, can switch keeping the conversation (as /login in the terminal), and a usage limit holds only the
+// sessions of that account.
+describe('accounts', () => {
+  it('a token account is kept by the backend, listed by name only, saved owner-only and back after a restart', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'cw-accounts-'))
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    expect(accounts(client).accounts).toEqual([])
+    const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
+    await client.waitFor(() => accounts(client).accounts?.length === 1)
+    expect(accounts(client).accounts).toEqual([{ accountId, name: 'Second', addedAt: expect.any(Number) }])
+    expect(JSON.stringify(client.frames)).not.toContain(TOKEN_B)
+    if (process.platform !== 'win32') expect(statSync(join(stateDir, 'accounts.json')).mode & 0o777).toBe(0o600)
+    expect(await client.fails('accounts.add', { name: 'Bad', token: 'my password' })).toMatchObject({ code: 'invalid_args' })
+    await core.closeAll()
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    await client.waitFor(() => accounts(client).accounts?.length === 1)
+    await client.ok('accounts.remove', { accountId })
+    await client.waitFor(() => accounts(client).accounts?.length === 0)
+  })
+
+  it("a session runs with its account's token, and with Claude Code's own login without one", async () => {
+    const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD })
+    await client.ok('tab.setAccount', { tabId: 't1', accountId })
+    await client.ok('tab.send', { tabId: 't1', text: 'hello' }, cmd(1))
+    await fake.last().waitForInput(1)
+    expect(fake.last().options.env?.CLAUDE_CODE_OAUTH_TOKEN).toBe(TOKEN_B)
+    await client.ok('tab.create', { tabId: 't2', cwd: CWD })
+    await client.ok('tab.send', { tabId: 't2', text: 'hello' }, cmd(2))
+    await client.waitFor(() => fake.sessions.length === 2)
+    expect(fake.last().options.env).toBeUndefined()
+  })
+
+  it('switching the account keeps the conversation: the session restarts on the same stored session at the next message', async () => {
+    const session = await startedTab()
+    session.emit(sdk.init('s-acc'), sdk.success())
+    await tick()
+    const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
+    await client.ok('tab.setAccount', { tabId: 't1', accountId })
+    await client.waitFor(() => session.closed)
+    await client.waitFor(() => meta(client)?.status === 'dormant')
+    expect(meta(client)).toMatchObject({ account: accountId, sessionId: 's-acc' })
+    await client.ok('tab.send', { tabId: 't1', text: 'again' }, cmd(2))
+    await client.waitFor(() => fake.sessions.length === 2)
+    expect(fake.last().options).toMatchObject({ resume: 's-acc', env: expect.objectContaining({ CLAUDE_CODE_OAUTH_TOKEN: TOKEN_B }) })
+    expect(items(client).filter((item) => item.kind === 'user').map((item) => item.itemId)).toEqual([cmd(1), cmd(2)])
+  })
+
+  it('a switch while Claude works happens at the end of the turn', async () => {
+    const session = await startedTab()
+    const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
+    await client.ok('tab.setAccount', { tabId: 't1', accountId })
+    await tick()
+    expect(session.closed).toBe(false)
+    session.emit(sdk.success())
+    await client.waitFor(() => session.closed)
+  })
+
+  it('new sessions take the default account; a removed account sends its sessions back to the login', async () => {
+    const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
+    await client.ok('accounts.setDefault', { accountId })
+    await client.waitFor(() => accounts(client).defaultAccount === accountId)
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD })
+    expect(meta(client)?.account).toBe(accountId)
+    expect(await client.fails('tab.setAccount', { tabId: 't1', accountId: 'nobody' })).toMatchObject({ code: 'not_found' })
+    await client.ok('accounts.remove', { accountId })
+    await client.waitFor(() => meta(client)?.account === undefined)
+    expect(accounts(client).defaultAccount).toBeUndefined()
+  })
+
+  it('a usage limit holds only the sessions of that account; switching to another frees the session', async () => {
+    const session = await startedTab()
+    const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
+    await client.ok('tab.create', { tabId: 't2', cwd: CWD })
+    await client.ok('tab.setAccount', { tabId: 't2', accountId })
+    const resetsAt = Math.ceil(Date.now() / 1000) + 3600
+    session.emit(sdk.rateLimit('rejected', resetsAt), sdk.success())
+    await client.waitFor(() => meta(client)?.limitedUntil === resetsAt * 1000)
+    expect(meta(client, 't2')?.limitedUntil).toBeUndefined()
+    await client.ok('tab.setAccount', { tabId: 't1', accountId })
+    await client.waitFor(() => meta(client)?.limitedUntil === undefined)
   })
 })
 

@@ -19,6 +19,8 @@ export type PersistedTab = {
   queuePause?: QueuePause
   // The title follows the CLI's own title of the session (absent in older states: true while it is the folder's name).
   autoTitle?: boolean
+  // The Claude account (absent: Claude Code's own login).
+  account?: string
 }
 
 // A claude process started by this core, recorded to kill it if the core dies without closing it.

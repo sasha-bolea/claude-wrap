@@ -45,7 +45,7 @@ async function connected() {
   connection.start()
   await tick()
   core.last().core.send(WELCOME)
-  core.last().core.send({ t: 'reset', stream: 'workspace', epoch: 'e1', seq: 0, snapshot: { kind: 'workspace', tabs: [TAB], home: { kind: 'added', folders: [] }, projects: [] } })
+  core.last().core.send({ t: 'reset', stream: 'workspace', epoch: 'e1', seq: 0, snapshot: { kind: 'workspace', tabs: [TAB], home: { kind: 'added', folders: [] }, projects: [], accounts: [] } })
   await tick()
   return { core, connection }
 }

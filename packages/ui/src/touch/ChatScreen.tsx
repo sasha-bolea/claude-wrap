@@ -5,6 +5,7 @@ import { t } from '../i18n.ts'
 import { modeLabel } from '../modes.ts'
 import type { Answer } from '../RequestPanel.tsx'
 import { useScreen, useTouch, type LaterKey } from './context.tsx'
+import { AccountPickSheet, accountName } from './accounts.tsx'
 import { Conversation } from './Conversation.tsx'
 import { Icon } from './icons.tsx'
 import { baseName, sessionState } from './model.ts'
@@ -202,7 +203,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
 }
 
 // The session menu (⋯ and the title): where it runs and with what; File, Note, Torna indietro, model and effort,
-// rename, fork, restart, the panels to come, close.
+// account, rename, fork, restart, the panels to come, close.
 function SessionMenu({ tabId }: { tabId: string }) {
   const { state, connection, go, openSheet, closeSheets, toast, fail } = useTouch()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
@@ -250,6 +251,12 @@ function SessionMenu({ tabId }: { tabId: string }) {
           <button onClick={() => openSheet({ title: modelTitle, body: <ModelSheet tabId={tabId} /> })}>
             {modelTitle}
             <span className="right">{modelLabel(meta, models)} ›</span>
+          </button>
+        </li>
+        <li>
+          <button onClick={() => openSheet({ title: t('account'), body: <AccountPickSheet tabId={tabId} /> })}>
+            {t('account')}
+            <span className="right">{accountName(state, meta.account)} ›</span>
           </button>
         </li>
         <li>

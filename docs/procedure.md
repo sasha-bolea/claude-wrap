@@ -73,6 +73,12 @@ title can contain "fork"); hidden screens of the stack are in the DOM: scope loc
   stored session reopened in a fresh core (the mid-turn message exactly once). Prints `OK: …` or the problems, deletes
   its sessions.
 
+## Real-CLI accounts smoke (`npm run smoke:accounts`)
+**When:** after changes to accounts or session spawning, or an SDK bump.
+- A tab with an account whose token is well-formed but invalid must fail with "401 OAuth access token is invalid"
+  (proof the token reaches the CLI, zero tokens spent); switched back to Claude Code's own login, the next message
+  in the same conversation gets an answer (or the login's usage limit, shown as the session's `limitedUntil`).
+
 ## Splash screens and icons of the PWA
 **When:** the accent or background token changes, or a new iPhone size appears.
 1. `node apps/mobile/scripts/icons.ts` — writes `apps/mobile/public/icon-*.png`, the 24 splash PNGs in
