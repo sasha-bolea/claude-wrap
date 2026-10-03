@@ -206,11 +206,11 @@ Examples: [TouchApp.tsx:224](../packages/ui/src/touch/TouchApp.tsx#L224), [Touch
 chat the title is a `.title-btn` (badge + title + folder) that opens the session menu.
 Examples: [FilesScreen.tsx:211](../packages/ui/src/touch/FilesScreen.tsx#L211), [ChatScreen.tsx:261](../packages/ui/src/touch/ChatScreen.tsx#L261), [parts.tsx:46](../packages/ui/src/touch/parts.tsx#L46).
 
-### Icon button — `.icon-btn` (`.dot`, `.count`, `.on`, `.dim`)
+### Icon button — `.icon-btn` (`.dot`, `.count`, `.on`, `.dim`, `.accent`)
 44×44 line icon ([icons.tsx](../packages/ui/src/touch/icons.tsx), class `.i`, the prototype's set) with `aria-label`.
 `.dot`: something waits elsewhere; `.count`: a small number (queue, trash) or a small icon of the set (`countIcon`:
 the queue's pause — never an emoji); `.on`: a mode is active (queue); `.dim`: not available now (Torna indietro while
-Claude works).
+Claude works); `.accent`: the screen's main action as an icon (Note: use in the message).
 Examples: [parts.tsx:31](../packages/ui/src/touch/parts.tsx#L31), [ChatScreen.tsx:268](../packages/ui/src/touch/ChatScreen.tsx#L268).
 
 ### Row list — `.list`, `.row` (`.end-pad`, `.stacked`, `.uploading`), `.row-main`, `.row-title` (`.plain`), `.row-sub`, `.ficon` (`.dir`), `.chevron`
@@ -298,8 +298,9 @@ Examples: [FilesScreen.tsx:221](../packages/ui/src/touch/FilesScreen.tsx#L221), 
 
 ### Notes — `.note-list`, `.note-card` (`.note-open`, `.note-preview`, `.note-date`, `.note-actions`), `.note-editor`
 Cards with the first line as title, two lines of preview, the date and "Usa nel messaggio"; the editor is a
-full-height textarea saved as you type.
-Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [NotesScreen.tsx:151](../packages/ui/src/touch/NotesScreen.tsx#L151).
+full-height textarea saved as you type (down to the bottom safe area); in its top bar "Usa nel messaggio" is the
+accent `to-chat` icon (a bubble with an arrow in, dimmed while the note is empty) beside the trash.
+Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [NotesScreen.tsx:152](../packages/ui/src/touch/NotesScreen.tsx#L152).
 
 ### Bars and notices — `.update-bar`, `.banner`, `.toast`, `.snack`, `.viewer`, `.empty-line`
 `.update-bar`: "New version available · Update · ×" under the top bar of Home and chat. `.banner`: the server cannot

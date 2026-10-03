@@ -49,6 +49,7 @@ const SHAPES = {
   download: <path d="M12 4v11M7 10l5 5 5-5M5 19h14" />,
   upload: <path d="M12 15V4M7 9l5-5 5 5M5 19h14" />,
   'folder-plus': <path d="M3 6h6l2 2h10v11H3zM12 11v5M9.5 13.5h5" />,
+  'to-chat': <path d="M4 5h16v11H9l-5 4zM12 7.5v5M9.5 10l2.5 2.5 2.5-2.5" />,
   chats: <path d="M4 5h12v9H9l-4 3v-3H4zM16 9h4v8h-1v3l-3-3h-5v-3" />,
   queue: <path d="M4 6h11M4 11h11M4 16h7M18 12v8M15 17l3 3 3-3" />,
   rewind: <path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H10" />,

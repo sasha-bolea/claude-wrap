@@ -146,14 +146,10 @@ export function NoteScreen({ tabId, noteId: opened }: { tabId: string; noteId?: 
       <header className="topbar">
         <IconButton icon="back" label={t('notes')} onClick={back} />
         <Title text={t('note')} sub={status} />
+        <IconButton icon="to-chat" className="accent" label={t('useInMessage')} disabled={!text?.trim()} onClick={use} />
         <IconButton icon="trash" label={t('deleteNote')} onClick={remove} />
       </header>
       <textarea className="note-editor" aria-label={t('noteText')} placeholder={t('writeNote')} value={text ?? ''} disabled={text === undefined} onChange={(event) => change(event.target.value)} />
-      <div className="sticky-actions">
-        <button className="button primary block" disabled={!text?.trim()} onClick={use}>
-          {t('useInMessage')}
-        </button>
-      </div>
     </section>
   )
 }
