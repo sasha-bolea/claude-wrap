@@ -460,6 +460,7 @@ export const it: Record<MessageKey, string> = {
   gaugeLabel: 'Contesto e limiti: al massimo {share}%',
   gaugeTitle: 'Contesto e limiti',
   resetUnknown: 'ora di ripristino sconosciuta',
+  resetDone: 'azzerata: si rilegge al prossimo messaggio',
   planSharesOnly: 'Il piano dice quanto di ogni finestra è usato, non i token.',
   compactStarted: 'Compatto la conversazione',
   compactAfterTurn: 'Compatta quando Claude ha finito',

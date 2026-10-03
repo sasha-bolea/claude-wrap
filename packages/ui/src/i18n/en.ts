@@ -458,6 +458,7 @@ export const en = {
   gaugeLabel: 'Context and limits: {share}% at most',
   gaugeTitle: 'Context and limits',
   resetUnknown: 'reset time unknown',
+  resetDone: 'reset: read again at the next message',
   planSharesOnly: 'The plan reports how much of each window is used, not the tokens.',
   compactStarted: 'Compacting the conversation',
   compactAfterTurn: 'Compact when Claude has finished',

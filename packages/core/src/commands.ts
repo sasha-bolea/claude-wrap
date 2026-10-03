@@ -143,7 +143,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'tab.context': ({ tabId }) => tabOf(tabId).contextUsage(),
     'tab.usage': ({ tabId }) => tabOf(tabId).usage(),
     'settings.setAutoCompactWindow': async ({ tokens }) => (await workspace.setAutoCompactWindow(tokens), {}),
-    'tab.refreshGauges': async ({ tabId }) => (await tabOf(tabId).refreshGauges(true), {}),
+    'tab.refreshGauges': async ({ tabId }) => (await workspace.refreshGauges(tabId), {}),
     'sessions.list': ({ cwd }) => listSessions(workspace, cwd),
     'sessions.rename': async ({ cwd, sessionId, title }) => {
       if (workspace.tabOfSession(sessionId)) throw new CoreError('session_busy', 'rename it from its tab')

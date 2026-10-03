@@ -10,9 +10,12 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 // From this share on, the gauge and its bars turn to --danger.
 const HIGH = 90
 
+// A plan window whose reset time has passed: its last share no longer holds (it starts again from 0).
+const isReset = (window: LimitWindow | undefined) => Boolean(window?.resetsAt && Date.parse(window.resetsAt) <= Date.now())
+
 // The three shares the gauge watches (0-100, absent when unknown): context window, 5-hour and weekly plan windows.
 function shares(meta: TabMeta): { context?: number; fiveHour?: number; week?: number } {
-  const plan = (window: LimitWindow | undefined) => (window?.utilization === null || window?.utilization === undefined ? undefined : window.utilization)
+  const plan = (window: LimitWindow | undefined) => (isReset(window) ? 0 : window?.utilization === null || window?.utilization === undefined ? undefined : window.utilization)
   return { context: meta.context?.percentage, fiveHour: plan(meta.planLimits?.fiveHour), week: plan(meta.planLimits?.sevenDay) }
 }
 
@@ -61,7 +64,7 @@ function GaugeSheet({ tabId }: { tabId: string }) {
     closeSheet()
     connection.request('tab.send', { tabId, text: '/compact' }).then(() => toast(t('compactStarted')), fail)
   }
-  const reset = (window: LimitWindow | undefined) => (window?.resetsAt ? t('resetsAt', { when: resetLabel(window.resetsAt) }) : t('resetUnknown'))
+  const reset = (window: LimitWindow | undefined) => (isReset(window) ? t('resetDone') : window?.resetsAt ? t('resetsAt', { when: resetLabel(window.resetsAt) }) : t('resetUnknown'))
   return (
     <>
       {context !== undefined && meta.context && <GaugeBar name={t('later_context')} share={context} detail={`${tokenLabel(meta.context.totalTokens)} / ${tokenLabel(meta.context.maxTokens)} ${t('tokens')}`} />}

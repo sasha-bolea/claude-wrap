@@ -49,6 +49,7 @@ export class Workspace {
   // config: core configuration; store: the loaded state (tabs come back dormant).
   constructor(config: CoreConfig, store: StateStore) {
     this.store = store
+    for (const [account, plan] of Object.entries(store.data.planLimits ?? {})) this.plans.set(account, plan)
     this.sdk = { ...claudeSdk, ...config.sdk }
     this.trust = new TrustGate(store)
     this.allowedRoots = config.allowedRoots ?? 'any'
@@ -262,7 +263,16 @@ export class Workspace {
   // Stores an account's plan windows: every session of that account shows them.
   setPlanLimits(account: string | undefined, limits: PlanLimits | undefined): void {
     this.plans.set(account ?? '', { limits, readAt: Date.now() })
+    void this.store.update((data) => (data.planLimits = Object.fromEntries(this.plans))).catch(() => undefined)
     for (const tab of this.tabsOf(account)) this.env.changed(tab)
+  }
+
+  // The gauge sheet of a tab opened: its gauges are read again from its live process, or (dormant) the plan windows
+  // through a live session of the same account. No process is started.
+  async refreshGauges(tabId: string): Promise<void> {
+    const tab = this.tabOf(tabId)
+    if (tab.live) return tab.refreshGauges(true)
+    await this.tabsOf(tab.accountId).find((other) => other.live)?.refreshGauges(true)
   }
 
   // The Claude account of every session and of the new ones (undefined = Claude Code's own login).

@@ -320,8 +320,9 @@ tabular); accent, `--danger` from 90%; absent until core has read one. A tap ope
 one `.gauge-bar` each (name, `.usage-meter`, then the share in bold · tokens used / window for the context, "Si azzera
 …" for the plan windows, which report shares only) and "Compatta ora" (sends `/compact` at once; disabled as
 "Compatta quando Claude ha finito" while it works). Core keeps the values (`TabMeta.context`, `planLimits`), read from
-the live process at each turn end (plan at most once a minute per account) and when the sheet opens.
-Examples: [gauge.tsx:21](../packages/ui/src/touch/gauge.tsx#L21), [gauge.tsx:53](../packages/ui/src/touch/gauge.tsx#L53).
+the live process at each turn end (plan at most once a minute per account, saved across restarts) and when the sheet
+opens (a dormant session reads the plan through a live one of its account); a window past its reset shows 0% "azzerata".
+Examples: [gauge.tsx:24](../packages/ui/src/touch/gauge.tsx#L24), [gauge.tsx:56](../packages/ui/src/touch/gauge.tsx#L56).
 
 ### Context and usage panels — `.ctx-total` (`.ctx-percent`), `.ctx-bar` (`.shade0`–`.shade4`, `.reserve`), `.ctx-swatch` (`.free`, `.buffer`, `.deferred`), `.ctx-row`, `.ctx-num`, `.usage-row`, `.usage-head`, `.usage-meter` (`.high`)
 Two screens from the session menu (rows without 🔜, above the panels to come). **Context**: a card with "48,5k / 200k

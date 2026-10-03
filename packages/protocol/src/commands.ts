@@ -119,7 +119,8 @@ export const COMMANDS = {
   // tab starts its process to answer (no message is sent).
   'tab.context': { args: z.object({ tabId }), result: contextUsageSchema },
   'tab.usage': { args: z.object({ tabId }), result: usageSchema },
-  // Reads the composer's gauges again (TabMeta.context, planLimits) if the session's process is live; starts none.
+  // Reads the composer's gauges again (TabMeta.context, planLimits) from the session's live process, or (dormant) the
+  // plan windows through a live session of the same account; starts none.
   // Claude Code's auto-compact window for every session (as /autocompact; tokens, clamped by the CLI to the model's
   // window): passed at spawn and applied to live sessions. undefined = Claude Code's own setting applies.
   'settings.setAutoCompactWindow': { args: z.object({ tokens: z.number().int().min(AUTO_COMPACT_WINDOW.min).max(AUTO_COMPACT_WINDOW.max).optional() }), result: empty },

@@ -342,6 +342,11 @@ export class Tab {
     await this.interrupt()
   }
 
+  // A CLI process is running for the tab (gauges are read only from one).
+  get live(): boolean {
+    return Boolean(this.session)
+  }
+
   // Why Claude was stopped mid-work, if it was (for the workspace: "Continua" and the limit's end).
   get interruptedBy(): 'limit' | 'switch' | undefined {
     return this.interrupted

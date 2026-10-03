@@ -572,20 +572,31 @@ describe('controls', () => {
     expect(session.calls.filter((call) => call.method === 'usage')).toHaveLength(2)
   })
 
-  it('refreshing the gauges of a dormant tab starts no process; its last context share comes back after a restart', async () => {
+  it('refreshing the gauges of a dormant tab starts no process; its last context share and the plan windows come back after a restart', async () => {
     const stateDir = mkdtempSync(join(tmpdir(), 'cw-gauges-'))
     core = makeCore({ stateDir })
     client = await connect(core)
     const session = await startedTab()
     session.emit(sdk.init('s-gauge'), sdk.success())
-    await client.waitFor(() => meta(client)?.context !== undefined)
+    await client.waitFor(() => meta(client)?.context !== undefined && meta(client)?.planLimits !== undefined)
+    await tick(50)
     await core.closeAll()
     core = makeCore({ stateDir })
     client = await connect(core)
     const sessions = fake.sessions.length
     await client.ok('tab.refreshGauges', { tabId: 't1' })
     expect(fake.sessions).toHaveLength(sessions)
-    expect(meta(client)?.context?.percentage).toBe(24)
+    expect(meta(client)).toMatchObject({ context: { percentage: 24 }, planLimits: { fiveHour: { utilization: 37 }, sevenDay: { utilization: 12 } } })
+  })
+
+  it("a dormant tab's gauge sheet reads the plan windows through a live session of the same account", async () => {
+    const session = await startedTab()
+    await client.ok('tab.create', { tabId: 't2', cwd: CWD })
+    session.emit(sdk.success())
+    await client.waitFor(() => session.calls.some((call) => call.method === 'usage'))
+    await client.ok('tab.refreshGauges', { tabId: 't2' })
+    expect(session.calls.filter((call) => call.method === 'usage')).toHaveLength(2)
+    expect(fake.sessions).toHaveLength(1)
   })
 
   it("the auto-compact window set in the app reaches every process at spawn: a live one restarts at the end of its turn; unset, Claude Code's own applies", async () => {
