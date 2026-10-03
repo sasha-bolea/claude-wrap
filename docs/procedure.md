@@ -83,7 +83,8 @@ title can contain "fork"); hidden screens of the stack are in the DOM: scope loc
 **When:** after changes to `packages/core/src/usage.ts`, and at every SDK bump (the usage call is
 `usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET`: its name will change).
 - No message is sent (zero tokens): a fresh tab starts its process; `tab.context` must give a window, tokens and
-  categories, `tab.usage` the session cost and the plan limits (or null for an API key). It prints both: compare with
+  categories, `tab.usage` the session cost and the plan limits (or null for an API key), `tab.refreshGauges` the
+  composer's gauges. It prints them: compare with
   `/context` and `/usage` in the terminal when in doubt.
 - If the SDK renamed the usage call: update `readUsage` in `usage.ts` (and the fake in `testing/fakeQuery.ts`).
 

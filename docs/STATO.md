@@ -24,6 +24,8 @@ updates itself from `main`. Details per session: [storico-sessioni.md](storico-s
 - **Context and usage panels** (Sasha's request, ahead of Phase 4): session menu → Contesto (window bar, categories,
   memory files, MCP servers, "Compatta ora") and Consumo e limiti (5-hour and weekly windows with reset times, session
   cost, tokens per model), through `tab.context` / `tab.usage`. Real-CLI check `smoke:usage` (zero tokens) green.
+  A gauge right of the model in the composer shows the highest of context / 5-hour / weekly use; its sheet has the
+  three bars and "Compatta ora" (values kept by core in `TabMeta.context` / `planLimits`, read at each turn end).
 - **Desktop:** still the Phase 1–3 UI (tab bar, start screen, old chat and composer) on the new core; it moves to the
   touch elements in **C2**.
 - **Next:** C2 (desktop with the same elements, widths 300/380/~780 px), then D (native rewind, cleanup, prototype

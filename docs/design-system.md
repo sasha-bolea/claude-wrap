@@ -305,6 +305,16 @@ Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [N
 be reached. `.toast` / `.snack`: rule 7. `.viewer`: a photo full screen.
 Examples: [parts.tsx:88](../packages/ui/src/touch/parts.tsx#L88), [parts.tsx:103](../packages/ui/src/touch/parts.tsx#L103), [TouchApp.tsx:238](../packages/ui/src/touch/TouchApp.tsx#L238), [TouchApp.tsx:253](../packages/ui/src/touch/TouchApp.tsx#L253).
 
+### Composer gauge — `.gauge-btn` (`.high`), `.gauge-ring` (`.gauge-track`, `.gauge-fill`), `.gauge-bar`
+Right of the model in the composer: a 20 px ring filled to the **highest** of three shares — context window (after the
+last turn), the 5-hour and the weekly plan windows of the session's account — with that share beside it (12 px,
+tabular); accent, `--danger` from 90%; absent until core has read one. A tap opens a sheet "Contesto e limiti" with
+one `.gauge-bar` each (name, `.usage-meter`, then the share in bold · tokens used / window for the context, "Si azzera
+…" for the plan windows, which report shares only) and "Compatta ora" (sends `/compact` at once; disabled as
+"Compatta quando Claude ha finito" while it works). Core keeps the values (`TabMeta.context`, `planLimits`), read from
+the live process at each turn end (plan at most once a minute per account) and when the sheet opens.
+Examples: [gauge.tsx:21](../packages/ui/src/touch/gauge.tsx#L21), [gauge.tsx:53](../packages/ui/src/touch/gauge.tsx#L53).
+
 ### Context and usage panels — `.ctx-total` (`.ctx-percent`), `.ctx-bar` (`.shade0`–`.shade4`, `.reserve`), `.ctx-swatch` (`.free`, `.buffer`, `.deferred`), `.ctx-row`, `.ctx-num`, `.usage-row`, `.usage-head`, `.usage-meter` (`.high`)
 Two screens from the session menu (rows without 🔜, above the panels to come). **Context**: a card with "48,5k / 200k
 token" and the share in accent, the window as a bar (accent shades per category that fills it, the compaction reserve
