@@ -62,10 +62,27 @@ describe('PWA (fake SDK)', () => {
     expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe('BUTTON')
     await request.getByRole('button', { name: 'Yes', exact: true }).click()
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Permission: allow')
-    // Back to the Home: the Sessioni view lists the session.
+    // Back to the Home: the Sessioni view lists the session once, with the title the CLI gave it (here the first
+    // prompt), among the open ones only.
     await button(page, 'Back').click()
     await button(page, 'Show sessions').click()
-    await page.getByRole('button', { name: /^project / }).waitFor()
+    await page.getByRole('button', { name: /^hello phone project/ }).waitFor()
+    expect(await page.getByRole('button', { name: /^hello phone/ }).count()).toBe(1)
+    await page.getByText('No past sessions').waitFor()
+  })
+
+  it('a session left without sending anything is closed; with a draft written it stays', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await button(page, 'Back').click()
+    await button(page, 'Show sessions').click()
+    await page.getByText('No open sessions').waitFor()
+    await button(page, 'Show projects').click()
+    await button(page, 'New session in project').click()
+    await composer(page).fill('a draft to finish')
+    await button(page, 'Back').click()
+    await button(page, 'Show sessions').click()
+    await page.getByRole('button', { name: /^project project/ }).waitFor()
   })
 
   it('the permission mode sheet and the photo picker of the composer work', async () => {

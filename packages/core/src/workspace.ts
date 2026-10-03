@@ -1,5 +1,5 @@
 import { homedir } from 'node:os'
-import { join, relative } from 'node:path'
+import { basename, join, relative } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
 import { WORKSPACE_STREAM, tabStream, type Home } from '@claude-wrap/protocol'
 import { ActivityFile } from './activity.ts'
@@ -54,7 +54,9 @@ export class Workspace {
       config.ring ?? DEFAULT_RING
     )
     this.env = this.environment(config)
-    for (const saved of store.data.tabs) this.add(new Tab({ ...saved, resume: saved.sessionId }, this.env))
+    // A tab where nothing was ever sent (no stored session, nothing queued) does not come back.
+    for (const saved of store.data.tabs.filter((tab) => tab.sessionId || tab.queue?.length))
+      this.add(new Tab({ ...saved, resume: saved.sessionId, autoTitle: saved.autoTitle ?? saved.title === basename(saved.cwd) }, this.env))
     this.savedTabs = JSON.stringify(store.data.tabs)
     // Restored tabs are dormant: 0 overwrites what a previous run may have left.
     this.activity = config.activityFile ? new ActivityFile(config.activityFile) : undefined

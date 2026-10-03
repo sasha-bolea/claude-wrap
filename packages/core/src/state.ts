@@ -17,6 +17,8 @@ export type PersistedTab = {
   cachedCommands?: SlashCommand[]
   queue?: Outgoing[]
   queuePause?: QueuePause
+  // The title follows the CLI's own title of the session (absent in older states: true while it is the folder's name).
+  autoTitle?: boolean
 }
 
 // A claude process started by this core, recorded to kill it if the core dies without closing it.

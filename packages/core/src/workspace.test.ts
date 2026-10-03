@@ -67,7 +67,7 @@ afterEach(async () => {
 })
 
 describe('persistence and restore', () => {
-  it('tabs come back dormant after a restart, with title, model and mode; reading them starts nothing', async () => {
+  it('tabs come back dormant after a restart, with title, model and mode (not one where nothing was sent); reading them starts nothing', async () => {
     const stateDir = mkdtempSync(join(tmpdir(), 'cw-state-'))
     fake.histories.set('s1', [stored.user('u1', 'hello')])
     const first = makeCore({ stateDir })
@@ -80,8 +80,7 @@ describe('persistence and restore', () => {
     const second = makeCore({ stateDir })
     const again = await connect(second, false)
     expect(tabs(again).map(({ tabId, title, status, model, mode, sessionId }) => ({ tabId, title, status, model, mode, sessionId }))).toEqual([
-      { tabId: 't1', title: 'My work', status: 'dormant', model: 'haiku', mode: 'plan', sessionId: 's1' },
-      { tabId: 't2', title: 'project', status: 'dormant', model: undefined, mode: 'default', sessionId: undefined }
+      { tabId: 't1', title: 'My work', status: 'dormant', model: 'haiku', mode: 'plan', sessionId: 's1' }
     ])
     await again.ok('tab.subscribe', { tabId: 't1' })
     expect((again.lastReset(tabStream('t1'))!.snapshot as TabSnapshot).items).toHaveLength(1)

@@ -134,6 +134,36 @@ describe('tabs and lazy start', () => {
     expect(client.events(WORKSPACE_STREAM).filter((ev) => ev.type === 'tab.added')).toHaveLength(1)
   })
 
+  it('a tab where nothing was ever sent does not come back after a restart; one with a session does', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'cw-unused-'))
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    await client.ok('tab.create', { tabId: 'empty', cwd: CWD })
+    await client.ok('tab.create', { tabId: 'used', cwd: CWD, resume: 's1' })
+    await core.closeAll()
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    expect((client.lastReset(WORKSPACE_STREAM)!.snapshot as { tabs: TabMeta[] }).tabs.map((tab) => tab.tabId)).toEqual(['used'])
+  })
+
+  it("the title follows the CLI's own title of the session, until the user gives the tab one", async () => {
+    const session = await startedTab()
+    session.emit(sdk.init('s-titled'))
+    fake.histories.set('s-titled', [stored.user('u1', 'Fix the login page')])
+    session.emit(sdk.success())
+    await client.waitFor(() => meta(client)?.title === 'Fix the login page')
+    await client.ok('tab.rename', { tabId: 't1', title: 'Mine' })
+    // The CLI's title changes afterwards (the custom title the rename stored is gone too): the tab keeps its name.
+    fake.histories.set('s-titled', [stored.user('u1', 'Something else')])
+    fake.infos.delete('s-titled')
+    await client.ok('tab.send', { tabId: 't1', text: 'again' }, cmd(2))
+    await session.waitForInput(2)
+    session.emit(sdk.success())
+    await tick()
+    await tick()
+    expect(meta(client)?.title).toBe('Mine')
+  })
+
   it('init sets the session id and the active model', async () => {
     const session = await startedTab()
     session.emit(sdk.init('s-new', { model: 'claude-haiku-4-5' }))

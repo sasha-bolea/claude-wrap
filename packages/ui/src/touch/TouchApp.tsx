@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import type { Connection } from '@claude-wrap/client'
 import type { Capabilities } from '../App.tsx'
 import { t } from '../i18n.ts'
+import { readDraft } from '../viewState.ts'
 import { ChatScreen } from './ChatScreen.tsx'
 import { ScreenContext, TouchContext, type BackHandler, type ComposerInsert, type LiveState, type Screen, type SheetSpec, type Touch } from './context.tsx'
 import { FilesScreen, FileScreen } from './FilesScreen.tsx'
@@ -159,6 +160,20 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
     const gone = stack.findIndex((entry) => tabOf(entry.screen) && !open.has(tabOf(entry.screen)!))
     if (gone > 0) setStack(stack.slice(0, gone))
   }, [state.tabs, stack])
+
+  // A chat left without anything ever sent (no stored session, nothing in it or in its queue) and with nothing written
+  // in its composer: the session is closed, so it is neither kept nor listed.
+  const shownChats = useRef<string[]>([])
+  useEffect(() => {
+    const chats = stack.flatMap((entry) => (entry.screen.name === 'chat' ? [entry.screen.tabId] : []))
+    for (const tabId of shownChats.current) {
+      if (chats.includes(tabId)) continue
+      const tab = state.tabs?.find((candidate) => candidate.tabId === tabId)
+      const unused = tab && !tab.sessionId && !tab.queue.length && !state.transcripts[tabId]?.items.length && !readDraft(state.welcome?.backendId ?? '', tabId).trim()
+      if (unused) void connection.request('tab.close', { tabId }).catch(() => undefined)
+    }
+    shownChats.current = chats
+  }, [stack])
 
   // A session that starts waiting for you while its chat is not on screen is announced (VoiceOver).
   const statuses = useRef(new Map<string, string>())

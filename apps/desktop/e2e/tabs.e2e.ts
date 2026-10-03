@@ -93,7 +93,7 @@ describe('desktop multi-tab (fake SDK)', () => {
     await openChat(page, ctx.projectDir)
     await send(page, 'to be forked')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: to be forked')
-    await page.getByRole('button', { name: 'Fork' }).click()
+    await page.getByRole('button', { name: 'Fork', exact: true }).click()
     await expect.poll(() => tabs(page).count()).toBe(2)
     await expect.poll(() => page.locator('.tab.active .tab-title').textContent()).toContain('(fork)')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: to be forked')

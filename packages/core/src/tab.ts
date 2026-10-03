@@ -73,6 +73,8 @@ export type TabInit = {
   cachedCommands?: SlashCommand[]
   queue?: Outgoing[]
   queuePause?: QueuePause
+  // The title follows the CLI's own title (default: when no title is given).
+  autoTitle?: boolean
 }
 
 // Lifecycle of the tab's process; the visible status adds the turn state on top of `live`.
@@ -90,6 +92,8 @@ export class Tab {
   cwd: string
   readonly transcript: Transcript
   title: string
+  // The title follows the CLI's own title of the session until the user gives the tab one.
+  private autoTitle: boolean
   sessionId?: string
   model?: string
   activeModel?: string
@@ -128,6 +132,7 @@ export class Tab {
     this.tabId = init.tabId
     this.cwd = init.cwd
     this.title = init.title || basename(init.cwd) || init.cwd
+    this.autoTitle = init.autoTitle ?? !init.title
     this.sessionId = init.resume
     this.model = init.model
     this.effort = init.effort
@@ -168,8 +173,8 @@ export class Tab {
 
   // What survives a restart (the tab comes back dormant).
   persisted(): PersistedTab {
-    const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause } = this
-    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause }
+    const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause, autoTitle } = this
+    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle }
   }
 
   // The stored-session uuid behind an item (fork up to that item).
@@ -401,6 +406,7 @@ export class Tab {
   // Renames the tab and, if it has one, its stored session.
   async rename(title: string): Promise<void> {
     this.title = title
+    this.autoTitle = false
     this.changed()
     if (this.sessionId) await this.env.sdk.renameSession(this.sessionId, title, { dir: this.cwd })
   }
@@ -619,12 +625,25 @@ export class Tab {
     this.env.notify(this, 'turnFinished')
     this.dispatchNext()
     this.changed()
+    void this.followCliTitle()
+  }
+
+  // The CLI's own title of the session (its generated title, a /rename, or at first the first prompt), while the tab
+  // has no title given by the user.
+  private async followCliTitle(): Promise<void> {
+    if (!this.autoTitle || !this.sessionId) return
+    const info = await this.env.sdk.getSessionInfo(this.sessionId, { dir: this.cwd }).catch(() => undefined)
+    const title = info?.customTitle || info?.summary
+    if (!title || title === this.title || !this.autoTitle) return
+    this.title = title
+    this.changed()
   }
 
   // /clear and friends: the session id moves, the title resets, the transcript starts empty with a new epoch.
   private resetConversation(newSessionId: string): void {
     this.setSessionId(newSessionId)
     this.title = basename(this.cwd) || this.cwd
+    this.autoTitle = true
     this.normalizer = new Normalizer(this.transcript)
     this.transcript.clear()
     this.changed()

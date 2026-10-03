@@ -277,8 +277,12 @@ function StoredDelete({ session, cwd, onChange }: { session: SessionInfo; cwd: s
   )
 }
 
-// The lists of a folder's (or every folder's) sessions: open ones and saved ones.
-export function SessionLists({ open, stored, folder, withFolder, onChange }: { open: TabMeta[]; stored?: SessionInfo[]; folder: string; withFolder?: boolean; onChange: () => void }) {
+// Saved sessions that are not open (an open one is listed with the open sessions only).
+export const pastOnly = (sessions: SessionInfo[] | undefined) => sessions?.filter((session) => !session.tabId)
+
+// The lists of a folder's (or every folder's) sessions: open ones and saved ones that are not open.
+export function SessionLists({ open, stored: all, folder, withFolder, onChange }: { open: TabMeta[]; stored?: SessionInfo[]; folder: string; withFolder?: boolean; onChange: () => void }) {
+  const stored = pastOnly(all)
   return (
     <>
       <p className="label">{t('openSessions')}</p>

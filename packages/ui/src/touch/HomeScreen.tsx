@@ -5,7 +5,7 @@ import { useBackHandler, useScreen, useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
 import { baseName, folderSummary, inside, type SessionState } from './model.ts'
 import { ConnectionBanner, Crumbs, IconButton, Title, UpdateBar, useQuery } from './parts.tsx'
-import { SessionLists, useStartSession } from './sessions.tsx'
+import { pastOnly, SessionLists, useStartSession } from './sessions.tsx'
 
 const VIEW_KEY = 'claude-wrap:homeView'
 type View = 'projects' | 'sessions'
@@ -164,7 +164,7 @@ export function HomeScreen() {
                     <button className="link-btn" aria-label={t('pastSessionsOf', { name })} onClick={() => go({ name: 'folderSessions', path: current })}>
                       <Icon name="history" />
                       {t('pastSessions')}
-                      {Boolean(stored.data?.sessions.length) && <span className="link-count">{stored.data!.sessions.length}</span>}
+                      {Boolean(pastOnly(stored.data?.sessions)?.length) && <span className="link-count">{pastOnly(stored.data?.sessions)!.length}</span>}
                     </button>
                     <button className="link-btn" aria-label={t('newSessionIn', { name })} onClick={() => void startSession(current)}>
                       <Icon name="plus" />
