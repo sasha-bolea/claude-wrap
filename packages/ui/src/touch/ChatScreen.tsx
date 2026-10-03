@@ -19,6 +19,8 @@ type UserItem = Extract<Item, { kind: 'user' }>
 
 // At the bottom within this distance (px): new text keeps the chat scrolled down.
 const FOLLOW = 60
+// Following new text, each frame covers this share of the way still left to the bottom (an ease-out glide).
+const GLIDE_SHARE = 0.2
 // Dragging the ghost up past this distance puts it away.
 const GHOST_AWAY = 28
 // Bottom of a one-line ghost under the top of the conversation (px: .ghost top 12 + bubble 44), until one is measured.
@@ -127,13 +129,38 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const askTrust = useTrustPrompt()
   const loadImage = useCallback((imageId: string) => connection.request('blob.get', { tabId, imageId }), [connection, tabId])
 
+  // A glide to the bottom in progress (its animation frame), and whether a finger is on the chat.
+  const glide = useRef<number | undefined>(undefined)
+  const touching = useRef(false)
+  const stopGlide = () => {
+    if (glide.current !== undefined) cancelAnimationFrame(glide.current)
+    glide.current = undefined
+  }
   const toBottom = () => {
+    stopGlide()
     const box = conversation.current
     if (box) box.scrollTop = box.scrollHeight
   }
-  // New content: scrolled down while following, otherwise the "Torna giù" button gets a dot.
+  // Follows new text without jumps: each frame the chat moves a share of the way still left, so the bottom is
+  // reached softly however the text arrives. Farther than a screen (a history loaded), with reduced motion or while
+  // a finger is on the chat it goes at once (or not at all).
+  const glideToBottom = () => {
+    const box = conversation.current
+    if (!box || touching.current) return
+    if (box.scrollHeight - box.clientHeight - box.scrollTop > box.clientHeight || matchMedia('(prefers-reduced-motion: reduce)').matches) return toBottom()
+    if (glide.current !== undefined) return
+    const step = () => {
+      const left = box.scrollHeight - box.clientHeight - box.scrollTop
+      if (left <= 1 || touching.current) return void (glide.current = undefined)
+      box.scrollTop += Math.max(1, Math.ceil(left * GLIDE_SHARE))
+      glide.current = requestAnimationFrame(step)
+    }
+    glide.current = requestAnimationFrame(step)
+  }
+  useEffect(() => stopGlide, [])
+  // New content: followed down while at the bottom, otherwise the "Torna giù" button gets a dot.
   useLayoutEffect(() => {
-    if (follow) toBottom()
+    if (follow) glideToBottom()
     else setMissed(true)
     updateGhost()
   }, [view?.items, view?.requests])
@@ -172,6 +199,8 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const otherWaiting = state.tabs.some((tab) => tab.tabId !== tabId && tab.status === 'requires_action')
   const onScroll = () => {
     const box = conversation.current!
+    // The glide's own steps: the chat keeps following (new text may outrun it for a moment).
+    if (glide.current !== undefined && !touching.current) return void (updateGhost(), placeThumb(false))
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < FOLLOW
     setFollow(atBottom)
     if (atBottom) setMissed(false)
@@ -228,7 +257,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
       <UpdateBar />
       <ConnectionBanner />
       <div className="chat-body">
-        <div className="conversation" ref={conversation} onScroll={onScroll} aria-live="off">
+        <div className="conversation" ref={conversation} onScroll={onScroll} onTouchStart={() => ((touching.current = true), stopGlide())} onTouchEnd={() => (touching.current = false)} onTouchCancel={() => (touching.current = false)} onWheel={stopGlide} aria-live="off">
           <Conversation meta={meta} view={view} loadImage={loadImage} onAnswer={answer} onRestart={() => void connection.request('tab.restart', { tabId }).catch(fail)} onTrust={() => askTrust(meta.cwd, () => undefined)} onActions={openActions} onSendNow={sendNow} />
         </div>
         <div className="scroll-thumb" ref={thumb} aria-hidden="true" />
