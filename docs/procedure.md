@@ -22,7 +22,7 @@ _Runbook of multi-step or rare procedures. One-liners used often live in CLAUDE.
 **When:** before closing any UI or core change.
 1. `npm run e2e` — builds the desktop app (`electron-vite build`), then runs `apps/desktop/e2e/*.e2e.ts` one app at a time (~1 min).
 2. Each test launches `apps/desktop` with `CLAUDE_WRAP_FAKE_SDK=1` (scripted fake SDK, zero quota), `CLAUDE_WRAP_STATE_DIR=<temp>` (never the real app state) and `--lang=en-US` (English UI for the selectors). The native folder dialog is stubbed: `nextFolder(app, folder)` sets what it returns.
-3. Fake SDK keywords (send them as the message): `permission`, `question`, `plan`, `slow` (long stream to interrupt), `markdown` (remote image + link), `crash`; anything else is echoed word by word. Conversations are stored in the fake session store (in memory of the core process: gone after an app restart).
+3. Fake SDK keywords (send them as the message): `permission`, `question`, `plan`, `slow` (long stream to interrupt), `markdown` (remote image + link), `tools` (three Bash commands in a row), `crash`; anything else is echoed word by word. Conversations are stored in the fake session store (in memory of the core process: gone after an app restart).
 4. A failing selector: check names in `packages/ui/src/i18n/en.ts`; playwright `hasText` is a case-insensitive substring ("Renamed" matches "Rename"+"Delete").
 
 **Warnings:** never point e2e at the real `%APPDATA%\claude-wrap`; `openChat(page, folder)` must get the folder the dialog returns, or it may click the previous folder's buttons.

@@ -248,12 +248,20 @@ message sent while it works, then "read" for a few seconds); Claude's text as ma
 `<details>`; the working line with seconds. A waiting message sits in a `.msg-user-row` with `.send-now` on its left:
 a 32 px accent-outlined circle with the send arrow (44 px to the touch) that asks the CLI to read it now — its own
 send-now, not a Stop (the queue is not paused).
-Examples: [Conversation.tsx:71](../packages/ui/src/touch/Conversation.tsx#L71), [Conversation.tsx:93](../packages/ui/src/touch/Conversation.tsx#L93), [Conversation.tsx:128](../packages/ui/src/touch/Conversation.tsx#L128), [Conversation.tsx:106](../packages/ui/src/touch/Conversation.tsx#L106), [Conversation.tsx:193](../packages/ui/src/touch/Conversation.tsx#L193).
+Examples: [Conversation.tsx:76](../packages/ui/src/touch/Conversation.tsx#L76), [Conversation.tsx:98](../packages/ui/src/touch/Conversation.tsx#L98), [Conversation.tsx:216](../packages/ui/src/touch/Conversation.tsx#L216), [Conversation.tsx:126](../packages/ui/src/touch/Conversation.tsx#L126), [Conversation.tsx:281](../packages/ui/src/touch/Conversation.tsx#L281).
+
+### Tool stack — `.tool-group`, `.tool-stack` (`.m1`–`.m3`), `.tool-card` (`.k0`–`.k3`), `.tool-count`, `.tool-collapse`
+Two or more tool calls in a row form a stack like the queue's: the last call in front (name, summary, state and the
+count), up to three before it peeking out **above** it, 7 px each and a little narrower each. A tap spreads them out
+into their `.tool` cards one under the other, each sliding from its place in the stack (measured before and after,
+Web Animations; none with reduced motion); "Raggruppa i N comandi" (`.tool-collapse`, up arrow) stacks them again.
+A single call stays a plain `.tool` card.
+Examples: [Conversation.tsx:142](../packages/ui/src/touch/Conversation.tsx#L142), [Conversation.tsx:179](../packages/ui/src/touch/Conversation.tsx#L179).
 
 ### Request card — `.request` (`.preview`, `.grant-row`, `.reveal`)
 Claude's permission, question or plan inside the conversation (rule 3); `.reveal` holds the field and the button
 that appear after choosing "No…", "Other…" or "Keep planning…".
-Examples: [Conversation.tsx:241](../packages/ui/src/touch/Conversation.tsx#L241), [Conversation.tsx:251](../packages/ui/src/touch/Conversation.tsx#L251).
+Examples: [Conversation.tsx:335](../packages/ui/src/touch/Conversation.tsx#L335), [Conversation.tsx:345](../packages/ui/src/touch/Conversation.tsx#L345).
 
 ### Conversation scroll indicator — `.scroll-thumb` (`.on`)
 On touch screens (`pointer: coarse`) the native indicator of `.conversation` is hidden (iOS draws it down behind the
@@ -306,7 +314,7 @@ one; "Aggiungi account" opens a sheet with a name and a **password-type mono tok
 session menu has an "Account" row (current name on the right) opening a radio `.menu`. While the session's
 account is at its usage limit, the conversation shows a `.card` (`role="status"`) with until when and one
 "Passa a …" primary button per other account (or "Aggiungi un account").
-Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [accounts.tsx:113](../packages/ui/src/touch/accounts.tsx#L113), [accounts.tsx:143](../packages/ui/src/touch/accounts.tsx#L143), [ChatScreen.tsx:316](../packages/ui/src/touch/ChatScreen.tsx#L316), [Conversation.tsx:214](../packages/ui/src/touch/Conversation.tsx#L214).
+Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [accounts.tsx:113](../packages/ui/src/touch/accounts.tsx#L113), [accounts.tsx:143](../packages/ui/src/touch/accounts.tsx#L143), [ChatScreen.tsx:316](../packages/ui/src/touch/ChatScreen.tsx#L316), [Conversation.tsx:308](../packages/ui/src/touch/Conversation.tsx#L308).
 
 ### Launch and pairing — `.splash` (`.splash-main`, `.splash-state` `.bad`, `.dots`), `.hero-mark` (`.big`), `.hero-title`, `.steps`, `.error-text`, `.code-box`
 The launch screen until the server answers (same mark as the iOS splash). The pairing screen: install steps in iPhone

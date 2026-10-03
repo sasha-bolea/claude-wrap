@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { TabView } from '@claude-wrap/client'
 import type { Image, ImageRef, Item, Request, TabMeta } from '@claude-wrap/protocol'
 import { t } from '../i18n.ts'
@@ -14,6 +14,11 @@ type ToolCall = Extract<Item, { kind: 'toolCall' }>
 type TurnEnd = Extract<Item, { kind: 'turnEnd' }>
 type UserItem = Extract<Item, { kind: 'user' }>
 type Question = { question: string; header: string; multiSelect: boolean; options: { label: string; description: string; preview?: string }[] }
+
+// Cards shown in a stack of tool calls: the last one in front, up to three behind it.
+const STACK_SHOWN = 4
+// Duration of the stack opening or closing (ms).
+const STACK_MS = 280
 
 // How long "letto" stays under a message Claude has just read.
 const READ_NOTE_MS = 2500
@@ -99,15 +104,28 @@ function UserMessage({ item, readAt, loadImage, onActions, onSendNow }: { item: 
   )
 }
 
+// State word of a tool call.
+function toolState(item: ToolCall): string {
+  return item.result === undefined ? t('toolRunning') : item.isError ? t('toolFailed') : t('toolDone')
+}
+
+// Name, summary and state of a tool call: the closed card's line.
+function ToolLine({ item }: { item: ToolCall }) {
+  return (
+    <>
+      <span className="tool-name">{item.name}</span>
+      <span className="tool-sum">{toolSummary(item.input)}</span>
+      <span className={`tool-state${item.result === undefined ? '' : item.isError ? ' bad' : ' ok'}`}>{toolState(item)}</span>
+    </>
+  )
+}
+
 // A tool call: closed shows name, summary and state; open shows input and result.
 function ToolCard({ item }: { item: ToolCall }) {
-  const state = item.result === undefined ? t('toolRunning') : item.isError ? t('toolFailed') : t('toolDone')
   return (
-    <details className="tool">
+    <details className="tool" data-tool={item.itemId}>
       <summary>
-        <span className="tool-name">{item.name}</span>
-        <span className="tool-sum">{toolSummary(item.input)}</span>
-        <span className={`tool-state${item.result === undefined ? '' : item.isError ? ' bad' : ' ok'}`}>{state}</span>
+        <ToolLine item={item} />
       </summary>
       <div className="tool-body">
         <pre>{JSON.stringify(item.input, null, 2)}</pre>
@@ -115,6 +133,76 @@ function ToolCard({ item }: { item: ToolCall }) {
       </div>
     </details>
   )
+}
+
+// Tool calls in a row, as a stack like the queue's: the last one in front, the ones before it peeking out above.
+// A tap spreads them out into their cards, one under the other; "Raggruppa" stacks them again. Each card slides
+// between its two places (positions measured before and after the change).
+// Parameters: the tool calls, two or more, oldest first.
+function ToolStack({ items }: { items: ToolCall[] }) {
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  const before = useRef<Map<string, DOMRect> | undefined>(undefined)
+  const toggle = (next: boolean) => {
+    before.current = new Map([...(box.current?.querySelectorAll<HTMLElement>('[data-tool]') ?? [])].map((card) => [card.dataset.tool!, card.getBoundingClientRect()]))
+    setOpen(next)
+  }
+  useLayoutEffect(() => {
+    const first = before.current
+    before.current = undefined
+    if (!first || !box.current || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    for (const card of box.current.querySelectorAll<HTMLElement>('[data-tool]')) {
+      const from = first.get(card.dataset.tool!)
+      const to = card.getBoundingClientRect()
+      const frames = from ? [{ transform: `translate(${from.left - to.left}px, ${from.top - to.top}px)` }, { transform: 'none' }] : [{ opacity: 0 }, { opacity: 1 }]
+      card.animate(frames, { duration: STACK_MS, easing: 'cubic-bezier(.25, .8, .25, 1)' })
+    }
+  }, [open])
+  const last = items[items.length - 1]!
+  if (open) {
+    return (
+      <div className="tool-group" ref={box}>
+        <button className="tool-collapse" aria-expanded="true" onClick={() => toggle(false)}>
+          <Icon name="up" />
+          {t('toolStackClose', { count: String(items.length) })}
+        </button>
+        {items.map((item) => (
+          <ToolCard key={item.itemId} item={item} />
+        ))}
+      </div>
+    )
+  }
+  const shown = items.slice(-STACK_SHOWN)
+  const m = shown.length - 1
+  return (
+    <div className="tool-group" ref={box}>
+      <button className={`tool-stack m${m}`} aria-expanded="false" aria-label={t('toolStackLabel', { count: String(items.length), name: last.name, summary: toolSummary(last.input), state: toolState(last) })} onClick={() => toggle(true)}>
+        {shown.map((item, index) => (
+          <span key={item.itemId} className={`tool-card k${m - index} m${m}`} data-tool={item.itemId} aria-hidden="true">
+            {index === m && (
+              <>
+                <ToolLine item={item} />
+                <span className="tool-count">{items.length}</span>
+              </>
+            )}
+          </span>
+        ))}
+      </button>
+    </div>
+  )
+}
+
+// The transcript's items with tool calls in a row gathered: one item, or a run of two or more tool calls.
+type Entry = { item: Item } | { tools: ToolCall[] }
+function entries(items: Item[]): Entry[] {
+  const out: Entry[] = []
+  for (const item of items) {
+    const previous = out[out.length - 1]
+    if (item.kind !== 'toolCall') out.push({ item })
+    else if (previous && 'tools' in previous) previous.tools.push(item)
+    else out.push({ tools: [item] })
+  }
+  return out
 }
 
 // One transcript item, as the prototype shows it.
@@ -207,9 +295,15 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
   const request = view?.requests[0]
   return (
     <>
-      {items.map((item) => (
-        <ItemView key={item.itemId} item={item} readAt={readAt[item.itemId]} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} />
-      ))}
+      {entries(items).map((entry) =>
+        'item' in entry ? (
+          <ItemView key={entry.item.itemId} item={entry.item} readAt={readAt[entry.item.itemId]} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} />
+        ) : entry.tools.length === 1 ? (
+          <ToolCard key={entry.tools[0]!.itemId} item={entry.tools[0]!} />
+        ) : (
+          <ToolStack key={entry.tools[0]!.itemId} items={entry.tools} />
+        )
+      )}
       {(meta.status === 'running' || meta.status === 'starting') && <WorkingLine key={meta.status} starting={meta.status === 'starting'} />}
       <LimitCard meta={meta} />
       {request && <RequestCard key={request.requestId} request={request} onAnswer={(answer) => onAnswer(request.requestId, answer)} />}

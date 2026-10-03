@@ -155,6 +155,23 @@ describe('PWA (fake SDK)', () => {
     await ghost.waitFor({ state: 'detached' })
   })
 
+  it('commands in a row stack up like the queue; a tap spreads them into their cards, "Stack" gathers them again', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'tools')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Tools: done')
+    const stack = page.getByRole('button', { name: /^3 commands in a row, the last: Bash npm test, done/ })
+    await stack.waitFor()
+    expect(await page.locator('.tool-card').count()).toBe(3)
+    expect(await page.locator('details.tool').count()).toBe(0)
+    await stack.click()
+    await page.locator('details.tool').nth(2).waitFor()
+    expect(await page.locator('details.tool summary').allTextContents()).toEqual(['Bashlsdone', 'Bashgit statusdone', 'Bashnpm testdone'])
+    await page.getByRole('button', { name: 'Stack the 3 commands' }).click()
+    await stack.waitFor()
+    expect(await page.locator('details.tool').count()).toBe(0)
+  })
+
   it('the queue: queue mode adds a card; Stop pauses the queue; ▶ sends the next message', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)

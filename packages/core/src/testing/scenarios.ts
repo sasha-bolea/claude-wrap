@@ -10,6 +10,7 @@ import { sdk, stored } from './messages.ts'
 //   plan       → asks to approve a plan, then reports the decision
 //   slow       → streams a long answer, word by word, until interrupted
 //   markdown   → answers with a remote image and a link (rendering safety checks)
+//   tools      → runs three Bash commands in a row (ls, git status, npm test), then "Tools: done"
 //   crash      → the process dies
 //   /command   → "Ran /command" as a synthetic assistant message, like the CLI's local commands
 //   anything else → streams "Echo: <text>" word by word (" [N images]" appended when images came along)
@@ -92,6 +93,15 @@ async function respond(turn: Turn, text: string, images: number): Promise<void> 
   if (keyword === 'question') return stream(turn, `Question: ${await ask(turn, 'AskUserQuestion', QUESTION)}`)
   if (keyword === 'plan') return stream(turn, `Plan: ${await ask(turn, 'ExitPlanMode', { plan: '1. Do the thing\n2. Check it' })}`)
   if (keyword === 'slow') return stream(turn, SLOW_TEXT)
+  if (keyword === 'tools') {
+    for (const command of ['ls', 'git status', 'npm test']) {
+      const id = `toolu_${randomUUID()}`
+      session.emit(sdk.assistant(`msg_${randomUUID()}`, [{ type: 'tool_use', id, name: 'Bash', input: { command } }]))
+      await sleep(turn.options.wordDelayMs * 5)
+      session.emit(sdk.toolResult(id, `ran ${command}`))
+    }
+    return stream(turn, 'Tools: done')
+  }
   if (keyword === 'markdown') return stream(turn, 'Image: ![tracker](https://example.com/pixel.png) and a [link](https://example.com).')
   if (keyword === 'limit') {
     // The account's usage limit, for an hour (as the CLI reports it before refusing).

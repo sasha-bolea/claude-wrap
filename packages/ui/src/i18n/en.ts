@@ -52,6 +52,8 @@ export const en = {
   turnError: 'Turn ended with an error: {error}',
   turnStats: '{seconds} s · ${cost}',
   toolRunning: 'running…',
+  toolStackLabel: '{count} commands in a row, the last: {name} {summary}, {state}. Show them all',
+  toolStackClose: 'Stack the {count} commands',
   toolFailed: 'error',
   toolDone: 'done',
   compacted: 'Conversation compacted',

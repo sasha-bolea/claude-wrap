@@ -54,6 +54,8 @@ export const it: Record<MessageKey, string> = {
   turnError: 'Turno terminato con errore: {error}',
   turnStats: '{seconds} s · ${cost}',
   toolRunning: 'in corso…',
+  toolStackLabel: '{count} comandi di fila, l’ultimo: {name} {summary}, {state}. Mostrali tutti',
+  toolStackClose: 'Raggruppa i {count} comandi',
   toolFailed: 'errore',
   toolDone: 'fatto',
   compacted: 'Conversazione compattata',
