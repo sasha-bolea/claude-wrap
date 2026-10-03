@@ -1,11 +1,11 @@
 import { createRoot } from 'react-dom/client'
 import { Connection, openWebSocket } from '@claude-wrap/client'
-import { App, PairScreen, t, type PushCapability } from '@claude-wrap/ui'
-import '@claude-wrap/ui/style.css'
+import { App, PairScreen, t, type AppCapability, type PushCapability } from '@claude-wrap/ui'
+import '@claude-wrap/ui/touch.css'
 
 // The PWA host: pairing (one-time code → device token), the WebSocket connection to the server it was loaded
 // from, page visibility (push goes only to devices that are not looking), Web Push through the service worker,
-// and notification taps that open a session.
+// notification taps that open a session, no zoom, and newer builds of the app on the server.
 
 const TOKEN_KEY = 'claude-wrap:token'
 const CLIENT_KEY = 'claude-wrap:clientId'
@@ -48,6 +48,33 @@ navigator.serviceWorker?.addEventListener('message', (event: MessageEvent<{ type
   if (event.data?.type === 'open-tab' && event.data.tabId) tabListeners.forEach((listener) => listener(event.data.tabId!))
 })
 
+// iOS ignores the viewport's maximum-scale when pinching: its gesture events are cancelled instead.
+for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, (event) => event.preventDefault(), { passive: false })
+
+// A newer build on the server (an update restarts the server): /version.json is compared with this build at every
+// connection, back on screen and every 15 minutes; the UI offers it (update bar, Settings).
+const VERSION_CHECK_MS = 15 * 60_000
+const updateListeners = new Set<(version: string) => void>()
+let newerVersion: string | undefined
+async function checkVersion(): Promise<void> {
+  const response = await fetch('/version.json', { cache: 'no-store' }).catch(() => undefined)
+  const latest = (response?.ok ? await response.json().catch(() => ({})) : {}) as { build?: string; version?: string }
+  if (!latest.build || latest.build === __APP_BUILD__) return
+  newerVersion = latest.version ?? latest.build
+  updateListeners.forEach((listener) => listener(newerVersion!))
+}
+document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && void checkVersion())
+setInterval(() => void checkVersion(), VERSION_CHECK_MS)
+const app: AppCapability = {
+  version: __APP_VERSION__,
+  onUpdate: (listener) => {
+    updateListeners.add(listener)
+    if (newerVersion) listener(newerVersion)
+    return () => void updateListeners.delete(listener)
+  },
+  reload: () => location.reload()
+}
+
 // The server's VAPID key as the bytes PushManager wants.
 function keyBytes(base64url: string): Uint8Array<ArrayBuffer> {
   const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(base64url.length / 4) * 4, '=')
@@ -78,7 +105,7 @@ async function pair(code: string): Promise<void> {
   write(TOKEN_KEY, token)
   history.replaceState(null, '', '/')
   void navigator.storage?.persist?.()
-  start(token)
+  start(token, true)
 }
 
 function showPairing(notice?: string): void {
@@ -86,8 +113,9 @@ function showPairing(notice?: string): void {
   root.render(<PairScreen installed={standalone || !isIos} initialCode={code} notice={notice} onPair={pair} />)
 }
 
-// Connects with the device token and shows the app; a revoked token leads back to pairing.
-function start(token: string): void {
+// Connects with the device token and shows the app; a revoked token leads back to pairing. justPaired: the app
+// offers the notifications once.
+function start(token: string, justPaired = false): void {
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws'
   const visible = () => document.visibilityState === 'visible'
   const connection = new Connection({ openChannel: () => openWebSocket(`${scheme}://${location.host}/ws`), clientId: clientId(), token, visible })
@@ -102,6 +130,13 @@ function start(token: string): void {
     stop()
     logout(t('pairRevoked'))
   })
+  // Every (re)connection may follow a server update.
+  let status = connection.store.getSnapshot().status
+  connection.store.subscribe(() => {
+    const next = connection.store.getSnapshot().status
+    if (next === 'connected' && status !== 'connected') void checkVersion()
+    status = next
+  })
   // Back on screen or back online: tell core, and reconnect now instead of waiting for the next retry.
   const wake = () => {
     void connection.request('client.visibility', { visible: visible() }).catch(() => undefined)
@@ -111,7 +146,9 @@ function start(token: string): void {
   addEventListener('online', wake)
   const capabilities = {
     layout: 'mobile' as const,
+    justPaired,
     push,
+    app,
     openExternal: (url: string) => void window.open(url, '_blank', 'noopener'),
     pairLink: (code: string) => `${location.origin}/#pair=${code}`,
     logout: () => logout(),

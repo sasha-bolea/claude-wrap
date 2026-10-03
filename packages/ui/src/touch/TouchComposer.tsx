@@ -1,0 +1,255 @@
+import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type TouchEvent } from 'react'
+import { ClientError } from '@claude-wrap/client'
+import { LIMITS, type TabMeta } from '@claude-wrap/protocol'
+import { useComposerPopup, useDraft } from '../composerHooks.ts'
+import { applySuggestion, expandPastes, isLongPaste, pastePlaceholder } from '../composerText.ts'
+import { t } from '../i18n.ts'
+import { dataUrl, readBase64, readImages } from '../images.ts'
+import { modeLabel } from '../modes.ts'
+import { noteUsed } from '../notes.ts'
+import type { Option } from '../Suggestions.tsx'
+import { readLinkedNote, writeLinkedNote, type LinkedNote } from '../viewState.ts'
+import { useTouch } from './context.tsx'
+import { Icon, modeIcon } from './icons.tsx'
+import { sizeLabel } from './model.ts'
+import { ModelSheet, ModeSheet, modelLabel, useModels } from './modelSheets.tsx'
+import { IconButton, noteTitle } from './parts.tsx'
+import { QueueTray } from './queue.tsx'
+import { useTrustPrompt } from './sessions.tsx'
+
+// Tallest the field grows before it scrolls (px).
+const MAX_FIELD = 140
+const SUGGESTIONS_ID = 'touch-suggestions'
+const noHistory = () => Promise.resolve([])
+// Enter sends only where there is a hardware keyboard (a pointer that hovers); on the phone it adds a line.
+const enterSends = () => matchMedia('(hover: hover)').matches
+
+type ComposerProps = { meta: TabMeta; queueMode: boolean; running: boolean; requestOpen: boolean; onFocusField: () => void }
+
+// The composer of the touch layout: one box floating over the chat — the text on top; under it + (photos and files),
+// model and effort, then permissions, Stop and Send. `/` suggests commands, `@` files; `!` runs a shell command; long
+// pastes collapse. Queue mode writes into the queue. Files that are not photos go to allegati/ and are mentioned.
+// A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.
+export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusField }: ComposerProps) {
+  const { connection, backendId, openSheet, toast, snack, fail, inserts, clearInsert } = useTouch()
+  const tabId = meta.tabId
+  const input = useRef<HTMLTextAreaElement>(null)
+  const picker = useRef<HTMLInputElement>(null)
+  const draft = useDraft(backendId, tabId, input)
+  const { text, images } = draft
+  const [docs, setDocs] = useState<File[]>([])
+  const [linked, setLinkedState] = useState<LinkedNote | undefined>(() => readLinkedNote(backendId, tabId))
+  const suggestions = useComposerPopup(connection, tabId, noHistory)
+  const popup = suggestions.popup
+  const models = useModels(tabId)
+  const askTrust = useTrustPrompt()
+  const shellMode = text.startsWith('!')
+  const hasContent = Boolean(text.trim() || images.length || docs.length)
+
+  const setLinked = (note: LinkedNote | undefined) => {
+    setLinkedState(note)
+    writeLinkedNote(backendId, tabId, note)
+  }
+  // Grows with the text up to MAX_FIELD.
+  useLayoutEffect(() => {
+    const field = input.current
+    if (!field) return
+    field.style.height = 'auto'
+    field.style.height = `${Math.min(field.scrollHeight, MAX_FIELD)}px`
+  }, [text])
+  // Text sent here from File (Menziona in chat) or Note (Usa nel messaggio).
+  const insert = inserts[tabId]
+  useEffect(() => {
+    if (!insert) return
+    clearInsert(tabId)
+    const joined = insert.replace ? insert.text : insert.noteId ? `${text.replace(/\s*$/, '')}\n\n${insert.text}`.trimStart() : `${text ? text.replace(/\s*$/, ' ') : ''}${insert.text}`
+    draft.setValue(joined, joined.length)
+    if (insert.noteId) setLinked({ noteId: insert.noteId, text: insert.text })
+  }, [insert])
+
+  const change = (value: string, caret: number) => {
+    draft.setValue(value)
+    suggestions.refresh(value, caret)
+  }
+  const pick = (option: Option) => {
+    if (!popup?.trigger) return
+    const applied = applySuggestion(text, popup.trigger, option.value)
+    draft.setValue(applied.text, applied.caret)
+    if (applied.text.endsWith('/', applied.caret)) return suggestions.refresh(applied.text, applied.caret)
+    suggestions.close()
+  }
+  // Photos are attached (downscaled); other files wait to go to allegati/ at send.
+  const attach = async (files: File[]) => {
+    const photos = files.filter((file) => file.type.startsWith('image/'))
+    const others = files.filter((file) => !file.type.startsWith('image/'))
+    const tooBig = others.filter((file) => file.size > LIMITS.fileBytes)
+    if (tooBig.length) toast(t('fileTooLarge', { name: tooBig[0]!.name, max: sizeLabel(LIMITS.fileBytes) }))
+    setDocs((current) => [...current, ...others.filter((file) => file.size <= LIMITS.fileBytes)])
+    const { images: read, errors } = await readImages(photos, images.length, true)
+    if (read.length) draft.setImages((current) => [...current, ...read])
+    if (errors.length) toast(errors.join(' '))
+  }
+  // After a send: the linked note goes when the message still holds at least 20% of it (undo brings it back).
+  const settleNote = (sent: string) => {
+    if (!linked) return
+    const note = linked
+    setLinked(undefined)
+    if (!noteUsed(note.text, sent)) return toast(t('noteKept'))
+    connection.request('notes.delete', { cwd: meta.cwd, noteId: note.noteId }).then(
+      () => snack(t('noteUsedDeleted', { title: noteTitle(note.text) }), () => void connection.request('notes.save', { cwd: meta.cwd, text: note.text }).catch(fail)),
+      () => undefined
+    )
+  }
+  // Sends (or queues, or runs as a shell command). On failure everything goes back into the composer; an untrusted
+  // folder opens the trust sheet first.
+  const send = async () => {
+    if (!hasContent) return
+    const sent = { text, images, docs, pastes: draft.pastes }
+    const expanded = expandPastes(text.trimEnd(), draft.pastes)
+    draft.clear()
+    setDocs([])
+    suggestions.close()
+    try {
+      if (shellMode) {
+        await connection.request('tab.shell', { tabId, command: sent.text.slice(1).trim() })
+        return
+      }
+      const mentions: string[] = []
+      for (const doc of sent.docs) {
+        const { path } = await connection.request('files.write', { tabId, path: doc.name, data: await readBase64(doc), attachment: true })
+        mentions.push(`@${path}`)
+      }
+      const message = [expanded.text, mentions.join(' ')].filter(Boolean).join('\n')
+      const args = { tabId, text: message, ...(sent.images.length ? { images: sent.images } : {}), ...(expanded.pastes.length ? { pastes: expanded.pastes } : {}) }
+      await connection.request(queueMode ? 'tab.queueAdd' : 'tab.send', args)
+      settleNote(message)
+    } catch (error) {
+      draft.setValue(expanded.text || sent.text)
+      draft.setImages(sent.images)
+      setDocs(sent.docs)
+      if (error instanceof ClientError && error.code === 'needs_trust') askTrust(meta.cwd, () => void send())
+      else fail(error)
+    }
+  }
+  const stop = () => void connection.request('tab.interrupt', { tabId }).catch(fail)
+
+  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing) return
+    const choosing = Boolean(popup?.options.length)
+    if (popup && event.key === 'Escape') suggestions.close()
+    else if (choosing && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) suggestions.move(event.key === 'ArrowDown' ? 1 : -1)
+    else if (choosing && (event.key === 'Enter' || event.key === 'Tab') && !event.shiftKey) pick(popup!.options[popup!.active]!)
+    else if (event.key === 'Enter' && !event.shiftKey && enterSends()) void send()
+    else return
+    event.preventDefault()
+  }
+  // Pasted images are attached; a long text paste becomes a placeholder (the whole text is sent).
+  const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = [...event.clipboardData.files]
+    const pasted = event.clipboardData.getData('text/plain')
+    if (!files.length && !isLongPaste(pasted)) return
+    event.preventDefault()
+    if (files.length) return void attach(files)
+    const { selectionStart, selectionEnd } = event.currentTarget
+    const placeholder = pastePlaceholder(draft.addPaste(pasted), pasted)
+    draft.setValue(text.slice(0, selectionStart) + placeholder + text.slice(selectionEnd), selectionStart + placeholder.length)
+  }
+  // The first tap focuses the field without letting iOS pan the whole page up (preventScroll); taps inside a focused
+  // field (selection, caret) work as usual.
+  const onTouchEnd = (event: TouchEvent<HTMLTextAreaElement>) => {
+    const field = event.currentTarget
+    if (document.activeElement === field) return
+    event.preventDefault()
+    field.focus({ preventScroll: true })
+    field.setSelectionRange(field.value.length, field.value.length)
+  }
+  // Send and Stop while typing keep the keyboard open: they never take the focus from the field.
+  const keepFocus = { onPointerDown: (event: PointerEvent) => document.activeElement === input.current && event.preventDefault() }
+
+  return (
+    <footer className={`composer${shellMode ? ' shell-mode' : ''}${queueMode ? ' queue-mode' : ''}`}>
+      {popup && popup.options.length > 0 && (
+        <ul className="suggest" role="listbox" id={SUGGESTIONS_ID} aria-label={t(`suggestions_${popup.kind}`)}>
+          {popup.options.map((option, index) => (
+            <li key={option.key} id={`${SUGGESTIONS_ID}-${index}`} role="option" aria-selected={index === popup.active} onMouseDown={(event) => (event.preventDefault(), pick(option))}>
+              <span className="s-label">{option.label}</span>
+              {option.detail && <span className="s-detail">{option.detail}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {(images.length > 0 || docs.length > 0) && (
+        <div className="attachments" aria-label={t('attachments')}>
+          {images.map((image, index) => (
+            <div key={index} className="attachment">
+              <img className="thumb" src={dataUrl(image)} alt={t('imageAlt', { n: String(index + 1) })} />
+              <button aria-label={t('removeImage', { n: String(index + 1) })} onClick={() => draft.setImages(images.filter((other) => other !== image))}>
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+          ))}
+          {docs.map((doc, index) => (
+            <div key={`${doc.name}-${index}`} className="attachment">
+              <span className="doc-chip">
+                <Icon name="file" />
+                <span>
+                  <strong>{doc.name}</strong>
+                  <small>{sizeLabel(doc.size)}</small>
+                </span>
+              </span>
+              <button aria-label={t('removeFile', { name: doc.name })} onClick={() => setDocs(docs.filter((other) => other !== doc))}>
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {linked && (
+        <div className="linked-note">
+          <Icon name="note" />
+          <span>{noteTitle(linked.text)}</span>
+          <IconButton icon="close" label={t('unlinkNote')} onClick={() => (setLinked(undefined), toast(t('noteUnlinked')))} />
+        </div>
+      )}
+      {shellMode && <div className="shell-hint">{t('shellHintShort')}</div>}
+      <div className="input-box">
+        <textarea
+          ref={input}
+          rows={1}
+          aria-label={t('composerLabel')}
+          aria-autocomplete="list"
+          aria-controls={popup?.options.length ? SUGGESTIONS_ID : undefined}
+          aria-activedescendant={popup?.options.length ? `${SUGGESTIONS_ID}-${popup.active}` : undefined}
+          placeholder={t(queueMode ? 'addToQueuePlaceholder' : 'writeToClaude')}
+          value={text}
+          onChange={(event) => change(event.target.value, event.target.selectionStart)}
+          onKeyDown={onKeyDown}
+          onPaste={onPaste}
+          onTouchEnd={onTouchEnd}
+          onFocus={onFocusField}
+          onBlur={() => suggestions.close()}
+        />
+        <div className="input-tools">
+          <IconButton icon="plus" label={t('attachPhotoOrFile')} onClick={() => picker.current?.click()} />
+          <button className="model-btn" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
+            <span>{modelLabel(meta, models)}</span>
+            <Icon name="down" />
+          </button>
+          <button className="icon-btn mode-btn" data-mode={meta.mode} aria-label={t('modeButtonLabel', { mode: t(modeLabel(meta.mode)) })} onClick={() => openSheet({ title: t('modeTitle'), body: <ModeSheet tabId={tabId} /> })}>
+            <Icon name={modeIcon(meta.mode)} />
+          </button>
+          {(running || requestOpen) && (
+            <button className="send stop" aria-label={t('stopClaude')} onClick={stop} {...keepFocus}>
+              <Icon name="stop" />
+            </button>
+          )}
+          <button className="send" aria-label={t(queueMode ? 'addToQueue' : shellMode ? 'run' : 'send')} disabled={!hasContent} onClick={() => void send()} {...keepFocus}>
+            <Icon name={queueMode ? 'queue' : 'send'} />
+          </button>
+        </div>
+      </div>
+      <QueueTray meta={meta} />
+      <input ref={picker} type="file" multiple hidden onChange={(event) => void attach([...(event.target.files ?? [])]).then(() => (event.target.value = ''))} />
+    </footer>
+  )
+}

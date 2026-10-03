@@ -10,7 +10,7 @@ export const isImageFile = (file: File) => (IMAGE_TYPES as readonly string[]).in
 export const dataUrl = (image: Image) => `data:${image.mediaType};base64,${image.data}`
 
 // Base64 content of a file.
-function readBase64(file: File): Promise<string> {
+export function readBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ''))

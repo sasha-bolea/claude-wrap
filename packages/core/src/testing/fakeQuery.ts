@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKSessionInfo, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { CanUseTool, ModelInfo, Options, PermissionResult, Query, SDKMessage, SDKSessionInfo, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
 
 // Scriptable stand-in for the SDK's query(): messages are pushed by hand with emit(), control methods are
 // recorded. Plain code (no vitest) so the hosts can also drive it for deterministic e2e runs.
@@ -15,7 +15,7 @@ export class FakeSession {
   rejectNext?: Error
   // Set to hold setPermissionMode / setModel calls until the promise resolves (in-flight tests).
   gate?: Promise<void>
-  models = [{ value: 'default', displayName: 'Default', description: '' }, { value: 'haiku', displayName: 'Haiku', description: '' }]
+  models: ModelInfo[] = [{ value: 'default', displayName: 'Default', description: '' }, { value: 'haiku', displayName: 'Haiku', description: '' }]
   commands = [
     { name: 'compact', description: 'Compact', argumentHint: '' },
     { name: '__internal', description: '', argumentHint: '' }
@@ -25,6 +25,7 @@ export class FakeSession {
   private finished = false
   private failure?: Error
   private receivedListeners: (() => void)[] = []
+  private receiveHooks: ((message: SDKUserMessage) => void)[] = []
   private interruptListeners: (() => void)[] = []
   readonly options: Options
 
@@ -34,9 +35,15 @@ export class FakeSession {
     void (async () => {
       for await (const message of prompt) {
         this.received.push(message)
+        this.receiveHooks.forEach((hook) => hook(message))
         this.receivedListeners.splice(0).forEach((listener) => listener())
       }
     })()
+  }
+
+  // Runs hook on every user message as it arrives (scenarios answer like the CLI: queued at once).
+  onReceive(hook: (message: SDKUserMessage) => void): void {
+    this.receiveHooks.push(hook)
   }
 
   // Queues SDK messages for core's read loop.
@@ -97,6 +104,7 @@ export class FakeSession {
       },
       setModel: async (model?: string) => (record('setModel', [model]), maybeReject()),
       setPermissionMode: async (mode: string) => (record('setPermissionMode', [mode]), maybeReject()),
+      applyFlagSettings: async (settings: object) => (record('applyFlagSettings', [settings]), maybeReject()),
       supportedModels: async () => (record('supportedModels', []), this.models),
       supportedCommands: async () => (record('supportedCommands', []), this.commands),
       close: () => {
@@ -154,7 +162,12 @@ export function createFakeSdk() {
     }) as unknown as typeof import('@anthropic-ai/claude-agent-sdk').query,
     getSessionMessages: async (sessionId: string) => histories.get(sessionId) ?? [],
     getSessionInfo: async (sessionId: string) => info(sessionId),
-    listSessions: async ({ dir }: { dir: string }) => [...histories.keys()].filter((id) => infos.get(id)?.cwd === dir).map((id) => info(id)!),
+    // dir absent: the sessions of every folder (most recent first, like the SDK).
+    listSessions: async ({ dir }: { dir?: string } = {}) =>
+      [...histories.keys()]
+        .filter((id) => dir === undefined || infos.get(id)?.cwd === dir)
+        .map((id) => info(id)!)
+        .sort((a, b) => b.lastModified - a.lastModified),
     renameSession: async (sessionId: string, title: string) => {
       infos.set(sessionId, { ...(infos.get(sessionId) ?? { lastModified: 0 }), customTitle: title })
     },

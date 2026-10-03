@@ -65,7 +65,7 @@ Small `--text-muted` text for hints and metadata.
 Example: [packages/ui/src/ChatHeader.tsx:37](../packages/ui/src/ChatHeader.tsx#L37).
 
 ### Conversation — `.conversation` and `.item` kinds
-Scrolling column of transcript items, each `.item` capped at `--content-width`. Kinds: `.item.user` (filled bubble; sent images above the text in `.user-images`, see Image thumbnail), `.item.assistant-text` (markdown, rule 10), `.item.thinking` (italic, left rule), `.item.tool` (see Tool card), `.item.turn-end` (right-aligned stats / "Interrupted", `.failed` in `--danger`), `.item.notice` (`.info` / `.warning` / `.error`), `.item.local-output` (preformatted block), `.item.shell` (see Shell item).
+Scrolling column of transcript items, each `.item` capped at `--content-width`. Kinds: `.item.user` (filled bubble; sent images above the text in `.user-images`, see Image thumbnail; `.pending` while Claude has not read it yet — sent mid-turn: faded, with a "waiting" chip), `.item.assistant-text` (markdown, rule 10), `.item.thinking` (italic, left rule), `.item.tool` (see Tool card), `.item.turn-end` (right-aligned stats / "Interrupted", `.failed` in `--danger`), `.item.notice` (`.info` / `.warning` / `.error`), `.item.local-output` (preformatted block), `.item.shell` (see Shell item).
 Examples: [packages/ui/src/ChatView.tsx:100](../packages/ui/src/ChatView.tsx#L100), [packages/ui/src/ItemView.tsx:74](../packages/ui/src/ItemView.tsx#L74), [packages/ui/src/ItemView.tsx:87](../packages/ui/src/ItemView.tsx#L87), [packages/ui/src/ItemView.tsx:96](../packages/ui/src/ItemView.tsx#L96), [packages/ui/src/ItemView.tsx:102](../packages/ui/src/ItemView.tsx#L102).
 
 ### Tool card — `.item.tool` (`<details>`)
@@ -153,61 +153,147 @@ category of project configuration. Like every self-appearing panel it never focu
 Examples: [packages/ui/src/TrustDialog.tsx:39](../packages/ui/src/TrustDialog.tsx#L39), [packages/ui/src/TrustDialog.tsx:17](../packages/ui/src/TrustDialog.tsx#L17).
 
 
-## Touch layout (PWA, `layout: 'mobile'`)
-One screen at a time instead of the tab bar; same tokens and the same binding rules (44 px targets, rule 9's
-visible controls, safe areas of the notch and home bar via `env(safe-area-inset-*)`, fields at 16 px so iOS does
-not zoom). Approved direction: the clickable prototype (artifact "claude-wrap mobile").
+## Touch layout (PWA, `layout: 'mobile'`) — the approved prototype
+The PWA renders [`TouchApp`](../packages/ui/src/touch/TouchApp.tsx) with its own stylesheet,
+[packages/ui/src/touch.css](../packages/ui/src/touch.css): the prototype's CSS ported as it is (prototype delivery:
+`NOTE-CONSEGNA.md` §1 screens, §3 rules). The PWA loads **only** `touch.css`; the desktop keeps `style.css` until
+sub-phase C2 moves it to the same elements. Components live in `packages/ui/src/touch/` and are used by the touch
+layout only (the old mobile components are gone).
 
-### Mobile frame — `.app.mobile`, `.m-topbar`, `.m-title`, `.m-subtitle`, `.m-scroll`, `.m-actions`
-`.m-topbar`: 52 px bar with icon buttons left/right and a `.m-title` (title + muted `.m-subtitle`) in between.
-`.m-scroll`: the scrolling body (gap-spaced sections). `.m-actions`: the bottom action bar (primary action, clears
-the home bar).
-Examples: [packages/ui/src/MobileApp.tsx:54](../packages/ui/src/MobileApp.tsx#L54), [packages/ui/src/MobileApp.tsx:63](../packages/ui/src/MobileApp.tsx#L63), [packages/ui/src/MobileApp.tsx:74](../packages/ui/src/MobileApp.tsx#L74).
+**Touch tokens** (same names as the prototype; light on `:root`, dark under `prefers-color-scheme` and again under
+`:root[data-theme="dark"]` so the theme chosen in Settings wins both ways, `data-theme="light"` likewise):
+`--background`, `--surface`, `--surface-2`, `--border`, `--text`, `--text-muted`, `--accent`, `--accent-text`,
+`--danger`, `--success`, `--frame` (around the device box on a wide screen), `--scrim`, `--radius`, `--space`, `--font`,
+`--font-mono`.
 
-### Icon button — `.icon-button` (`.glyph`), `.icon`, `.icon-dot`
-44×44 borderless button holding an `Icon` (line icon in the text colour) or a mono glyph (`/`, `@`); always with an
-`aria-label`. `.icon-dot` marks something waiting elsewhere (back button: another session waits).
-Examples: [packages/ui/src/MobileChatHeader.tsx:47](../packages/ui/src/MobileChatHeader.tsx#L47), [packages/ui/src/MobileChatHeader.tsx:49](../packages/ui/src/MobileChatHeader.tsx#L49), [packages/ui/src/MobileComposerTools.tsx:28](../packages/ui/src/MobileComposerTools.tsx#L28), [packages/ui/src/Icon.tsx:17](../packages/ui/src/Icon.tsx#L17).
+**Touch rules** (binding, on top of the general ones):
+1. **One screen at a time from a stack** (`go` / `back` / `backTo` / `reset` in the `Touch` context); screens stay
+   mounted, so going back finds them as they were. A screen that goes back inside itself first (up a folder in Home
+   and File) registers `useBackHandler`. **Swipe from the left edge = Back** (the screen follows the finger, the one
+   below shows; none while a sheet is open).
+2. **Sheets from the bottom for every menu and confirmation** (`openSheet({ title, path?, body, field? })`): slide up
+   with a fade, drag down / scrim / × / Esc close; a sheet opened from another goes back to it; a screen entered from
+   a sheet (the session menu) opens it again, without animation, when you come back. Focus goes to the sheet's title
+   (or its first field when `field`), **never to a button**. The body is an element that reads live state from the
+   context.
+3. **Claude's requests are part of the conversation** (`.request` card): the field for a reason, "Other…" or "what to
+   change" appears only after choosing the answer that needs it; nothing focuses a granting button.
+4. **Very little text; the state is shown** (badges, chips, the dot on back and on the Sessions button). Every
+   icon-only button has an `aria-label`; state changes go to the `aria-live` region (`announce`).
+5. **Targets ≥ 44 px, safe areas** (`env(safe-area-inset-*)`), **fields at 16 px** (`input, textarea, select`: smaller
+   text makes iOS zoom in on focus), **no zoom** (viewport `maximum-scale=1`, `touch-action: manipulation` on `html`,
+   pinch gestures cancelled by the PWA host), `prefers-reduced-motion` turns animations off.
+6. **iPhone keyboard** (decision 10): the composer floats over the chat (`.dock`, its height in `--dock-h`), the field
+   takes focus on `touchend` with `preventScroll`, the keyboard height comes from `visualViewport`
+   ([keyboard.ts](../packages/ui/src/touch/keyboard.ts)) and `.device.kb-open` drops the bottom safe area; drags on the
+   dock never scroll the page. A field that must open the keyboard from a tap on another screen is focused in the same
+   tap (`flushSync` then `focus`), as in New note.
+7. **Toasts and the undo bar**: `toast(text)` for outcomes; `snack(text, undo)` with Restore for deletions that can be
+   undone (5 s). Failures: `fail(error)` (toast with the reason).
 
-### Row list — `.m-list`, `.m-row`, `.m-row-main`, `.m-row-title`, `.m-row-sub`
-Grouped rounded list of 56 px rows: optional status badge, a full-width `.m-row-main` button (bold title, muted
-ellipsized subtitle) and an optional trailing icon button or action. Sessions, folders, devices.
-Examples: [packages/ui/src/MobileApp.tsx:25](../packages/ui/src/MobileApp.tsx#L25), [packages/ui/src/FolderBrowser.tsx:35](../packages/ui/src/FolderBrowser.tsx#L35), [packages/ui/src/SettingsScreen.tsx:48](../packages/ui/src/SettingsScreen.tsx#L48).
+**Splash screens** of the installed app: the accent "cw" mark on `--background`, light and dark, one PNG per iPhone
+screen size, generated from the token colours by [apps/mobile/scripts/icons.ts](../apps/mobile/scripts/icons.ts).
 
-### Bottom sheet — `.scrim`, `.sheet`, `.sheet-title`, `.menu` (`.menu-value`)
-Dialog from the bottom over a scrim, opened only by a user action (`Sheet` component): focus on its first field or
-on the sheet, never on a button; scrim tap or Esc closes. `.menu`: 50 px rows, `role="menuitemradio"` +
-`aria-checked` shows the current choice with a ✓, `.danger` for closing actions, `.menu-value` for the current value.
-Examples: [packages/ui/src/Sheet.tsx:18](../packages/ui/src/Sheet.tsx#L18), [packages/ui/src/MobileChatHeader.tsx:62](../packages/ui/src/MobileChatHeader.tsx#L62), [packages/ui/src/MobileComposerTools.tsx:34](../packages/ui/src/MobileComposerTools.tsx#L34).
+### Device and screens — `.device`, `.screen-host`, `.screen` (`.enter`, `.dragging`), `.scroll`, `.pad` (`.tight`, `.settings`)
+`.device`: the app box (full screen on a phone or touch device, a framed 410 px box on a wide screen). `.screen-host`
+wraps each stack entry (`display: contents`, `hidden` below the top). `.screen`: one screen — top bar, `.scroll` body
+with a `.pad` grid (16 px gaps; `.tight` 10 px; `.settings` 22 px), optional `.sticky-actions`.
+Examples: [TouchApp.tsx:219](../packages/ui/src/touch/TouchApp.tsx#L219), [TouchApp.tsx:226](../packages/ui/src/touch/TouchApp.tsx#L226), [FilesScreen.tsx:206](../packages/ui/src/touch/FilesScreen.tsx#L206).
 
-### Request dock — `.request-dock`
-On the phone Claude's request (the usual `.request-panel`) sits between the conversation and the composer, at most
-55 % of the height, scrolling inside; the composer stays reachable. Answering does not focus the composer (the
-keyboard would cover the conversation).
-Example: [packages/ui/src/ChatView.tsx:124](../packages/ui/src/ChatView.tsx#L124).
+### Top bar — `.topbar`, `h1` (`.sub`, `.pad-left`), `.title-btn` (`.title-text`)
+52 px bar: back icon button, the title with its small `.sub` line (path, state), icon buttons on the right. In the
+chat the title is a `.title-btn` (badge + title + folder) that opens the session menu.
+Examples: [FilesScreen.tsx:199](../packages/ui/src/touch/FilesScreen.tsx#L199), [ChatScreen.tsx:157](../packages/ui/src/touch/ChatScreen.tsx#L157), [parts.tsx:46](../packages/ui/src/touch/parts.tsx#L46).
 
-### Touch composer — `.composer-tools`, `.mode-chip` (`.mode-swatch`), `.send-round` (`.stop`)
-Under the field: Photo, History, `/`, `@` icon buttons and the mode chip (a dot coloured by risk: accept edits green,
-plan accent, auto / don't ask danger) that opens the mode sheet. The round send button becomes Stop while Claude
-works and nothing is typed. Enter adds a line on the phone.
-Examples: [packages/ui/src/MobileComposerTools.tsx:21](../packages/ui/src/MobileComposerTools.tsx#L21), [packages/ui/src/MobileComposerTools.tsx:34](../packages/ui/src/MobileComposerTools.tsx#L34), [packages/ui/src/Composer.tsx:249](../packages/ui/src/Composer.tsx#L249).
+### Icon button — `.icon-btn` (`.dot`, `.count`, `.on`, `.dim`)
+44×44 line icon ([icons.tsx](../packages/ui/src/touch/icons.tsx), class `.i`, the prototype's set) with `aria-label`.
+`.dot`: something waits elsewhere; `.count`: a small number (queue, trash); `.on`: a mode is active (queue);
+`.dim`: not available now (Torna indietro while Claude works).
+Examples: [parts.tsx:31](../packages/ui/src/touch/parts.tsx#L31), [ChatScreen.tsx:164](../packages/ui/src/touch/ChatScreen.tsx#L164).
 
-### Folder browser — `.folder-browser`, `.folder-path`
-Backend folder picker (remote server; desktop on a remote backend later): mono path, `..` row, subfolders, New
-folder (inline field), and the primary "Use <path>". Used by the start screen whenever there is no native dialog.
-Examples: [packages/ui/src/FolderBrowser.tsx:35](../packages/ui/src/FolderBrowser.tsx#L35), [packages/ui/src/StartScreen.tsx:74](../packages/ui/src/StartScreen.tsx#L74).
+### Row list — `.list`, `.row` (`.end-pad`, `.stacked`, `.uploading`), `.row-main`, `.row-title` (`.plain`), `.row-sub`, `.ficon` (`.dir`), `.chevron`
+Rounded list of 56 px rows: an icon or badge, a full-width `.row-main` button (title, muted subtitle), then a chip,
+a `⋯` icon button or an action button (`.end-pad`). Folders (`.ficon.dir` = project, accent), files, sessions,
+devices, trash items. `.stacked`: a row holding a control under its title (theme).
+Examples: [HomeScreen.tsx:43](../packages/ui/src/touch/HomeScreen.tsx#L43), [sessions.tsx:88](../packages/ui/src/touch/sessions.tsx#L88), [FilesScreen.tsx:218](../packages/ui/src/touch/FilesScreen.tsx#L218), [SettingsScreen.tsx:162](../packages/ui/src/touch/SettingsScreen.tsx#L162).
 
-### Settings — `.settings-section`, `.toggle-row` (`.toggle`), `.pair-code`, `.pair-link`
-Sections with an uppercase `.label` heading. `.toggle-row`: a whole-row label with a checkbox (push on/off) and its
-state as subtitle. `.pair-code` / `.pair-link`: the one-time code (large mono) and its link, with Copy. Revoke and
-Unpair use a two-step confirmation button, no browser dialog.
-Examples: [packages/ui/src/SettingsScreen.tsx:46](../packages/ui/src/SettingsScreen.tsx#L46), [packages/ui/src/SettingsScreen.tsx:113](../packages/ui/src/SettingsScreen.tsx#L113), [packages/ui/src/SettingsScreen.tsx:76](../packages/ui/src/SettingsScreen.tsx#L76).
+### Path — `.crumbs.path-bar` (`.sep`, `[aria-current]`)
+The path from the root as mono buttons, scrolled to its end; a part jumps there (`Crumbs` component).
+Examples: [parts.tsx:56](../packages/ui/src/touch/parts.tsx#L56), [FilesScreen.tsx:205](../packages/ui/src/touch/FilesScreen.tsx#L205).
 
-### Pairing screen — `.pair`, `.pair-mark`, `.pair-steps`, `.pair-error`
-First screen of an unpaired PWA: accent monogram, title, explanation; in iPhone Safari the install steps (pairing
-there would pair Safari, not the app), in the installed app the link-or-code field and Pair.
-Examples: [packages/ui/src/PairScreen.tsx:36](../packages/ui/src/PairScreen.tsx#L36), [packages/ui/src/PairScreen.tsx:51](../packages/ui/src/PairScreen.tsx#L51).
+### Bottom sheet — `.scrim`, `.sheet` (`.instant`), `.sheet-head`, `.menu` (`.right`, `.danger`, `role="radio"`), `.two-buttons`
+`SheetHost` renders the stack of sheets (rule 2). `.menu`: 50 px rows, `.right` for the current value or a hint,
+`.danger` for closing/deleting actions, `role="radio"` + `aria-checked` for a choice. `.two-buttons`: Cancel and the
+action of a confirmation.
+Examples: [SheetHost.tsx:49](../packages/ui/src/touch/SheetHost.tsx#L49), [ChatScreen.tsx:230](../packages/ui/src/touch/ChatScreen.tsx#L230), [HomeScreen.tsx:260](../packages/ui/src/touch/HomeScreen.tsx#L260).
 
+### Buttons and fields — `.button` (`.primary`, `.danger`, `.block`), `.link-btn`, `.field` (`.mono`), `.check-row`, `.segmented` (`.effort`, `.cols-N`), `.toggle-input`
+Same roles as on the desktop; `.link-btn`: the light text actions under a list ("Sessioni passate · + Nuova
+sessione"); `.segmented`: a radio group as one control (theme, effort levels — `.cols-N` for N levels).
+Examples: [HomeScreen.tsx:149](../packages/ui/src/touch/HomeScreen.tsx#L149), [HomeScreen.tsx:297](../packages/ui/src/touch/HomeScreen.tsx#L297), [SettingsScreen.tsx:166](../packages/ui/src/touch/SettingsScreen.tsx#L166), [modelSheets.tsx:66](../packages/ui/src/touch/modelSheets.tsx#L66).
+
+### Cards, chips, badges — `.card` (`.compact`, `.bad`), `.chip` (`.changed`), `.badge` (`.waiting`, `.working`, `.error`)
+`.card`: a framed block (session info in the menu, error and trust notices, the 🔜 placeholder). `.chip`: small
+state words (draft, queued, "this one"); `.chip.changed`: new / changed by Claude. `.badge`: the session state dot,
+pulsing while it waits for you (`Badge` component, with its meaning for screen readers).
+Examples: [ChatScreen.tsx:226](../packages/ui/src/touch/ChatScreen.tsx#L226), [FilesScreen.tsx:223](../packages/ui/src/touch/FilesScreen.tsx#L223), [parts.tsx:113](../packages/ui/src/touch/parts.tsx#L113).
+
+### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-ai`, `.think`, `.tool`, `.working-line`, `.turn-end`
+Your messages right in a bubble (a long press or right click opens their actions; "waiting" until Claude reads a
+message sent while it works, then "read" for a few seconds); Claude's text as markdown; reasoning and tool calls as
+`<details>`; the working line with seconds.
+Examples: [Conversation.tsx:68](../packages/ui/src/touch/Conversation.tsx#L68), [Conversation.tsx:116](../packages/ui/src/touch/Conversation.tsx#L116), [Conversation.tsx:94](../packages/ui/src/touch/Conversation.tsx#L94), [Conversation.tsx:181](../packages/ui/src/touch/Conversation.tsx#L181).
+
+### Request card — `.request` (`.preview`, `.grant-row`, `.reveal`)
+Claude's permission, question or plan inside the conversation (rule 3); `.reveal` holds the field and the button
+that appear after choosing "No…", "Other…" or "Keep planning…".
+Examples: [Conversation.tsx:228](../packages/ui/src/touch/Conversation.tsx#L228), [Conversation.tsx:238](../packages/ui/src/touch/Conversation.tsx#L238).
+
+### Ghost and jump — `.ghost` (`.ghost-bubble`), `.jump` (`.ask`, `.dot`)
+The ghost: your message whose answer you are reading, once it scrolled off the top (tap = back to it, drag up = put
+away; hidden with the keyboard open). The jump button "Torna giù" when not at the bottom (a dot when something new
+arrived; "Claude ti aspetta" with a request open).
+Examples: [ChatScreen.tsx:176](../packages/ui/src/touch/ChatScreen.tsx#L176), [ChatScreen.tsx:187](../packages/ui/src/touch/ChatScreen.tsx#L187).
+
+### Composer and dock — `.dock`, `.composer` (`.queue-mode`), `.input-box`, `.input-tools`, `.model-btn`, `.mode-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.linked-note`, `.shell-hint`, `.suggest`
+One box floating over the chat behind a blurred fade: the text on top; + (photos and files), model · effort, the
+permission mode icon, Stop (while Claude works or waits) and Send below. Queue mode: dashed border, Send adds to the
+queue. A linked note shows above the box (× unlinks it).
+Examples: [ChatScreen.tsx:194](../packages/ui/src/touch/ChatScreen.tsx#L194), [TouchComposer.tsx:215](../packages/ui/src/touch/TouchComposer.tsx#L215), [TouchComposer.tsx:208](../packages/ui/src/touch/TouchComposer.tsx#L208).
+
+### Queue — `.queue-tray`, `.q-stack`, `.q-card` (`.k0-3`, `.m0-3`), `.q-line`, `.q-play`, `.q-sheet-item`
+The deck under the composer: the first card shows the next message, the others peek out on the right; ▶/⏸ beside
+it. A tap opens the queue sheet (edit, send now, move, remove).
+Examples: [queue.tsx:28](../packages/ui/src/touch/queue.tsx#L28), [queue.tsx:29](../packages/ui/src/touch/queue.tsx#L29).
+
+### Files — `.refresh-note`, `.file-meta`, `.code` (`.line`, `.ln`, `hljs-*`), `.md-view`, `.preview-img`, `.preview-empty`, `.sticky-actions.two`, `.at`
+The file list says what Claude created or changed at the end of a turn (`.refresh-note`, chips on the rows). The
+preview: code with line numbers coloured by highlight.js (loaded only when a file is opened; four colours from the
+tokens), markdown, images (SVG only as `<img>`), "no preview" otherwise; Mention in chat and Download stay at the
+bottom (`.at` is the mono "@" glyph).
+Examples: [FilesScreen.tsx:209](../packages/ui/src/touch/FilesScreen.tsx#L209), [FilesScreen.tsx:461](../packages/ui/src/touch/FilesScreen.tsx#L461), [FilesScreen.tsx:393](../packages/ui/src/touch/FilesScreen.tsx#L393), [FilesScreen.tsx:425](../packages/ui/src/touch/FilesScreen.tsx#L425).
+
+### Notes — `.note-list`, `.note-card` (`.note-open`, `.note-preview`, `.note-date`, `.note-actions`), `.note-editor`
+Cards with the first line as title, two lines of preview, the date and "Usa nel messaggio"; the editor is a
+full-height textarea saved as you type.
+Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [NotesScreen.tsx:151](../packages/ui/src/touch/NotesScreen.tsx#L151).
+
+### Bars and notices — `.update-bar`, `.banner`, `.toast`, `.snack`, `.viewer`, `.empty-line`
+`.update-bar`: "New version available · Update · ×" under the top bar of Home and chat. `.banner`: the server cannot
+be reached. `.toast` / `.snack`: rule 7. `.viewer`: a photo full screen.
+Examples: [parts.tsx:88](../packages/ui/src/touch/parts.tsx#L88), [parts.tsx:103](../packages/ui/src/touch/parts.tsx#L103), [TouchApp.tsx:233](../packages/ui/src/touch/TouchApp.tsx#L233), [TouchApp.tsx:248](../packages/ui/src/touch/TouchApp.tsx#L248).
+
+### Placeholders to come — `.later-list`, `.later-skeleton` (`.w70`, `.w80`, `.w90`)
+A 🔜 panel or settings page: what it will show, a grey skeleton, and the `/` command to use meanwhile.
+Example: [LaterScreen.tsx:42](../packages/ui/src/touch/LaterScreen.tsx#L42).
+
+### Launch and pairing — `.splash` (`.splash-main`, `.splash-state` `.bad`, `.dots`), `.hero-mark` (`.big`), `.hero-title`, `.steps`, `.error-text`, `.code-box`
+The launch screen until the server answers (same mark as the iOS splash). The pairing screen: install steps in iPhone
+Safari, the link-or-code field in the installed app; right after pairing a sheet offers the notifications once.
+`.code-box`: a one-time pairing code (Settings → Add device).
+Examples: [Splash.tsx:13](../packages/ui/src/touch/Splash.tsx#L13), [PairScreen.tsx:41](../packages/ui/src/PairScreen.tsx#L41), [SettingsScreen.tsx:282](../packages/ui/src/touch/SettingsScreen.tsx#L282).
+
+## Desktop with several backends
 ### Backend switcher — `.shell`, `.backend-bar`, `.backend` (`[aria-pressed]`, `.add`), `.servers-panel`
 Desktop with several backends: a 28 px pill row above the tab bar — "This PC", each paired server (a pulsing
 `.badge.waiting` when that hidden backend has a session waiting; its label joins the button's name), and

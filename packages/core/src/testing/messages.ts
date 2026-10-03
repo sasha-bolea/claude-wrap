@@ -26,7 +26,13 @@ export const sdk = {
   failure: (subtype: string, errors: string[]) => as({ type: 'result', subtype, uuid: uuid(), errors }),
   localOutput: (content: string) => as({ type: 'system', subtype: 'local_command_output', content, uuid: uuid() }),
   compactBoundary: () => as({ type: 'system', subtype: 'compact_boundary', uuid: uuid(), compact_metadata: { trigger: 'manual', pre_tokens: 1 } }),
-  conversationReset: (newId: string) => as({ type: 'conversation_reset', new_conversation_id: newId, uuid: uuid(), session_id: 'old' })
+  conversationReset: (newId: string) => as({ type: 'conversation_reset', new_conversation_id: newId, uuid: uuid(), session_id: 'old' }),
+  // What the CLI says about a sent message (msg_lifecycle_v1; the SDK's types do not have it).
+  lifecycle: (commandUuid: string, state: 'queued' | 'started' | 'completed' | 'cancelled') =>
+    as({ type: 'command_lifecycle', command_uuid: commandUuid, state, uuid: uuid(), session_id: 's' }),
+  // resetsAt in seconds, as the CLI sends it.
+  rateLimit: (status: 'allowed' | 'allowed_warning' | 'rejected', resetsAt: number) =>
+    as({ type: 'rate_limit_event', rate_limit_info: { status, resetsAt, rateLimitType: 'five_hour' }, uuid: uuid(), session_id: 's' })
 }
 
 // Builders of stored-session (JSONL) messages, as returned by getSessionMessages.

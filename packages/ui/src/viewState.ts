@@ -36,3 +36,13 @@ export const writePastes = (backendId: string, tabId: string, pastes: Record<num
   write(key(backendId, `pastes:${tabId}`), Object.keys(pastes).length ? JSON.stringify(pastes) : undefined)
 export const readRecentFolder = (backendId: string) => read(key(backendId, 'recentFolder'))
 export const writeRecentFolder = (backendId: string, folder: string) => write(key(backendId, 'recentFolder'), folder)
+// The note a draft uses ("Usa nel messaggio"): kept with the draft, so the link survives a reload.
+export type LinkedNote = { noteId: string; text: string }
+export function readLinkedNote(backendId: string, tabId: string): LinkedNote | undefined {
+  try {
+    return (JSON.parse(read(key(backendId, `note:${tabId}`)) ?? 'null') as LinkedNote | null) ?? undefined
+  } catch {
+    return undefined
+  }
+}
+export const writeLinkedNote = (backendId: string, tabId: string, note: LinkedNote | undefined) => write(key(backendId, `note:${tabId}`), note ? JSON.stringify(note) : undefined)

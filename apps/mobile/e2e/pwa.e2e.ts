@@ -1,11 +1,15 @@
-// Phase 3b, the PWA on the real server with the scripted fake SDK, in Chrome at iPhone size. User stories:
-// I pair the phone with a one-time code; I open a session in a folder of the server and chat; Claude's request
-// docks above the composer and I answer it; the same session open on two devices stays in sync and an answer on
-// one closes the request on the other; a revoked device goes back to pairing; on iPhone Safari I am told to
-// install the app first.
+// The PWA (touch layout of the approved prototype) on the real server with the scripted fake SDK, in Chrome at
+// iPhone size. User stories: I pair the phone with a one-time code; I open a session in a folder of the server and
+// chat; Claude's request is part of the conversation and I answer it; the same session open on two devices stays in
+// sync; a revoked device goes back to pairing; on iPhone Safari I am told to install the app first. Sub-phase A: no
+// zoom, splash screens, the newer build offered. Sub-phase C1: a message sent while Claude works is read in the same
+// turn; the queue (pause after Stop, resume); the folder's files (browse, preview, mention, upload, trash with undo);
+// notes used in a message; folders and projects in the Home; the theme.
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { Browser, BrowserContext } from 'playwright-core'
-import { composer, lastAnswer, launchChrome, openProject, pairedPage, phone, send, startBackend, type Backend } from './harness.ts'
+import { button, composer, home, lastAnswer, launchChrome, openProject, pairedPage, phone, send, startBackend, type Backend } from './harness.ts'
 
 let browser: Browser
 let backend: Backend
@@ -16,6 +20,8 @@ const newPhone = async (ios = false) => {
   contexts.push(context)
   return context
 }
+
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64')
 
 beforeAll(async () => (browser = await launchChrome()))
 afterAll(() => browser.close())
@@ -34,7 +40,7 @@ describe('PWA (fake SDK)', () => {
     const page = await pairedPage(await newPhone(), backend)
     expect(page.url()).not.toContain('#pair=')
     await page.reload()
-    await page.getByRole('heading', { name: 'Sessions' }).waitFor()
+    await home(page).waitFor()
   })
 
   it('a wrong code is refused with a clear message', async () => {
@@ -44,31 +50,31 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => page.getByRole('alert').textContent()).toBe('Unknown or expired code: ask for a new one.')
   })
 
-  it('opens a session in a server folder, chats, and answers a request docked above the composer', async () => {
+  it('opens a session in a server folder, chats, and answers a request inside the conversation', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
     await send(page, 'hello phone')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: hello phone')
     await send(page, 'permission')
-    const request = page.locator('.request-dock').getByRole('region', { name: 'Permission request' })
+    const request = page.getByRole('region', { name: 'Permission request' })
     await request.waitFor()
     // Never focused by itself: a stray tap on the keyboard cannot grant.
     expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe('BUTTON')
     await request.getByRole('button', { name: 'Yes', exact: true }).click()
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Permission: allow')
-    // Back to the sessions: the session is listed, idle.
-    await page.getByRole('button', { name: 'Back' }).click()
+    // Back to the Home: the Sessioni view lists the session.
+    await button(page, 'Back').click()
+    await button(page, 'Show sessions').click()
     await page.getByRole('button', { name: /^project / }).waitFor()
   })
 
-  it('the mode selector and the photo picker of the touch row work', async () => {
+  it('the permission mode sheet and the photo picker of the composer work', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
-    await page.getByRole('button', { name: 'Permission mode: Ask for permissions' }).click()
-    await page.getByRole('dialog', { name: 'Permission mode' }).getByRole('menuitemradio', { name: 'Plan' }).click()
-    await page.getByRole('button', { name: 'Permission mode: Plan' }).waitFor()
-    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64')
-    await page.locator('input[type=file]').setInputFiles({ name: 'photo.png', mimeType: 'image/png', buffer: png })
+    await button(page, 'Permission mode: Ask for permissions').click()
+    await page.getByRole('dialog', { name: 'Permission mode' }).getByRole('radio', { name: 'Plan' }).click()
+    await button(page, 'Permission mode: Plan').waitFor()
+    await page.locator('.composer input[type=file]').setInputFiles({ name: 'photo.png', mimeType: 'image/png', buffer: PNG })
     await page.getByRole('img', { name: 'Image 1' }).waitFor()
     await send(page, 'look')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: look [1 images]')
@@ -78,23 +84,174 @@ describe('PWA (fake SDK)', () => {
     const first = await pairedPage(await newPhone(), backend, 'phone')
     await openProject(first)
     await send(first, 'permission')
-    await first.locator('.request-dock').waitFor()
+    await first.locator('.request').waitFor()
     const second = await pairedPage(await newPhone(), backend, 'tablet')
+    await button(second, /^Show sessions/).click()
     await second.getByRole('button', { name: /^project / }).click()
-    expect(await second.locator('.item.user').first().textContent()).toBe('permission')
-    await second.locator('.request-dock').getByRole('button', { name: 'Yes', exact: true }).click()
-    await first.locator('.request-dock').waitFor({ state: 'detached' })
+    expect(await second.locator('.msg-user').first().textContent()).toBe('permission')
+    await second.locator('.request').getByRole('button', { name: 'Yes', exact: true }).click()
+    await first.locator('.request').waitFor({ state: 'detached' })
     await expect.poll(() => lastAnswer(first).textContent()).toBe('Permission: allow')
     await composer(second).waitFor()
+  })
+
+  it('a message sent while Claude works waits, is read in the same turn and answered in it', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'slow')
+    await page.locator('.working-line').waitFor()
+    await send(page, 'extra')
+    const extra = page.locator('.msg-user').filter({ hasText: 'extra' })
+    await extra.filter({ hasText: 'waiting' }).waitFor()
+    await extra.filter({ hasText: 'read' }).waitFor({ timeout: 20_000 })
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo: extra')
+  })
+
+  it('the queue: queue mode adds a card; Stop pauses the queue; ▶ sends the next message', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'slow')
+    await page.locator('.working-line').waitFor()
+    await button(page, /^Queue: empty/).click()
+    await composer(page).fill('queued one')
+    await button(page, 'Add to the queue').click()
+    await page.getByRole('button', { name: /^Queue: 1 waiting\. Next: queued one/ }).waitFor()
+    await button(page, 'Stop: stop Claude').click()
+    const resume = page.getByRole('button', { name: 'Queue paused: Resume' })
+    await resume.waitFor()
+    await page.locator('.working-line').waitFor({ state: 'detached' })
+    expect(await page.locator('.msg-user').filter({ hasText: 'queued one' }).count()).toBe(0)
+    await resume.click()
+    await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: queued one')
+    await page.locator('.queue-tray').waitFor({ state: 'detached' })
+  })
+
+  it("the folder's files: browse, preview with colours, mention in the chat, upload, trash with undo", async () => {
+    const project = join(backend.root, 'project')
+    mkdirSync(join(project, 'src'))
+    writeFileSync(join(project, 'src', 'app.ts'), 'export const answer = 42\n')
+    writeFileSync(join(project, 'README.md'), '# Title\n\nText.\n')
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await button(page, 'More actions').click()
+    await button(page, 'Folder files').click()
+    await button(page, /^src /).click()
+    await button(page, /^app\.ts /).click()
+    await page.locator('.code .hljs-keyword').first().waitFor()
+    await button(page, 'Mention in chat').click()
+    await expect.poll(() => composer(page).inputValue()).toBe('@src/app.ts ')
+    await composer(page).fill('')
+    // Upload into the folder's root, then delete README.md and undo.
+    await button(page, 'More actions').click()
+    await button(page, 'Folder files').click()
+    await page.locator('input[type=file]:not([accept])').last().setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hi') })
+    await page.getByRole('button', { name: /^notes\.txt new/ }).waitFor()
+    await button(page, 'Actions for README.md').click()
+    await button(page, 'Move to the trash').click()
+    await page.getByRole('button', { name: /^README\.md/ }).waitFor({ state: 'detached' })
+    await page.getByRole('status').getByRole('button', { name: 'Restore' }).click()
+    await expect.poll(() => page.getByRole('status').filter({ hasText: 'Restored in' }).count()).toBe(1)
+    await button(page, 'Recently deleted').click()
+    await page.getByText('Nothing deleted').waitFor()
+  })
+
+  it('a note used in the message is linked to the draft and deleted at send', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await button(page, 'More actions').click()
+    await button(page, /^Folder notes/).click()
+    await button(page, 'New note').click()
+    await page.keyboard.type('Remember the milk')
+    await page.getByText(/^Saved · /).waitFor()
+    await button(page, 'Notes').click()
+    await button(page, 'Use in the message').click()
+    await expect.poll(() => composer(page).inputValue()).toBe('Remember the milk')
+    await page.locator('.linked-note').getByText('Remember the milk').waitFor()
+    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await page.getByRole('status').filter({ hasText: 'Note «Remember the milk» used and deleted' }).waitFor()
+    await button(page, 'More actions').click()
+    await page.getByRole('button', { name: 'Folder notes 0' }).waitFor()
+  })
+
+  it('folders: a new project at the root, its sessions screen, delete with undo', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await button(page, 'New folder').click()
+    await page.getByRole('textbox', { name: 'Folder name' }).fill('app')
+    expect(await page.getByRole('checkbox', { name: 'It is a project' }).isChecked()).toBe(true)
+    await button(page, 'Create').click()
+    await page.getByRole('img', { name: 'Project' }).waitFor()
+    await page.getByRole('button', { name: 'app', exact: true }).click()
+    await button(page, 'New session here').waitFor()
+    await button(page, 'Back').click()
+    await button(page, 'Actions for the folder app').click()
+    await button(page, 'Delete').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click()
+    await page.getByRole('button', { name: 'app', exact: true }).waitFor({ state: 'detached' })
+    await page.getByRole('status').getByRole('button', { name: 'Restore' }).click()
+    await page.getByRole('button', { name: 'app', exact: true }).waitFor()
+  })
+
+  it('the theme chosen in Settings applies and stays after a reload', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await button(page, 'Settings').click()
+    await page.getByRole('radio', { name: 'Dark' }).check()
+    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark')
+    await page.reload()
+    await home(page).waitFor()
+    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark')
+  })
+
+  // Sub-phase A: no zoom (pinch, double tap, focus on a small field), a splash screen for every iPhone size, and an
+  // installed app that offers the newer build after a server update.
+  it('zoom is locked: viewport, double tap, 16 px fields on the pairing screen too', async () => {
+    const page = await (await newPhone()).newPage()
+    await page.goto(backend.url)
+    expect(await page.locator('meta[name=viewport]').getAttribute('content')).toContain('maximum-scale=1')
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).touchAction)).toBe('manipulation')
+    expect(await page.locator('.field').first().evaluate((element) => getComputedStyle(element).fontSize)).toBe('16px')
+  })
+
+  it('every splash screen link points to a PNG the server serves, light and dark', async () => {
+    const page = await (await newPhone()).newPage()
+    await page.goto(backend.url)
+    const links = await page.locator('link[rel=apple-touch-startup-image]').evaluateAll((elements) => elements.map((element) => ({ href: (element as HTMLLinkElement).href, media: (element as HTMLLinkElement).media })))
+    expect(links.length).toBeGreaterThanOrEqual(20)
+    expect(links.filter((link) => link.media.includes('dark')).length).toBe(links.length / 2)
+    for (const link of links) {
+      const response = await page.request.get(link.href)
+      expect(response.status(), link.href).toBe(200)
+      expect(response.headers()['content-type']).toBe('image/png')
+    }
+  })
+
+  it('a newer build on the server shows the update bar; Update reloads; Settings shows the version', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    const bar = page.getByRole('status').filter({ hasText: 'New version available' })
+    expect(await bar.count()).toBe(0)
+    backend.files.set('/version.json', { body: Buffer.from(JSON.stringify({ build: 'newer', version: '9.9.9' })), type: 'application/json' })
+    // Back on screen: the app checks the server's version.
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+    await bar.waitFor()
+    const reloaded = page.waitForEvent('load')
+    await bar.getByRole('button', { name: 'Update' }).click()
+    await reloaded
+    // Still older than the server: offered again; Later hides it, Settings keeps it.
+    await bar.waitFor()
+    await bar.getByRole('button', { name: 'Later' }).click()
+    await bar.waitFor({ state: 'detached' })
+    await button(page, 'Settings').click()
+    const row = page.getByRole('listitem').filter({ hasText: 'App version' })
+    await expect.poll(() => row.textContent()).toContain('9.9.9 available')
+    await row.getByRole('button', { name: 'Update' }).waitFor()
+    await button(page, 'Reload').waitFor()
   })
 
   it('a device revoked from another one goes back to pairing', async () => {
     const first = await pairedPage(await newPhone(), backend, 'phone')
     const second = await pairedPage(await newPhone(), backend, 'tablet')
-    await first.getByRole('button', { name: 'Settings' }).click()
-    const tablet = first.getByRole('listitem').filter({ hasText: 'tablet' })
-    await tablet.getByRole('button', { name: 'Revoke' }).click()
-    await tablet.getByRole('button', { name: 'Confirm revoke' }).click()
+    await button(first, 'Settings').click()
+    await first.getByRole('listitem').filter({ hasText: 'tablet' }).getByRole('button', { name: 'Revoke' }).click()
+    await first.getByRole('dialog').getByRole('button', { name: 'Revoke' }).click()
     await second.getByRole('heading', { name: 'Pair this device' }).waitFor()
     await expect.poll(() => second.getByRole('alert').textContent()).toBe('This device was revoked: pair it again.')
   })

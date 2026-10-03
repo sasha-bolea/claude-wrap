@@ -1,6 +1,7 @@
-// Phase 2 check on the real CLI (`npm run smoke:composer`, a few haiku tokens): through core + client, runs palette
-// commands and reports what each one shows, sends an image and checks the model sees it, runs a `!` command and
-// checks it starts no turn but reaches the model, and queues a message behind a running turn.
+// Phase 2 and sub-phase B check on the real CLI (`npm run smoke:composer`, a few haiku tokens): through core + client,
+// runs palette commands and reports what each one shows, sends an image and checks the model sees it, runs a `!`
+// command and checks it starts no turn but reaches the model, sends a message while a tool runs and checks it is read
+// in the same turn, applies an effort level, and reopens the stored session to check its history.
 // Works in a temp folder and deletes the sessions after. Runs directly on Node 24 (type stripping).
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -117,15 +118,60 @@ async function checkShell(): Promise<void> {
   if (!answer.some((item) => item.kind === 'assistantText' && item.text.includes('smoke-marker-42'))) problems.push('the model did not see the shell output')
 }
 
-async function checkQueue(): Promise<void> {
-  const before = items().filter((item) => item.kind === 'turnEnd').length
-  await connection.request('tab.send', { tabId: TAB_ID, text: 'Count from 1 to 15, one number per line.' })
-  await connection.request('tab.send', { tabId: TAB_ID, text: 'Now say OK.' })
-  const queued = meta()?.queue.length
-  await until(() => items().filter((item) => item.kind === 'turnEnd').length >= before + 2 && meta()?.status === 'idle')
-  console.log(`> queue: ${queued} queued while running; items now:\n${items().slice(-4).map((item) => `    ${describe(item)}`).join('\n')}`)
-  if (queued !== 1) problems.push(`expected 1 queued message, saw ${queued}`)
-  if (!items().some((item) => item.kind === 'user' && item.text === 'Now say OK.')) problems.push('the queued message was not dispatched')
+// Sub-phase B: a message sent while a tool runs goes at once, is pending until the CLI reads it, and is answered in the
+// same turn.
+const LATE = 'Also: end your final reply with the word PINEAPPLE.'
+async function checkMidTurn(): Promise<void> {
+  const ends = () => items().filter((item) => item.kind === 'turnEnd').length
+  const before = ends()
+  await connection.request('tab.send', { tabId: TAB_ID, text: 'Run exactly this Bash command: sleep 6 && echo first-done. Then reply with one short sentence.' })
+  // The Bash call may ask for permission (it depends on the user's settings): allowed from here, like a tap in the app.
+  const requests = () => connection.store.getSnapshot().transcripts[TAB_ID]?.requests ?? []
+  const toolRunning = () => items().some((item) => item.kind === 'toolCall' && item.name === 'Bash' && item.result === undefined)
+  await until(() => toolRunning() || requests().length > 0, 60_000)
+  const [request] = requests()
+  if (request) await connection.request('request.answer', { tabId: TAB_ID, requestId: request.requestId, decision: 'allow' })
+  await until(toolRunning, 30_000)
+  await sleep(1500)
+  await connection.request('tab.send', { tabId: TAB_ID, text: LATE })
+  const pending = () => items().some((item) => item.kind === 'user' && item.text === LATE && item.pending === true)
+  const pendingSeen = pending()
+  await until(() => ends() > before && meta()?.status === 'idle')
+  console.log(`> mid-turn: pending when sent ${pendingSeen}; turns ended ${ends() - before}; items now:\n${items().slice(-4).map((item) => `    ${describe(item)}`).join('\n')}`)
+  if (!pendingSeen) problems.push('the message sent mid-turn was not pending')
+  if (pending()) problems.push('the message sent mid-turn stayed pending')
+  if (ends() - before !== 1) problems.push(`expected the late message read in the same turn, saw ${ends() - before} turn ends`)
+  if (!items().some((item) => item.kind === 'assistantText' && item.text.includes('PINEAPPLE'))) problems.push('the model did not read the message sent mid-turn')
+}
+
+// Sub-phase B: models with their effort levels; the effort applied to the live session like /effort.
+async function checkEffort(): Promise<void> {
+  const { models } = await connection.request('tab.models', { tabId: TAB_ID })
+  console.log(`models: ${models.map((model) => `${model.value} = ${model.displayName} [${model.supportedEffortLevels?.join(' ') ?? 'no effort'}]`).join('; ')}`)
+  await connection.request('tab.setEffort', { tabId: TAB_ID, effort: 'low' }).catch((error: unknown) => problems.push(`setEffort failed: ${String(error)}`))
+  const added = await send('Say done in one word.')
+  if (!added.some((item) => item.kind === 'assistantText')) problems.push('no answer after the effort change')
+}
+
+// Sub-phase B: the stored session, opened again in a new core, shows the message read mid-turn once, in its place.
+async function checkHistory(sessionId: string): Promise<void> {
+  const fresh = createCore({ backendId: 'smoke-history', backendKind: 'local' })
+  const reader = new Connection({
+    openChannel: async () => {
+      const [clientEnd, coreEnd] = createChannelPair()
+      fresh.attach(coreEnd)
+      return clientEnd
+    },
+    clientId: 'smoke-history'
+  })
+  reader.start()
+  await reader.request('tab.create', { tabId: 'history', cwd, resume: sessionId })
+  await reader.subscribeTab('history')
+  const users = (reader.store.getSnapshot().transcripts['history']?.items ?? []).filter((item) => item.kind === 'user')
+  console.log(`> history: ${users.length} user items, the late one ${users.filter((item) => item.kind === 'user' && item.text === LATE).length} time(s)`)
+  if (users.filter((item) => item.kind === 'user' && item.text === LATE).length !== 1) problems.push('the stored session does not show the mid-turn message exactly once')
+  await fresh.closeAll()
+  reader.close()
 }
 
 async function main(): Promise<void> {
@@ -136,12 +182,15 @@ async function main(): Promise<void> {
   await checkCommands()
   await checkImage()
   await checkShell()
-  await checkQueue()
+  await checkMidTurn()
+  await checkEffort()
+  const sessionId = meta()?.sessionId
   await core.closeAll()
   connection.close()
-  for (const sessionId of sessions) await deleteSession(sessionId, { dir: cwd }).catch(() => undefined)
+  if (sessionId) await checkHistory(sessionId)
+  for (const id of sessions) await deleteSession(id, { dir: cwd }).catch(() => undefined)
   rmSync(cwd, { recursive: true, force: true })
-  console.log(problems.length ? `\nPROBLEMS:\n- ${problems.join('\n- ')}` : '\nOK: commands visible, image seen, shell without a turn and seen, queue dispatched')
+  console.log(problems.length ? `\nPROBLEMS:\n- ${problems.join('\n- ')}` : '\nOK: commands visible, image seen, shell without a turn and seen, mid-turn message read, effort applied, history right')
   process.exitCode = problems.length ? 1 : 0
 }
 

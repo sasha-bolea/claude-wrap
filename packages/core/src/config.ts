@@ -10,7 +10,8 @@ export type SdkApi = {
   query: typeof query
   getSessionMessages(sessionId: string, options: Dir): Promise<SessionMessage[]>
   getSessionInfo(sessionId: string, options: Dir): Promise<SDKSessionInfo | undefined>
-  listSessions(options: Dir): Promise<SDKSessionInfo[]>
+  // dir absent: the sessions of every folder.
+  listSessions(options: { dir?: string; limit?: number }): Promise<SDKSessionInfo[]>
   renameSession(sessionId: string, title: string, options: Dir): Promise<void>
   deleteSession(sessionId: string, options: Dir): Promise<void>
   forkSession(sessionId: string, options: Dir & { title?: string; upToMessageId?: string }): Promise<{ sessionId: string }>
@@ -36,6 +37,11 @@ export interface CoreConfig {
   notifier?: (notice: Notice) => void
   // Commands the host answers itself (remote server: devices.*).
   hostCommands?: HostCommands
+  // File kept up to date with the number of sessions at work (remote server: its automatic update waits for 0).
+  activityFile?: string
+  // Moves a file or folder to the system trash (desktop: Electron's shell.trashItem, in main). Absent: the app's own
+  // trash in <stateDir>/trash, 7 days (remote server).
+  trashItem?: (path: string) => Promise<void>
   maxLiveSessions?: number
   coalesceMs?: number
   snapshotItems?: number

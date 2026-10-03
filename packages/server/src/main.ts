@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { createCore, type CoreConfig } from '@claude-wrap/core'
 import { allowedPeers, readConfig } from './config.ts'
 import { deviceCommands } from './deviceCommands.ts'
@@ -20,6 +21,7 @@ async function main(): Promise<void> {
     backendKind: 'remote',
     sdk,
     stateDir: config.stateDir,
+    activityFile: join(config.stateDir, 'activity.json'),
     allowedRoots: [config.root],
     hostCommands: deviceCommands(devices, (deviceIds) => server?.disconnect(deviceIds), push.publicKey),
     notifier: (notice) => void push.notify(notice).catch((error: unknown) => console.log(`push failed: ${String(error)}`))

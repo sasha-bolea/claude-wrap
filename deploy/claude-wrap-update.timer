@@ -1,0 +1,10 @@
+# Looks for a new version of claude-wrap 5 minutes after boot, then 5 minutes after each check ends.
+[Unit]
+Description=claude-wrap automatic update check
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=5min
+
+[Install]
+WantedBy=timers.target

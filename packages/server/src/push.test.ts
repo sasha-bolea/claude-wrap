@@ -56,14 +56,17 @@ describe('web push', () => {
     clientEnd.onMessage((frame) => (frame as { t: string }).t === 'reply' && replies.push(frame as { id: string; result?: unknown }))
     core.attach(coreEnd, { deviceId: ids.phone!, label: 'phone' })
     clientEnd.send({ t: 'hello', protocolVersion: PROTOCOL_VERSION, clientId: 'pwa', visible: true, resume: {} })
-    const command = (n: number, name: string, args: object) => clientEnd.send({ t: 'cmd', id: `00000000-0000-4000-8000-00000000000${n}`, name, args })
-    command(1, 'push.subscribe', target('phone'))
-    command(2, 'push.config', {})
-    command(3, 'push.unsubscribe', {})
-    command(4, 'push.config', {})
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    // Replies may come in any order: they are matched by command id.
-    expect([...replies].sort((a, b) => a.id.localeCompare(b.id)).map((reply) => reply.result)).toEqual([{}, { publicKey: 'PUBLIC', subscribed: true }, {}, { publicKey: 'PUBLIC', subscribed: false }])
+    // One command at a time, as a client does, each answer matched by its command id.
+    const command = async (n: number, name: string, args: object) => {
+      const id = `00000000-0000-4000-8000-00000000000${n}`
+      clientEnd.send({ t: 'cmd', id, name, args })
+      while (!replies.some((reply) => reply.id === id)) await new Promise((resolve) => setTimeout(resolve, 5))
+      return replies.find((reply) => reply.id === id)!.result
+    }
+    expect(await command(1, 'push.subscribe', target('phone'))).toEqual({})
+    expect(await command(2, 'push.config', {})).toEqual({ publicKey: 'PUBLIC', subscribed: true })
+    expect(await command(3, 'push.unsubscribe', {})).toEqual({})
+    expect(await command(4, 'push.config', {})).toEqual({ publicKey: 'PUBLIC', subscribed: false })
     await core.closeAll()
   })
 })

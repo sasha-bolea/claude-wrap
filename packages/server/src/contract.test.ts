@@ -170,7 +170,11 @@ describe.each(TRANSPORTS)('protocol contract ($name)', (current) => {
     session.emit(sdk.messageStart('m1'), sdk.blockStart(0, { type: 'text', text: '' }), sdk.textDelta(0, 'while '), sdk.textDelta(0, 'away'))
     await new Promise((resolve) => setTimeout(resolve, 10))
     net.state.offline = false
-    const state = await until((s) => s.status === 'connected' && s.transcripts['t1']?.items.at(-1)?.itemId === 'm1:0')
+    // The replay arrives one event at a time: wait for the whole text (a lost delta times out here).
+    const state = await until((s) => {
+      const last = s.transcripts['t1']?.items.at(-1)
+      return s.status === 'connected' && last?.itemId === 'm1:0' && 'text' in last && last.text === 'while away'
+    })
     expect(state.transcripts['t1']?.items.map((item) => ('text' in item ? item.text : item.kind))).toEqual(['first', 'while away'])
   })
 
@@ -204,7 +208,7 @@ describe.each(TRANSPORTS)('protocol contract ($name)', (current) => {
     await until((s) => s.tabs?.[0]?.status === 'idle')
     net.state.loseNext = (frame) => frame.t === 'reply'
     const reply = await connection.request('tab.send', { tabId: 't1', text: 'second' })
-    expect(reply).toEqual({ queued: false })
+    expect(reply).toEqual({})
     expect(net.state.opens).toBe(2)
     const state = await until((s) => userItems(s).length === 2)
     expect(userItems(state).map((item) => item.kind === 'user' && item.text)).toEqual(['first', 'second'])
@@ -217,9 +221,9 @@ describe.each(TRANSPORTS)('protocol contract ($name)', (current) => {
     net.state.offline = true
     net.drop()
     await until((s) => s.status === 'offline')
-    const queued = [connection.request('tab.send', { tabId: 't1', text: 'q1' }), connection.request('tab.send', { tabId: 't1', text: 'q2' })]
+    const queued = [connection.request('tab.queueAdd', { tabId: 't1', text: 'q1' }), connection.request('tab.queueAdd', { tabId: 't1', text: 'q2' })]
     net.state.offline = false
-    expect(await Promise.all(queued)).toEqual([{ queued: true }, { queued: true }])
+    expect(await Promise.all(queued)).toEqual([{}, {}])
     const state = await until((s) => s.tabs?.[0]?.queue.length === 2)
     expect(state.tabs?.[0]?.queue.map((message) => message.text)).toEqual(['q1', 'q2'])
     expect(session.received).toHaveLength(1)

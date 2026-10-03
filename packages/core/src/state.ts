@@ -1,25 +1,32 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import type { ModelInfo, PermissionMode, SlashCommand } from '@claude-wrap/protocol'
+import type { Effort, ModelInfo, PermissionMode, QueuePause, SlashCommand } from '@claude-wrap/protocol'
+import type { Outgoing } from './tab.ts'
 
 // What a tab keeps across restarts (it comes back dormant). Transcripts are not here: the CLI JSONL is the truth.
+// ponytail: queued images stay inline (base64) in state.json; move them to files if queues of many photos get common.
 export type PersistedTab = {
   tabId: string
   title: string
   cwd: string
   sessionId?: string
   model?: string
+  effort?: Effort
   mode: PermissionMode
   cachedModels?: ModelInfo[]
   cachedCommands?: SlashCommand[]
+  queue?: Outgoing[]
+  queuePause?: QueuePause
 }
 
 // A claude process started by this core, recorded to kill it if the core dies without closing it.
 export type LivePid = { pid: number; startedAt: number }
 
-export type PersistedState = { version: 1; trustedFolders: string[]; tabs: PersistedTab[]; livePids: LivePid[] }
+// projects: folders marked as projects (canonical paths). addedFolders: the Home of this PC (desktop); undefined until
+// the first start with a Home, which fills it with the folders of the saved tabs.
+export type PersistedState = { version: 1; trustedFolders: string[]; tabs: PersistedTab[]; livePids: LivePid[]; projects: string[]; addedFolders?: string[] }
 
-const EMPTY: PersistedState = { version: 1, trustedFolders: [], tabs: [], livePids: [] }
+const EMPTY: PersistedState = { version: 1, trustedFolders: [], tabs: [], livePids: [], projects: [] }
 // Numbers temp files across every store of this process.
 let writeCounter = 0
 

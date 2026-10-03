@@ -7,6 +7,10 @@ export const permissionModeSchema = z.enum(PERMISSION_MODES)
 
 export const TAB_STATUSES = ['dormant', 'starting', 'idle', 'running', 'requires_action', 'closing', 'needs_trust', 'error'] as const
 
+// Reasoning effort levels of the CLI (/effort); each model offers some of them (ModelInfo.supportedEffortLevels).
+export const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
+export const effortSchema = z.enum(EFFORT_LEVELS)
+
 // ---- Transcript items (normalized in core: clients never see SDK messages) ----
 
 const itemBase = { itemId: z.string(), sourceUuid: z.string().optional() }
@@ -16,7 +20,8 @@ export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'
 export const imageRefSchema = z.object({ imageId: z.string(), mediaType: z.enum(IMAGE_TYPES) })
 
 export const itemSchema = z.discriminatedUnion('kind', [
-  z.object({ ...itemBase, kind: z.literal('user'), text: z.string(), images: z.array(imageRefSchema).optional(), from: z.string().optional() }),
+  // pending: sent while Claude works, not read yet (the CLI reads it at its next step).
+  z.object({ ...itemBase, kind: z.literal('user'), text: z.string(), images: z.array(imageRefSchema).optional(), from: z.string().optional(), pending: z.boolean().optional() }),
   z.object({ ...itemBase, kind: z.literal('assistantText'), text: z.string() }),
   z.object({ ...itemBase, kind: z.literal('thinking'), text: z.string() }),
   // itemId is the tool_use id.
@@ -57,8 +62,10 @@ export const requestSchema = z.object({
 
 // ---- Tabs (workspace stream) ----
 
-// images: how many images the message carries (the bytes stay in core).
+// A message of the tab's queue (queue mode of the composer). images: how many it carries (the bytes stay in core).
 export const queuedMessageSchema = z.object({ queueId: z.string(), text: z.string(), images: z.number().int().optional(), from: z.string().optional() })
+// Why the queue waits: paused by hand (⏸), after Stop, or by a usage limit until `until` (ms).
+export const queuePauseSchema = z.object({ reason: z.enum(['user', 'stop', 'limit']), until: z.number().optional() })
 
 export const tabMetaSchema = z.object({
   tabId: z.string(),
@@ -69,11 +76,20 @@ export const tabMetaSchema = z.object({
   // model: last requested (may be an alias, passed at spawn); activeModel: what the CLI reports it is using.
   model: z.string().optional(),
   activeModel: z.string().optional(),
+  // undefined = the model's default effort.
+  effort: effortSchema.optional(),
   mode: permissionModeSchema,
   queue: z.array(queuedMessageSchema),
+  queuePause: queuePauseSchema.optional(),
   pendingRequests: z.number().int().nonnegative(),
   error: z.string().optional()
 })
+
+// Home of the backend: the folder sessions live under (remote server), or the folders added on this PC.
+export const homeSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('root'), path: z.string() }),
+  z.object({ kind: z.literal('added'), folders: z.array(z.string()) })
+])
 
 // ---- Stream events and snapshots ----
 
@@ -82,7 +98,11 @@ export const workspaceEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('tab.updated'), tab: tabMetaSchema }),
   z.object({ type: z.literal('tab.removed'), tabId: z.string() }),
   z.object({ type: z.literal('tab.moved'), tabId: z.string(), index: z.number().int().nonnegative() }),
-  z.object({ type: z.literal('turn.finished'), tabId: z.string() })
+  z.object({ type: z.literal('turn.finished'), tabId: z.string() }),
+  // The home or the project folders changed (any client may have changed them).
+  z.object({ type: z.literal('folders.updated'), home: homeSchema, projects: z.array(z.string()) }),
+  // The notes of a folder changed: clients showing them read them again.
+  z.object({ type: z.literal('notes.changed'), cwd: z.string() })
 ])
 
 export const tabEventSchema = z.discriminatedUnion('type', [
@@ -95,7 +115,7 @@ export const tabEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('request.cancelled'), requestId: z.string() })
 ])
 
-export const workspaceSnapshotSchema = z.object({ kind: z.literal('workspace'), tabs: z.array(tabMetaSchema) })
+export const workspaceSnapshotSchema = z.object({ kind: z.literal('workspace'), tabs: z.array(tabMetaSchema), home: homeSchema, projects: z.array(z.string()) })
 export const tabSnapshotSchema = z.object({ kind: z.literal('tab'), items: z.array(itemSchema), hasMore: z.boolean(), requests: z.array(requestSchema) })
 
 // ---- Stored sessions and folder trust ----
@@ -104,6 +124,8 @@ export const sessionInfoSchema = z.object({
   sessionId: z.string(),
   title: z.string(),
   lastModified: z.number(),
+  // Folder of the session (in the list of every folder's sessions).
+  cwd: z.string().optional(),
   gitBranch: z.string().optional(),
   // The tab that has this session open, if any.
   tabId: z.string().optional()
@@ -129,6 +151,9 @@ export type ImageRef = z.infer<typeof imageRefSchema>
 export type ImageType = (typeof IMAGE_TYPES)[number]
 export type Request = z.infer<typeof requestSchema>
 export type QueuedMessage = z.infer<typeof queuedMessageSchema>
+export type QueuePause = z.infer<typeof queuePauseSchema>
+export type Effort = z.infer<typeof effortSchema>
+export type Home = z.infer<typeof homeSchema>
 export type TabMeta = z.infer<typeof tabMetaSchema>
 export type WorkspaceEvent = z.infer<typeof workspaceEventSchema>
 export type TabEvent = z.infer<typeof tabEventSchema>

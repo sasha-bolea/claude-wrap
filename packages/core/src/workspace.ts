@@ -1,31 +1,42 @@
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
-import { WORKSPACE_STREAM, tabStream } from '@claude-wrap/protocol'
+import { WORKSPACE_STREAM, tabStream, type Home } from '@claude-wrap/protocol'
+import { ActivityFile } from './activity.ts'
 import type { CoreConfig, SdkApi } from './config.ts'
 import { CoreError } from './errors.ts'
+import { NoteStore } from './notes.ts'
 import { waitForCleanups } from './process.ts'
 import { PromptHistory } from './promptHistory.ts'
-import type { StateStore } from './state.ts'
+import type { PersistedState, StateStore } from './state.ts'
 import { DEFAULT_RING, Stream } from './stream.ts'
 import { Tab, type TabEnvironment, type TabInit } from './tab.ts'
-import { TrustGate, canonicalFolder, checkRoots } from './trustGate.ts'
+import { Trash } from './trash.ts'
+import { TrustGate, canonicalFolder, checkRoots, withinRoots } from './trustGate.ts'
 
 // Upper bound for closing everything on quit.
 const QUIT_CAP_MS = 8000
+const DAY_MS = 24 * 3600 * 1000
 
 // All tabs of the backend (in order), the session index over them (dormant included), the workspace stream,
-// the trust gate, and their persistence in state.json.
+// the trust gate, the Home (folders, project marks), trash, notes, and their persistence.
 export class Workspace {
   readonly tabs = new Map<string, Tab>()
   readonly stream: Stream
   readonly trust: TrustGate
   readonly sdk: SdkApi
   readonly prompts: PromptHistory
+  readonly notes: NoteStore
   readonly allowedRoots: 'any' | string[]
+  // The app's trash (remote server); the desktop moves things to the system trash instead.
+  readonly trash?: Trash
+  private readonly trashItem?: (path: string) => Promise<void>
   private readonly sessionIndex = new Map<string, string>() // sessionId → tabId
   private readonly store: StateStore
   private readonly env: TabEnvironment
+  private readonly activity?: ActivityFile
+  private readonly trashTimer?: NodeJS.Timeout
+  private limitTimer?: NodeJS.Timeout
   private savedTabs = ''
 
   // config: core configuration; store: the loaded state (tabs come back dormant).
@@ -36,10 +47,43 @@ export class Workspace {
     this.allowedRoots = config.allowedRoots ?? 'any'
     const claudeDir = config.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude')
     this.prompts = new PromptHistory(config.stateDir && join(config.stateDir, 'history.jsonl'), join(claudeDir, 'history.jsonl'))
-    this.stream = new Stream(WORKSPACE_STREAM, () => ({ kind: 'workspace', tabs: [...this.tabs.values()].map((tab) => tab.meta()) }), config.ring ?? DEFAULT_RING)
+    this.notes = new NoteStore(config.stateDir && join(config.stateDir, 'notes.json'))
+    this.stream = new Stream(
+      WORKSPACE_STREAM,
+      () => ({ kind: 'workspace', tabs: [...this.tabs.values()].map((tab) => tab.meta()), home: this.home(), projects: this.projects() }),
+      config.ring ?? DEFAULT_RING
+    )
     this.env = this.environment(config)
     for (const saved of store.data.tabs) this.add(new Tab({ ...saved, resume: saved.sessionId }, this.env))
     this.savedTabs = JSON.stringify(store.data.tabs)
+    // Restored tabs are dormant: 0 overwrites what a previous run may have left.
+    this.activity = config.activityFile ? new ActivityFile(config.activityFile) : undefined
+    this.activity?.set(0)
+    // The first start with a Home on this PC: it begins with the folders of the open sessions.
+    if (this.allowedRoots === 'any' && !store.data.addedFolders) {
+      const folders = [...new Set(store.data.tabs.map((tab) => tab.cwd))]
+      store.update((data) => (data.addedFolders = folders)).catch(() => undefined)
+    }
+    this.trashItem = config.trashItem
+    if (!config.trashItem && config.stateDir) {
+      const trash = new Trash(join(config.stateDir, 'trash'))
+      this.trash = trash
+      void trash.expire()
+      this.trashTimer = setInterval(() => void trash.expire(), DAY_MS).unref()
+    }
+    // A usage limit still running from before the restart.
+    const limitedUntil = Math.max(0, ...store.data.tabs.flatMap((tab) => (tab.queuePause?.reason === 'limit' ? [tab.queuePause.until ?? 0] : [])))
+    if (limitedUntil) this.rateLimited(limitedUntil)
+  }
+
+  // The Home of this backend: the root sessions live under (remote server) or the folders added on this PC.
+  home(): Home {
+    return this.allowedRoots === 'any' ? { kind: 'added', folders: this.store.data.addedFolders ?? [] } : { kind: 'root', path: this.allowedRoots[0]! }
+  }
+
+  // Folders marked as projects.
+  projects(): string[] {
+    return [...this.store.data.projects]
   }
 
   // The tab or not_found.
@@ -70,7 +114,7 @@ export class Workspace {
     return init.tabId
   }
 
-  // Closes a tab; the session lock is released only once its process has exited.
+  // Closes a tab (its queue is discarded); the session lock is released only once its process has exited.
   async close(tabId: string): Promise<void> {
     const tab = this.tabOf(tabId)
     await tab.close()
@@ -98,9 +142,75 @@ export class Workspace {
     for (const tab of this.tabs.values()) tab.trustChanged()
   }
 
-  // Closes every tab (quit). Resolves when processes and orphan cleanups are done, at most after QUIT_CAP_MS.
+  // A folder from a client, canonical and inside the roots (not_found / outside_root otherwise).
+  async folderOf(path: string): Promise<string> {
+    const folder = await canonicalFolder(path)
+    checkRoots(folder, this.allowedRoots)
+    return folder
+  }
+
+  // Marks or unmarks a folder (any level) as a project, for every device.
+  async setProject(path: string, project: boolean): Promise<void> {
+    const folder = await this.folderOf(path)
+    await this.updateFolders((data) => (data.projects = project ? [...new Set([...data.projects, folder])] : data.projects.filter((other) => other !== folder)))
+  }
+
+  // Adds a folder to the Home of this PC (only where any folder is allowed). Returns its canonical path.
+  async addFolder(path: string): Promise<string> {
+    if (this.allowedRoots !== 'any') throw new CoreError('invalid_args', 'the Home of this backend is its root folder')
+    const folder = await canonicalFolder(path)
+    await this.updateFolders((data) => (data.addedFolders = [...new Set([...(data.addedFolders ?? []), folder])]))
+    return folder
+  }
+
+  // Takes a folder off the Home of this PC; its files stay.
+  async removeFolder(path: string): Promise<void> {
+    await this.updateFolders((data) => (data.addedFolders = (data.addedFolders ?? []).filter((folder) => folder !== path)))
+  }
+
+  // Deletes a folder strictly inside the Home (never one of the Home's own folders), unless a session is open in it.
+  async deleteFolder(path: string): Promise<void> {
+    const folder = await this.folderOf(path)
+    const bases = this.allowedRoots === 'any' ? (this.store.data.addedFolders ?? []) : this.allowedRoots
+    if (!bases.some((base) => base !== folder && withinRoots(folder, [base]))) throw new CoreError('invalid_args', 'only folders inside the Home can be deleted')
+    if ([...this.tabs.values()].some((tab) => withinRoots(tab.cwd, [folder]))) throw new CoreError('session_busy', 'close the sessions open in this folder first')
+    await this.discard(folder)
+  }
+
+  // Moves a file or folder out of the way: to the system trash (desktop) or to the app's trash, with the project marks
+  // it held (they come back with a restore).
+  async discard(path: string): Promise<void> {
+    const marks = this.store.data.projects.filter((project) => withinRoots(project, [path]))
+    if (this.trashItem) await this.trashItem(path)
+    else if (this.trash) await this.trash.put(path, marks.map((project) => relative(path, project)))
+    else throw new CoreError('invalid_args', 'no trash on this backend')
+    if (marks.length) await this.updateFolders((data) => (data.projects = data.projects.filter((project) => !marks.includes(project))))
+  }
+
+  // Puts a trashed item back, with its project marks. Returns where it went.
+  async restore(id: string): Promise<string> {
+    if (!this.trash) throw new CoreError('not_found', 'no app trash on this backend')
+    const entry = await this.trash.restore(id)
+    if (entry.projects.length) await this.updateFolders((data) => (data.projects = [...new Set([...data.projects, ...entry.projects.map((mark) => join(entry.path, mark))])]))
+    return entry.path
+  }
+
+  // A usage limit was hit: every tab's queue waits until `until` (ms), then goes on by itself.
+  rateLimited(until: number): void {
+    for (const tab of this.tabs.values()) tab.pauseQueue({ reason: 'limit', until })
+    clearTimeout(this.limitTimer)
+    this.limitTimer = setTimeout(() => {
+      for (const tab of this.tabs.values()) tab.resumeQueue('limit')
+    }, Math.max(0, until - Date.now()))
+    this.limitTimer.unref()
+  }
+
+  // Closes every tab (quit), keeping their queues. Resolves when processes and orphan cleanups are done, at most
+  // after QUIT_CAP_MS.
   async closeAll(): Promise<void> {
-    const closing = Promise.all([...this.tabs.values()].map((tab) => tab.close())).then(waitForCleanups)
+    clearInterval(this.trashTimer)
+    clearTimeout(this.limitTimer)
+    const closing = Promise.all([...this.tabs.values()].map((tab) => tab.close(true))).then(waitForCleanups)
     await Promise.race([closing, new Promise((resolve) => setTimeout(resolve, QUIT_CAP_MS).unref())])
     await this.store.flush()
   }
@@ -108,6 +218,12 @@ export class Workspace {
   private add(tab: Tab): void {
     this.tabs.set(tab.tabId, tab)
     if (tab.sessionId) this.sessionIndex.set(tab.sessionId, tab.tabId)
+  }
+
+  // Applies a change to the Home or the project marks, saves it and tells every client.
+  private async updateFolders(change: (data: PersistedState) => void): Promise<void> {
+    await this.store.update(change)
+    this.stream.emit({ type: 'folders.updated', home: this.home(), projects: this.projects() })
   }
 
   // Saves the tabs when what survives a restart changed (not on every status change).
@@ -143,12 +259,12 @@ export class Workspace {
         if (live >= maxLiveSessions) throw new CoreError('limit_reached', `at most ${maxLiveSessions} live sessions`)
       },
       prepareStart: async (cwd) => {
-        const folder = await canonicalFolder(cwd)
-        checkRoots(folder, this.allowedRoots)
+        const folder = await this.folderOf(cwd)
         if (!(await this.trust.isTrusted(folder))) throw new CoreError('needs_trust', `folder not trusted: ${folder}`)
         return folder
       },
       changed: (tab) => {
+        this.activity?.set([...this.tabs.values()].filter((other) => other.busy).length)
         if (this.tabs.get(tab.tabId) !== tab) return
         this.stream.emit({ type: 'tab.updated', tab: tab.meta() })
         this.persist()
@@ -160,6 +276,7 @@ export class Workspace {
       },
       promptSent: (tab, text) => this.prompts.add(text, tab.cwd, tab.sessionId),
       notify: (tab, kind, detail) => config.notifier?.({ kind, tabId: tab.tabId, title: tab.title, detail }),
+      rateLimited: (until) => this.rateLimited(until),
       processStarted: (pid, startedAt) => this.trackProcess(pid, startedAt),
       processExited: (pid) => this.trackProcess(pid)
     }

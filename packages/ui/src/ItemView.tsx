@@ -71,7 +71,7 @@ export function ItemView({ item, openExternal, loadImage }: { item: Item; openEx
   switch (item.kind) {
     case 'user':
       return (
-        <div className="item user">
+        <div className={`item user${item.pending ? ' pending' : ''}`}>
           {item.images && (
             <div className="user-images">
               {item.images.map((image, index) => (
@@ -80,6 +80,7 @@ export function ItemView({ item, openExternal, loadImage }: { item: Item; openEx
             </div>
           )}
           {item.text}
+          {item.pending && <span className="chip">{t('waitingToBeRead')}</span>}
         </div>
       )
     case 'assistantText':

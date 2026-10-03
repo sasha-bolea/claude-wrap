@@ -1,7 +1,7 @@
 // Phase 2, composer and commands on the scripted fake SDK. User stories:
 // I pick a command from the `/` palette and see its output; I mention a file with `@`; I paste an image and
-// Claude gets it; a long paste collapses and is sent whole; Up/Down and Ctrl+R bring back what I sent; a queued
-// message can be removed or sent now; `!` runs a shell command in the folder.
+// Claude gets it; a long paste collapses and is sent whole; Up/Down and Ctrl+R bring back what I sent; a message sent
+// while Claude works waits and is read in the same turn (sub-phase B); `!` runs a shell command in the folder.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -103,20 +103,18 @@ describe('composer (fake SDK)', () => {
     expect(await field.inputValue()).toBe('first')
   })
 
-  it('a queued message can be removed, or sent now (interrupting the turn)', async () => {
+  it('a message sent while Claude works waits, then Claude reads it in the same turn', async () => {
     const { page } = ctx
-    await send(page, 'slow')
-    await expect.poll(() => lastAnswer(page).textContent()).toContain('word3')
-    await send(page, 'not this one')
-    const queue = page.getByRole('region', { name: 'Queued messages' })
-    await queue.getByText('not this one').waitFor()
-    await queue.getByRole('button', { name: 'Remove' }).click()
-    await queue.waitFor({ state: 'detached' })
-    await send(page, 'urgent')
-    await queue.getByRole('button', { name: 'Send now' }).click()
-    await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: urgent')
-    expect(await page.locator('.item.turn-end').first().textContent()).toBe('Interrupted')
-    expect(await page.locator('.item.user').allTextContents()).toEqual(['slow', 'urgent'])
+    await send(page, 'permission')
+    const request = page.getByRole('region', { name: 'Permission request' })
+    await request.waitFor()
+    await send(page, 'also this')
+    const waiting = page.locator('.item.user.pending')
+    await expect.poll(() => waiting.textContent()).toContain('waiting')
+    await request.getByRole('button', { name: 'Yes', exact: true }).click()
+    await expect.poll(() => lastAnswer(page).textContent()).toContain('Echo: also this')
+    expect(await waiting.count()).toBe(0)
+    expect(await page.locator('.item.turn-end').count()).toBe(1)
   })
 
   it('! runs a shell command in the folder and shows its output', async () => {

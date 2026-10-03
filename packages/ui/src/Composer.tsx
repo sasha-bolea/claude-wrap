@@ -1,14 +1,13 @@
-import { useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type RefObject } from 'react'
+import { useRef, type ClipboardEvent, type DragEvent, type KeyboardEvent, type RefObject } from 'react'
 import type { Connection } from '@claude-wrap/client'
 import type { Image, PermissionMode, TabMeta } from '@claude-wrap/protocol'
-import { useComposerPopup, usePromptHistory } from './composerHooks.ts'
+import { useComposerPopup, useDraft, usePromptHistory } from './composerHooks.ts'
 import { applySuggestion, expandPastes, isLongPaste, mention, pastePlaceholder } from './composerText.ts'
 import { t } from './i18n.ts'
 import { Icon } from './Icon.tsx'
 import { dataUrl, isImageFile, readImages } from './images.ts'
 import { MobileComposerTools } from './MobileComposerTools.tsx'
 import { Suggestions, type Option } from './Suggestions.tsx'
-import { readDraft, readPastes, writeDraft, writePastes } from './viewState.ts'
 
 // A message as the composer hands it over.
 export type Outgoing = { text: string; images?: Image[]; pastes?: string[] }
@@ -43,39 +42,6 @@ const SUGGESTIONS_ID = 'composer-suggestions'
 function caretOnEdgeLine(field: HTMLTextAreaElement, edge: 'first' | 'last'): boolean {
   if (field.selectionStart !== field.selectionEnd) return false
   return edge === 'first' ? !field.value.slice(0, field.selectionStart).includes('\n') : !field.value.slice(field.selectionEnd).includes('\n')
-}
-
-// Text, long pastes and attached images of the draft. Text and pastes survive reloads; images do not (size).
-function useDraft(backendId: string, tabId: string, inputRef: RefObject<HTMLTextAreaElement | null>) {
-  const [text, setText] = useState(() => readDraft(backendId, tabId))
-  const [pastes, setPastes] = useState(() => readPastes(backendId, tabId))
-  const [images, setImages] = useState<Image[]>([])
-  const pendingCaret = useRef<number | undefined>(undefined)
-  useLayoutEffect(() => {
-    if (pendingCaret.current === undefined) return
-    inputRef.current?.setSelectionRange(pendingCaret.current, pendingCaret.current)
-    pendingCaret.current = undefined
-  }, [text, inputRef])
-  // caret: where to put it after a programmatic change (typing leaves it to the browser).
-  const setValue = (value: string, caret?: number) => {
-    setText(value)
-    writeDraft(backendId, tabId, value)
-    pendingCaret.current = caret
-  }
-  const addPaste = (content: string) => {
-    const id = Math.max(0, ...Object.keys(pastes).map(Number)) + 1
-    const next = { ...pastes, [id]: content }
-    setPastes(next)
-    writePastes(backendId, tabId, next)
-    return id
-  }
-  const clear = () => {
-    setValue('')
-    setPastes({})
-    writePastes(backendId, tabId, {})
-    setImages([])
-  }
-  return { text, pastes, images, setImages, setValue, addPaste, clear }
 }
 
 // Message field. Enter sends, Shift+Enter adds a line, Shift+Tab switches mode (as in the CLI prompt) — only here

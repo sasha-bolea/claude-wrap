@@ -1,4 +1,4 @@
-import { app, utilityProcess, type MessagePortMain, type UtilityProcess } from 'electron'
+import { app, shell, utilityProcess, type MessagePortMain, type UtilityProcess } from 'electron'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import type { Notice } from '@claude-wrap/core'
@@ -45,8 +45,16 @@ export class CoreProcess {
       this.alive = true
       for (const port of this.waiting.splice(0)) child.postMessage({ type: 'attach' }, [port])
     })
-    child.on('message', (message: { type?: string; notice?: Notice }) => {
+    child.on('message', (message: { type?: string; notice?: Notice; id?: number; path?: string }) => {
       if (message.type === 'notify' && message.notice) this.events.notify(message.notice)
+      // The core asks to move a file or folder (already checked against its Home) to the system trash.
+      if (message.type === 'trash' && message.id !== undefined && message.path) {
+        const { id, path } = message
+        shell.trashItem(path).then(
+          () => child.postMessage({ type: 'trashed', id }),
+          (error: unknown) => child.postMessage({ type: 'trashed', id, error: String(error) })
+        )
+      }
     })
     child.on('exit', () => this.onExit(child))
   }

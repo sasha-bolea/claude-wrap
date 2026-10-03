@@ -1,7 +1,20 @@
 import { randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
 import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
-import { tabStream, type Image, type Item, type ModelInfo, type PermissionMode, type SlashCommand, type StreamPosition, type TabMeta, type TabStatus } from '@claude-wrap/protocol'
+import {
+  EFFORT_LEVELS,
+  tabStream,
+  type Effort,
+  type Image,
+  type Item,
+  type ModelInfo,
+  type PermissionMode,
+  type QueuePause,
+  type SlashCommand,
+  type StreamPosition,
+  type TabMeta,
+  type TabStatus
+} from '@claude-wrap/protocol'
 import type { Notice, SdkApi } from './config.ts'
 import { CoreError, messageOf } from './errors.ts'
 import { suggestFiles } from './fileSuggestions.ts'
@@ -41,6 +54,8 @@ export interface TabEnvironment {
   sessionIdChanged(tab: Tab, previous: string | undefined): void
   // A prompt was accepted (→ prompt history).
   promptSent(tab: Tab, text: string): void
+  // A usage limit was hit: every queue waits until `until` (ms).
+  rateLimited(until: number): void
 }
 
 // A user message on its way: queueId is the cmd id (SDK message uuid); pastes are long pasted texts inside text.
@@ -52,15 +67,22 @@ export type TabInit = {
   resume?: string
   title?: string
   model?: string
+  effort?: Effort
   mode?: PermissionMode
   cachedModels?: ModelInfo[]
   cachedCommands?: SlashCommand[]
+  queue?: Outgoing[]
+  queuePause?: QueuePause
 }
 
 // Lifecycle of the tab's process; the visible status adds the turn state on top of `live`.
 type Lifecycle = 'dormant' | 'starting' | 'live' | 'closing' | 'needs_trust' | 'error'
 
-// One tab: metadata, transcript, open requests, message queue, and the lazily started CLI session.
+// What the CLI says of a sent message (capability msg_lifecycle_v1; the SDK's types do not have it).
+type CommandLifecycle = { type: 'command_lifecycle'; command_uuid: string; state: 'queued' | 'started' | 'completed' | 'cancelled' }
+const isCommandLifecycle = (message: unknown): message is CommandLifecycle => (message as { type?: string }).type === 'command_lifecycle'
+
+// One tab: metadata, transcript, open requests, queue, and the lazily started CLI session.
 // Viewing never starts a process: only sending (or asking models/commands with nothing cached) does.
 export class Tab {
   readonly tabId: string
@@ -71,14 +93,18 @@ export class Tab {
   sessionId?: string
   model?: string
   activeModel?: string
+  effort?: Effort
   mode: PermissionMode
   private confirmedMode: PermissionMode
   private lifecycle: Lifecycle = 'dormant'
   private turnRunning = false
   private error?: string
-  private queue: Outgoing[] = []
-  // "Send now" interrupted the turn: the head of the queue goes out even though the turn ended aborted.
-  private sendNowPending = false
+  private queue: Outgoing[]
+  private queuePause?: QueuePause
+  // Messages the CLI holds (command_lifecycle), from queued or started until completed or cancelled.
+  private readonly held = new Map<string, 'queued' | 'started'>()
+  // Transcript-only messages (the `!` shell output): their lifecycle frames are not turns.
+  private readonly silentUuids = new Set<string>()
   private shellAbort?: AbortController
   // Empty results still due for transcript-only messages (the CLI answers each one with a result, num_turns 0).
   private silentResults = 0
@@ -104,9 +130,13 @@ export class Tab {
     this.title = init.title || basename(init.cwd) || init.cwd
     this.sessionId = init.resume
     this.model = init.model
+    this.effort = init.effort
     this.mode = this.confirmedMode = init.mode ?? 'default'
     this.cachedModels = init.cachedModels
     this.cachedCommands = init.cachedCommands
+    this.queue = init.queue ?? []
+    // A queue that comes back after a restart waits for ▶ (nothing starts by itself at boot).
+    this.queuePause = init.queuePause ?? (this.queue.length ? { reason: 'stop' } : undefined)
     this.transcript = new Transcript(tabStream(init.tabId), () => this.requests.list(), env.transcript)
     this.normalizer = new Normalizer(this.transcript)
     this.requests = new Requests({
@@ -138,8 +168,8 @@ export class Tab {
 
   // What survives a restart (the tab comes back dormant).
   persisted(): PersistedTab {
-    const { tabId, title, cwd, sessionId, model, mode, cachedModels, cachedCommands } = this
-    return { tabId, title, cwd, sessionId, model, mode, cachedModels, cachedCommands }
+    const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause } = this
+    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause }
   }
 
   // The stored-session uuid behind an item (fork up to that item).
@@ -148,9 +178,9 @@ export class Tab {
   }
 
   meta(): TabMeta {
-    const { tabId, title, cwd, sessionId, status, model, activeModel, mode, error } = this
+    const { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queuePause } = this
     const queue = this.queue.map(({ queueId, text, from, images }) => ({ queueId, text, from, images: images?.length }))
-    return { tabId, title, cwd, sessionId, status, model, activeModel, mode, error, queue, pendingRequests: this.requests.size }
+    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size }
   }
 
   // Subscribes a connection to the transcript (loading a resumed session's history first, without a process).
@@ -163,17 +193,43 @@ export class Tab {
     this.transcript.stream.detach(send)
   }
 
-  // Sends a user message, or queues it while a turn runs (or a queue waits after an interrupt).
-  async send(message: Outgoing): Promise<{ queued: boolean }> {
+  // The tab's folder, canonical and trusted (needs_trust otherwise), for the file explorer; starts no process.
+  folder(): Promise<string> {
+    return this.env.prepareStart(this.cwd)
+  }
+
+  // Sends a user message. While Claude works it goes to the CLI at once with priority 'next' (read at its next step,
+  // as in the terminal) and its item stays pending until the CLI reads it.
+  async send(message: Outgoing): Promise<void> {
     this.assertOpen()
     if (message.text.trim()) this.env.promptSent(this, message.text)
-    if (this.turnRunning || this.queue.length) {
-      this.queue.push(message)
-      this.changed()
-      return { queued: true }
-    }
-    await this.deliver(message)
-    return { queued: false }
+    if (!this.turnRunning) return this.deliver(message)
+    const session = await this.ensureSession()
+    if (!this.transcript.has(message.queueId)) this.dispatch(session, message, true)
+  }
+
+  // Adds a message to the queue: it goes at once if Claude is free and the queue is not paused.
+  queueAdd(message: Outgoing): void {
+    this.assertOpen()
+    this.queue.push(message)
+    this.changed()
+    this.dispatchNext()
+  }
+
+  // Changes the text of a queued message (an image-only one may lose its text).
+  queueEdit(queueId: string, text: string): void {
+    const message = this.queued(queueId)
+    if (!text.trim() && !message.images?.length) throw new CoreError('invalid_args', 'empty message')
+    message.text = text
+    this.changed()
+  }
+
+  // Moves a queued message to a position (clamped to the end).
+  queueMove(queueId: string, index: number): void {
+    const message = this.queued(queueId)
+    this.queue = this.queue.filter((other) => other !== message)
+    this.queue.splice(Math.min(index, this.queue.length), 0, message)
+    this.changed()
   }
 
   unqueue(queueId: string): void {
@@ -181,27 +237,44 @@ export class Tab {
     this.changed()
   }
 
-  // Sends a queued message now: a running turn is interrupted and the message goes out when it ends; with no turn
-  // running (the queue waits after an interrupt) it goes out at once.
+  // Takes a message out of the queue and sends it now: read at Claude's next step, nothing interrupted.
   async sendNow(queueId: string): Promise<void> {
-    const message = this.queue.find((entry) => entry.queueId === queueId)
-    if (!message) throw new CoreError('not_found', 'message no longer queued')
-    this.queue = [message, ...this.queue.filter((entry) => entry !== message)]
-    this.changed()
-    if (this.turnRunning) {
-      this.sendNowPending = true
-      return this.interrupt()
-    }
-    this.queue.shift()
-    await this.deliver(message).catch((error: unknown) => {
+    const message = this.queued(queueId)
+    this.unqueue(queueId)
+    await this.send(message).catch((error: unknown) => {
       this.queue.unshift(message)
+      this.changed()
       throw error
     })
   }
 
-  // Stops the running turn, or the running `!` command.
+  // ⏸ / ▶ of the queue; ▶ also ends a pause after Stop or a usage limit.
+  setQueuePaused(paused: boolean): void {
+    this.queuePause = paused ? { reason: 'user' } : undefined
+    this.changed()
+    this.dispatchNext()
+  }
+
+  // The queue waits (after Stop, or a usage limit); a pause made by hand stays as it is.
+  pauseQueue(pause: QueuePause): void {
+    if (this.queuePause?.reason === 'user') return
+    this.queuePause = pause
+    this.changed()
+  }
+
+  // Ends a pause of that kind (the usage limit has reset) and lets the queue go on.
+  resumeQueue(reason: QueuePause['reason']): void {
+    if (this.queuePause?.reason !== reason) return
+    this.queuePause = undefined
+    this.changed()
+    this.dispatchNext()
+  }
+
+  // Stops the running turn (the queue then waits for ▶), or the running `!` command. Messages already sent and not
+  // read yet stay sent: the CLI runs them next.
   async interrupt(): Promise<void> {
     if (this.shellAbort) return this.shellAbort.abort()
+    if (this.queue.length && this.turnRunning) this.pauseQueue({ reason: 'stop' })
     await this.session?.query.interrupt().catch((error: unknown) => {
       throw new CoreError('sdk_error', messageOf(error))
     })
@@ -224,8 +297,10 @@ export class Tab {
       const { stdout, stderr, exitCode } = await runShell(command, this.cwd, this.shellAbort.signal)
       this.transcript.update({ ...item, output: [stdout, stderr].map((text) => text.trimEnd()).filter(Boolean).join('\n'), exitCode })
       this.silentResults += 2
+      const outputUuid = randomUUID()
+      this.silentUuids.add(uuid).add(outputUuid)
       session.push(transcriptOnly(uuid, `<bash-input>${command}</bash-input>`))
-      session.push(transcriptOnly(randomUUID(), `<bash-stdout>${stdout}</bash-stdout><bash-stderr>${stderr}</bash-stderr>`))
+      session.push(transcriptOnly(outputUuid, `<bash-stdout>${stdout}</bash-stdout><bash-stderr>${stderr}</bash-stderr>`))
       return { exitCode }
     } finally {
       this.shellAbort = undefined
@@ -237,15 +312,27 @@ export class Tab {
 
   // Files and folders of the tab's folder for an `@` mention (trusted folders only; starts no process).
   async suggestFiles(query: string): Promise<string[]> {
-    return suggestFiles(await this.env.prepareStart(this.cwd), query)
+    return suggestFiles(await this.folder(), query)
   }
 
   // Changes the model: live → setModel; dormant → only stored, passed at spawn. undefined = default model.
+  // An effort level the new model does not offer moves to its highest one below.
   async setModel(model: string | undefined): Promise<void> {
     this.model = model
     this.changed()
+    if (this.session) await this.session.query.setModel(model).catch((error: unknown) => this.sdkFailure('Model change failed', error))
+    const levels = this.cachedModels?.find((info) => info.value === (model ?? 'default'))?.supportedEffortLevels
+    const effort = fitEffort(this.effort, levels)
+    if (effort !== this.effort) await this.setEffort(effort)
+  }
+
+  // Changes the reasoning effort: live → applyFlagSettings (as /effort); dormant → stored, passed at spawn.
+  // undefined = the model's default.
+  async setEffort(effort: Effort | undefined): Promise<void> {
+    this.effort = effort
+    this.changed()
     if (!this.session) return
-    await this.session.query.setModel(model).catch((error: unknown) => this.sdkFailure('Model change failed', error))
+    await this.session.query.applyFlagSettings({ effortLevel: effort ?? null }).catch((error: unknown) => this.sdkFailure('Effort change failed', error))
   }
 
   // Changes the permission mode. Calls are chained; a rejection falls back to the last confirmed mode.
@@ -317,18 +404,20 @@ export class Tab {
     await this.ensureSession()
   }
 
-  // The folder's trust changed: a tab waiting for it can try to start again.
+  // The folder's trust changed: a tab waiting for it can try to start again (and its queue go on).
   trustChanged(): void {
     if (this.lifecycle !== 'needs_trust') return
     this.lifecycle = 'dormant'
     this.changed()
+    this.dispatchNext()
   }
 
-  // Closes the tab: discards the queue, denies requests, waits for a start in progress, stops the process.
-  close(): Promise<void> {
+  // Closes the tab: discards the queue (kept when the app quits: keepQueue), denies requests, waits for a start in
+  // progress, stops the process.
+  close(keepQueue = false): Promise<void> {
     this.closePromise ??= (async () => {
       this.lifecycle = 'closing'
-      this.queue = []
+      if (!keepQueue) this.queue = []
       this.changed()
       this.requests.denyAll('Session closed')
       await this.startPromise?.catch(() => undefined)
@@ -410,6 +499,7 @@ export class Tab {
       cwd: this.cwd,
       resume: this.sessionId,
       model: this.model,
+      effort: this.effort,
       permissionMode: this.mode,
       canUseTool: this.requests.ask
     }
@@ -422,7 +512,7 @@ export class Tab {
       const session = await this.ensureSession()
       // Already delivered (a retry after a core restart): the stored history, loaded at start, contains it.
       if (this.transcript.has(message.queueId)) this.turnRunning = false
-      else this.dispatch(session, message)
+      else this.dispatch(session, message, false)
     } catch (error) {
       this.turnRunning = false
       throw error
@@ -432,9 +522,10 @@ export class Tab {
   }
 
   // Appends the user item (images moved to the blob store) and hands the message to the CLI, stamped as human input.
-  private dispatch(session: Session, { queueId, text, from, images = [], pastes = [] }: Outgoing): void {
+  // midTurn: Claude is working, so the CLI reads it at its next step; the item is pending until then.
+  private dispatch(session: Session, { queueId, text, from, images = [], pastes = [] }: Outgoing, midTurn: boolean): void {
     const refs = images.map((image) => ({ imageId: this.transcript.addBlob(image), mediaType: image.mediaType }))
-    this.transcript.add({ kind: 'user', itemId: queueId, sourceUuid: queueId, text, from, ...(refs.length ? { images: refs } : {}) })
+    this.transcript.add({ kind: 'user', itemId: queueId, sourceUuid: queueId, text, from, ...(refs.length ? { images: refs } : {}), ...(midTurn ? { pending: true } : {}) })
     const blocks = images.map((image) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: image.mediaType, data: image.data } }))
     const content = blocks.length ? [...blocks, ...(text ? [{ type: 'text' as const, text }] : [])] : text
     session.push({
@@ -444,22 +535,30 @@ export class Tab {
       message: { role: 'user', content },
       parent_tool_use_id: null,
       origin: { kind: 'human' },
+      ...(midTurn ? { priority: 'next' as const } : {}),
       ...(pastes.length ? { inline_pastes: pastes } : {})
     })
     this.changed()
   }
 
-  // The next queued message goes out, if the session is live and no turn runs.
+  // The head of the queue goes when Claude is free (no turn, no message held by the CLI, no request) and the queue
+  // does not wait. A failure puts it back (needs_trust: it goes once the folder is trusted).
   private dispatchNext(): void {
-    const next = this.session && !this.turnRunning ? this.queue.shift() : undefined
-    if (!next) return
-    this.turnRunning = true
-    this.dispatch(this.session!, next)
+    const free = !this.turnRunning && !this.held.size && !this.requests.size && this.lifecycle !== 'closing' && this.lifecycle !== 'starting'
+    if (!free || this.queuePause || !this.queue.length) return
+    const next = this.queue.shift()!
+    this.changed()
+    this.deliver(next).catch((error: unknown) => {
+      this.queue.unshift(next)
+      this.changed()
+      if (!(error instanceof CoreError && error.code === 'needs_trust')) this.notice('error', `The queued message could not be sent: ${messageOf(error)}`)
+    })
   }
 
   // Applies one SDK message: transcript items via the normalizer, metadata here. The empty results of
   // transcript-only messages are dropped (they end no turn; the probe checks the CLI still sends them).
   private onMessage(message: SDKMessage): void {
+    if (isCommandLifecycle(message)) return this.onCommandLifecycle(message)
     if (message.type === 'result' && this.silentResults > 0 && message.num_turns === 0) return void this.silentResults--
     this.normalizer.live(message)
     if (message.type === 'system' && message.subtype === 'init') {
@@ -472,19 +571,40 @@ export class Tab {
       this.cachedCommands = visibleCommands(message.commands)
     } else if (message.type === 'conversation_reset') {
       this.resetConversation(message.new_conversation_id)
+    } else if (message.type === 'rate_limit_event' && message.rate_limit_info.status === 'rejected' && message.rate_limit_info.resetsAt) {
+      this.env.rateLimited(message.rate_limit_info.resetsAt * 1000)
     } else if (message.type === 'result') {
-      this.endTurn(message.subtype !== 'success' && Boolean(message.terminal_reason?.startsWith('aborted')))
+      this.endTurn()
     }
   }
 
-  // End of a turn: the next queued message goes out, unless the turn was interrupted (the queue then waits) by
-  // anything but "send now".
-  private endTurn(interrupted: boolean): void {
+  // What the CLI says of a sent message: queued, started (read: no longer pending; a turn the CLI starts by itself
+  // makes the tab work), completed or cancelled.
+  private onCommandLifecycle({ command_uuid: uuid, state }: CommandLifecycle): void {
+    const done = state === 'completed' || state === 'cancelled'
+    if (this.silentUuids.has(uuid)) return void (done && this.silentUuids.delete(uuid))
+    if (done) return void this.held.delete(uuid)
+    this.held.set(uuid, state)
+    if (state !== 'started') return
+    const item = this.transcript.get(uuid)
+    if (item?.kind === 'user' && item.pending) {
+      const { pending: _read, ...read } = item
+      this.transcript.update(read)
+    }
+    if (this.turnRunning) return
+    this.turnRunning = true
+    this.changed()
+  }
+
+  // End of a turn. What the CLI read in it is done; a message it has not read yet runs right after as its own turn,
+  // so the tab keeps working. Otherwise the turn is over and the next queued message goes (unless the queue waits).
+  private endTurn(): void {
+    for (const [uuid, state] of this.held) if (state === 'started') this.held.delete(uuid)
+    if (this.held.size) return this.changed()
     this.turnRunning = false
     this.env.turnFinished(this)
     this.env.notify(this, 'turnFinished')
-    if (!interrupted || this.sendNowPending) this.dispatchNext()
-    this.sendNowPending = false
+    this.dispatchNext()
     this.changed()
   }
 
@@ -503,6 +623,7 @@ export class Tab {
     if (this.session !== session) return
     this.session = undefined
     this.turnRunning = false
+    this.held.clear()
     if (this.lifecycle === 'closing') return
     this.lifecycle = error ? 'error' : 'dormant'
     this.error = error ? [error.message, session.stderrTail].filter(Boolean).join('\n') : undefined
@@ -527,6 +648,13 @@ export class Tab {
     this.sessionId = sessionId
     this.env.sessionIdChanged(this, previous)
     this.changed()
+  }
+
+  // A queued message by id, or not_found.
+  private queued(queueId: string): Outgoing {
+    const message = this.queue.find((entry) => entry.queueId === queueId)
+    if (!message) throw new CoreError('not_found', 'message no longer queued')
+    return message
   }
 
   // Records a failed SDK call as a notice and turns it into an sdk_error reply.
@@ -559,3 +687,12 @@ const transcriptOnly = (uuid: string, content: string): SDKUserMessage => ({
 
 // Commands without the CLI's internal `__` ones.
 const visibleCommands = (commands: SlashCommand[]) => commands.filter((command) => !command.name.startsWith('__'))
+
+// The effort kept on a model change (the prototype's rule, like the CLI's silent downgrade): the same if the model
+// offers it, else its highest level below (its lowest if none is below); unchanged when the model does not say.
+export function fitEffort(effort: Effort | undefined, levels: readonly Effort[] | undefined): Effort | undefined {
+  if (!effort || !levels?.length || levels.includes(effort)) return effort
+  const rank = (level: Effort) => EFFORT_LEVELS.indexOf(level)
+  const descending = [...levels].sort((a, b) => rank(b) - rank(a))
+  return descending.find((level) => rank(level) < rank(effort)) ?? descending.at(-1)
+}

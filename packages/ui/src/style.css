@@ -80,6 +80,8 @@ a { color: var(--accent); }
 .conversation { flex: 1; overflow-y: auto; padding: calc(var(--space) * 2); display: flex; flex-direction: column; gap: calc(var(--space) * 1.5); }
 .item { max-width: var(--content-width); width: 100%; margin: 0 auto; }
 .item.user { background: var(--surface-2); border-radius: var(--radius); padding: var(--space) calc(var(--space) * 1.5); white-space: pre-wrap; }
+.item.user.pending { opacity: .6; } /* sent while Claude works, not read yet */
+.item.user.pending .chip { margin-left: var(--space); }
 .item.assistant-text p:first-child { margin-top: 0; }
 .item.assistant-text p:last-child { margin-bottom: 0; }
 .item.thinking { color: var(--text-muted); font-style: italic; white-space: pre-wrap; border-left: 3px solid var(--border); padding-left: var(--space); }
@@ -183,7 +185,12 @@ a { color: var(--accent); }
 
 /* ---- Touch layout (PWA): one screen at a time, 44 px targets, safe areas of the notch and home bar ---- */
 .app.mobile { padding-top: env(safe-area-inset-top, 0px); }
-.app.mobile .field, .app.mobile textarea, .app.mobile input { font-size: 16px; } /* iOS zooms into smaller fields */
+.app.mobile, .pair { touch-action: manipulation; } /* no double-tap zoom (pinch: viewport + gesture events) */
+.app.mobile .field, .app.mobile textarea, .app.mobile input, .pair .field { font-size: 16px; } /* iOS zooms into smaller fields */
+.update-bar { display: flex; align-items: center; gap: var(--space); padding: 4px 4px 4px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border); font-weight: 600; }
+.update-bar span { flex: 1; }
+.update-bar .button { border-color: var(--accent); color: var(--accent); }
+.update-bar .icon-button { color: var(--text-muted); }
 .app.mobile .button { min-height: 44px; }
 .m-topbar { display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 4px var(--space); background: var(--surface); border-bottom: 1px solid var(--border); }
 .m-title { flex: 1; min-width: 0; display: grid; margin: 0; font-size: 17px; }

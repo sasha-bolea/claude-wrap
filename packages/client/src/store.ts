@@ -1,4 +1,4 @@
-import type { Item, ProtocolError, Request, TabEvent, TabMeta, TabSnapshot, Welcome, WorkspaceEvent, WorkspaceSnapshot } from '@claude-wrap/protocol'
+import type { Home, Item, ProtocolError, Request, TabEvent, TabMeta, TabSnapshot, Welcome, WorkspaceEvent, WorkspaceSnapshot } from '@claude-wrap/protocol'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'offline' | 'incompatible' | 'unauthorized'
 
@@ -12,14 +12,19 @@ export type StoreState = {
   error?: ProtocolError
   // Workspace tabs; undefined until the first workspace snapshot.
   tabs?: TabMeta[]
+  // The backend's Home and its project folders (from the same snapshot).
+  home?: Home
+  projects?: string[]
   // Transcripts of the subscribed tabs, by tabId.
   transcripts: Record<string, TabView>
+  // Bumped when a folder's notes change (by folder): a screen showing them reads them again.
+  notesVersion: Record<string, number>
 }
 
 // Client-side copy of the core state the UI displays. Every change produces a new state object
 // (useSyncExternalStore-ready: getSnapshot/subscribe).
 export class Store {
-  private state: StoreState = { status: 'connecting', transcripts: {} }
+  private state: StoreState = { status: 'connecting', transcripts: {}, notesVersion: {} }
   private readonly listeners = new Set<() => void>()
 
   getSnapshot = (): StoreState => this.state
@@ -35,7 +40,7 @@ export class Store {
   }
 
   applyWorkspaceReset(snapshot: WorkspaceSnapshot): void {
-    this.set({ ...this.state, tabs: snapshot.tabs })
+    this.set({ ...this.state, tabs: snapshot.tabs, home: snapshot.home, projects: snapshot.projects })
   }
 
   applyTabReset(tabId: string, snapshot: TabSnapshot): void {
@@ -56,6 +61,11 @@ export class Store {
     if (ev.type === 'tab.removed') {
       this.set({ ...this.state, tabs: tabs.filter((tab) => tab.tabId !== ev.tabId) })
       this.dropTab(ev.tabId)
+    }
+    if (ev.type === 'folders.updated') this.set({ ...this.state, home: ev.home, projects: ev.projects })
+    if (ev.type === 'notes.changed') {
+      const notesVersion = { ...this.state.notesVersion, [ev.cwd]: (this.state.notesVersion[ev.cwd] ?? 0) + 1 }
+      this.set({ ...this.state, notesVersion })
     }
   }
 

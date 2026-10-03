@@ -11,7 +11,7 @@ const WELCOME = {
   sdkVersion: '0.3.287',
   cliVersion: '2.1.287',
   backendKind: 'local',
-  limits: { sendTotalBytes: 1, imageBytes: 1, images: 1 }
+  limits: { sendTotalBytes: 1, imageBytes: 1, images: 1, previewBytes: 1, fileBytes: 1 }
 }
 const TAB: TabMeta = { tabId: 't1', title: 'demo', cwd: 'C:/demo', status: 'dormant', mode: 'default', queue: [], pendingRequests: 0 }
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -45,7 +45,7 @@ async function connected() {
   connection.start()
   await tick()
   core.last().core.send(WELCOME)
-  core.last().core.send({ t: 'reset', stream: 'workspace', epoch: 'e1', seq: 0, snapshot: { kind: 'workspace', tabs: [TAB] } })
+  core.last().core.send({ t: 'reset', stream: 'workspace', epoch: 'e1', seq: 0, snapshot: { kind: 'workspace', tabs: [TAB], home: { kind: 'added', folders: [] }, projects: [] } })
   await tick()
   return { core, connection }
 }

@@ -12,7 +12,10 @@ export const PROTOCOL_VERSION = 1
 export const LIMITS = {
   sendTotalBytes: 30 * 1024 * 1024,
   imageBytes: 5 * 1024 * 1024,
-  images: 20
+  images: 20,
+  // File explorer: what a preview shows at most, and the largest file uploaded or downloaded.
+  previewBytes: 2 * 1024 * 1024,
+  fileBytes: 20 * 1024 * 1024
 } as const
 
 // Liveness: the client pings every PING_INTERVAL_MS; after PING_MISSES unanswered pings it reconnects.
@@ -72,7 +75,7 @@ export const welcomeSchema = z.object({
   sdkVersion: z.string(),
   cliVersion: z.string(),
   backendKind: z.enum(['local', 'remote']),
-  limits: z.object({ sendTotalBytes: z.number(), imageBytes: z.number(), images: z.number() })
+  limits: z.object({ sendTotalBytes: z.number(), imageBytes: z.number(), images: z.number(), previewBytes: z.number(), fileBytes: z.number() })
 })
 
 export const replySchema = z.discriminatedUnion('ok', [

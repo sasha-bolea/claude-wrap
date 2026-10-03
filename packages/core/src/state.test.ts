@@ -7,7 +7,7 @@ import { StateStore } from './state.ts'
 describe('StateStore', () => {
   it('starts empty when the file is missing or broken', async () => {
     const folder = await mkdtemp(join(tmpdir(), 'state-'))
-    expect((await StateStore.load(join(folder, 'missing.json'))).data).toEqual({ version: 1, trustedFolders: [], tabs: [], livePids: [] })
+    expect((await StateStore.load(join(folder, 'missing.json'))).data).toEqual({ version: 1, trustedFolders: [], tabs: [], livePids: [], projects: [] })
     await writeFile(join(folder, 'broken.json'), '{ half')
     expect((await StateStore.load(join(folder, 'broken.json'))).data.tabs).toEqual([])
   })

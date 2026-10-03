@@ -1,10 +1,14 @@
 import { COMMANDS, LIMITS, type Cmd, type CommandArgs, type CommandName, type CommandResult, type ErrorCode, type Image, type Reply } from '@claude-wrap/protocol'
 import { CoreError, messageOf } from './errors.ts'
-import { browseFolders, makeFolder } from './folders.ts'
+import { deletable, listFiles, makeDir, moveFile, readFileFor, writeFileFor } from './files.ts'
+import { createFolder, listFolders } from './folders.ts'
 import type { Send } from './stream.ts'
+import { withinRoots } from './trustGate.ts'
 import type { Workspace } from './workspace.ts'
 
 const DEFAULT_HISTORY_PAGE = 200
+// How many sessions the list of every folder's sessions shows at most (newest first).
+const ALL_SESSIONS_LIMIT = 200
 
 // One attached client. label: how other clients see it (device name on the server, else the clientId);
 // deviceId: the paired device (remote only); visible: its page is on screen.
@@ -32,9 +36,12 @@ async function fork(workspace: Workspace, { tabId, newTabId, upToItemId }: Comma
   return { tabId: created }
 }
 
-// Stored sessions of a folder, newest first, with the tab that has each one open.
-async function listSessions(workspace: Workspace, cwd: string): Promise<CommandResult<'sessions.list'>> {
-  const sessions = await workspace.sdk.listSessions({ dir: cwd })
+// Stored sessions of a folder, or (no cwd) of every folder inside the roots, newest first, with their folder and the
+// tab that has each one open.
+async function listSessions(workspace: Workspace, cwd: string | undefined): Promise<CommandResult<'sessions.list'>> {
+  const sessions = cwd
+    ? await workspace.sdk.listSessions({ dir: cwd })
+    : (await workspace.sdk.listSessions({ limit: ALL_SESSIONS_LIMIT })).filter((info) => info.cwd && withinRoots(info.cwd, workspace.allowedRoots))
   return {
     sessions: sessions
       .sort((a, b) => b.lastModified - a.lastModified)
@@ -42,6 +49,7 @@ async function listSessions(workspace: Workspace, cwd: string): Promise<CommandR
         sessionId: info.sessionId,
         title: info.customTitle || info.summary,
         lastModified: info.lastModified,
+        cwd: info.cwd,
         gitBranch: info.gitBranch,
         tabId: workspace.tabOfSession(info.sessionId)?.tabId
       }))
@@ -69,6 +77,13 @@ function checkSize(text: string, images: Image[]): void {
 // The command handlers, one per protocol command, acting on the workspace; host: the host's own commands.
 export function createHandlers(workspace: Workspace, host: HostCommands = {}): Handlers {
   const tabOf = (tabId: string) => workspace.tabOf(tabId)
+  const folderOf = (tabId: string) => tabOf(tabId).folder()
+  const appTrash = () => {
+    if (!workspace.trash) throw new CoreError('not_found', 'no app trash on this backend')
+    return workspace.trash
+  }
+  // Notes are keyed by the canonical folder; every client hears about a change.
+  const notesChanged = (cwd: string) => workspace.stream.emit({ type: 'notes.changed', cwd })
   return {
     'tab.create': (init) => ({ tabId: workspace.create(init) }),
     'tab.close': async ({ tabId }) => (await workspace.close(tabId), {}),
@@ -79,12 +94,21 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'tab.subscribe': async ({ tabId }, connection) => (await tabOf(tabId).subscribe(connection.send), {}),
     'tab.unsubscribe': ({ tabId }, connection) => (tabOf(tabId).unsubscribe(connection.send), {}),
     'tab.history': ({ tabId, beforeItemId, limit }) => tabOf(tabId).history(beforeItemId, limit ?? DEFAULT_HISTORY_PAGE),
-    'tab.send': ({ tabId, text, images, pastes }, connection, cmdId) => {
+    'tab.send': async ({ tabId, text, images, pastes }, connection, cmdId) => {
       checkSize(text, images ?? [])
-      return tabOf(tabId).send({ queueId: cmdId, text, from: connection.label, images, pastes })
+      await tabOf(tabId).send({ queueId: cmdId, text, from: connection.label, images, pastes })
+      return {}
     },
+    'tab.queueAdd': ({ tabId, text, images, pastes }, connection, cmdId) => {
+      checkSize(text, images ?? [])
+      tabOf(tabId).queueAdd({ queueId: cmdId, text, from: connection.label, images, pastes })
+      return {}
+    },
+    'tab.queueEdit': ({ tabId, queueId, text }) => (tabOf(tabId).queueEdit(queueId, text), {}),
+    'tab.queueMove': ({ tabId, queueId, index }) => (tabOf(tabId).queueMove(queueId, index), {}),
     'tab.unqueue': ({ tabId, queueId }) => (tabOf(tabId).unqueue(queueId), {}),
     'tab.sendNow': async ({ tabId, queueId }) => (await tabOf(tabId).sendNow(queueId), {}),
+    'tab.queuePause': ({ tabId, paused }) => (tabOf(tabId).setQueuePaused(paused), {}),
     'tab.shell': ({ tabId, command }, _connection, cmdId) => tabOf(tabId).shell(command, cmdId),
     'tab.suggestFiles': async ({ tabId, query }) => ({ paths: await tabOf(tabId).suggestFiles(query) }),
     'blob.get': ({ tabId, imageId }) => {
@@ -94,6 +118,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     },
     'tab.interrupt': async ({ tabId }) => (await tabOf(tabId).interrupt(), {}),
     'tab.setModel': async ({ tabId, model }) => (await tabOf(tabId).setModel(model), {}),
+    'tab.setEffort': async ({ tabId, effort }) => (await tabOf(tabId).setEffort(effort), {}),
     'tab.setMode': async ({ tabId, mode }) => (await tabOf(tabId).setMode(mode), {}),
     'tab.models': async ({ tabId }) => ({ models: await tabOf(tabId).models() }),
     'tab.commands': async ({ tabId }) => ({ commands: await tabOf(tabId).commands() }),
@@ -105,8 +130,39 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     },
     'sessions.delete': (args) => deleteSession(workspace, args),
     'prompts.history': async ({ cwd }) => ({ prompts: await workspace.prompts.list(cwd) }),
-    'fs.browse': ({ path }) => browseFolders(path, workspace.allowedRoots),
-    'fs.mkdir': ({ path, name }) => makeFolder(path, name, workspace.allowedRoots),
+    'folders.list': ({ path }) => listFolders(path, workspace.allowedRoots, new Set(workspace.projects())),
+    'folders.create': async ({ path, name, project }) => {
+      const created = await createFolder(path, name, workspace.allowedRoots)
+      if (project) await workspace.setProject(created.path, true)
+      return created
+    },
+    'folders.setProject': async ({ path, project }) => (await workspace.setProject(path, project), {}),
+    'folders.add': async ({ path }) => ({ path: await workspace.addFolder(path) }),
+    'folders.remove': async ({ path }) => (await workspace.removeFolder(path), {}),
+    'folders.delete': async ({ path }) => (await workspace.deleteFolder(path), {}),
+    'files.list': async ({ tabId, path }) => ({ entries: await listFiles(await folderOf(tabId), path) }),
+    'files.read': async ({ tabId, path, download }) => readFileFor(await folderOf(tabId), path, download),
+    'files.write': async ({ tabId, path, data, overwrite, attachment }) => ({ path: await writeFileFor(await folderOf(tabId), path, data, { overwrite, attachment }) }),
+    'files.mkdir': async ({ tabId, path }) => (await makeDir(await folderOf(tabId), path), {}),
+    'files.rename': async ({ tabId, from, to }) => (await moveFile(await folderOf(tabId), from, to), {}),
+    'files.delete': async ({ tabId, path }) => (await workspace.discard(await deletable(await folderOf(tabId), path)), {}),
+    'trash.list': async ({ under }) => ({ items: (await workspace.trash?.list(under)) ?? [] }),
+    'trash.restore': async ({ id }) => ({ path: await workspace.restore(id) }),
+    'trash.delete': async ({ id }) => (await appTrash().delete(id), {}),
+    'trash.empty': async ({ under }) => (await workspace.trash?.empty(under), {}),
+    'notes.list': async ({ cwd }) => ({ notes: await workspace.notes.list(await workspace.folderOf(cwd)) }),
+    'notes.save': async ({ cwd, noteId, text }) => {
+      const folder = await workspace.folderOf(cwd)
+      const note = await workspace.notes.save(folder, noteId, text)
+      notesChanged(folder)
+      return { note }
+    },
+    'notes.delete': async ({ cwd, noteId }) => {
+      const folder = await workspace.folderOf(cwd)
+      await workspace.notes.delete(folder, noteId)
+      notesChanged(folder)
+      return {}
+    },
     'devices.list': notHere,
     'devices.pairStart': notHere,
     'devices.revoke': notHere,

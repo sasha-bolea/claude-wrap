@@ -1,0 +1,9 @@
+# One run of the automatic update, started by claude-wrap-update.timer (installed by deploy/install.sh): a new commit
+# on main is built and tested as a release and goes live only while no session is working.
+# Output: journalctl --user -u claude-wrap-update
+[Unit]
+Description=claude-wrap automatic update
+
+[Service]
+Type=oneshot
+ExecStart=/srv/apps/claude-wrap/current/deploy/install.sh main --when-idle

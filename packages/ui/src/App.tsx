@@ -3,10 +3,11 @@ import type { Connection, StoreState } from '@claude-wrap/client'
 import type { TabMeta } from '@claude-wrap/protocol'
 import { ChatView } from './ChatView.tsx'
 import { t } from './i18n.ts'
-import { MobileApp } from './MobileApp.tsx'
-import type { PushCapability } from './SettingsScreen.tsx'
 import { StartScreen } from './StartScreen.tsx'
 import { TabBar } from './TabBar.tsx'
+import { TouchApp } from './touch/TouchApp.tsx'
+import type { PushCapability } from './touch/SettingsScreen.tsx'
+import type { AppCapability } from './appUpdate.ts'
 import { readActiveTab, writeActiveTab } from './viewState.ts'
 
 // Host abilities the UI may use when present (desktop: native folder picker, system browser, notifications).
@@ -26,6 +27,10 @@ export type Capabilities = {
   pairLink?: (code: string) => string
   // Forgets this device's pairing (the PWA goes back to its pairing screen).
   logout?: () => void
+  // The installed app's version and the newer builds the server offers (the PWA).
+  app?: AppCapability
+  // This device was paired just now (the PWA offers the notifications once).
+  justPaired?: boolean
 }
 
 export interface AppProps {
@@ -61,9 +66,14 @@ function useWaitingAnnouncement(tabs: TabMeta[], activeId: string | undefined): 
   return text
 }
 
-// Root of the UI: connection state, tab bar, and the active tab's session (or the start screen).
+// Root of the UI: the touch layout (the PWA) or the desktop one.
+export function App(props: AppProps) {
+  return props.capabilities.layout === 'mobile' ? <TouchApp {...props} /> : <DesktopApp {...props} />
+}
+
+// Desktop: connection state, tab bar, and the active tab's session (or the start screen).
 // Only the shown tab is mounted, so only it is subscribed; the others report through the workspace stream.
-export function App({ connection, capabilities }: AppProps) {
+function DesktopApp({ connection, capabilities }: AppProps) {
   const state = useSyncExternalStore(connection.store.subscribe, connection.store.getSnapshot)
   const backendId = state.welcome?.backendId ?? ''
   const [coreFailed, setCoreFailed] = useState(false)
@@ -76,22 +86,6 @@ export function App({ connection, capabilities }: AppProps) {
   if (state.error) return <Status role="alert" text={t('connectionFailed', { code: state.error.code, message: state.error.message })} />
   if (!state.welcome || !state.tabs) return <Status role="status" text={t('connecting')} />
   const tabs = state.tabs
-  if (capabilities.layout === 'mobile') {
-    return (
-      <div className="app mobile">
-        {state.status !== 'connected' && (
-          <p className="connection-banner" role="status">
-            {t('connecting')}
-          </p>
-        )}
-        <MobileApp connection={connection} state={{ ...state, welcome: state.welcome, tabs }} capabilities={capabilities} />
-        <div className="sr-only" aria-live="assertive">
-          {waiting}
-        </div>
-      </div>
-    )
-  }
-
   // Closing asks first if Claude is at work; the neighbour (or the start screen) is shown next.
   const close = (tab: TabMeta) => {
     if ((tab.status === 'running' || tab.status === 'requires_action') && !window.confirm(t('closeConfirm'))) return

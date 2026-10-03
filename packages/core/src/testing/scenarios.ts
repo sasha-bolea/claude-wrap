@@ -15,6 +15,9 @@ import { sdk, stored } from './messages.ts'
 //   anything else → streams "Echo: <text>" word by word (" [N images]" appended when images came along)
 // Every turn ends with a result; an interrupt ends it as aborted, like the CLI. Transcript-only messages
 // (shouldQuery: false, the `!` shell output) are stored and get only an empty result (num_turns 0), like the CLI.
+// Like CLI 2.1.287, every message gets command_lifecycle frames (queued on arrival, started when read, completed at
+// the end of its turn), and one sent with priority 'next' while a turn streams is read before that turn ends: its
+// echo is added to the same answer.
 
 export type ScenarioOptions = { wordDelayMs: number }
 
@@ -37,11 +40,13 @@ function textOf(message: SDKUserMessage): string {
 // Number of image blocks in a user message.
 const imageCount = (message: SDKUserMessage) => (typeof message.message.content === 'string' ? 0 : message.message.content.filter((block) => block.type === 'image').length)
 
-// One fake turn in progress: knows whether it was interrupted, and stores what it says like the CLI's JSONL.
-type Turn = { session: FakeSession; interrupted: () => boolean; options: ScenarioOptions; store: (text: string) => void }
+// One fake turn in progress: knows whether it was interrupted, stores what it says like the CLI's JSONL, and reads
+// the messages sent meanwhile (fold: the text they add to the answer).
+type Turn = { session: FakeSession; interrupted: () => boolean; options: ScenarioOptions; store: (text: string) => void; fold: () => string }
 
-// Streams text word by word, then the final frame and a success result (or an aborted result if interrupted).
-async function stream({ session, interrupted, options, store }: Turn, text: string): Promise<void> {
+// Streams text word by word, reads what was sent meanwhile, then the final frame and a success result (or an aborted
+// result if interrupted).
+async function stream({ session, interrupted, options, store, fold }: Turn, text: string): Promise<void> {
   const messageId = `msg_${randomUUID()}`
   session.emit(sdk.messageStart(messageId), sdk.blockStart(0, { type: 'text', text: '' }))
   for (const word of text.split(/(?<= )/)) {
@@ -50,8 +55,9 @@ async function stream({ session, interrupted, options, store }: Turn, text: stri
     await sleep(options.wordDelayMs)
   }
   if (interrupted()) return session.emit(sdk.aborted())
-  store(text)
-  session.emit(sdk.assistant(messageId, [{ type: 'text', text }]), sdk.success())
+  const answer = text + fold()
+  store(answer)
+  session.emit(sdk.assistant(messageId, [{ type: 'text', text: answer }]), sdk.success())
 }
 
 // Asks a permission/question/plan through canUseTool and returns a description of the answer.
@@ -91,27 +97,47 @@ async function respond(turn: Turn, text: string, images: number): Promise<void> 
 }
 
 // Drives one fake process: init at the first message (a resumed session keeps its id), then one scripted turn
-// per user message, recorded in the fake session store.
+// per user message (those read in the middle of a turn excepted), recorded in the fake session store.
 async function drive(fake: FakeSdk, session: FakeSession, options: ScenarioOptions): Promise<void> {
   const sessionId = session.options.resume ?? randomUUID()
   const cwd = session.options.cwd
   session.commands = COMMANDS
   let initialized = false
   let interrupted = false
+  let next = 0
   session.onInterrupt(() => (interrupted = true))
+  const lifecycle = (message: SDKUserMessage, state: 'queued' | 'started' | 'completed') => message.uuid && session.emit(sdk.lifecycle(message.uuid, state))
+  session.onReceive((message) => lifecycle(message, 'queued'))
   const store = (text: string) => fake.record(sessionId, cwd, stored.assistant(randomUUID(), `msg_${randomUUID()}`, [{ type: 'text', text }]))
-  for (let count = 1; !session.closed; count++) {
-    await session.waitForInput(count)
-    const message = session.received[count - 1]!
-    fake.record(sessionId, cwd, stored.user(message.uuid ?? randomUUID(), message.message.content))
+  const remember = (message: SDKUserMessage) => fake.record(sessionId, cwd, stored.user(message.uuid ?? randomUUID(), message.message.content))
+  while (!session.closed) {
+    await session.waitForInput(next + 1)
+    const message = session.received[next++]!
+    remember(message)
     if (message.shouldQuery === false) {
       session.emit(sdk.success({ num_turns: 0 }))
+      lifecycle(message, 'completed')
       continue
     }
     if (!initialized) session.emit(sdk.init(sessionId, { model: 'fake-model', permissionMode: session.options.permissionMode ?? 'default' }))
     initialized = true
     interrupted = false
-    await respond({ session, interrupted: () => interrupted, options, store }, textOf(message), imageCount(message))
+    lifecycle(message, 'started')
+    const turn = [message]
+    // Messages sent with priority 'next' while this turn streams: read now, answered in the same turn.
+    const fold = () => {
+      let added = ''
+      while (session.received[next]?.priority === 'next') {
+        const read = session.received[next++]!
+        remember(read)
+        lifecycle(read, 'started')
+        turn.push(read)
+        added += `\nEcho: ${textOf(read)}`
+      }
+      return added
+    }
+    await respond({ session, interrupted: () => interrupted, options, store, fold }, textOf(message), imageCount(message))
+    for (const done of turn) lifecycle(done, 'completed')
   }
 }
 

@@ -11,26 +11,24 @@ type FolderBrowserProps = {
   onError: (failure: unknown) => void
 }
 
-type Listing = CommandResult<'fs.browse'>
+type Listing = CommandResult<'folders.list'>
 
 // Folder picker for backends without a native dialog (the remote server): browse the allowed root, go up,
-// create a folder, use the one shown. Paths come from the backend (fs.browse), which keeps them inside its root.
+// create a folder, use the one shown. Paths come from the backend (folders.list), which keeps them inside its root.
 export function FolderBrowser({ connection, initial, onChoose, onError }: FolderBrowserProps) {
   const [listing, setListing] = useState<Listing>()
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
-  const open = useCallback((path?: string) => connection.request('fs.browse', { path }).then(setListing, onError), [connection, onError])
+  const open = useCallback((path?: string) => connection.request('folders.list', { path }).then(setListing, onError), [connection, onError])
   // A remembered folder that no longer exists falls back to the root.
-  useEffect(() => void connection.request('fs.browse', { path: initial }).then(setListing, () => open()), [connection, initial, open])
+  useEffect(() => void connection.request('folders.list', { path: initial }).then(setListing, () => open()), [connection, initial, open])
 
   const create = () => {
     if (!listing || !name.trim()) return
-    connection.request('fs.mkdir', { path: listing.path, name: name.trim() }).then(({ path }) => (setCreating(false), setName(''), open(path)), onError)
+    connection.request('folders.create', { path: listing.path, name: name.trim() }).then(({ path }) => (setCreating(false), setName(''), open(path)), onError)
   }
 
   if (!listing) return <p className="muted" role="status">{t('loading')}</p>
-  const separator = listing.path.includes('\\') ? '\\' : '/'
-  const child = (folder: string) => (listing.path.endsWith(separator) ? listing.path + folder : listing.path + separator + folder)
   return (
     <section className="folder-browser" aria-label={t('folderBrowser')}>
       <p className="folder-path">{listing.path}</p>
@@ -44,9 +42,9 @@ export function FolderBrowser({ connection, initial, onChoose, onError }: Folder
           </li>
         )}
         {listing.folders.map((folder) => (
-          <li key={folder} className="m-row">
-            <button className="m-row-main" onClick={() => void open(child(folder))}>
-              <span className="m-row-title">{folder}</span>
+          <li key={folder.path} className="m-row">
+            <button className="m-row-main" onClick={() => void open(folder.path)}>
+              <span className="m-row-title">{folder.name}</span>
             </button>
           </li>
         ))}

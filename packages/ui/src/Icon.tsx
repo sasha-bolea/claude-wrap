@@ -7,7 +7,8 @@ const PATHS = {
   history: 'M4 12a8 8 0 1 0 2.4-5.7L4 8.6M4 4v4.6h4.6M12 8v4l3 2',
   send: 'M12 19V5M6 11l6-6 6 6',
   stop: 'M8 8h8v8H8z',
-  plus: 'M12 5v14M5 12h14'
+  plus: 'M12 5v14M5 12h14',
+  close: 'M6 6l12 12M18 6L6 18'
 } as const
 
 export type IconName = keyof typeof PATHS

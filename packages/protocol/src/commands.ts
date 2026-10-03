@@ -1,13 +1,22 @@
 import { z } from 'zod'
-import { IMAGE_TYPES, itemSchema, permissionModeSchema, projectConfigSchema, sessionInfoSchema } from './model.ts'
+import { EFFORT_LEVELS, IMAGE_TYPES, effortSchema, itemSchema, permissionModeSchema, projectConfigSchema, sessionInfoSchema } from './model.ts'
 
 // Commands a client can send (`{t:'cmd', id, name, args}`), with the schema of their args and result.
-// Phases 1-3 set; later phases add files.upload, …
 
 const tabId = z.string().min(1)
 const empty = z.object({})
+// A path inside the session's folder, relative to it ('' = the folder itself).
+const relativePath = z.string()
 
-export const modelInfoSchema = z.looseObject({ value: z.string(), displayName: z.string(), description: z.string() })
+// supportedEffortLevels: the effort levels the model offers (none: no effort selector).
+export const modelInfoSchema = z.looseObject({
+  value: z.string(),
+  displayName: z.string(),
+  description: z.string(),
+  resolvedModel: z.string().optional(),
+  supportsEffort: z.boolean().optional(),
+  supportedEffortLevels: z.array(z.enum(EFFORT_LEVELS)).optional()
+})
 export const slashCommandSchema = z.looseObject({ name: z.string(), description: z.string(), argumentHint: z.string() })
 // An image attached to a message: base64 bytes (size limits checked by core, LIMITS in index.ts).
 export const imageSchema = z.object({ mediaType: z.enum(IMAGE_TYPES), data: z.string().min(1) })
@@ -22,6 +31,16 @@ const folderName = z
   .max(255)
   .regex(/^[^\\/:*?"<>|]+$/)
   .refine((name) => name !== '.' && name !== '..', 'invalid folder name')
+// A subfolder in the Home: project = marked as a project (same mark on every device).
+export const folderEntrySchema = z.object({ name: z.string(), path: z.string(), project: z.boolean() })
+// An entry of the file explorer; modified in ms.
+export const fileEntrySchema = z.object({ name: z.string(), kind: z.enum(['file', 'folder']), size: z.number(), modified: z.number() })
+// Something deleted to the app's trash (remote server), restorable until expiresAt (ms).
+export const trashItemSchema = z.object({ id: z.string(), path: z.string(), kind: z.enum(['file', 'folder']), deletedAt: z.number(), expiresAt: z.number() })
+// A note of a folder; times in ms.
+export const noteSchema = z.object({ noteId: z.string(), text: z.string(), createdAt: z.number(), updatedAt: z.number() })
+// What the queue or a send carries besides the text.
+const message = { text: z.string(), images: z.array(imageSchema).optional(), pastes: z.array(z.string()).optional() }
 
 export const COMMANDS = {
   'tab.create': {
@@ -51,41 +70,91 @@ export const COMMANDS = {
     args: z.object({ tabId, beforeItemId: z.string(), limit: z.number().int().positive().max(1000).optional() }),
     result: z.object({ items: z.array(itemSchema), hasMore: z.boolean() })
   },
-  // The cmd id becomes the SDK user-message uuid and the queueId when the message is queued.
+  // The cmd id becomes the SDK user-message uuid and the user item id. Sent while Claude works, it goes to the CLI
+  // at once and is read at its next step (the item is `pending` until then), as in the terminal.
   // pastes: long pasted texts that are still inside `text` (the CLI may wrap them in <pasted_content>).
   'tab.send': {
-    args: z
-      .object({ tabId, text: z.string(), images: z.array(imageSchema).optional(), pastes: z.array(z.string()).optional() })
-      .refine((args) => args.text.trim() || args.images?.length, 'empty message'),
-    result: z.object({ queued: z.boolean() })
+    args: z.object({ tabId, ...message }).refine((args) => args.text.trim() || args.images?.length, 'empty message'),
+    result: empty
   },
+  // The tab's queue (queue mode of the composer); the cmd id is the queueId. Messages go one at a time when
+  // Claude is free; added while it is free and the queue is not paused, the first goes at once.
+  'tab.queueAdd': {
+    args: z.object({ tabId, ...message }).refine((args) => args.text.trim() || args.images?.length, 'empty message'),
+    result: empty
+  },
+  'tab.queueEdit': { args: z.object({ tabId, queueId: z.string(), text: z.string() }), result: empty },
+  'tab.queueMove': { args: z.object({ tabId, queueId: z.string(), index: z.number().int().nonnegative() }), result: empty },
   'tab.unqueue': { args: z.object({ tabId, queueId: z.string() }), result: empty },
-  // Sends a queued message now: a running turn is interrupted and the message goes out next.
+  // Takes a message out of the queue and sends it now (read at Claude's next step: nothing is interrupted).
   'tab.sendNow': { args: z.object({ tabId, queueId: z.string() }), result: empty },
+  // ⏸ / ▶ of the queue (▶ also ends a pause after Stop or a usage limit).
+  'tab.queuePause': { args: z.object({ tabId, paused: z.boolean() }), result: empty },
   // Runs a `!` command in the tab's folder; output becomes a shell item and context for Claude's next turn.
   'tab.shell': { args: z.object({ tabId, command: z.string().trim().min(1) }), result: z.object({ exitCode: z.number() }) },
   // Files and folders of the tab's folder matching a query, best first (`@` mentions).
   'tab.suggestFiles': { args: z.object({ tabId, query: z.string() }), result: z.object({ paths: z.array(z.string()) }) },
   'blob.get': { args: z.object({ tabId, imageId: z.string() }), result: imageSchema },
   'tab.interrupt': { args: z.object({ tabId }), result: empty },
-  // model undefined = the default model.
+  // model undefined = the default model. An effort level the new model does not offer moves to its highest one below.
   'tab.setModel': { args: z.object({ tabId, model: z.string().optional() }), result: empty },
+  // Reasoning effort (as /effort); undefined = the model's default.
+  'tab.setEffort': { args: z.object({ tabId, effort: effortSchema.optional() }), result: empty },
   'tab.setMode': { args: z.object({ tabId, mode: permissionModeSchema }), result: empty },
   'tab.models': { args: z.object({ tabId }), result: z.object({ models: z.array(modelInfoSchema) }) },
   'tab.commands': { args: z.object({ tabId }), result: z.object({ commands: z.array(slashCommandSchema) }) },
-  // Stored sessions of a folder. rename/delete are refused with session_busy while a tab references the session.
-  'sessions.list': { args: z.object({ cwd: z.string().min(1) }), result: z.object({ sessions: z.array(sessionInfoSchema) }) },
+  // Stored sessions of a folder, or (no cwd) of every folder inside the backend's roots, newest first.
+  // rename/delete are refused with session_busy while a tab references the session.
+  'sessions.list': { args: z.object({ cwd: z.string().min(1).optional() }), result: z.object({ sessions: z.array(sessionInfoSchema) }) },
   'sessions.rename': { args: z.object({ cwd: z.string().min(1), sessionId: z.string(), title: z.string().trim().min(1) }), result: empty },
   'sessions.delete': { args: z.object({ cwd: z.string().min(1), sessionId: z.string() }), result: empty },
   // Prompts sent in a folder, newest first: the app's own and the terminal CLI's (~/.claude/history.jsonl).
   'prompts.history': { args: z.object({ cwd: z.string().min(1) }), result: z.object({ prompts: z.array(promptSchema) }) },
-  // Folders of the backend (remote folder picker), confined to its allowed roots. path absent = the first root
-  // (desktop: the home folder); parent absent at the top.
-  'fs.browse': {
+  // Subfolders of a folder (hidden ones skipped), confined to the backend's roots. path absent = the first root
+  // (desktop: the user's home folder); parent absent at the top.
+  'folders.list': {
     args: z.object({ path: z.string().optional() }),
-    result: z.object({ path: z.string(), parent: z.string().optional(), folders: z.array(z.string()) })
+    result: z.object({ path: z.string(), parent: z.string().optional(), folders: z.array(folderEntrySchema) })
   },
-  'fs.mkdir': { args: z.object({ path: z.string().min(1), name: folderName }), result: z.object({ path: z.string() }) },
+  'folders.create': { args: z.object({ path: z.string().min(1), name: folderName, project: z.boolean().optional() }), result: z.object({ path: z.string() }) },
+  // The project mark of a folder (any level), saved in core: the same on every device.
+  'folders.setProject': { args: z.object({ path: z.string().min(1), project: z.boolean() }), result: empty },
+  // The Home of this PC (desktop): a folder added to it, or taken off it (its files stay).
+  'folders.add': { args: z.object({ path: z.string().min(1) }), result: z.object({ path: z.string() }) },
+  'folders.remove': { args: z.object({ path: z.string().min(1) }), result: empty },
+  // Deletes a folder inside the Home (never the Home's own folders): to the app's trash on the remote server, to the
+  // system trash on the desktop. Refused while a session is open inside it.
+  'folders.delete': { args: z.object({ path: z.string().min(1) }), result: empty },
+  // File explorer of a tab's folder (paths relative to it; `.git` hidden and protected; trusted folders only).
+  'files.list': { args: z.object({ tabId, path: relativePath }), result: z.object({ entries: z.array(fileEntrySchema) }) },
+  // Preview (text as utf8, images as base64, up to LIMITS.previewBytes, `truncated` beyond) or download (base64, the
+  // whole file up to LIMITS.fileBytes).
+  'files.read': {
+    args: z.object({ tabId, path: relativePath.min(1), download: z.boolean().optional() }),
+    result: z.object({ mediaType: z.string(), encoding: z.enum(['utf8', 'base64']), data: z.string(), size: z.number(), truncated: z.boolean() })
+  },
+  // Upload (base64). attachment: path is just a file name, stored under allegati/ with a free name (excluded from git
+  // locally); the result is the path to mention.
+  'files.write': {
+    args: z.object({ tabId, path: relativePath.min(1), data: z.string(), overwrite: z.boolean().optional(), attachment: z.boolean().optional() }),
+    result: z.object({ path: z.string() })
+  },
+  'files.mkdir': { args: z.object({ tabId, path: relativePath.min(1) }), result: empty },
+  // Rename or move inside the folder; refused when the target exists.
+  'files.rename': { args: z.object({ tabId, from: relativePath.min(1), to: relativePath.min(1) }), result: empty },
+  'files.delete': { args: z.object({ tabId, path: relativePath.min(1) }), result: empty },
+  // The app's trash (remote server; empty on the desktop, which uses the system trash). under: only what was inside
+  // that folder. Items expire after 7 days.
+  'trash.list': { args: z.object({ under: z.string().optional() }), result: z.object({ items: z.array(trashItemSchema) }) },
+  // Puts an item back where it was (refused if that place is taken now).
+  'trash.restore': { args: z.object({ id: z.string() }), result: z.object({ path: z.string() }) },
+  'trash.delete': { args: z.object({ id: z.string() }), result: empty },
+  'trash.empty': { args: z.object({ under: z.string().optional() }), result: empty },
+  // Notes of a folder, shared by every device; newest first.
+  'notes.list': { args: z.object({ cwd: z.string().min(1) }), result: z.object({ notes: z.array(noteSchema) }) },
+  // noteId absent: a new note.
+  'notes.save': { args: z.object({ cwd: z.string().min(1), noteId: z.string().optional(), text: z.string().trim().min(1) }), result: z.object({ note: noteSchema }) },
+  'notes.delete': { args: z.object({ cwd: z.string().min(1), noteId: z.string() }), result: empty },
   // Paired devices (remote server only; other backends answer not_found). pairStart returns a one-time code
   // for a new device; revoke also removes the devices and codes the revoked one created.
   'devices.list': { args: empty, result: z.object({ devices: z.array(deviceSchema) }) },
@@ -126,3 +195,7 @@ export type SlashCommand = z.infer<typeof slashCommandSchema>
 export type Image = z.infer<typeof imageSchema>
 export type Prompt = z.infer<typeof promptSchema>
 export type Device = z.infer<typeof deviceSchema>
+export type FolderEntry = z.infer<typeof folderEntrySchema>
+export type FileEntry = z.infer<typeof fileEntrySchema>
+export type TrashItem = z.infer<typeof trashItemSchema>
+export type Note = z.infer<typeof noteSchema>

@@ -199,8 +199,8 @@ describe('stored sessions', () => {
     const client = await connect(makeCore())
     await client.ok('tab.create', { tabId: 't1', cwd, resume: 'new' })
     expect((await client.ok('sessions.list', { cwd })).sessions).toEqual([
-      { sessionId: 'new', title: 'Newest', lastModified: 2, tabId: 't1' },
-      { sessionId: 'old', title: 'old one', lastModified: 1 }
+      { sessionId: 'new', title: 'Newest', lastModified: 2, cwd, tabId: 't1' },
+      { sessionId: 'old', title: 'old one', lastModified: 1, cwd }
     ])
     expect(await client.fails('sessions.rename', { cwd, sessionId: 'new', title: 'x' })).toMatchObject({ code: 'session_busy' })
     expect(await client.fails('sessions.delete', { cwd, sessionId: 'new' })).toMatchObject({ code: 'session_busy' })
