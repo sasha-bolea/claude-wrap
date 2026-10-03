@@ -320,7 +320,8 @@ tabular); accent, `--danger` from 90%; absent until core has read one. A tap ope
 one `.gauge-bar` each (name, `.usage-meter`, then the share in bold · tokens used / window for the context, "Si azzera
 …" for the plan windows, which report shares only) and "Compatta ora" (sends `/compact` at once; disabled as
 "Compatta quando Claude ha finito" while it works). Core keeps the values (`TabMeta.context`, `planLimits`), read from
-the live process at each turn end (plan at most once a minute per account, saved across restarts) and when the sheet
+the live process at each turn end (plan: the `/usage` call at most once a minute per account, plus every
+`rate_limit_event`, the only source for accounts added with a token; saved across restarts) and when the sheet
 opens (a dormant session reads the plan through a live one of its account); a window past its reset shows 0% "azzerata".
 Examples: [gauge.tsx:24](../packages/ui/src/touch/gauge.tsx#L24), [gauge.tsx:56](../packages/ui/src/touch/gauge.tsx#L56).
 

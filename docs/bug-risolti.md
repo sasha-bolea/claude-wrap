@@ -278,3 +278,13 @@ These were solved in the first attempt. Files refer to that repository. Each ent
 - `.chip.changed` and two other rules lost in the CSS port → selector-by-selector diff with the prototype (`touch.css`).
 - Test-only: the ghost e2e waited for the working line to disappear before it had appeared → waits for the whole
   answer; a tab named "to be forked" made the desktop "Fork" selector ambiguous ("Close to be forked") → exact match.
+
+### 2026-10-03 — The gauge sheet showed only the context, never the 5-hour and weekly bars
+- **Symptom:** on the iPhone the composer gauge's sheet had the context bar only, also after a turn.
+- **Cause:** the sessions ran with an account added by `claude setup-token`: the CLI's `/usage` call answers
+  `rate_limits_available: false` for such tokens (no profile scope), so core never had plan windows. (The plan windows
+  were also memory-only, lost at every automatic update.)
+- **Fix:** plan windows also come from every `rate_limit_event` (`unifiedWindows.five_hour` / `seven_day`, fractions and
+  epoch seconds, outside the SDK's types; checked on CLI 2.1.287 with both added accounts), merged per account; a
+  `/usage` answer without limits does not erase them; saved in `state.json`.
+- **Files:** `packages/core/src/usage.ts` (`planLimitsFromEvent`), `tab.ts`, `workspace.ts`.

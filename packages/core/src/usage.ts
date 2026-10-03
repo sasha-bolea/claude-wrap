@@ -1,4 +1,4 @@
-import type { Query, SDKControlGetContextUsageResponse, SDKControlGetUsageResponse } from '@anthropic-ai/claude-agent-sdk'
+import type { Query, SDKControlGetContextUsageResponse, SDKControlGetUsageResponse, SDKRateLimitInfo } from '@anthropic-ai/claude-agent-sdk'
 import type { ContextGauge, ContextUsage, PlanLimits, Usage } from '@claude-wrap/protocol'
 
 // /context and /usage data from the CLI, reduced to what the panels show.
@@ -86,6 +86,23 @@ export function toContextGauge(answer: SDKControlGetContextUsageResponse): Conte
 export function toPlanLimits(usage: Usage): PlanLimits | undefined {
   if (!usage.limits) return undefined
   const { fiveHour, sevenDay } = usage.limits
+  return { ...(fiveHour ? { fiveHour } : {}), ...(sevenDay ? { sevenDay } : {}) }
+}
+
+// A window of a rate_limit_event: utilization as a fraction (0-1), reset in epoch seconds.
+type EventWindow = { utilization?: number; resetsAt?: number }
+
+// The plan windows a rate_limit_event carries. CLI 2.1.287 sends `unifiedWindows` (five_hour and seven_day, outside the
+// SDK's types) with every event, also for accounts added with a token, which the /usage call cannot read (their token
+// has no profile scope); otherwise the event's own window. Undefined when it carries none.
+export function planLimitsFromEvent(info: SDKRateLimitInfo): PlanLimits | undefined {
+  const window = (event: EventWindow | undefined) =>
+    event && typeof event.utilization === 'number' ? { utilization: Math.round(event.utilization * 1000) / 10, resetsAt: event.resetsAt ? new Date(event.resetsAt * 1000).toISOString() : null } : undefined
+  const unified = (info as { unifiedWindows?: { five_hour?: EventWindow; seven_day?: EventWindow } }).unifiedWindows
+  const own = { utilization: info.utilization, resetsAt: info.resetsAt }
+  const fiveHour = window(unified?.five_hour ?? (info.rateLimitType === 'five_hour' ? own : undefined))
+  const sevenDay = window(unified?.seven_day ?? (info.rateLimitType === 'seven_day' ? own : undefined))
+  if (!fiveHour && !sevenDay) return undefined
   return { ...(fiveHour ? { fiveHour } : {}), ...(sevenDay ? { sevenDay } : {}) }
 }
 

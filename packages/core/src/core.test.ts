@@ -589,6 +589,22 @@ describe('controls', () => {
     expect(meta(client)).toMatchObject({ context: { percentage: 24 }, planLimits: { fiveHour: { utilization: 37 }, sevenDay: { utilization: 12 } } })
   })
 
+  it('a token account (no /usage limits) gets its plan windows from the rate_limit_events of its turns', async () => {
+    const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
+    await client.ok('accounts.setDefault', { accountId })
+    const session = await startedTab()
+    session.usage = { ...session.usage!, subscription_type: null, rate_limits_available: false, rate_limits: null }
+    const event = sdk.rateLimit('allowed_warning', 1791070800) as { rate_limit_info: object }
+    event.rate_limit_info = { ...event.rate_limit_info, utilization: 0.95, unifiedWindows: { five_hour: { utilization: 0.95, resetsAt: 1791070800 }, seven_day: { utilization: 0.4, resetsAt: 1791576000 } } }
+    session.emit(event as never, sdk.success())
+    await client.waitFor(() => session.calls.some((call) => call.method === 'usage'))
+    await tick()
+    expect(meta(client)?.planLimits).toEqual({
+      fiveHour: { utilization: 95, resetsAt: new Date(1791070800 * 1000).toISOString() },
+      sevenDay: { utilization: 40, resetsAt: new Date(1791576000 * 1000).toISOString() }
+    })
+  })
+
   it("a dormant tab's gauge sheet reads the plan windows through a live session of the same account", async () => {
     const session = await startedTab()
     await client.ok('tab.create', { tabId: 't2', cwd: CWD })

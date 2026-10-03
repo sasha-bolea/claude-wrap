@@ -267,6 +267,15 @@ export class Workspace {
     for (const tab of this.tabsOf(account)) this.env.changed(tab)
   }
 
+  // Plan windows seen in a rate_limit_event (also for token accounts): merged over the last read, window by window,
+  // without moving the time of the last /usage read.
+  mergePlanLimits(account: string | undefined, limits: PlanLimits): void {
+    const plan = this.plans.get(account ?? '')
+    this.plans.set(account ?? '', { limits: { ...plan?.limits, ...limits }, readAt: plan?.readAt ?? 0 })
+    void this.store.update((data) => (data.planLimits = Object.fromEntries(this.plans))).catch(() => undefined)
+    for (const tab of this.tabsOf(account)) this.env.changed(tab)
+  }
+
   // The gauge sheet of a tab opened: its gauges are read again from its live process, or (dormant) the plan windows
   // through a live session of the same account. No process is started.
   async refreshGauges(tabId: string): Promise<void> {
@@ -372,6 +381,7 @@ export class Workspace {
       rateLimited: (until, account) => this.rateLimited(until, account),
       limitedUntil: (account) => this.limitedUntil(account),
       planLimits: (account) => this.planLimits(account),
+      mergePlanLimits: (account, limits) => this.mergePlanLimits(account, limits),
       autoCompactWindow: () => this.store.data.autoCompactWindow,
       planLimitsDue: (account) => this.planLimitsDue(account),
       setPlanLimits: (account, limits) => this.setPlanLimits(account, limits),

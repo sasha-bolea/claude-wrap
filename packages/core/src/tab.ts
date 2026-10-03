@@ -29,7 +29,7 @@ import { Session } from './session.ts'
 import type { PersistedTab } from './state.ts'
 import type { Send } from './stream.ts'
 import { Transcript, type TranscriptOptions } from './transcript.ts'
-import { readUsage, toContextGauge, toContextUsage, toPlanLimits, toUsage } from './usage.ts'
+import { planLimitsFromEvent, readUsage, toContextGauge, toContextUsage, toPlanLimits, toUsage } from './usage.ts'
 
 // Options every session gets (architettura.md; same as the first attempt).
 const BASE_OPTIONS: Options = {
@@ -67,6 +67,8 @@ export interface TabEnvironment {
   planLimits(account: string | undefined): PlanLimits | undefined
   planLimitsDue(account: string | undefined): boolean
   setPlanLimits(account: string | undefined, limits: PlanLimits | undefined): void
+  // Plan windows seen in a rate_limit_event: merged over the last read, window by window.
+  mergePlanLimits(account: string | undefined, limits: PlanLimits): void
   // Claude Code's auto-compact window set from the app (undefined: Claude Code's own setting).
   autoCompactWindow(): number | undefined
   // The token of an account (undefined for the login).
@@ -524,7 +526,8 @@ export class Tab {
     const account = this.account
     if (!force && !this.env.planLimitsDue(account)) return
     const usage = await readUsage(session.query).catch(() => undefined)
-    if (usage) this.env.setPlanLimits(account, toPlanLimits(toUsage(usage)))
+    // A token account answers without limits: the windows seen in rate_limit_events stay.
+    if (usage) this.env.setPlanLimits(account, toPlanLimits(toUsage(usage)) ?? this.env.planLimits(account))
   }
 
   // Answers an open request. by: the answering client. A mode set by the answer becomes the tab's mode.
@@ -729,9 +732,13 @@ export class Tab {
       this.cachedCommands = visibleCommands(message.commands)
     } else if (message.type === 'conversation_reset') {
       this.resetConversation(message.new_conversation_id)
-    } else if (message.type === 'rate_limit_event' && message.rate_limit_info.status === 'rejected' && message.rate_limit_info.resetsAt) {
-      if (this.turnRunning) this.interrupted = 'limit'
-      this.env.rateLimited(message.rate_limit_info.resetsAt * 1000, this.account)
+    } else if (message.type === 'rate_limit_event') {
+      const windows = planLimitsFromEvent(message.rate_limit_info)
+      if (windows) this.env.mergePlanLimits(this.account, windows)
+      if (message.rate_limit_info.status === 'rejected' && message.rate_limit_info.resetsAt) {
+        if (this.turnRunning) this.interrupted = 'limit'
+        this.env.rateLimited(message.rate_limit_info.resetsAt * 1000, this.account)
+      }
     } else if (message.type === 'result') {
       this.endTurn()
     }
