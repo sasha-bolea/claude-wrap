@@ -41,3 +41,57 @@ _Runbook of multi-step or rare procedures. One-liners used often live in CLAUDE.
 **When:** after changes to process lifecycle, resume, packaging, or an SDK bump.
 - `npm run chat` (in repo): core + client headless, `/model haiku` + one prompt; prints the items and checks unique ids and the stored user uuid.
 - Desktop/packaged smoke scripts were run from the session scratchpad on 2026-10-02 (not in the repo yet — backlog): playwright `_electron` on the exe with `CLAUDE_WRAP_STATE_DIR=<temp>`, stubbed folder dialog, `/model haiku`; checks: a chat answer, resume from the list keeps one stored session, killing the `claude-wrap core` utility process mid-turn leaves no `claude.exe` (sweep at restart), quitting mid-turn leaves none (`tasklist /FI "IMAGENAME eq claude.exe"` before/after). Delete the test sessions afterwards (`deleteSession`).
+
+## End-to-end tests (PWA, fake SDK)
+**When:** before closing any touch UI, server or core change.
+1. `npm run e2e:mobile` — builds the PWA (`apps/mobile/dist`), then runs `apps/mobile/e2e/*.e2e.ts`: the real server
+   in-process on an ephemeral port with the scripted fake SDK, the **system Chrome** (playwright channel `chrome`, no
+   browser download) at 390×844 with touch, `en-US`.
+2. `pairedPage(context, backend)` pairs with a fresh code and dismisses the notifications offer; `openProject(page)`
+   opens a session in the root's `project` folder (trusting it). Fake SDK keywords as for the desktop (`slow` streams
+   400 words ≈ 8 s).
+3. A test that only needs the build again: `npx vitest run --config apps/mobile/vitest.e2e.config.ts -t "<name>"`
+   after `npm run build -w @claude-wrap/mobile`.
+
+**Warnings:** names come from `packages/ui/src/i18n/en.ts`; `getByRole` names are substrings unless `exact` (a tab
+title can contain "fork"); hidden screens of the stack are in the DOM: scope locators (`.chat-screen .topbar`).
+
+## Core and server tests on Linux (WSL)
+**When:** before a push that touches core, server or deploy (the server runs the same tests before switching).
+1. From **PowerShell** (Git Bash would expand `$` in the command): `wsl bash <scratchpad>/linux-test-local.sh`.
+2. The script copies the working tree (uncommitted changes included, no `node_modules`/`dist`/`.git`) to
+   `/tmp/cw-linux/local`, uses a portable Node 24 in `/tmp/cw-linux/node`, `npm ci` with
+   `ELECTRON_SKIP_BINARY_DOWNLOAD=1`, and runs `vitest run packages/core packages/server` (Linux-only tests: symlinks,
+   process groups, `deploy.test.ts`).
+
+**Warnings:** the script lives in the session scratchpad (recreate it from these steps if missing).
+
+## Real-CLI composer smoke (`npm run smoke:composer`, a few haiku tokens)
+**When:** after changes to sending, mid-turn messages, send now, effort, history, or an SDK bump.
+- Through core + client in a temp folder: palette commands, an image, `!` shell, a message sent while a Bash `sleep 6`
+  runs (read in the same turn), **Invia ora** during a `sleep 20` (must be read within 12 s), effort `low`, then the
+  stored session reopened in a fresh core (the mid-turn message exactly once). Prints `OK: …` or the problems, deletes
+  its sessions.
+
+## Splash screens and icons of the PWA
+**When:** the accent or background token changes, or a new iPhone size appears.
+1. `node apps/mobile/scripts/icons.ts` — writes `apps/mobile/public/icon-*.png`, the 24 splash PNGs in
+   `public/splash/` and the `<link rel="apple-touch-startup-image">` block of `apps/mobile/index.html` (between its
+   two comments).
+2. `npm run e2e:mobile` (the splash test checks every link is served as PNG).
+
+## Following an automatic deploy on the home server
+**When:** after a push to `main`, to know when the phone can update.
+1. `ssh server 'systemctl --user list-timers claude-wrap-update.timer'` — next check (every 5 min after the last).
+2. `ssh server 'readlink /srv/apps/claude-wrap/current'` — the release in use; done when it ends with the new commit.
+3. Waiting longer? `ssh server 'cat ~/.local/state/claude-wrap/activity.json'` (`working` > 0 defers the switch) and
+   `journalctl --user -u claude-wrap-update -n 30`; a `.failed` file in `releases/<commit>/` means its tests failed.
+4. On the iPhone: "Nuova versione disponibile · Aggiorna", or close and reopen the app.
+
+**Warnings:** from the PC only read; host changes go through linux stup.
+
+## Translations check (params)
+**When:** many new `t()` keys at once.
+- The typecheck catches missing keys, not `{placeholders}`: for every `t('key', { … })` compare the param names with
+  the `{x}` in `en.ts` and `it.ts` (done on 2026-10-03 with a throwaway script: depth-aware parse of the object
+  literal after `t('key',`). Dynamic keys (`t(cond ? 'a' : 'b')`, template keys) need a manual look.

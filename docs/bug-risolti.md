@@ -159,3 +159,122 @@ These were solved in the first attempt. Files refer to that repository. Each ent
 - **Stale "New session" click:** after "+", the start screen still showed the previous folder's buttons; the harness clicked them while the screen switched folders → `openChat(page, folder)` waits for the new folder path first. (`apps/desktop/e2e/harness.ts`)
 - **"Renamed" matched "RenameDelete":** playwright `hasText` is a case-insensitive substring and the entry text ends with "Rename"+"Delete" → filter on the `.session-open` title. (`apps/desktop/e2e/tabs.e2e.ts`)
 - **Utility process lookup:** the core's name is in `ProcessMetric.name` (`serviceName` is `node.mojom.NodeService`). (`apps/desktop/e2e/tabs.e2e.ts`)
+
+## Phases 2–3 (2026-10-02 → 2026-10-03)
+
+### 2026-10-02 — Suggestions popup crashed with "destroy_ is not a function"
+- **Symptom:** typing `/` or `@` crashed the composer.
+- **Cause:** a `useEffect` written as an arrow with an expression body returned a value (not a cleanup function).
+- **Fix:** block body.
+- **Files:** `packages/ui/src/composerHooks.ts`.
+
+### 2026-10-02 — `!` shell commands produced two fake turn ends and a notification
+- **Symptom:** after a `!` command the chat showed two "turn ended" lines and a "Claude finished" notification.
+- **Cause:** every message sent with `shouldQuery: false` makes the CLI emit an empty `result` (`num_turns` 0).
+- **Fix:** a `silentResults` counter in the tab swallows them; the fact was added to the probe.
+- **Files:** `packages/core/src/tab.ts`, `packages/core/scripts/probe.ts`.
+
+### 2026-10-02 — `/compact` showed the kept answer twice
+- **Symptom:** after `/compact` the last answer appeared twice.
+- **Cause:** the CLI re-sends the kept messages with the same uuids.
+- **Fix:** dedup by uuid in the normalizer.
+- **Files:** `packages/core/src/normalize.ts`.
+
+### 2026-10-02 — Server crashed on a frame over 32 MB
+- **Symptom:** a too-large upload killed the server process.
+- **Cause:** the socket's `error` event (max payload exceeded) had no listener.
+- **Fix:** an `error` listener closes that socket only.
+- **Files:** `packages/server/src/server.ts`.
+
+### 2026-10-02 — The probe leaked the account email
+- **Symptom:** the committed `sdk-probe.json` contained the email inside the organisation name.
+- **Cause:** the redaction looked only at the `email` field.
+- **Fix:** regex redaction of every email-like string; public `sdk-probe.json` + ignored `sdk-probe.local.json`; the
+  history was rewritten before the repository went public.
+- **Files:** `packages/core/scripts/probe.ts`, `.gitignore`.
+
+### 2026-10-03 — Trust tests failed on Linux
+- **Symptom:** `trust.test.ts` failed on the server (deploy tests run there).
+- **Cause:** paths written as Windows paths only.
+- **Fix:** paths built with `join` and temp folders.
+- **Files:** `packages/core/src/trust.test.ts`.
+
+## Sub-phases A, B, C1 and the phone fixes (2026-10-03)
+
+### 2026-10-03 — A rolled-back release would be redeployed by the timer
+- **Symptom (found in review):** after `rollback.sh`, the next timer run would install the same failing commit again.
+- **Cause:** `--when-idle` only compared `current` with `origin/main`.
+- **Fix:** `rollback.sh` marks the release `.failed`; `--when-idle` skips releases with `.failed` (also set when
+  tests fail).
+- **Files:** `deploy/install.sh`, `deploy/rollback.sh`, `packages/server/src/deploy.test.ts`.
+
+### 2026-10-03 — File writes could escape the session folder through symlinks
+- **Symptom (found writing the tests):** writing to `out/x.txt` where `out` links outside the folder, or to a dangling
+  link, wrote outside; `allegati/` as a link sent attachments outside; deleting a link moved its target.
+- **Cause:** one resolution mode for every operation (realpath of the target only).
+- **Fix:** three modes — `target` (must exist, realpath inside), `create` (parent realpath inside, the name itself not
+  a link), `entry` (the link itself, never its target); attachments resolve `allegati/` before writing.
+- **Files:** `packages/core/src/files.ts`, tests in `packages/core/src/core.test.ts` (Linux only).
+
+### 2026-10-03 — Push test flaky on Linux
+- **Symptom:** `push.test.ts` failed now and then on Linux.
+- **Cause:** a fixed 50 ms wait with commands sent in parallel.
+- **Fix:** one command at a time, each awaited.
+- **Files:** `packages/server/src/push.test.ts`.
+
+### 2026-10-03 — `commands` field clashed with the `commands()` method of Tab
+- **Symptom:** typecheck error after adding the lifecycle map.
+- **Fix:** the map is `held`.
+- **Files:** `packages/core/src/tab.ts`.
+
+### 2026-10-03 — Websocket replay contract test flaky under load
+- **Symptom:** "a drop is followed by a replay" failed once on Linux: `['first', 'while ']` instead of
+  `['first', 'while away']`.
+- **Cause:** the test waited for the replayed item to exist; replayed events arrive one at a time, so it read the
+  text between the two deltas.
+- **Fix:** wait for the whole text (a lost delta still times out).
+- **Files:** `packages/server/src/contract.test.ts`.
+
+### 2026-10-03 — iOS would zoom in on fields
+- **Symptom (e2e):** the touch fields were 15 px; iOS zooms on focus below 16 px.
+- **Cause:** `button, input, textarea { font: inherit }` came after the 16 px rule and reset it.
+- **Fix:** `input, textarea, select { font-size: 16px }` after the reset.
+- **Files:** `packages/ui/src/touch.css`.
+
+### 2026-10-03 — New folder not shown in the Home until navigating
+- **Symptom:** after "Nuova cartella" the list stayed the same.
+- **Cause:** the core emits `folders.updated` only for Home and project marks, not for folder contents.
+- **Fix:** the Home reloads its listing after create, delete and restore.
+- **Files:** `packages/ui/src/touch/HomeScreen.tsx`.
+
+### 2026-10-03 — Code preview injected HTML
+- **Symptom (review against design rule 10):** the highlighted code was rendered with `dangerouslySetInnerHTML`.
+- **Fix:** highlight.js output parsed into React nodes (`spanNodes`, only `<span class>` and escaped text), with a test
+  that an `<img onerror>` inside a string stays text.
+- **Files:** `packages/ui/src/touch/model.ts`, `packages/ui/src/touch/FilesScreen.tsx`.
+
+### 2026-10-03 — The ghost of the message showed at the bottom of the chat
+- **Symptom:** the reminder of your message stayed on screen while reading the end of the answer.
+- **Cause:** it showed whenever the message had scrolled off the top.
+- **Fix:** hidden at the bottom of the chat (within the follow distance), shown as soon as you scroll up.
+- **Files:** `packages/ui/src/touch/ChatScreen.tsx`.
+
+### 2026-10-03 — The same session listed twice; empty sessions kept
+- **Symptom:** a session "test" among the open ones and "Test session Claude wrap" among the past ones, both opening
+  the same chat; a session created and never used ("progetti") stayed in the open list.
+- **Cause:** the past list showed every stored session, open ones included (the tab and its JSONL are the same
+  session); tabs were persisted and restored whether used or not; the tab title stayed the folder name while the CLI
+  generated its own.
+- **Fix:** past lists exclude sessions with a tab; a chat left with nothing sent and an empty composer is closed; the
+  core does not restore tabs without a session or a queue; the title follows the CLI's at every turn end until the user
+  renames the tab.
+- **Files:** `packages/ui/src/touch/sessions.tsx`, `HomeScreen.tsx`, `TouchApp.tsx`, `packages/core/src/workspace.ts`,
+  `packages/core/src/tab.ts`.
+
+### 2026-10-03 — Smaller fixes found while checking the screens
+- "Riavvia Claude" was offered on never-started sessions → only after a crash (`ChatScreen.tsx`).
+- A never-started session showed "Model" as its model → "Modello predefinito" (`modelSheets.tsx`).
+- `/favicon.ico` 404 in the PWA → icon link (`apps/mobile/index.html`).
+- `.chip.changed` and two other rules lost in the CSS port → selector-by-selector diff with the prototype (`touch.css`).
+- Test-only: the ghost e2e waited for the working line to disappear before it had appeared → waits for the whole
+  answer; a tab named "to be forked" made the desktop "Fork" selector ambiguous ("Close to be forked") → exact match.

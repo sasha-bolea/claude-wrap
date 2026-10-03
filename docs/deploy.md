@@ -12,8 +12,10 @@ Sasha's request; the install script itself needs no sudo. Files: [deploy/](../de
 | `/srv/apps/claude-wrap/current`, `previous` | symlinks: the running release, the one before (rollback) |
 | `~/.config/claude-wrap/env` | the service environment (0600): root, public URL, Tailscale login — **not in the repo** |
 | `~/.config/systemd/user/claude-wrap.service` | the unit ([deploy/claude-wrap.service](../deploy/claude-wrap.service)) |
+| `~/.config/systemd/user/claude-wrap-update.{service,timer}` | automatic update every 5 min ([deploy/claude-wrap-update.timer](../deploy/claude-wrap-update.timer)) |
+| `releases/<commit>/.failed` | that release never goes live by itself (tests failed, or `rollback.sh` left it) |
 | `~/.local/bin/claude-wrap` | `claude-wrap pair --name <device>` with the service environment |
-| `~/.local/state/claude-wrap/` | state: `state.json`, `devices.json`, `vapid.json`, `pairing/` (all owner-only) |
+| `~/.local/state/claude-wrap/` | state: `state.json`, `devices.json`, `vapid.json`, `pairing/` (all owner-only), `activity.json` (sessions at work, read by the update) |
 | `/srv/progetti` | the only folder sessions may run in (and the phone may browse) |
 
 Port 3012 on 127.0.0.1 (registered in `personale/linux stup/docs/architettura.md` and `~/.claude/porte.md`);
@@ -37,16 +39,32 @@ Tailscale Serve publishes it as `https://<host>.<tailnet>.ts.net:8443`.
 **Warnings:** the env file and `~/.local/state/claude-wrap` hold the owner's identity and device tokens (hashed):
 never copy them into the repo or a ticket. Revoking a device (phone Settings) also revokes the devices it added.
 
-## Update
-**When:** a new version is on `main` (or a tag).
-1. `/srv/apps/claude-wrap/current/deploy/install.sh` (or `install.sh <tag>`).
-   It builds the new release, runs the core and server tests **on the server** (Linux process groups, shell, WebSocket) and switches `current` only if they pass; the old release becomes `previous`.
-2. Open sessions are closed by the restart (tabs come back dormant; nothing is lost: transcripts are the CLI's JSONL).
+## Update (automatic)
+**When:** always, once the timer is installed (2026-10-03).
+- `claude-wrap-update.timer` runs `install.sh main --when-idle` 5 min after boot and 5 min after each run ends. A
+  new commit on `main` is built and tested as a release (core and server tests **on the server**); it goes live only
+  while no session works (`activity.json`, written by the core), otherwise at the next run. A release whose tests
+  failed, or that `rollback.sh` left, is marked `.failed` and never retried by the timer.
+- The restart closes the open processes: tabs come back dormant (nothing is lost: transcripts are the CLI's JSONL;
+  tabs where nothing was ever sent are not restored). The PWA then offers "Nuova versione disponibile · Aggiorna".
+- Trust model (accepted by Sasha on 2026-10-03): whoever can push to `main` runs code on the server without a manual
+  step. Keep pushes to `main` reviewed; restrict GitHub keys on the server (STATO backlog).
+- Following one from the PC: [procedure.md](procedure.md#following-an-automatic-deploy-on-the-home-server).
+
+## Update (by hand) and first install of the timer
+**When:** a tag, a commit the timer skips (`.failed` after a fix), or the first time the timer is installed.
+1. `/srv/apps/claude-wrap/current/deploy/install.sh` (or `install.sh <tag>`): builds, tests, switches; the old
+   release becomes `previous`.
+2. **First time with the timer** (an install made by a script older than the timer): run it **twice** — the first run
+   (old script) brings the new release, the second (new script, from the new `current`) installs and enables the
+   timer. That first build got the version label "dev" (the old script passed no commit); the next build fixes it.
 
 ## Rollback
 `/srv/apps/claude-wrap/current/deploy/rollback.sh` — back to `previous`, restart.
 
 ## Logs and checks
 - `journalctl --user -u claude-wrap -f` (metadata only: connections, pairing, refusals; never tokens or messages).
+- `journalctl --user -u claude-wrap-update -n 30` (automatic updates: build, tests, deferred while busy, live).
+- `systemctl --user list-timers claude-wrap-update.timer` (next and last check).
 - No orphans after a stop: `systemctl --user stop claude-wrap && pgrep -u "$USER" -fa claude` → nothing.
 - Memory: `systemctl --user show claude-wrap -p MemoryCurrent`. Limits `MemoryHigh=5G`, `MemoryMax=6G`; an OOM kill takes one claude process, not the service (`OOMPolicy=continue`).

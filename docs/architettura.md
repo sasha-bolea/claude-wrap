@@ -139,3 +139,65 @@ Import rule: `protocol` ← `core`, `client`; `client` ← `ui`; `core` ← `ser
 | user messages: plain | stamped `origin: {kind:'human'}` | SDK 0.3.287: unattributed input fails closed at strict trust checks |
 | desktop user data: Electron default | `%APPDATA%\claude-wrap` in dev and packaged; `CLAUDE_WRAP_STATE_DIR` overrides it (e2e) | same state in both runs; e2e never touch it |
 
+## 9. As built (Phases 2–3 and sub-phases A–C1, 2026-10-02/03)
+
+### 9.1 Hosts
+- **Remote server** ([packages/server](../packages/server/src)): `node:http` + `ws` around the same `core`; pairing over
+  `POST /pair` (a one-time code becomes a device token, stored hashed), device and push commands are *host commands*
+  the server adds to the core's handlers; Origin/Host allow-lists, sessions confined to `allowedRoots`
+  (`/srv/progetti`). It serves the PWA build (`no-cache`) and `version.json`. Deploy: [deploy.md](deploy.md).
+- **PWA host** ([apps/mobile/src/main.tsx](../apps/mobile/src/main.tsx)): pairing screen, WebSocket connection,
+  Web Push through the service worker, version checks (`checkVersion` at every reconnection, back on screen, every
+  15 min), gestures and orientation (portrait only: manifest + a notice set from the screen's orientation).
+- **Desktop**: unchanged UI until C2; the local core asks main for the system trash (`trashItem` over `parentPort`,
+  [coreHost.ts](../apps/desktop/src/main/coreHost.ts) ↔ [coreProcess.ts](../apps/desktop/src/main/coreProcess.ts)).
+
+### 9.2 Touch UI ([packages/ui/src/touch](../packages/ui/src/touch))
+- `App` renders `TouchApp` for `layout: 'mobile'`, `DesktopApp` otherwise. `TouchApp` keeps a **stack of mounted
+  screens** (only the top is visible, so going back finds a screen as it was), a stack of **bottom sheets** (a sheet
+  opened from another returns to it; a screen entered from a sheet reopens it on the way back), edge swipe, toasts and
+  the undo bar, the photo viewer, and the texts other screens put in a chat's composer (`insertInComposer`).
+- Screens read live state from the `Touch` context (store snapshot + actions); sheet bodies are elements that read the
+  context too, so a sheet always shows the current state.
+- Interface rules and catalogue: [design-system.md](design-system.md) (Touch layout).
+
+### 9.3 Sending while Claude works, queue, send now
+- `tab.send` during a turn goes to the CLI at once with `priority: 'next'` (read at the next tool step, same turn).
+  The CLI's `command_lifecycle` frames (untyped in SDK 0.3.287, capability `msg_lifecycle_v1`) drive the user item's
+  `pending` flag (`queued` → `started` = read) and keep the tab "working" while a sent message is unread
+  (`held` map in [tab.ts](../packages/core/src/tab.ts)).
+- **Queue** (the composer's queue mode): a separate per-tab list in core, persisted; one message at a time when the tab
+  is free; paused by Stop (`reason: 'stop'`) and by a rejected `rate_limit_event` (every tab until `resetsAt`, then it
+  resumes by itself); ▶ resumes earlier.
+- **Stop** = plain `interrupt()` (messages already sent stay sent and run next). **Invia ora** on a waiting message =
+  `tab.sendPendingNow` → the CLI's own send-now: an `interrupt` control request with `send_now: true` and the
+  message uuid (capability `interrupt_send_now_v1`), sent through the Query's raw `request()` because the SDK types
+  lack it; the CLI moves what the turn waits on to the background or ends the turn, so Claude reads the message now.
+
+### 9.4 Folders, files, trash, notes
+- The workspace snapshot carries the **Home** (`{kind:'root', path}` on the server, `{kind:'added', folders}` on this
+  PC, seeded from the open sessions' folders) and the **project marks** (any level, canonical paths), with
+  `folders.updated` to every client. Folder contents are pulled (`folders.list`, with the count of files right
+  inside); clients reload after their own changes.
+- **File commands** work on a *place*: a tab (its folder, trusted as for the session) or a Home folder (inside the
+  roots, no trust: browsing is the user's own action). [files.ts](../packages/core/src/files.ts) resolves every path in
+  one of three modes (target / create / entry) so nothing reaches outside the folder through `..` or symlinks; `.git`
+  is hidden and protected; non-photo attachments go to `allegati/` (added to `.git/info/exclude`).
+- **Trash**: on the server one app trash (`<stateDir>/trash`, 7 days, project marks kept); on this PC the system trash.
+- **Notes**: per canonical folder in `notes.json`, `notes.changed` to every client; the 20% rule of "use in a message"
+  is in the UI ([notes.ts](../packages/ui/src/notes.ts)).
+
+### 9.5 Sessions: open and saved
+- **Open session** = a tab of the core (title, folder, mode, model, effort, queue, pause; persisted in `state.json`),
+  with a CLI process only while it works or waits (lazy start, at most 8 live). **Saved session** = the CLI's JSONL
+  (`listSessions`). An open session that sent something has both (same session id): lists show it once, among the
+  open ones.
+- A tab where nothing was ever sent (no session id, no queue) is not restored after a restart; the touch UI closes it
+  when its chat is left with an empty composer.
+- The tab title follows the CLI's own title (`getSessionInfo`: custom title or summary) at every turn end while
+  `autoTitle` (set when no title was given; off after a rename).
+
+### 9.6 Updates
+- Server: `claude-wrap-update.timer` → `install.sh main --when-idle` (build, tests on the server, switch only while
+  `activity.json` says no session works; `.failed` releases skipped). PWA: `__APP_BUILD__` compiled in vs the served
+  `version.json` → update bar and Settings → App.

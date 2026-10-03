@@ -13,4 +13,4 @@ To decide before the open source release:
 - Our code: **MIT** (decided 2026-10-02).
 - The SDK package `LICENSE.md` (verified on 0.3.285): "© Anthropic PBC. All rights reserved. Use is subject to the Legal Agreements outlined here: https://code.claude.com/docs/en/legal-and-compliance".
 - So our code can be open source, but **redistributing the SDK and the CLI binary inside an installer is doubtful**. Until this is verified: **no public installers**; the repository does not include the SDK, which arrives through `npm install`. Packaged builds (`electron-builder --dir`) are for personal use only.
-- Re-check dependency licences before publishing.
+- Re-check dependency licences before publishing. Added on 2026-10-03: `highlight.js` 11 (BSD-3-Clause: keep its copyright notice in a bundled release).
