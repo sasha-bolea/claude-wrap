@@ -141,10 +141,11 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .tool-state.ok { color: var(--success); }
 .tool-state.bad { color: var(--danger); }
 /* Tool calls in a row: a stack like the queue's, the last call in front and up to three before it peeking out above
-   (7 px each, a little narrower each); a tap spreads them out (.tool-group: the cards one under the other) */
+   (7 px each, a little narrower each); a tap spreads them out (.tool-group: the cards one under the other).
+   The stack is isolated: its cards' z-index stays inside it, under the ghost and the scroll indicator */
 /* One column as wide as the chat: a long command is cut with "…", never widens the cards */
 .tool-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
-.tool-stack { --m: 0; position: relative; display: block; width: 100%; height: calc(44px + var(--m) * 7px); border: 0; padding: 0; background: none; text-align: left; color: inherit; }
+.tool-stack { --m: 0; position: relative; isolation: isolate; display: block; width: 100%; height: calc(44px + var(--m) * 7px); border: 0; padding: 0; background: none; text-align: left; color: inherit; }
 .tool-card { --k: 0; position: absolute; left: calc(var(--k) * 8px); right: calc(var(--k) * 8px); top: calc((var(--m) - var(--k)) * 7px); z-index: calc(10 - var(--k)); display: flex; align-items: center; gap: 8px; height: 44px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
 .tool-card.k0 { background: var(--surface); }
 /* k: the card's place in the stack (0 = in front); m: the last place */

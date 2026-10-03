@@ -163,6 +163,8 @@ describe('PWA (fake SDK)', () => {
     const stack = page.getByRole('button', { name: /^3 commands in a row, the last: Bash npm test, done/ })
     await stack.waitFor()
     expect(await page.locator('.tool-card').count()).toBe(3)
+    // Under the ghost: the cards' z-index stays inside the stack.
+    expect(await stack.evaluate((element) => getComputedStyle(element).isolation)).toBe('isolate')
     expect(await page.locator('details.tool').count()).toBe(0)
     await stack.click()
     await page.locator('details.tool').nth(2).waitFor()
