@@ -280,6 +280,19 @@ export class Tab {
     })
   }
 
+  // "Send now" on a message the CLI has not read yet: the CLI's own send-now (an interrupt request with send_now and
+  // the message's uuid, capability interrupt_send_now_v1): it moves what the turn waits on to the background, or ends
+  // the turn, so that Claude reads the message now. The SDK 0.3.287 types do not have it: it goes through the Query's
+  // control request. A CLI without the capability takes it as a plain interrupt. The queue is not paused.
+  async sendPendingNow(itemId: string): Promise<void> {
+    const item = this.transcript.get(itemId)
+    if (item?.kind !== 'user' || !item.pending || !this.session) throw new CoreError('invalid_args', 'not a message waiting to be read')
+    const query = this.session.query as unknown as { request(request: object): Promise<unknown> }
+    await query.request({ subtype: 'interrupt', send_now: true, message_uuid: itemId }).catch((error: unknown) => {
+      throw new CoreError('sdk_error', messageOf(error))
+    })
+  }
+
   // Runs a `!` command in the folder (trust gate first, through the session start). The output becomes a shell item
   // and, as in the CLI's bash mode, two transcript-only messages (no turn) that Claude reads with the next prompt.
   // uuid: the cmd id (item id and stored message uuid).

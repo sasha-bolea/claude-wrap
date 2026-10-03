@@ -12,8 +12,9 @@ export type Screen =
   | { name: 'folderSessions'; path: string }
   | { name: 'trash'; under?: string }
   | { name: 'chat'; tabId: string }
-  | { name: 'files'; tabId: string }
-  | { name: 'file'; tabId: string; path: string; modified?: number }
+  // File explorer of a session's folder (tabId) or of a folder of the Home (folder): exactly one.
+  | { name: 'files'; tabId?: string; folder?: string }
+  | { name: 'file'; tabId?: string; folder?: string; path: string; modified?: number }
   | { name: 'notes'; tabId: string }
   | { name: 'note'; tabId: string; noteId?: string }
   | { name: 'settings' }

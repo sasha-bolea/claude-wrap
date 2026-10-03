@@ -15,7 +15,7 @@ export function pauseWords(meta: TabMeta): string | undefined {
   return t('queuePaused')
 }
 
-// The queue under the composer: a stack of cards (only the first shows its text, one line) and ▶/⏸ beside it.
+// The queue under the composer: a stack of cards (only the first shows its text, one line) and play/pause beside it.
 // A tap on the stack opens the whole queue. Nothing shows while the queue is empty.
 export function QueueTray({ meta }: { meta: TabMeta }) {
   const { connection, openSheet, announce, fail } = useTouch()

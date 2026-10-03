@@ -473,6 +473,12 @@ export const en = {
   laterItems_rewind: 'Back to before one of your messages: code and conversation, conversation only, code only\nPreview of the files that change\nNot while Claude is working',
   code: 'Code',
   folder: 'Folder',
+  filesCount: '{count} files',
+  filesOne: '1 file',
+  filesHidden: ', {hidden} hidden',
+  filesHiddenOne: ', 1 hidden',
+  rotatePhone: 'Turn your phone upright',
+  sendPendingNow: 'Send now: Claude reads it right away',
   close: 'Close'
 }
 

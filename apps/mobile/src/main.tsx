@@ -51,6 +51,24 @@ navigator.serviceWorker?.addEventListener('message', (event: MessageEvent<{ type
 // iOS ignores the viewport's maximum-scale when pinching: its gesture events are cancelled instead.
 for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, (event) => event.preventDefault(), { passive: false })
 
+// Portrait only (Sasha's choice). The manifest locks it on Android; iOS cannot lock a web app, so a phone turned
+// sideways gets a notice over the app. The screen's own size and orientation decide, never the window's: the keyboard
+// shrinks the window, not the screen.
+const notice = document.createElement('div')
+notice.className = 'rotate-notice'
+notice.setAttribute('role', 'alert')
+notice.textContent = t('rotatePhone')
+document.body.append(notice)
+const isPhone = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600
+function checkOrientation(): void {
+  const sideways = screen.orientation ? screen.orientation.type.startsWith('landscape') : Math.abs(Number((window as { orientation?: number }).orientation ?? 0)) === 90
+  if (isPhone && sideways) document.documentElement.dataset.landscape = ''
+  else delete document.documentElement.dataset.landscape
+}
+screen.orientation?.addEventListener('change', checkOrientation)
+addEventListener('orientationchange', checkOrientation)
+checkOrientation()
+
 // A newer build on the server (an update restarts the server): /version.json is compared with this build at every
 // connection, back on screen and every 15 minutes; the UI offers it (update bar, Settings).
 const VERSION_CHECK_MS = 15 * 60_000

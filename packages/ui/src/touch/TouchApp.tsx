@@ -37,9 +37,9 @@ function ScreenView({ screen }: { screen: Screen }): ReactNode {
     case 'chat':
       return <ChatScreen tabId={screen.tabId} />
     case 'files':
-      return <FilesScreen tabId={screen.tabId} />
+      return <FilesScreen tabId={screen.tabId} folder={screen.folder} />
     case 'file':
-      return <FileScreen tabId={screen.tabId} path={screen.path} modified={screen.modified} />
+      return <FileScreen tabId={screen.tabId} folder={screen.folder} path={screen.path} modified={screen.modified} />
     case 'notes':
       return <NotesScreen tabId={screen.tabId} />
     case 'note':

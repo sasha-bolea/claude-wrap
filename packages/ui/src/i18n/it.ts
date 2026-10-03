@@ -475,5 +475,11 @@ export const it: Record<MessageKey, string> = {
   laterItems_rewind: 'Torna a prima di un tuo messaggio: codice e conversazione, solo conversazione, solo codice\nAnteprima dei file che cambiano\nNon mentre Claude lavora',
   code: 'Codice',
   folder: 'Cartella',
+  filesCount: '{count} file',
+  filesOne: '1 file',
+  filesHidden: ' di cui {hidden} nascosti',
+  filesHiddenOne: ' di cui 1 nascosto',
+  rotatePhone: 'Gira il telefono in verticale',
+  sendPendingNow: 'Invia ora: Claude lo legge subito',
   close: 'Chiudi'
 }

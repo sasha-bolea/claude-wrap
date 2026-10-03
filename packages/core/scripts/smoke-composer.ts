@@ -1,7 +1,8 @@
 // Phase 2 and sub-phase B check on the real CLI (`npm run smoke:composer`, a few haiku tokens): through core + client,
 // runs palette commands and reports what each one shows, sends an image and checks the model sees it, runs a `!`
 // command and checks it starts no turn but reaches the model, sends a message while a tool runs and checks it is read
-// in the same turn, applies an effort level, and reopens the stored session to check its history.
+// in the same turn, presses "Invia ora" on a message waiting during a long tool and checks Claude reads it at once,
+// applies an effort level, and reopens the stored session to check its history.
 // Works in a temp folder and deletes the sessions after. Runs directly on Node 24 (type stripping).
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -144,6 +145,35 @@ async function checkMidTurn(): Promise<void> {
   if (!items().some((item) => item.kind === 'assistantText' && item.text.includes('PINEAPPLE'))) problems.push('the model did not read the message sent mid-turn')
 }
 
+// "Invia ora" on a message waiting during a long tool: the CLI's own send-now makes Claude read it well before the
+// tool would have ended.
+async function checkSendNow(): Promise<void> {
+  const requests = () => connection.store.getSnapshot().transcripts[TAB_ID]?.requests ?? []
+  const toolRunning = () => items().some((item) => item.kind === 'toolCall' && item.name === 'Bash' && item.result === undefined)
+  await connection.request('tab.send', { tabId: TAB_ID, text: 'Run exactly this Bash command: sleep 20 && echo slow-done. Then reply with one short sentence.' })
+  await until(() => toolRunning() || requests().length > 0, 60_000)
+  const [request] = requests()
+  if (request) await connection.request('request.answer', { tabId: TAB_ID, requestId: request.requestId, decision: 'allow' })
+  await until(toolRunning, 30_000)
+  await sleep(1500)
+  const word = 'MANGO'
+  await connection.request('tab.send', { tabId: TAB_ID, text: `Reply with the word ${word} and nothing else.` })
+  const late = () => items().find((item) => item.kind === 'user' && item.text.includes(word))
+  const waiting = () => {
+    const item = late()
+    return item?.kind === 'user' && item.pending === true
+  }
+  await until(waiting, 10_000)
+  const pressed = Date.now()
+  await connection.request('tab.sendPendingNow', { tabId: TAB_ID, itemId: late()!.itemId })
+  if (!(await until(() => !waiting(), 15_000))) problems.push('send now: the message stayed waiting')
+  const readAfter = Date.now() - pressed
+  if (!(await until(() => items().some((item) => item.kind === 'assistantText' && item.text.includes(word)), 60_000))) problems.push('send now: the model did not answer the message')
+  console.log(`> send now: read ${readAfter} ms after the tap; items now:\n${items().slice(-4).map((item) => `    ${describe(item)}`).join('\n')}`)
+  if (readAfter > 12_000) problems.push(`send now: read only after ${readAfter} ms (the tool ran 20 s)`)
+  await until(() => meta()?.status === 'idle', 60_000)
+}
+
 // Sub-phase B: models with their effort levels; the effort applied to the live session like /effort.
 async function checkEffort(): Promise<void> {
   const { models } = await connection.request('tab.models', { tabId: TAB_ID })
@@ -183,6 +213,7 @@ async function main(): Promise<void> {
   await checkImage()
   await checkShell()
   await checkMidTurn()
+  await checkSendNow()
   await checkEffort()
   const sessionId = meta()?.sessionId
   await core.closeAll()

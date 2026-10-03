@@ -6,6 +6,7 @@ import { dataUrl } from '../images.ts'
 import { Markdown } from '../Markdown.tsx'
 import type { Answer } from '../RequestPanel.tsx'
 import { useTouch } from './context.tsx'
+import { Icon } from './icons.tsx'
 
 type LoadImage = (imageId: string) => Promise<Image>
 type ToolCall = Extract<Item, { kind: 'toolCall' }>
@@ -48,11 +49,12 @@ function Thumb({ image, n, loadImage }: { image: ImageRef; n: number; loadImage:
   )
 }
 
-// Your message: photos, text, and while Claude has not read it "in attesa" (then "letto" for a moment). Long press
-// (or right click) opens its actions.
-function UserMessage({ item, readAt, loadImage, onActions }: { item: UserItem; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void }) {
+// Your message: photos, text, and while Claude has not read it "in attesa" (then "letto" for a moment) with "Invia
+// ora" beside it (the CLI's own send-now: Claude reads it now). Long press (or right click) opens its actions.
+function UserMessage({ item, readAt, loadImage, onActions, onSendNow }: { item: UserItem; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown> }) {
   const press = useRef<ReturnType<typeof setTimeout>>(undefined)
   const [pressed, setPressed] = useState(false)
+  const [sending, setSending] = useState(false)
   const start = () => {
     press.current = setTimeout(() => {
       setPressed(true)
@@ -63,7 +65,7 @@ function UserMessage({ item, readAt, loadImage, onActions }: { item: UserItem; r
   }
   const cancel = () => clearTimeout(press.current)
   const justRead = readAt !== undefined && Date.now() - readAt < READ_NOTE_MS
-  return (
+  const bubble = (
     <div
       className={`msg-user${item.pending ? ' pending' : ''}${pressed ? ' pressed' : ''}`}
       data-msg={item.itemId}
@@ -83,6 +85,15 @@ function UserMessage({ item, readAt, loadImage, onActions }: { item: UserItem; r
       {item.text}
       {item.pending && <span className="pending-note">{t('waitingToBeRead')}</span>}
       {!item.pending && justRead && <span className="pending-note">{t('readByClaude')}</span>}
+    </div>
+  )
+  if (!item.pending) return bubble
+  return (
+    <div className="msg-user-row">
+      <button className="send-now" aria-label={t('sendPendingNow')} title={t('sendPendingNow')} disabled={sending} onClick={() => (setSending(true), void onSendNow(item).finally(() => setSending(false)))}>
+        <Icon name="send" />
+      </button>
+      {bubble}
     </div>
   )
 }
@@ -106,11 +117,11 @@ function ToolCard({ item }: { item: ToolCall }) {
 }
 
 // One transcript item, as the prototype shows it.
-function ItemView({ item, readAt, loadImage, onActions }: { item: Item; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void }) {
+function ItemView({ item, readAt, loadImage, onActions, onSendNow }: { item: Item; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown> }) {
   const { capabilities } = useTouch()
   switch (item.kind) {
     case 'user':
-      return <UserMessage item={item} readAt={readAt} loadImage={loadImage} onActions={onActions} />
+      return <UserMessage item={item} readAt={readAt} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} />
     case 'assistantText':
       return (
         <div className="msg-ai">
@@ -185,18 +196,18 @@ function WorkingLine({ starting }: { starting: boolean }) {
   )
 }
 
-type ConversationProps = { meta: TabMeta; view?: TabView; loadImage: LoadImage; onAnswer: (requestId: string, answer: Answer) => void; onRestart: () => void; onTrust: () => void; onActions: (item: UserItem) => void }
+type ConversationProps = { meta: TabMeta; view?: TabView; loadImage: LoadImage; onAnswer: (requestId: string, answer: Answer) => void; onRestart: () => void; onTrust: () => void; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown> }
 
 // The conversation: items, then Claude's request (part of the chat, it scrolls with it), the working line and the
 // cards of a stopped process or an untrusted folder.
-export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTrust, onActions }: ConversationProps) {
+export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTrust, onActions, onSendNow }: ConversationProps) {
   const items = view?.items ?? []
   const readAt = useReadTimes(items)
   const request = view?.requests[0]
   return (
     <>
       {items.map((item) => (
-        <ItemView key={item.itemId} item={item} readAt={readAt[item.itemId]} loadImage={loadImage} onActions={onActions} />
+        <ItemView key={item.itemId} item={item} readAt={readAt[item.itemId]} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} />
       ))}
       {(meta.status === 'running' || meta.status === 'starting') && <WorkingLine key={meta.status} starting={meta.status === 'starting'} />}
       {request && <RequestCard key={request.requestId} request={request} onAnswer={(answer) => onAnswer(request.requestId, answer)} />}

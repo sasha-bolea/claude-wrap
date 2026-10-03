@@ -77,7 +77,8 @@ function checkSize(text: string, images: Image[]): void {
 // The command handlers, one per protocol command, acting on the workspace; host: the host's own commands.
 export function createHandlers(workspace: Workspace, host: HostCommands = {}): Handlers {
   const tabOf = (tabId: string) => workspace.tabOf(tabId)
-  const folderOf = (tabId: string) => tabOf(tabId).folder()
+  // The folder of a file command: the tab's (trusted, as for its session) or a folder of the Home (inside the roots).
+  const folderOf = ({ tabId, folder }: { tabId?: string; folder?: string }) => (tabId ? tabOf(tabId).folder() : workspace.folderOf(folder!))
   const appTrash = () => {
     if (!workspace.trash) throw new CoreError('not_found', 'no app trash on this backend')
     return workspace.trash
@@ -117,6 +118,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
       return image
     },
     'tab.interrupt': async ({ tabId }) => (await tabOf(tabId).interrupt(), {}),
+    'tab.sendPendingNow': async ({ tabId, itemId }) => (await tabOf(tabId).sendPendingNow(itemId), {}),
     'tab.setModel': async ({ tabId, model }) => (await tabOf(tabId).setModel(model), {}),
     'tab.setEffort': async ({ tabId, effort }) => (await tabOf(tabId).setEffort(effort), {}),
     'tab.setMode': async ({ tabId, mode }) => (await tabOf(tabId).setMode(mode), {}),
@@ -140,12 +142,12 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'folders.add': async ({ path }) => ({ path: await workspace.addFolder(path) }),
     'folders.remove': async ({ path }) => (await workspace.removeFolder(path), {}),
     'folders.delete': async ({ path }) => (await workspace.deleteFolder(path), {}),
-    'files.list': async ({ tabId, path }) => ({ entries: await listFiles(await folderOf(tabId), path) }),
-    'files.read': async ({ tabId, path, download }) => readFileFor(await folderOf(tabId), path, download),
-    'files.write': async ({ tabId, path, data, overwrite, attachment }) => ({ path: await writeFileFor(await folderOf(tabId), path, data, { overwrite, attachment }) }),
-    'files.mkdir': async ({ tabId, path }) => (await makeDir(await folderOf(tabId), path), {}),
-    'files.rename': async ({ tabId, from, to }) => (await moveFile(await folderOf(tabId), from, to), {}),
-    'files.delete': async ({ tabId, path }) => (await workspace.discard(await deletable(await folderOf(tabId), path)), {}),
+    'files.list': async (args) => ({ entries: await listFiles(await folderOf(args), args.path) }),
+    'files.read': async (args) => readFileFor(await folderOf(args), args.path, args.download),
+    'files.write': async (args) => ({ path: await writeFileFor(await folderOf(args), args.path, args.data, { overwrite: args.overwrite, attachment: args.attachment }) }),
+    'files.mkdir': async (args) => (await makeDir(await folderOf(args), args.path), {}),
+    'files.rename': async (args) => (await moveFile(await folderOf(args), args.from, args.to), {}),
+    'files.delete': async (args) => (await workspace.discard(await deletable(await folderOf(args), args.path)), {}),
     'trash.list': async ({ under }) => ({ items: (await workspace.trash?.list(under)) ?? [] }),
     'trash.restore': async ({ id }) => ({ path: await workspace.restore(id) }),
     'trash.delete': async ({ id }) => (await appTrash().delete(id), {}),

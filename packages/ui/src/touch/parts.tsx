@@ -25,17 +25,18 @@ export function useQuery<T>(load: () => Promise<T>, deps: DependencyList): { dat
   return { data, reload: run }
 }
 
-type IconButtonProps = { icon: IconName; label: string; onClick: () => void; dot?: boolean; count?: string; className?: string; disabled?: boolean; expanded?: boolean }
+type IconButtonProps = { icon: IconName; label: string; onClick: () => void; dot?: boolean; count?: string; countIcon?: IconName; className?: string; disabled?: boolean; expanded?: boolean }
 
-// 44×44 icon button with its label for screen readers; dot: something waits elsewhere; count: a small number.
-export function IconButton({ icon, label, onClick, dot, count, className, disabled, expanded }: IconButtonProps) {
+// 44×44 icon button with its label for screen readers; dot: something waits elsewhere; count: a small number;
+// countIcon: a small icon in the same badge instead (the queue's pause).
+export function IconButton({ icon, label, onClick, dot, count, countIcon, className, disabled, expanded }: IconButtonProps) {
   return (
     <button className={`icon-btn${className ? ` ${className}` : ''}`} aria-label={label} onClick={onClick} disabled={disabled} aria-expanded={expanded}>
       <Icon name={icon} />
       {dot && <span className="dot" />}
-      {count && (
+      {(count || countIcon) && (
         <span className="count" aria-hidden="true">
-          {count}
+          {countIcon ? <Icon name={countIcon} /> : count}
         </span>
       )}
     </button>

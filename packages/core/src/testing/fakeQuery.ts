@@ -102,6 +102,13 @@ export class FakeSession {
         record('interrupt', [])
         this.interruptListeners.forEach((listener) => listener())
       },
+      // The Query's raw control request: an interrupt with send_now ends the running turn here (as a CLI that moves
+      // nothing to the background does), so the waiting messages run next.
+      request: async (request: { subtype?: string; send_now?: boolean }) => {
+        record('request', [request])
+        if (request.subtype === 'interrupt') this.interruptListeners.forEach((listener) => listener())
+        return { response: request.send_now ? { send_now: 'interrupting' } : {} }
+      },
       setModel: async (model?: string) => (record('setModel', [model]), maybeReject()),
       setPermissionMode: async (mode: string) => (record('setPermissionMode', [mode]), maybeReject()),
       applyFlagSettings: async (settings: object) => (record('applyFlagSettings', [settings]), maybeReject()),

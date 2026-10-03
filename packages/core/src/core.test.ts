@@ -248,6 +248,20 @@ describe('messages sent while Claude works', () => {
     expect(notices.map((notice) => notice.kind)).toEqual(['turnFinished'])
   })
 
+  it("Send now on a waiting message asks the CLI to read it now (its own send-now), without pausing the queue", async () => {
+    const session = await startedTab()
+    session.emit(sdk.lifecycle(cmd(1), 'queued'), sdk.lifecycle(cmd(1), 'started'))
+    await client.ok('tab.queueAdd', { tabId: 't1', text: 'queued later' })
+    await client.ok('tab.send', { tabId: 't1', text: 'now please' }, cmd(2))
+    session.emit(sdk.lifecycle(cmd(2), 'queued'))
+    await tick()
+    expect(await client.ok('tab.sendPendingNow', { tabId: 't1', itemId: cmd(2) })).toEqual({})
+    expect(session.calls.at(-1)).toEqual({ method: 'request', args: [{ subtype: 'interrupt', send_now: true, message_uuid: cmd(2) }] })
+    expect(meta(client)?.queuePause).toBeUndefined()
+    // Only a message still waiting: the first one was read already.
+    expect(await client.fails('tab.sendPendingNow', { tabId: 't1', itemId: cmd(1) })).toMatchObject({ code: 'invalid_args' })
+  })
+
   it('a send already in the transcript (retry after a core restart) is not dispatched again', async () => {
     fake.histories.set('s1', [stored.user(cmd(9), 'hi')])
     await client.ok('tab.create', { tabId: 't1', cwd: CWD, resume: 's1' })
@@ -687,8 +701,8 @@ describe('remote backend support (Phase 3)', () => {
   it('folders.list lists the root by default, hides dot folders, and stops at the root', async () => {
     core = makeCore({ allowedRoots: [ROOT] })
     client = await connect(core)
-    expect(await client.ok('folders.list', {})).toEqual({ path: ROOT, folders: [entry('alpha'), entry('beta')] })
-    expect(await client.ok('folders.list', { path: join(ROOT, 'alpha') })).toEqual({ path: join(ROOT, 'alpha'), parent: ROOT, folders: [] })
+    expect(await client.ok('folders.list', {})).toEqual({ path: ROOT, folders: [entry('alpha'), entry('beta')], files: { count: 0, hidden: 0 } })
+    expect(await client.ok('folders.list', { path: join(ROOT, 'alpha') })).toEqual({ path: join(ROOT, 'alpha'), parent: ROOT, folders: [], files: { count: 0, hidden: 0 } })
     expect(await client.fails('folders.list', { path: join(ROOT, '..') })).toMatchObject({ code: 'outside_root' })
     expect(await client.fails('folders.list', { path: join(ROOT, 'missing') })).toMatchObject({ code: 'not_found' })
   })
@@ -806,6 +820,17 @@ describe('folders, projects and sessions', () => {
     client = await connect(core)
     expect(folders(client)).toEqual({ home: { kind: 'root', path: root }, projects: [join(root, 'alpha')] })
     expect(await client.fails('folders.setProject', { path: tmpdir(), project: true })).toMatchObject({ code: 'outside_root' })
+  })
+
+  it('a folder counts the files right inside it, and how many of them are hidden (.git apart)', async () => {
+    const root = tempDir('cw-count-')
+    mkdirSync(join(root, 'sub'))
+    mkdirSync(join(root, '.git'))
+    for (const name of ['a.ts', 'b.md', '.env', '.gitignore', join('sub', 'deep.ts')]) writeFileSync(join(root, name), 'x')
+    core = makeCore({ allowedRoots: [root] })
+    client = await connect(core)
+    expect((await client.ok('folders.list', {})).files).toEqual({ count: 4, hidden: 2 })
+    expect((await client.ok('folders.list', { path: join(root, 'sub') })).files).toEqual({ count: 1, hidden: 0 })
   })
 
   it('this PC: the Home lists the added folders, at first the ones of the open sessions; taking one off keeps its files', async () => {
@@ -996,6 +1021,22 @@ describe('files and trash', () => {
   it('needs a trusted folder', async () => {
     await client.ok('tab.create', { tabId: 'u', cwd: mkdtempSync(join(tmpdir(), 'cw-untrusted-')) })
     expect(await client.fails('files.list', { tabId: 'u', path: '' })).toMatchObject({ code: 'needs_trust' })
+  })
+
+  it('a folder of the Home without a session: no trust needed, only inside the roots, one place per command', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'cw-home-files-'))
+    mkdirSync(join(root, 'app'))
+    writeFileSync(join(root, 'app', 'notes.txt'), 'hello')
+    core = makeCore({ allowedRoots: [root], stateDir: mkdtempSync(join(tmpdir(), 'cw-home-files-state-')) })
+    client = await connect(core)
+    const folder = join(root, 'app')
+    expect((await client.ok('files.list', { folder, path: '' })).entries.map((file) => file.name)).toEqual(['notes.txt'])
+    expect(await client.ok('files.read', { folder, path: 'notes.txt' })).toMatchObject({ encoding: 'utf8', data: 'hello' })
+    await client.ok('files.rename', { folder, from: 'notes.txt', to: 'todo.txt' })
+    expect(readFileSync(join(folder, 'todo.txt'), 'utf8')).toBe('hello')
+    expect(await client.fails('files.list', { folder: tmpdir(), path: '' })).toMatchObject({ code: 'outside_root' })
+    expect(await client.fails('files.list', { path: '' })).toMatchObject({ code: 'invalid_args' })
+    expect(await client.fails('files.list', { tabId: 'f', folder, path: '' })).toMatchObject({ code: 'invalid_args' })
   })
 })
 

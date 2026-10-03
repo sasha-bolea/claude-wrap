@@ -39,6 +39,11 @@ export const fileEntrySchema = z.object({ name: z.string(), kind: z.enum(['file'
 export const trashItemSchema = z.object({ id: z.string(), path: z.string(), kind: z.enum(['file', 'folder']), deletedAt: z.number(), expiresAt: z.number() })
 // A note of a folder; times in ms.
 export const noteSchema = z.object({ noteId: z.string(), text: z.string(), createdAt: z.number(), updatedAt: z.number() })
+// Args of a file command: its own fields plus where it works, a tab's folder or a folder of the Home (exactly one).
+const place = z.object({ tabId: tabId.optional(), folder: z.string().min(1).optional() })
+type Place = z.infer<typeof place>
+const filePlace = <Shape extends z.ZodRawShape>(shape: Shape) =>
+  place.extend(shape).refine((args) => ((args as Place).tabId === undefined) !== ((args as Place).folder === undefined), { message: 'one of tabId and folder' })
 // What the queue or a send carries besides the text.
 const message = { text: z.string(), images: z.array(imageSchema).optional(), pastes: z.array(z.string()).optional() }
 
@@ -96,6 +101,9 @@ export const COMMANDS = {
   'tab.suggestFiles': { args: z.object({ tabId, query: z.string() }), result: z.object({ paths: z.array(z.string()) }) },
   'blob.get': { args: z.object({ tabId, imageId: z.string() }), result: imageSchema },
   'tab.interrupt': { args: z.object({ tabId }), result: empty },
+  // "Send now" on a message sent while Claude works and not read yet (its user item is pending): the CLI's own
+  // send-now, so that Claude reads it now instead of at its next step. Not a Stop: the queue is not paused.
+  'tab.sendPendingNow': { args: z.object({ tabId, itemId: z.string().min(1) }), result: empty },
   // model undefined = the default model. An effort level the new model does not offer moves to its highest one below.
   'tab.setModel': { args: z.object({ tabId, model: z.string().optional() }), result: empty },
   // Reasoning effort (as /effort); undefined = the model's default.
@@ -114,7 +122,7 @@ export const COMMANDS = {
   // (desktop: the user's home folder); parent absent at the top.
   'folders.list': {
     args: z.object({ path: z.string().optional() }),
-    result: z.object({ path: z.string(), parent: z.string().optional(), folders: z.array(folderEntrySchema) })
+    result: z.object({ path: z.string(), parent: z.string().optional(), folders: z.array(folderEntrySchema), files: z.object({ count: z.number(), hidden: z.number() }) })
   },
   'folders.create': { args: z.object({ path: z.string().min(1), name: folderName, project: z.boolean().optional() }), result: z.object({ path: z.string() }) },
   // The project mark of a folder (any level), saved in core: the same on every device.
@@ -125,24 +133,25 @@ export const COMMANDS = {
   // Deletes a folder inside the Home (never the Home's own folders): to the app's trash on the remote server, to the
   // system trash on the desktop. Refused while a session is open inside it.
   'folders.delete': { args: z.object({ path: z.string().min(1) }), result: empty },
-  // File explorer of a tab's folder (paths relative to it; `.git` hidden and protected; trusted folders only).
-  'files.list': { args: z.object({ tabId, path: relativePath }), result: z.object({ entries: z.array(fileEntrySchema) }) },
+  // File explorer, paths relative to its folder (`.git` hidden and protected): a tab's folder (trusted folders only) or
+  // a folder of the Home without a session (inside the roots, like folders.*). Exactly one of tabId and folder.
+  'files.list': { args: filePlace({ path: relativePath }), result: z.object({ entries: z.array(fileEntrySchema) }) },
   // Preview (text as utf8, images as base64, up to LIMITS.previewBytes, `truncated` beyond) or download (base64, the
   // whole file up to LIMITS.fileBytes).
   'files.read': {
-    args: z.object({ tabId, path: relativePath.min(1), download: z.boolean().optional() }),
+    args: filePlace({ path: relativePath.min(1), download: z.boolean().optional() }),
     result: z.object({ mediaType: z.string(), encoding: z.enum(['utf8', 'base64']), data: z.string(), size: z.number(), truncated: z.boolean() })
   },
   // Upload (base64). attachment: path is just a file name, stored under allegati/ with a free name (excluded from git
   // locally); the result is the path to mention.
   'files.write': {
-    args: z.object({ tabId, path: relativePath.min(1), data: z.string(), overwrite: z.boolean().optional(), attachment: z.boolean().optional() }),
+    args: filePlace({ path: relativePath.min(1), data: z.string(), overwrite: z.boolean().optional(), attachment: z.boolean().optional() }),
     result: z.object({ path: z.string() })
   },
-  'files.mkdir': { args: z.object({ tabId, path: relativePath.min(1) }), result: empty },
+  'files.mkdir': { args: filePlace({ path: relativePath.min(1) }), result: empty },
   // Rename or move inside the folder; refused when the target exists.
-  'files.rename': { args: z.object({ tabId, from: relativePath.min(1), to: relativePath.min(1) }), result: empty },
-  'files.delete': { args: z.object({ tabId, path: relativePath.min(1) }), result: empty },
+  'files.rename': { args: filePlace({ from: relativePath.min(1), to: relativePath.min(1) }), result: empty },
+  'files.delete': { args: filePlace({ path: relativePath.min(1) }), result: empty },
   // The app's trash (remote server; empty on the desktop, which uses the system trash). under: only what was inside
   // that folder. Items expire after 7 days.
   'trash.list': { args: z.object({ under: z.string().optional() }), result: z.object({ items: z.array(trashItemSchema) }) },

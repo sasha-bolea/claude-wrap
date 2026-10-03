@@ -8,8 +8,9 @@ import { canonicalFolder, checkRoots, withinRoots } from './trustGate.ts'
 // Folders of the Home and of the folder picker: list and create, always inside the backend's allowed roots (paths
 // canonicalized first, symlinks resolved on Linux). Symlinked folders are not listed.
 
-// Subfolders of a folder (hidden ones skipped) with their project mark, and its parent while that is still inside the
-// roots. path absent: the first root (or the home folder when any folder is allowed).
+// Subfolders of a folder (hidden ones skipped) with their project mark, its parent while that is still inside the
+// roots, and how many files are right inside it (hidden ones among them; .git apart). path absent: the first root (or
+// the home folder when any folder is allowed).
 export async function listFolders(path: string | undefined, roots: 'any' | string[], projects: Set<string>): Promise<CommandResult<'folders.list'>> {
   const folder = await canonicalFolder(path ?? (roots === 'any' ? homedir() : roots[0]!))
   checkRoots(folder, roots)
@@ -19,8 +20,9 @@ export async function listFolders(path: string | undefined, roots: 'any' | strin
     .map((entry) => entry.name)
     .sort((a, b) => a.localeCompare(b))
     .map((name) => ({ name, path: join(folder, name), project: projects.has(join(folder, name)) }))
+  const files = entries.filter((entry) => !entry.isDirectory() && entry.name.toLowerCase() !== '.git')
   const up = dirname(folder)
-  return { path: folder, parent: up !== folder && withinRoots(up, roots) ? up : undefined, folders }
+  return { path: folder, parent: up !== folder && withinRoots(up, roots) ? up : undefined, folders, files: { count: files.length, hidden: files.filter((entry) => entry.name.startsWith('.')).length } }
 }
 
 // Creates a folder (name already validated by the protocol schema) inside an allowed folder.

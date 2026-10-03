@@ -30,6 +30,10 @@ function useHomeView(): [View, (view: View) => void] {
   return [view, choose]
 }
 
+// "12 file di cui 3 nascosti" (the hidden part only when there are some).
+const filesWords = ({ count, hidden }: { count: number; hidden: number }) =>
+  `${t(count === 1 ? 'filesOne' : 'filesCount', { count: String(count) })}${hidden ? t(hidden === 1 ? 'filesHiddenOne' : 'filesHidden', { hidden: String(hidden) }) : ''}`
+
 const isProject = (projects: string[], path: string) => projects.some((project) => inside(path, project) && inside(project, path))
 
 const SUMMARY_WORDS: Record<SessionState, 'stateWaiting' | 'stateWorking' | 'stateError' | 'stateIdle'> = { waiting: 'stateWaiting', working: 'stateWorking', error: 'stateError', idle: 'stateIdle' }
@@ -88,6 +92,8 @@ export function HomeScreen() {
   const added = home.kind === 'added' && !trail.length
   const folders: FolderEntry[] = added ? home.folders.map((path) => ({ name: baseName(path), path, project: false })) : (listing.data?.folders ?? [])
   const name = current ? baseName(current) : t('thisComputer')
+  // The files right inside the folder shown (none: no row).
+  const files = current && listing.data?.files.count ? listing.data.files : undefined
   const connected = (
     <>
       <span className={`conn-dot${state.status === 'connected' ? '' : ' off'}`} aria-hidden="true" />
@@ -126,9 +132,18 @@ export function HomeScreen() {
                 {folders.map((entry) => (
                   <FolderRow key={entry.path} entry={entry} project={isProject(state.projects, entry.path)} tabs={state.tabs} onEnter={enter} onChanged={listing.reload} />
                 ))}
-                {!folders.length && listing.data && (
+                {!folders.length && listing.data && !files && (
                   <li className="row">
                     <span className="muted">{t('noSubfolders')}</span>
+                  </li>
+                )}
+                {files && current && (
+                  <li className="row">
+                    <Icon name="file" className="ficon" />
+                    <button className="row-main" onClick={() => go({ name: 'files', folder: current })}>
+                      <span className="row-title plain">{filesWords(files)}</span>
+                    </button>
+                    <Icon name="chevron" className="chevron" />
                   </li>
                 )}
                 {!trail.length && home.kind === 'root' && (

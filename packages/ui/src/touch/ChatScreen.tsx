@@ -23,8 +23,9 @@ const GHOST_AWAY = 28
 // Panels of a session that come later (🔜), in the session menu.
 const SESSION_PANELS: LaterKey[] = ['context', 'usage', 'tasks', 'todo', 'diff', 'mcp', 'hooks', 'status']
 
-// The ghost of your message whose answer you are reading, once it has scrolled off the top: a tap goes back to it,
-// a drag up puts it away until that message is on screen again. Gone while the keyboard is open.
+// The ghost of your message whose answer you are reading, once it has scrolled off the top and you scroll up from the
+// bottom: a tap goes back to it, a drag up puts it away until that message is on screen again. Gone at the bottom of
+// the chat and while the keyboard is open.
 function useGhost(conversation: React.RefObject<HTMLDivElement | null>) {
   const [ghost, setGhost] = useState<{ id: string; text: string }>()
   const dismissed = useRef<string | undefined>(undefined)
@@ -37,7 +38,8 @@ function useGhost(conversation: React.RefObject<HTMLDivElement | null>) {
     const away = dismissed.current ? box.querySelector<HTMLElement>(`[data-msg="${dismissed.current}"]`) : null
     if (dismissed.current && (!away || away.getBoundingClientRect().bottom >= top)) dismissed.current = undefined
     const keyboard = box.closest('.device')?.classList.contains('kb-open')
-    if (!found || found.dataset.msg === dismissed.current || keyboard) return setGhost(undefined)
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < FOLLOW
+    if (!found || atBottom || found.dataset.msg === dismissed.current || keyboard) return setGhost(undefined)
     const text = [...found.childNodes].filter((node) => !(node instanceof HTMLElement && (node.classList.contains('thumbs') || node.classList.contains('pending-note')))).map((node) => node.textContent).join('').trim()
     const label = `${found.querySelector('.thumbs') ? '🖼 ' : ''}${text}`
     const id = found.dataset.msg!
@@ -122,12 +124,13 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   }
   const answer = (requestId: string, choice: Answer) => connection.request('request.answer', { tabId, requestId, ...choice }).catch(fail)
   const openMenu = () => openSheet({ title: meta.title, body: <SessionMenu tabId={tabId} /> })
+  const sendNow = (item: UserItem) => connection.request('tab.sendPendingNow', { tabId, itemId: item.itemId }).catch(fail)
   const openActions = (item: UserItem) => openSheet({ title: t('yourMessage'), body: <MessageActions item={item} tabId={tabId} /> })
   const toggleQueue = () => {
     setQueueMode(!queueMode)
     if (!queueMode) screen.current?.querySelector('textarea')?.focus({ preventScroll: true })
   }
-  const queueCount = meta.queuePause ? '⏸' : meta.queue.length ? String(meta.queue.length) : undefined
+  const queueCount = meta.queuePause ? undefined : meta.queue.length ? String(meta.queue.length) : undefined
   const queueLabel = `${t('queue')}: ${meta.queue.length ? t('queuedCount', { count: String(meta.queue.length) }) : t('queueEmptyShort')}${meta.queuePause ? `, ${pauseWords(meta)}` : ''}`
 
   // Ghost: drag up to put away; a tap scrolls back to the message.
@@ -162,14 +165,14 @@ export function ChatScreen({ tabId }: { tabId: string }) {
           </span>
         </button>
         <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'later', key: 'rewind', tabId }))} />
-        <IconButton icon="queue" className={`queue-btn${queueMode ? ' on' : ''}`} label={queueLabel} count={queueCount} expanded={queueMode} onClick={toggleQueue} />
+        <IconButton icon="queue" className={`queue-btn${queueMode ? ' on' : ''}`} label={queueLabel} count={queueCount} countIcon={meta.queuePause ? 'pause' : undefined} expanded={queueMode} onClick={toggleQueue} />
         <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />
       </header>
       <UpdateBar />
       <ConnectionBanner />
       <div className="chat-body">
         <div className="conversation" ref={conversation} onScroll={onScroll} aria-live="off">
-          <Conversation meta={meta} view={view} loadImage={loadImage} onAnswer={answer} onRestart={() => void connection.request('tab.restart', { tabId }).catch(fail)} onTrust={() => askTrust(meta.cwd, () => undefined)} onActions={openActions} />
+          <Conversation meta={meta} view={view} loadImage={loadImage} onAnswer={answer} onRestart={() => void connection.request('tab.restart', { tabId }).catch(fail)} onTrust={() => askTrust(meta.cwd, () => undefined)} onActions={openActions} onSendNow={sendNow} />
         </div>
         {ghost && (
           <>

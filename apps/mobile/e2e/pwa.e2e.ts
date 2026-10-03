@@ -107,6 +107,37 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo: extra')
   })
 
+  it('"Send now" beside a waiting message: Claude stops waiting for its step and reads it at once', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'slow')
+    await page.locator('.working-line').waitFor()
+    await send(page, 'right now')
+    const sendNow = page.getByRole('button', { name: 'Send now: Claude reads it right away' })
+    await sendNow.click()
+    await sendNow.waitFor({ state: 'detached' })
+    // Well before the slow answer would have ended by itself (8 s).
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 5_000 }).toBe('Echo: right now')
+  })
+
+  it('the ghost of my message: hidden at the bottom of the chat, shown as soon as I scroll up, hidden back at the bottom', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'slow')
+    // The whole (long) answer first: taller than the screen.
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('word399')
+    const conversation = page.locator('.conversation')
+    const ghost = page.locator('.ghost')
+    await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight))
+    await page.waitForTimeout(200)
+    expect(await ghost.count()).toBe(0)
+    await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight - box.clientHeight - 300))
+    await ghost.waitFor()
+    expect(await ghost.textContent()).toContain('slow')
+    await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight))
+    await ghost.waitFor({ state: 'detached' })
+  })
+
   it('the queue: queue mode adds a card; Stop pauses the queue; ▶ sends the next message', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
@@ -191,6 +222,19 @@ describe('PWA (fake SDK)', () => {
     await page.getByRole('button', { name: 'app', exact: true }).waitFor()
   })
 
+  it('a folder of the Home ends with its files ("2 files, 1 hidden"), which open the explorer; none when it has no files', async () => {
+    writeFileSync(join(backend.root, 'project', 'app.ts'), 'export {}\n')
+    writeFileSync(join(backend.root, 'project', '.env'), 'X=1\n')
+    const page = await pairedPage(await newPhone(), backend)
+    expect(await page.getByRole('button', { name: /^\d+ files?/ }).count()).toBe(0)
+    await page.getByRole('button', { name: 'project', exact: true }).click()
+    await button(page, '2 files, 1 hidden').click()
+    await page.getByRole('heading', { name: /^Files/ }).waitFor()
+    await button(page, /^app\.ts /).click()
+    await page.locator('.code .hljs-keyword').first().waitFor()
+    expect(await page.getByRole('button', { name: 'Mention in chat' }).count()).toBe(0)
+  })
+
   it('the theme chosen in Settings applies and stays after a reload', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await button(page, 'Settings').click()
@@ -209,6 +253,21 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('meta[name=viewport]').getAttribute('content')).toContain('maximum-scale=1')
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).touchAction)).toBe('manipulation')
     expect(await page.locator('.field').first().evaluate((element) => getComputedStyle(element).fontSize)).toBe('16px')
+  })
+
+  it('portrait only: the manifest asks for it, and a phone turned sideways shows a notice over the app', async () => {
+    const manifest = (await (await fetch(`${backend.url}/manifest.webmanifest`)).json()) as { orientation?: string }
+    expect(manifest.orientation).toBe('portrait')
+    const notice = (page: Awaited<ReturnType<BrowserContext['newPage']>>) => page.getByRole('alert').filter({ hasText: 'Turn your phone upright' })
+    const upright = await (await newPhone()).newPage()
+    await upright.goto(backend.url)
+    await upright.getByRole('heading', { name: 'Pair this device' }).waitFor()
+    expect(await notice(upright).isVisible()).toBe(false)
+    const context = await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true, locale: 'en-US' })
+    contexts.push(context)
+    const sideways = await context.newPage()
+    await sideways.goto(backend.url)
+    await notice(sideways).waitFor()
   })
 
   it('every splash screen link points to a PNG the server serves, light and dark', async () => {

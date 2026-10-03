@@ -165,6 +165,7 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .title-text { min-width: 0; display: grid; font-weight: 700; font-size: 16px; }
 .title-text > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .icon-btn .count { position: absolute; top: 5px; right: 3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--surface-2); color: var(--text-muted); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.icon-btn .count svg.i { width: 11px; height: 11px; stroke-width: 3.2; vertical-align: -1px; }
 
 /* Conversation + "Torna giù" */
 .chat-body { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -367,6 +368,12 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .send.stop { background: var(--danger); color: var(--surface); }
 .composer.queue-mode .input-box { border-style: dashed; border-color: var(--accent); }
 .queue-btn.on { color: var(--accent); background: var(--surface-2); }
+/* A message waiting to be read with "Invia ora" beside it (32 px circle, 44 px to the touch) */
+.msg-user-row { align-self: stretch; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+.send-now { position: relative; flex: none; width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--accent); background: var(--surface); color: var(--accent); }
+.send-now::after { content: ''; position: absolute; inset: -6px; }
+.send-now svg.i { width: 18px; height: 18px; }
+.send-now:disabled { opacity: .5; }
 .msg-user .pending-note { display: block; margin-top: 4px; font-size: 11px; color: var(--text-muted); }
 .msg-user.pending { opacity: .75; }
 .send:disabled { opacity: .45; }
@@ -425,4 +432,7 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 /* Typing in a request card: the composer steps aside, the card gets the room */
 .kb-open .chat-screen:has(.request :focus) .dock { display: none; }
 .kb-open .chat-screen:has(.request :focus) .conversation { padding-bottom: 12px; }
+/* Portrait only: a phone turned sideways (html[data-landscape], set by the PWA host) gets this notice over the app */
+.rotate-notice { display: none; }
+html[data-landscape] .rotate-notice { display: grid; place-items: center; position: fixed; inset: 0; z-index: 100; padding: 24px; background: var(--background); color: var(--text); font-size: 17px; font-weight: 600; text-align: center; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

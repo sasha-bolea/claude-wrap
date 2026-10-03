@@ -24,6 +24,15 @@ const iconOf = (entry: FileEntry): IconName => (entry.kind === 'folder' ? 'folde
 // A path inside the session folder written out in full, with the folder's own separator.
 const fullPath = (cwd: string, path: string) => (path ? [cwd, ...path.split('/')].join(cwd.includes('\\') ? '\\' : '/') : cwd)
 
+// Where the explorer works: a session's folder (opened from its chat) or a folder of the Home (no session). Exactly one.
+type FilePlace = { tabId?: string; folder?: string }
+
+// The folder of a place; undefined once its session is closed.
+function useCwd(place: FilePlace): string | undefined {
+  const { state } = useTouch()
+  return place.folder ?? state.tabs.find((tab) => tab.tabId === place.tabId)?.cwd
+}
+
 // Saves a downloaded file: the share sheet (iOS: Salva su File, Salva immagine) where there is one, else a download.
 // false: the share sheet needs a fresh tap (the file took too long to arrive).
 async function saveFile(file: FileData, name: string): Promise<boolean> {
@@ -47,21 +56,24 @@ async function saveFile(file: FileData, name: string): Promise<boolean> {
   return true
 }
 
-// What can be done to a file or folder of the session: mention it in the chat, download, delete (with undo).
-function useFileActions(tabId: string) {
+// What can be done to a file or folder: mention it in the chat (only with a session), download, delete (with undo).
+function useFileActions(place: FilePlace) {
   const { state, connection, backTo, insertInComposer, openSheet, closeSheets, toast, snack, fail } = useTouch()
-  const cwd = state.tabs.find((tab) => tab.tabId === tabId)?.cwd ?? ''
+  const cwd = useCwd(place) ?? ''
   const systemTrash = state.home.kind === 'added'
-  const mention = (path: string, folder: boolean) => {
-    const text = `@${path}${folder ? '/' : ''}`
-    closeSheets()
-    insertInComposer(tabId, { text: `${text} ` })
-    backTo((screen) => screen.name === 'chat' && screen.tabId === tabId)
-    toast(t('mentioned', { path: text }))
-  }
+  const tabId = place.tabId
+  const mention = tabId
+    ? (path: string, folder: boolean) => {
+        const text = `@${path}${folder ? '/' : ''}`
+        closeSheets()
+        insertInComposer(tabId, { text: `${text} ` })
+        backTo((screen) => screen.name === 'chat' && screen.tabId === tabId)
+        toast(t('mentioned', { path: text }))
+      }
+    : undefined
   const download = (path: string) =>
     connection
-      .request('files.read', { tabId, path, download: true })
+      .request('files.read', { ...place, path, download: true })
       .then((file) => saveFile(file, baseName(path)).then((done) => done || openSheet({ title: baseName(path), body: <ShareReady file={file} name={baseName(path)} /> })))
       .catch(fail)
   // The newest item of the trash that was this path, put back.
@@ -74,13 +86,13 @@ function useFileActions(tabId: string) {
       })
       .then(() => toast(t('restoredIn', { path: parentOf(path) || baseName(cwd) })), fail)
   const remove = (path: string, onDone: () => void) =>
-    connection.request('files.delete', { tabId, path }).then(() => {
+    connection.request('files.delete', { ...place, path }).then(() => {
       closeSheets()
       onDone()
       if (systemTrash) toast(t('inSystemTrash', { name: baseName(path) }))
       else snack(t('movedToTrash', { name: baseName(path) }), () => void restore(path).then(onDone))
     }, fail)
-  return { mention, download, remove, systemTrash }
+  return { mention, download, remove, systemTrash, cwd }
 }
 
 // The share sheet once the file is here (iOS wants a tap of its own when the download took a while).
@@ -94,10 +106,10 @@ function ShareReady({ file, name }: { file: FileData; name: string }) {
   )
 }
 
-// Files of the session's folder: browse (Back goes up a folder first), open a preview, upload photos and files, new
-// folder, the ⋯ of each entry; the trash of this folder. At the end of a turn the list refreshes and says what
-// Claude created or changed. Prototype: NOTE-CONSEGNA §1 (File).
-export function FilesScreen({ tabId }: { tabId: string }) {
+// Files of a session's folder or of a folder of the Home: browse (Back goes up a folder first), open a preview, upload
+// photos and files, new folder, the ⋯ of each entry; the trash of this folder. With a session, at the end of a turn
+// the list refreshes and says what Claude created or changed. Prototype: NOTE-CONSEGNA §1 (File).
+export function FilesScreen({ tabId, folder: home }: FilePlace) {
   const { state, connection, back, go, openSheet, closeSheets, toast, fail } = useTouch()
   const { top } = useScreen()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
@@ -108,9 +120,10 @@ export function FilesScreen({ tabId }: { tabId: string }) {
   const photos = useRef<HTMLInputElement>(null)
   const documents = useRef<HTMLInputElement>(null)
   const before = useRef<{ path: string; entries: FileEntry[] } | undefined>(undefined)
-  const { systemTrash } = useFileActions(tabId)
-  const listing = useQuery(() => connection.request('files.list', { tabId, path }), [connection, tabId, path])
-  const trash = useQuery(() => (systemTrash || !meta ? Promise.resolve(undefined) : connection.request('trash.list', { under: meta.cwd })), [connection, systemTrash, meta?.cwd])
+  const place: FilePlace = tabId ? { tabId } : { folder: home }
+  const { systemTrash, cwd } = useFileActions(place)
+  const listing = useQuery(() => connection.request('files.list', { ...place, path }), [connection, tabId, home, path])
+  const trash = useQuery(() => (systemTrash || !cwd ? Promise.resolve(undefined) : connection.request('trash.list', { under: cwd })), [connection, systemTrash, cwd])
   useBackHandler(path !== '', () => setPath(parentOf(path)))
   const busy = meta ? meta.status === 'running' || meta.status === 'starting' || meta.status === 'requires_action' : false
   const wasBusy = useRef(busy)
@@ -144,8 +157,8 @@ export function FilesScreen({ tabId }: { tabId: string }) {
     return () => clearTimeout(timer)
   }, [note])
 
-  if (!meta) return null
-  const root = baseName(meta.cwd)
+  if (!cwd) return null
+  const root = baseName(cwd)
   const parts = path ? path.split('/') : []
   const entries = listing.data?.entries ?? []
 
@@ -161,7 +174,7 @@ export function FilesScreen({ tabId }: { tabId: string }) {
     const done: string[] = []
     for (const { file, name } of fitting) {
       try {
-        await connection.request('files.write', { tabId, path: join(folder, name), data: await readBase64(file) })
+        await connection.request('files.write', { ...place, path: join(folder, name), data: await readBase64(file) })
         done.push(name)
       } catch (error) {
         fail(error)
@@ -179,7 +192,7 @@ export function FilesScreen({ tabId }: { tabId: string }) {
     event.target.value = ''
     if (files.length) void upload(files)
   }
-  const open = (entry: FileEntry) => (entry.kind === 'folder' ? setPath(join(path, entry.name)) : go({ name: 'file', tabId, path: join(path, entry.name), modified: entry.modified }))
+  const open = (entry: FileEntry) => (entry.kind === 'folder' ? setPath(join(path, entry.name)) : go({ name: 'file', ...place, path: join(path, entry.name), modified: entry.modified }))
   const openAdd = () =>
     openSheet({
       title: t('addIn', { folder: parts.at(-1) ?? root }),
@@ -187,7 +200,7 @@ export function FilesScreen({ tabId }: { tabId: string }) {
         <AddSheet
           onPhotos={() => (closeSheets(), photos.current?.click())}
           onFiles={() => (closeSheets(), documents.current?.click())}
-          onFolder={() => openSheet({ title: t('newFolderIn', { path: parts.at(-1) ?? root }), field: true, body: <NewFolderSheet tabId={tabId} parent={path} onDone={listing.reload} /> })}
+          onFolder={() => openSheet({ title: t('newFolderIn', { path: parts.at(-1) ?? root }), field: true, body: <NewFolderSheet place={place} parent={path} onDone={listing.reload} /> })}
         />
       )
     })
@@ -196,10 +209,10 @@ export function FilesScreen({ tabId }: { tabId: string }) {
   return (
     <section className="screen" aria-label={t('folderFiles')}>
       <header className="topbar">
-        <IconButton icon="back" label={path ? t('upTo', { name: parts.at(-2) ?? root }) : t('chat')} onClick={back} />
-        <Title text={t('files')} sub={fullPath(meta.cwd, path)} />
+        <IconButton icon="back" label={path ? t('upTo', { name: parts.at(-2) ?? root }) : t(tabId ? 'chat' : 'back')} onClick={back} />
+        <Title text={t('files')} sub={fullPath(cwd, path)} />
         <IconButton icon="plus" label={t('addFilesLabel')} onClick={openAdd} />
-        {!systemTrash && <IconButton icon="trash" label={t('recentlyDeleted')} count={trash.data?.items.length ? String(trash.data.items.length) : undefined} onClick={() => go({ name: 'trash', under: meta.cwd })} />}
+        {!systemTrash && <IconButton icon="trash" label={t('recentlyDeleted')} count={trash.data?.items.length ? String(trash.data.items.length) : undefined} onClick={() => go({ name: 'trash', under: cwd })} />}
       </header>
       <Crumbs parts={[root, ...parts]} onJump={(index) => setPath(parts.slice(0, index).join('/'))} />
       <div className="scroll">
@@ -227,7 +240,7 @@ export function FilesScreen({ tabId }: { tabId: string }) {
                   <IconButton
                     icon="more"
                     label={t(folder ? 'folderActions' : 'fileActions', { name: entry.name })}
-                    onClick={() => openSheet({ title: entry.name, path: full, body: <FileItemSheet tabId={tabId} path={full} folder={folder} onOpen={() => open(entry)} onChanged={listing.reload} /> })}
+                    onClick={() => openSheet({ title: entry.name, path: full, body: <FileItemSheet place={place} path={full} folder={folder} onOpen={() => open(entry)} onChanged={listing.reload} /> })}
                   />
                 </li>
               )
@@ -284,13 +297,13 @@ function AddSheet({ onPhotos, onFiles, onFolder }: { onPhotos: () => void; onFil
   )
 }
 
-function NewFolderSheet({ tabId, parent, onDone }: { tabId: string; parent: string; onDone: () => void }) {
+function NewFolderSheet({ place, parent, onDone }: { place: FilePlace; parent: string; onDone: () => void }) {
   const { connection, closeSheets, toast, fail } = useTouch()
   const [name, setName] = useState('')
   const create = () => {
     const value = name.trim()
     if (!value) return
-    connection.request('files.mkdir', { tabId, path: join(parent, value) }).then(() => {
+    connection.request('files.mkdir', { ...place, path: join(parent, value) }).then(() => {
       closeSheets()
       onDone()
       toast(t('folderCreated', { name: value }))
@@ -307,9 +320,9 @@ function NewFolderSheet({ tabId, parent, onDone }: { tabId: string; parent: stri
 }
 
 // ⋯ of a file or folder: open (or preview), mention in the chat, download, rename or move, to the trash.
-function FileItemSheet({ tabId, path, folder, onOpen, onChanged, onRenamed, onDeleted }: { tabId: string; path: string; folder: boolean; onOpen?: () => void; onChanged: () => void; onRenamed?: (to: string) => void; onDeleted?: () => void }) {
+function FileItemSheet({ place, path, folder, onOpen, onChanged, onRenamed, onDeleted }: { place: FilePlace; path: string; folder: boolean; onOpen?: () => void; onChanged: () => void; onRenamed?: (to: string) => void; onDeleted?: () => void }) {
   const { openSheet, closeSheets } = useTouch()
-  const { mention, download, remove, systemTrash } = useFileActions(tabId)
+  const { mention, download, remove, systemTrash, cwd } = useFileActions(place)
   return (
     <ul className="menu">
       {onOpen && (
@@ -317,14 +330,16 @@ function FileItemSheet({ tabId, path, folder, onOpen, onChanged, onRenamed, onDe
           <button onClick={() => (closeSheets(), onOpen())}>{t(folder ? 'open' : 'preview')}</button>
         </li>
       )}
-      <li>
-        <button onClick={() => mention(path, folder)}>
-          <span className="at" aria-hidden="true">
-            @
-          </span>
-          {t('mentionInChat')}
-        </button>
-      </li>
+      {mention && (
+        <li>
+          <button onClick={() => mention(path, folder)}>
+            <span className="at" aria-hidden="true">
+              @
+            </span>
+            {t('mentionInChat')}
+          </button>
+        </li>
+      )}
       {!folder && (
         <li>
           <button onClick={() => (closeSheets(), void download(path))}>
@@ -334,7 +349,7 @@ function FileItemSheet({ tabId, path, folder, onOpen, onChanged, onRenamed, onDe
         </li>
       )}
       <li>
-        <button onClick={() => openSheet({ title: t('renameOrMove'), field: true, body: <MoveSheet tabId={tabId} from={path} onDone={(to) => (onChanged(), onRenamed?.(to))} /> })}>{t('renameOrMove')}</button>
+        <button onClick={() => openSheet({ title: t('renameOrMove'), field: true, body: <MoveSheet place={place} root={baseName(cwd)} from={path} onDone={(to) => (onChanged(), onRenamed?.(to))} /> })}>{t('renameOrMove')}</button>
       </li>
       <li>
         <button className="danger" onClick={() => void remove(path, () => (onChanged(), onDeleted?.()))}>
@@ -346,15 +361,14 @@ function FileItemSheet({ tabId, path, folder, onOpen, onChanged, onRenamed, onDe
   )
 }
 
-// Rename, or move by changing the path (inside the session folder).
-function MoveSheet({ tabId, from, onDone }: { tabId: string; from: string; onDone: (to: string) => void }) {
-  const { state, connection, closeSheets, toast, fail } = useTouch()
+// Rename, or move by changing the path (inside the explorer's folder, named root).
+function MoveSheet({ place, root, from, onDone }: { place: FilePlace; root: string; from: string; onDone: (to: string) => void }) {
+  const { connection, closeSheets, toast, fail } = useTouch()
   const [to, setTo] = useState(from)
-  const root = baseName(state.tabs.find((tab) => tab.tabId === tabId)?.cwd ?? '')
   const save = () => {
     const target = to.trim().replace(/^\/+/, '')
     if (!target || target === from) return closeSheets()
-    connection.request('files.rename', { tabId, from, to: target }).then(() => {
+    connection.request('files.rename', { ...place, from, to: target }).then(() => {
       closeSheets()
       onDone(target)
       toast(t('nowIs', { path: target }))
@@ -376,13 +390,13 @@ function MoveSheet({ tabId, from, onDone }: { tabId: string; from: string; onDon
 
 // Preview of a file: code with line numbers and colours, markdown, images (SVG only as an image, never run), HTML as
 // its source; anything else says there is no preview. Mention in the chat and download stay at the bottom.
-export function FileScreen({ tabId, path: opened, modified }: { tabId: string; path: string; modified?: number }) {
-  const { state, connection, back, openSheet, viewImage, capabilities } = useTouch()
-  const meta = state.tabs.find((tab) => tab.tabId === tabId)
+export function FileScreen({ tabId, folder, path: opened, modified }: FilePlace & { path: string; modified?: number }) {
+  const { connection, back, openSheet, viewImage, capabilities } = useTouch()
+  const place: FilePlace = tabId ? { tabId } : { folder }
   const [path, setPath] = useState(opened)
-  const file = useQuery(() => connection.request('files.read', { tabId, path }), [connection, tabId, path])
-  const { mention, download } = useFileActions(tabId)
-  if (!meta) return null
+  const file = useQuery(() => connection.request('files.read', { ...place, path }), [connection, tabId, folder, path])
+  const { mention, download, cwd } = useFileActions(place)
+  if (!cwd) return null
   const name = baseName(path)
   const data = file.data
   const image = data && (data.mediaType === 'image/svg+xml' && !data.truncated ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(data.data)}` : data.mediaType.startsWith('image/') && data.encoding === 'base64' && data.data ? `data:${data.mediaType};base64,${data.data}` : undefined)
@@ -416,18 +430,20 @@ export function FileScreen({ tabId, path: opened, modified }: { tabId: string; p
     <section className="screen" aria-label={t('filePreview')}>
       <header className="topbar">
         <IconButton icon="back" label={t('backToFiles')} onClick={back} />
-        <Title text={name} sub={parentOf(path) || baseName(meta.cwd)} />
-        <IconButton icon="more" label={t('fileMoreActions')} onClick={() => openSheet({ title: name, path, body: <FileItemSheet tabId={tabId} path={path} folder={false} onChanged={() => undefined} onRenamed={setPath} onDeleted={back} /> })} />
+        <Title text={name} sub={parentOf(path) || baseName(cwd)} />
+        <IconButton icon="more" label={t('fileMoreActions')} onClick={() => openSheet({ title: name, path, body: <FileItemSheet place={place} path={path} folder={false} onChanged={() => undefined} onRenamed={setPath} onDeleted={back} /> })} />
       </header>
       <p className="file-meta">{details || ' '}</p>
       <div className="scroll">{body}</div>
-      <div className="sticky-actions two">
-        <button className="button" onClick={() => mention(path, false)}>
-          <span className="at" aria-hidden="true">
-            @
-          </span>
-          {t('mentionInChat')}
-        </button>
+      <div className={`sticky-actions${mention ? ' two' : ''}`}>
+        {mention && (
+          <button className="button" onClick={() => mention(path, false)}>
+            <span className="at" aria-hidden="true">
+              @
+            </span>
+            {t('mentionInChat')}
+          </button>
+        )}
         <button className="button" onClick={() => void download(path)}>
           <Icon name="download" />
           {t('download')}
