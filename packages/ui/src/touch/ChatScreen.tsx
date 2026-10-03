@@ -53,6 +53,34 @@ function useGhost(conversation: React.RefObject<HTMLDivElement | null>) {
   return { ghost, update, dismiss }
 }
 
+// The conversation's scroll indicator on a touch screen. iOS draws its own down to the bottom of the scroller, behind
+// the dock's blur, and has no inset for it: the native one is hidden (touch.css) and this one runs from the top of the
+// conversation to just above the dock. It shows while scrolling and fades out like the native one.
+// Parameters: the conversation and the dock. Returns the thumb's ref and `place`, to call on scroll and on resize.
+function useScrollThumb(conversation: React.RefObject<HTMLDivElement | null>, dock: React.RefObject<HTMLDivElement | null>) {
+  const thumb = useRef<HTMLDivElement>(null)
+  const fade = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const place = useCallback((show: boolean) => {
+    const box = conversation.current
+    const element = thumb.current
+    if (!box || !element) return
+    const dockHeight = dock.current?.offsetHeight ?? 0
+    const track = box.clientHeight - dockHeight - 6
+    const range = box.scrollHeight - box.clientHeight
+    if (range <= 0 || track <= 0) return element.classList.remove('on')
+    const size = Math.max(36, Math.min(track, (track * (box.clientHeight - dockHeight)) / (box.scrollHeight - dockHeight)))
+    const offset = Math.min(1, Math.max(0, box.scrollTop / range)) * (track - size)
+    element.style.height = `${Math.round(size)}px`
+    element.style.transform = `translateY(${Math.round(offset)}px)`
+    if (!show) return
+    element.classList.add('on')
+    clearTimeout(fade.current)
+    fade.current = setTimeout(() => element.classList.remove('on'), 900)
+  }, [conversation, dock])
+  useEffect(() => () => clearTimeout(fade.current), [])
+  return { thumb, place }
+}
+
 // The chat of a session: top bar (back, title = session menu, Torna indietro, Coda, ⋯), the conversation with
 // Claude's request inside it, the ghost of your message and "Torna giù", and the floating dock (composer + queue).
 export function ChatScreen({ tabId }: { tabId: string }) {
@@ -71,6 +99,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const ghostDrag = useRef<{ y: number; dy: number } | undefined>(undefined)
   const ghostElement = useRef<HTMLButtonElement>(null)
   const { ghost, update: updateGhost, dismiss: dismissGhost } = useGhost(conversation)
+  const { thumb, place: placeThumb } = useScrollThumb(conversation, dock)
   const askTrust = useTrustPrompt()
   const loadImage = useCallback((imageId: string) => connection.request('blob.get', { tabId, imageId }), [connection, tabId])
 
@@ -91,6 +120,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     const observer = new ResizeObserver(() => {
       screen.current?.style.setProperty('--dock-h', `${Math.round(element.offsetHeight)}px`)
       if (follow) toBottom()
+      placeThumb(false)
     })
     observer.observe(element)
     return () => observer.disconnect()
@@ -122,6 +152,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     setFollow(atBottom)
     if (atBottom) setMissed(false)
     updateGhost()
+    placeThumb(true)
   }
   const answer = (requestId: string, choice: Answer) => connection.request('request.answer', { tabId, requestId, ...choice }).catch(fail)
   const openMenu = () => openSheet({ title: meta.title, body: <SessionMenu tabId={tabId} /> })
@@ -175,6 +206,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
         <div className="conversation" ref={conversation} onScroll={onScroll} aria-live="off">
           <Conversation meta={meta} view={view} loadImage={loadImage} onAnswer={answer} onRestart={() => void connection.request('tab.restart', { tabId }).catch(fail)} onTrust={() => askTrust(meta.cwd, () => undefined)} onActions={openActions} onSendNow={sendNow} />
         </div>
+        <div className="scroll-thumb" ref={thumb} aria-hidden="true" />
         {ghost && (
           <>
             <button className="ghost" ref={ghostElement} aria-label={t('ghostLabel', { text: ghost.text })} onClick={onGhostClick} onTouchStart={onGhostStart} onTouchMove={onGhostMove} onTouchEnd={onGhostEnd}>
