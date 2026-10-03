@@ -134,8 +134,9 @@ export const COMMANDS = {
   'folders.add': { args: z.object({ path: z.string().min(1) }), result: z.object({ path: z.string() }) },
   'folders.remove': { args: z.object({ path: z.string().min(1) }), result: empty },
   // Deletes a folder inside the Home (never the Home's own folders): to the app's trash on the remote server, to the
-  // system trash on the desktop. Refused while a session is open inside it.
-  'folders.delete': { args: z.object({ path: z.string().min(1) }), result: empty },
+  // system trash on the desktop. Refused while a session is open inside it, unless closeSessions: those are closed first
+  // (their conversations stay among the saved sessions).
+  'folders.delete': { args: z.object({ path: z.string().min(1), closeSessions: z.boolean().optional() }), result: empty },
   // File explorer, paths relative to its folder (`.git` hidden and protected): a tab's folder (trusted folders only) or
   // a folder of the Home without a session (inside the roots, like folders.*). Exactly one of tabId and folder.
   'files.list': { args: filePlace({ path: relativePath }), result: z.object({ entries: z.array(fileEntrySchema) }) },

@@ -182,12 +182,15 @@ export class Workspace {
     await this.updateFolders((data) => (data.addedFolders = (data.addedFolders ?? []).filter((folder) => folder !== path)))
   }
 
-  // Deletes a folder strictly inside the Home (never one of the Home's own folders), unless a session is open in it.
-  async deleteFolder(path: string): Promise<void> {
+  // Deletes a folder strictly inside the Home (never one of the Home's own folders). A session open in it refuses the
+  // delete, unless closeSessions: those sessions are closed first.
+  async deleteFolder(path: string, closeSessions = false): Promise<void> {
     const folder = await this.folderOf(path)
     const bases = this.allowedRoots === 'any' ? (this.store.data.addedFolders ?? []) : this.allowedRoots
     if (!bases.some((base) => base !== folder && withinRoots(folder, [base]))) throw new CoreError('invalid_args', 'only folders inside the Home can be deleted')
-    if ([...this.tabs.values()].some((tab) => withinRoots(tab.cwd, [folder]))) throw new CoreError('session_busy', 'close the sessions open in this folder first')
+    const inside = [...this.tabs.values()].filter((tab) => withinRoots(tab.cwd, [folder]))
+    if (inside.length && !closeSessions) throw new CoreError('session_busy', 'close the sessions open in this folder first')
+    for (const tab of inside) await this.close(tab.tabId)
     await this.discard(folder)
   }
 

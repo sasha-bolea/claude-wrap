@@ -262,6 +262,23 @@ describe('PWA (fake SDK)', () => {
     await page.getByRole('button', { name: 'app', exact: true }).waitFor()
   })
 
+  it('deleting a folder with a session open inside: Cancel or "Delete folder and sessions", which closes it too', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'hello')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo: hello')
+    // Back to the Home (through the project's screen, if the session was opened from there).
+    const actions = page.getByRole('button', { name: 'Actions for the folder project' })
+    for (let step = 0; step < 3 && !(await actions.waitFor({ timeout: 1500 }).then(() => true, () => false)); step++) await button(page, 'Back').click()
+    await actions.click()
+    await button(page, 'Delete').click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByText('A session is open inside this folder: it will be closed').waitFor()
+    expect(await dialog.getByRole('button', { name: 'Go to the sessions' }).count()).toBe(0)
+    await dialog.getByRole('button', { name: 'Delete folder and sessions' }).click()
+    await page.getByRole('button', { name: 'project', exact: true }).waitFor({ state: 'detached' })
+  })
+
   it('a folder of the Home ends with its files ("2 files, 1 hidden"), which open the explorer; none when it has no files', async () => {
     writeFileSync(join(backend.root, 'project', 'app.ts'), 'export {}\n')
     writeFileSync(join(backend.root, 'project', '.env'), 'X=1\n')

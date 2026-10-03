@@ -919,6 +919,21 @@ describe('folders, projects and sessions', () => {
     await client.waitFor(() => folders(client)?.projects.length === 2)
   })
 
+  it('deleting a folder with its sessions: the sessions open inside it are closed first, the others stay', async () => {
+    const root = tempDir('cw-delete-open-')
+    mkdirSync(join(root, 'proj', 'inner'), { recursive: true })
+    mkdirSync(join(root, 'other'))
+    core = makeCore({ allowedRoots: [root], stateDir: tempDir('cw-delete-open-state-') })
+    client = await connect(core)
+    await client.ok('tab.create', { tabId: 't1', cwd: join(root, 'proj') })
+    await client.ok('tab.create', { tabId: 't2', cwd: join(root, 'proj', 'inner') })
+    await client.ok('tab.create', { tabId: 't3', cwd: join(root, 'other') })
+    await client.ok('folders.delete', { path: join(root, 'proj'), closeSessions: true })
+    expect(existsSync(join(root, 'proj'))).toBe(false)
+    const removed = client.events(WORKSPACE_STREAM).flatMap((ev) => (ev.type === 'tab.removed' ? [ev.tabId] : []))
+    expect(removed.sort()).toEqual(['t1', 't2'])
+  })
+
   it('on the desktop a folder is deleted to the system trash; an added folder is only taken off the Home', async () => {
     const trashed: string[] = []
     const added = tempDir('cw-system-trash-')

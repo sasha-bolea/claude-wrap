@@ -239,21 +239,13 @@ function FolderMenu({ entry, onEnter, onChanged }: { entry: FolderEntry; onEnter
   )
 }
 
-// Delete a folder: refused while a session is open inside it; otherwise to the trash (7 days), undo right away.
+// Delete a folder: to the trash (7 days), undo right away. With sessions open inside it, it says so and the button
+// closes them too (their conversations stay among the saved sessions).
 // onChanged: the folder list is shown again (after the delete and after the undo).
 function FolderDelete({ entry, onChanged }: { entry: FolderEntry; onChanged: () => void }) {
-  const { state, connection, go, closeSheet, closeSheets, snack, toast, fail } = useTouch()
+  const { state, connection, closeSheet, closeSheets, snack, toast, fail } = useTouch()
   const open = state.tabs.filter((tab) => inside(tab.cwd, entry.path)).length
   const systemTrash = state.home.kind === 'added'
-  if (open)
-    return (
-      <>
-        <p className="flat">{t('folderHasSessions', { count: String(open) })}</p>
-        <button className="button block" onClick={() => (closeSheets(), go({ name: 'folderSessions', path: entry.path }))}>
-          {t('goToSessions')}
-        </button>
-      </>
-    )
   const restore = () =>
     connection
       .request('trash.list', {})
@@ -263,7 +255,7 @@ function FolderDelete({ entry, onChanged }: { entry: FolderEntry; onChanged: () 
       })
       .then(() => (onChanged(), toast(t('restoredIn', { path: entry.path }))), fail)
   const remove = () =>
-    connection.request('folders.delete', { path: entry.path }).then(() => {
+    connection.request('folders.delete', { path: entry.path, closeSessions: open > 0 }).then(() => {
       closeSheets()
       onChanged()
       if (systemTrash) toast(t('inSystemTrash', { name: entry.name }))
@@ -271,13 +263,14 @@ function FolderDelete({ entry, onChanged }: { entry: FolderEntry; onChanged: () 
     }, fail)
   return (
     <>
+      {open > 0 && <p className="flat">{t(open === 1 ? 'folderHasSession' : 'folderHasSessions', { count: String(open) })}</p>}
       <p className="flat">{t(systemTrash ? 'deleteFolderSystem' : 'deleteFolderBody')}</p>
       <div className="two-buttons">
         <button className="button" onClick={closeSheet}>
           {t('cancel')}
         </button>
         <button className="button danger" onClick={() => void remove()}>
-          {t('delete')}
+          {t(open > 0 ? 'deleteFolderAndSessions' : 'delete')}
         </button>
       </div>
     </>
