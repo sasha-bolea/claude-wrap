@@ -21,6 +21,8 @@ type UserItem = Extract<Item, { kind: 'user' }>
 const FOLLOW = 60
 // Following new text, each frame covers this share of the way still left to the bottom (an ease-out glide).
 const GLIDE_SHARE = 0.2
+// A finger moving the chat faster than this (px/ms, over its last move) closes the keyboard; slower leaves it open.
+const KEYBOARD_CLOSE_SPEED = 0.6
 // Dragging the ghost up past this distance puts it away.
 const GHOST_AWAY = 28
 // Bottom of a one-line ghost under the top of the conversation (px: .ghost top 12 + bubble 44), until one is measured.
@@ -132,6 +134,19 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   // A glide to the bottom in progress (its animation frame), and whether a finger is on the chat.
   const glide = useRef<number | undefined>(undefined)
   const touching = useRef(false)
+  // Where and when the finger last moved on the chat (speed of the drag).
+  const lastMove = useRef<{ y: number; at: number } | undefined>(undefined)
+  // A quick drag on the chat while the keyboard is open closes it (the focused field lets go); a slow one reads on.
+  const onChatTouchMove = (event: TouchEvent) => {
+    const y = event.touches[0]!.clientY
+    const at = event.timeStamp
+    const last = lastMove.current
+    lastMove.current = { y, at }
+    if (!last || at <= last.at || !screen.current?.closest('.device')?.classList.contains('kb-open')) return
+    if (Math.abs(y - last.y) / (at - last.at) < KEYBOARD_CLOSE_SPEED) return
+    const field = document.activeElement
+    if (field instanceof HTMLElement && screen.current.contains(field)) field.blur()
+  }
   const stopGlide = () => {
     if (glide.current !== undefined) cancelAnimationFrame(glide.current)
     glide.current = undefined
@@ -257,7 +272,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
       <UpdateBar />
       <ConnectionBanner />
       <div className="chat-body">
-        <div className="conversation" ref={conversation} onScroll={onScroll} onTouchStart={() => ((touching.current = true), stopGlide())} onTouchEnd={() => (touching.current = false)} onTouchCancel={() => (touching.current = false)} onWheel={stopGlide} aria-live="off">
+        <div className="conversation" ref={conversation} onScroll={onScroll} onTouchStart={() => ((touching.current = true), (lastMove.current = undefined), stopGlide())} onTouchMove={onChatTouchMove} onTouchEnd={() => (touching.current = false)} onTouchCancel={() => (touching.current = false)} onWheel={stopGlide} aria-live="off">
           <Conversation meta={meta} view={view} loadImage={loadImage} onAnswer={answer} onRestart={() => void connection.request('tab.restart', { tabId }).catch(fail)} onTrust={() => askTrust(meta.cwd, () => undefined)} onActions={openActions} onSendNow={sendNow} />
         </div>
         <div className="scroll-thumb" ref={thumb} aria-hidden="true" />
