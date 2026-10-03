@@ -86,7 +86,10 @@ export const tabMetaSchema = z.object({
   // The Claude account the session runs with (an accountId); undefined = Claude Code's own login of the backend.
   account: z.string().optional(),
   // That account reached its usage limit, until this time (ms).
-  limitedUntil: z.number().optional()
+  limitedUntil: z.number().optional(),
+  // Claude was stopped in the middle of its work by a usage limit or by an account switch: once the account is free
+  // (no limitedUntil) the chat offers "Continua", which resumes every session stopped this way.
+  interrupted: z.enum(['limit', 'switch']).optional()
 })
 
 // A Claude account of the backend added with a token made by `claude setup-token` (the token never leaves core).

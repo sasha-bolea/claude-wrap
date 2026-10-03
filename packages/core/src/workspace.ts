@@ -213,13 +213,17 @@ export class Workspace {
   }
 
   // A usage limit of an account (undefined = Claude Code's own login) was hit: the queues of its sessions wait until
-  // `until` (ms), then go on by themselves; its sessions show until when.
+  // `until` (ms), then go on by themselves, except where the limit stopped Claude mid-work (those wait for
+  // "Continua"); its sessions show until when.
   rateLimited(until: number, account: string | undefined): void {
     const key = account ?? ''
     clearTimeout(this.limits.get(key)?.timer)
     const timer = setTimeout(() => {
       this.limits.delete(key)
-      for (const tab of this.tabsOf(account)) (tab.resumeQueue('limit'), this.env.changed(tab))
+      for (const tab of this.tabsOf(account)) {
+        if (!tab.interruptedBy) tab.resumeQueue('limit')
+        this.env.changed(tab)
+      }
     }, Math.max(0, until - Date.now()))
     timer.unref()
     this.limits.set(key, { until, timer })
@@ -230,6 +234,19 @@ export class Workspace {
   limitedUntil(account: string | undefined): number | undefined {
     const limit = this.limits.get(account ?? '')
     return limit && limit.until > Date.now() ? limit.until : undefined
+  }
+
+  // The Claude account of every session and of the new ones (undefined = Claude Code's own login).
+  async useAccount(accountId: string | undefined): Promise<void> {
+    await this.accounts.setDefault(accountId)
+    await Promise.all([...this.tabs.values()].map((tab) => tab.setAccount(accountId)))
+  }
+
+  // "Continua": the sessions stopped by a usage limit or an account switch, whose account is free now, get text as a
+  // message of from (without text the marks are only cleared).
+  async continueStopped(text: string | undefined, from: string): Promise<void> {
+    const stopped = [...this.tabs.values()].filter((tab) => tab.interruptedBy && !this.limitedUntil(tab.accountId))
+    await Promise.all(stopped.map((tab) => tab.resume(text, from)))
   }
 
   // Removes an account: its sessions go back to Claude Code's own login.

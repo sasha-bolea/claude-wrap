@@ -304,7 +304,7 @@ describe('PWA (fake SDK)', () => {
     await page.getByRole('status').filter({ hasText: 'setup-token' }).waitFor()
     await page.locator('#account-token').fill(`sk-ant-oat01-${'x'.repeat(40)}`)
     await page.getByRole('dialog').getByRole('button', { name: 'Add account' }).click()
-    await page.getByRole('button', { name: 'Use Second for new sessions' }).waitFor()
+    await page.getByRole('button', { name: 'Use Second in every session' }).waitFor()
     // The token is never sent back to the app.
     expect(await page.content()).not.toContain('x'.repeat(40))
     await button(page, 'Back').click()
@@ -314,6 +314,11 @@ describe('PWA (fake SDK)', () => {
     await card.waitFor()
     await card.getByRole('button', { name: 'Switch to Second' }).click()
     await card.waitFor({ state: 'detached' })
+    // Stopped by the limit, the session can go on with the new account: "Continue" sends "continue".
+    const stopped = page.getByRole('status').filter({ hasText: 'Claude stopped at the usage limit' })
+    await stopped.getByRole('button', { name: 'Continue' }).click()
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo: continue')
+    await stopped.waitFor({ state: 'detached' })
     await button(page, 'More actions').click()
     await page.getByRole('button', { name: /^Account Second/ }).waitFor()
   })

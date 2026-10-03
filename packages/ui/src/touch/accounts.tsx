@@ -6,7 +6,7 @@ import { IconButton } from './parts.tsx'
 import { when } from './sessions.tsx'
 
 // Claude accounts in the touch layout: Claude Code's own login of the backend, plus accounts added with a token made
-// by `claude setup-token`. A session runs with one of them and can switch keeping its conversation.
+// by `claude setup-token`. One of them is the account of every session; switching keeps the conversations.
 
 // The name of an account (undefined = Claude Code's own login).
 export function accountName(state: LiveState, accountId: string | undefined): string {
@@ -14,13 +14,13 @@ export function accountName(state: LiveState, accountId: string | undefined): st
   return state.accounts?.find((account) => account.accountId === accountId)?.name ?? t('cliLogin')
 }
 
-// Settings → Account Claude: the login and the added accounts; a tap makes one the account of new sessions; ⋯ removes
-// an added one; "Aggiungi account" takes a name and a token.
+// Settings → Account Claude: the login and the added accounts; a tap makes one the account of every session; ⋯
+// removes an added one; "Aggiungi account" takes a name and a token.
 export function AccountsGroup() {
   const { state, connection, openSheet, toast, fail } = useTouch()
   const accounts = state.accounts ?? []
   const setDefault = (accountId: string | undefined) =>
-    connection.request('accounts.setDefault', { accountId }).then(() => toast(t('defaultSet', { name: accountName(state, accountId) })), fail)
+    connection.request('accounts.setDefault', { accountId }).then(() => toast(t('accountSwitched', { name: accountName(state, accountId) })), fail)
   const row = (accountId: string | undefined, name: string, sub: string, account?: Account) => (
     <li key={accountId ?? 'login'} className="row end-pad">
       <button className="row-main" aria-label={t('useForNewSessions', { name })} onClick={() => void setDefault(accountId)}>
@@ -109,7 +109,7 @@ function RemoveAccountSheet({ account }: { account: Account }) {
   )
 }
 
-// The account of a session (its menu): picking another keeps the conversation, from the next message on.
+// The account (a session's menu): picking another switches every session, keeping the conversations.
 export function AccountPickSheet({ tabId }: { tabId: string }) {
   const { state, connection, closeSheet, go, toast, fail } = useTouch()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
@@ -139,7 +139,7 @@ export function AccountPickSheet({ tabId }: { tabId: string }) {
 }
 
 // In the chat while the session's account is at its usage limit: until when, and a switch to every other account
-// (the conversation goes on from the next message), or adding one.
+// (for every session), or adding one.
 export function LimitCard({ meta }: { meta: TabMeta }) {
   const { state, connection, go, toast, fail } = useTouch()
   if (!meta.limitedUntil) return null
@@ -162,6 +162,28 @@ export function LimitCard({ meta }: { meta: TabMeta }) {
           {t('addAnAccount')}
         </button>
       )}
+    </div>
+  )
+}
+
+// In the chat of a session Claude stopped mid-work (usage limit or account switch) once its account is free: "Continua"
+// sends "continua" to every session stopped this way; "Non ora" only takes the cards away.
+export function ContinueCard({ meta }: { meta: TabMeta }) {
+  const { state, connection, fail } = useTouch()
+  if (!meta.interrupted || meta.limitedUntil) return null
+  const count = state.tabs.filter((tab) => tab.interrupted && !tab.limitedUntil).length
+  const go = (text?: string) => connection.request('tabs.continue', text ? { text } : {}).catch(fail)
+  return (
+    <div className="card" role="status">
+      <span>{count > 1 ? t('stoppedMany', { count: String(count) }) : t(meta.interrupted === 'limit' ? 'stoppedByLimit' : 'stoppedBySwitch')}</span>
+      <div className="two-buttons">
+        <button className="button" onClick={() => void go()}>
+          {t('notNow')}
+        </button>
+        <button className="button primary" onClick={() => void go(t('continueText'))}>
+          {count > 1 ? t('continueAll', { count: String(count) }) : t('continueOne')}
+        </button>
+      </div>
     </div>
   )
 }

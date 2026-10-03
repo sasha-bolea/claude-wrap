@@ -104,8 +104,9 @@ export const COMMANDS = {
   // "Send now" on a message sent while Claude works and not read yet (its user item is pending): the CLI's own
   // send-now, so that Claude reads it now instead of at its next step. Not a Stop: the queue is not paused.
   'tab.sendPendingNow': { args: z.object({ tabId, itemId: z.string().min(1) }), result: empty },
-  // The Claude account of a session (undefined = Claude Code's own login). The conversation stays: a live idle
-  // process restarts at the next message on the same stored session; one at work switches at the end of its turn.
+  // The Claude account, picked in a session (undefined = Claude Code's own login): one for every session and the new
+  // ones. Conversations stay: an idle process restarts at the next message on the same stored session; one at work
+  // is stopped now and marked `interrupted: 'switch'` (see tabs.continue).
   'tab.setAccount': { args: z.object({ tabId, accountId: z.string().optional() }), result: empty },
   // model undefined = the default model. An effort level the new model does not offer moves to its highest one below.
   'tab.setModel': { args: z.object({ tabId, model: z.string().optional() }), result: empty },
@@ -177,7 +178,11 @@ export const COMMANDS = {
   // back to the login. setDefault: the account of new sessions (undefined = the login).
   'accounts.add': { args: z.object({ name: z.string().trim().min(1).max(40), token: z.string().trim().min(1) }), result: z.object({ accountId: z.string() }) },
   'accounts.remove': { args: z.object({ accountId: z.string() }), result: empty },
+  // The same switch made from Settings: the account of every session and of the new ones.
   'accounts.setDefault': { args: z.object({ accountId: z.string().optional() }), result: empty },
+  // "Continua": every session stopped by a usage limit or an account switch whose account is free gets text as a
+  // message of the user (its queue goes on after it). Without text the marks are only cleared.
+  'tabs.continue': { args: z.object({ text: z.string().trim().min(1).optional() }), result: empty },
   // Paired devices (remote server only; other backends answer not_found). pairStart returns a one-time code
   // for a new device; revoke also removes the devices and codes the revoked one created.
   'devices.list': { args: empty, result: z.object({ devices: z.array(deviceSchema) }) },

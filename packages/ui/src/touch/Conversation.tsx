@@ -5,7 +5,7 @@ import { t } from '../i18n.ts'
 import { dataUrl } from '../images.ts'
 import { Markdown } from '../Markdown.tsx'
 import type { Answer } from '../RequestPanel.tsx'
-import { LimitCard } from './accounts.tsx'
+import { ContinueCard, LimitCard } from './accounts.tsx'
 import { useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
 
@@ -306,6 +306,7 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
       )}
       {(meta.status === 'running' || meta.status === 'starting') && <WorkingLine key={meta.status} starting={meta.status === 'starting'} />}
       <LimitCard meta={meta} />
+      <ContinueCard meta={meta} />
       {request && <RequestCard key={request.requestId} request={request} onAnswer={(answer) => onAnswer(request.requestId, answer)} />}
       {meta.status === 'error' && (
         <div className="card bad" role="alert">

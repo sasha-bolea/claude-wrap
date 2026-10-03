@@ -122,12 +122,19 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'tab.setAccount': async ({ tabId, accountId }) => {
       await workspace.accounts.loaded
       if (accountId && !workspace.accounts.has(accountId)) throw new CoreError('not_found', `no account ${accountId}`)
-      await tabOf(tabId).setAccount(accountId)
+      tabOf(tabId)
+      await workspace.useAccount(accountId)
       return {}
     },
     'accounts.add': async ({ name, token }) => ({ accountId: await workspace.accounts.add(name, token) }),
     'accounts.remove': async ({ accountId }) => (await workspace.removeAccount(accountId), {}),
-    'accounts.setDefault': async ({ accountId }) => (await workspace.accounts.setDefault(accountId), {}),
+    'accounts.setDefault': async ({ accountId }) => {
+      await workspace.accounts.loaded
+      if (accountId && !workspace.accounts.has(accountId)) throw new CoreError('not_found', `no account ${accountId}`)
+      await workspace.useAccount(accountId)
+      return {}
+    },
+    'tabs.continue': async ({ text }, connection) => (await workspace.continueStopped(text, connection.label), {}),
     'tab.setModel': async ({ tabId, model }) => (await tabOf(tabId).setModel(model), {}),
     'tab.setEffort': async ({ tabId, effort }) => (await tabOf(tabId).setEffort(effort), {}),
     'tab.setMode': async ({ tabId, mode }) => (await tabOf(tabId).setMode(mode), {}),

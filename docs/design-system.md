@@ -261,7 +261,7 @@ Examples: [Conversation.tsx:142](../packages/ui/src/touch/Conversation.tsx#L142)
 ### Request card — `.request` (`.preview`, `.grant-row`, `.reveal`)
 Claude's permission, question or plan inside the conversation (rule 3); `.reveal` holds the field and the button
 that appear after choosing "No…", "Other…" or "Keep planning…".
-Examples: [Conversation.tsx:335](../packages/ui/src/touch/Conversation.tsx#L335), [Conversation.tsx:345](../packages/ui/src/touch/Conversation.tsx#L345).
+Examples: [Conversation.tsx:336](../packages/ui/src/touch/Conversation.tsx#L336), [Conversation.tsx:346](../packages/ui/src/touch/Conversation.tsx#L346).
 
 ### Conversation scroll indicator — `.scroll-thumb` (`.on`)
 On touch screens (`pointer: coarse`) the native indicator of `.conversation` is hidden (iOS draws it down behind the
@@ -318,14 +318,18 @@ Examples: [UsageScreens.tsx:55](../packages/ui/src/touch/UsageScreens.tsx#L55), 
 A 🔜 panel or settings page: what it will show, a grey skeleton, and the `/` command to use meanwhile.
 Example: [LaterScreen.tsx:42](../packages/ui/src/touch/LaterScreen.tsx#L42).
 
-### Claude accounts — Settings group, account sheet, limit card (existing `.list`/`.row`, `.menu` radios, `.card`)
-No new classes: Settings → "Account Claude" is a row list — "Login di Claude Code" first (the backend's own login),
-then the added accounts; a tap makes one the account of new sessions (chip "sessioni nuove"), ⋯ removes an added
-one; "Aggiungi account" opens a sheet with a name and a **password-type mono token field** (never shown again). The
-session menu has an "Account" row (current name on the right) opening a radio `.menu`. While the session's
-account is at its usage limit, the conversation shows a `.card` (`role="status"`) with until when and one
-"Passa a …" primary button per other account (or "Aggiungi un account").
-Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [accounts.tsx:113](../packages/ui/src/touch/accounts.tsx#L113), [accounts.tsx:143](../packages/ui/src/touch/accounts.tsx#L143), [ChatScreen.tsx:316](../packages/ui/src/touch/ChatScreen.tsx#L316), [Conversation.tsx:308](../packages/ui/src/touch/Conversation.tsx#L308).
+### Claude accounts — Settings group, account sheet, limit card, continue card (existing `.list`/`.row`, `.menu` radios, `.card`, `.two-buttons`)
+No new classes. **One account for every session**: Settings → "Account Claude" is a row list — "Login di Claude
+Code" first (the backend's own login), then the added accounts; a tap makes one the account of every session (chip
+"in uso"), ⋯ removes an added one; "Aggiungi account" opens a sheet with a name and a **password-type mono token
+field** (never shown again). The session menu has an "Account" row (current name on the right) opening a radio
+`.menu`: picking one there switches every session too. While the account is at its usage limit, the conversation
+shows a `.card` (`role="status"`) with until when and one "Passa a …" primary button per other account (or
+"Aggiungi un account"). In a session Claude stopped mid-work (usage limit, or a switch while it worked) the
+conversation shows, once the account is free (after a switch, or when the limit resets), a `.card` with why it
+stopped (or how many sessions stopped) and `.two-buttons`: "Non ora" (takes the cards away) and "Continua" /
+"Continua in tutte (N)" (sends "continua" to every stopped session; their queues go on after it).
+Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [accounts.tsx:113](../packages/ui/src/touch/accounts.tsx#L113), [accounts.tsx:143](../packages/ui/src/touch/accounts.tsx#L143), [accounts.tsx:171](../packages/ui/src/touch/accounts.tsx#L171), [Conversation.tsx:309](../packages/ui/src/touch/Conversation.tsx#L309), [ChatScreen.tsx:316](../packages/ui/src/touch/ChatScreen.tsx#L316), [Conversation.tsx:308](../packages/ui/src/touch/Conversation.tsx#L308).
 
 ### Launch and pairing — `.splash` (`.splash-main`, `.splash-state` `.bad`, `.dots`), `.hero-mark` (`.big`), `.hero-title`, `.steps`, `.error-text`, `.code-box`
 The launch screen until the server answers (same mark as the iOS splash). The pairing screen: install steps in iPhone

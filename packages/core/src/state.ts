@@ -21,6 +21,8 @@ export type PersistedTab = {
   autoTitle?: boolean
   // The Claude account (absent: Claude Code's own login).
   account?: string
+  // Claude was stopped mid-work by a usage limit or an account switch, until "Continua" or a message.
+  interrupted?: 'limit' | 'switch'
 }
 
 // A claude process started by this core, recorded to kill it if the core dies without closing it.

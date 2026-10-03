@@ -84,6 +84,8 @@ export type TabInit = {
   autoTitle?: boolean
   // The Claude account (undefined = Claude Code's own login).
   account?: string
+  // Stopped mid-work by a usage limit or an account switch.
+  interrupted?: 'limit' | 'switch'
 }
 
 // Lifecycle of the tab's process; the visible status adds the turn state on top of `live`.
@@ -106,6 +108,8 @@ export class Tab {
   // The Claude account (undefined = Claude Code's own login); switchPending: the process changes at the turn's end.
   private account?: string
   private switchPending = false
+  // Claude was stopped mid-work by a usage limit or an account switch, until "Continua" or a message of the user.
+  private interrupted?: 'limit' | 'switch'
   sessionId?: string
   model?: string
   activeModel?: string
@@ -146,6 +150,7 @@ export class Tab {
     this.title = init.title || basename(init.cwd) || init.cwd
     this.autoTitle = init.autoTitle ?? !init.title
     this.account = init.account
+    this.interrupted = init.interrupted
     this.sessionId = init.resume
     this.model = init.model
     this.effort = init.effort
@@ -186,8 +191,8 @@ export class Tab {
 
   // What survives a restart (the tab comes back dormant).
   persisted(): PersistedTab {
-    const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause, autoTitle, account } = this
-    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account }
+    const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause, autoTitle, account, interrupted } = this
+    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account, interrupted }
   }
 
   // The stored-session uuid behind an item (fork up to that item).
@@ -196,10 +201,10 @@ export class Tab {
   }
 
   meta(): TabMeta {
-    const { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queuePause, account } = this
+    const { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queuePause, account, interrupted } = this
     const limitedUntil = this.env.limitedUntil(account)
     const queue = this.queue.map(({ queueId, text, from, images }) => ({ queueId, text, from, images: images?.length }))
-    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}) }
+    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}), ...(interrupted ? { interrupted } : {}) }
   }
 
   // Subscribes a connection to the transcript (loading a resumed session's history first, without a process).
@@ -221,6 +226,8 @@ export class Tab {
   // as in the terminal) and its item stays pending until the CLI reads it.
   async send(message: Outgoing): Promise<void> {
     this.assertOpen()
+    // A message of the user takes the place of "Continua".
+    if (this.interrupted) (this.interrupted = undefined), this.changed()
     if (message.text.trim()) this.env.promptSent(this, message.text)
     if (!this.turnRunning) return this.deliver(message)
     const session = await this.ensureSession()
@@ -301,17 +308,37 @@ export class Tab {
 
   // The Claude account of the session (undefined = Claude Code's own login). The conversation stays: an idle process
   // is closed now and the next message starts one with the new account on the same stored session (as /login in the
-  // terminal); a process at work is closed at the end of its turn. A queue held by the old account's usage limit goes
-  // on when the new account is free.
+  // terminal); a process at work is stopped now (marked 'switch': "Continua" resumes it) and closed at the end of
+  // that turn. A queue held by the old account's usage limit goes on when the new account is free, unless the limit
+  // stopped Claude mid-work (then it waits for "Continua").
   async setAccount(accountId: string | undefined): Promise<void> {
     this.assertOpen()
     if (accountId === this.account) return
     this.account = accountId
-    if (this.queuePause?.reason === 'limit' && !this.env.limitedUntil(accountId)) this.resumeQueue('limit')
+    if (this.queuePause?.reason === 'limit' && !this.env.limitedUntil(accountId) && !this.interrupted) this.resumeQueue('limit')
     this.changed()
     if (!this.session) return
-    if (this.busy) this.switchPending = true
-    else await this.releaseProcess()
+    if (!this.busy) return this.releaseProcess()
+    this.interrupted = 'switch'
+    this.switchPending = true
+    this.changed()
+    await this.interrupt()
+  }
+
+  // Why Claude was stopped mid-work, if it was (for the workspace: "Continua" and the limit's end).
+  get interruptedBy(): 'limit' | 'switch' | undefined {
+    return this.interrupted
+  }
+
+  // "Continua" after a stop by a usage limit or an account switch: the mark goes, the queue's pause after the stop
+  // ends, and text (if any) is sent as a message of the user; the queue goes on after it.
+  async resume(text: string | undefined, from: string): Promise<void> {
+    if (!this.interrupted) return
+    this.interrupted = undefined
+    if (this.queuePause && this.queuePause.reason !== 'user') this.queuePause = undefined
+    this.changed()
+    if (text) await this.send({ queueId: randomUUID(), text, from })
+    else this.dispatchNext()
   }
 
   // The account (for the workspace: limits and removed accounts).
@@ -654,6 +681,7 @@ export class Tab {
     } else if (message.type === 'conversation_reset') {
       this.resetConversation(message.new_conversation_id)
     } else if (message.type === 'rate_limit_event' && message.rate_limit_info.status === 'rejected' && message.rate_limit_info.resetsAt) {
+      if (this.turnRunning) this.interrupted = 'limit'
       this.env.rateLimited(message.rate_limit_info.resetsAt * 1000, this.account)
     } else if (message.type === 'result') {
       this.endTurn()

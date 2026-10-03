@@ -361,20 +361,27 @@ describe('queue', () => {
     expect(meta(client)?.queuePause).toEqual({ reason: 'user' })
   })
 
-  it('a usage limit pauses the queue of every tab until it resets, then they go on by themselves', async () => {
+  it('a usage limit pauses the queue of every tab until it resets; the session it stopped waits for "Continua", the others go on', async () => {
     const session = await startedTab()
     await client.ok('tab.create', { tabId: 't2', cwd: CWD })
     await client.ok('tab.queueAdd', { tabId: 't1', text: 'after the limit' }, cmd(2))
     const resetsAt = Math.ceil(Date.now() / 1000) + 1
     session.emit(sdk.rateLimit('rejected', resetsAt), sdk.success())
     await tick()
-    expect(meta(client)?.queuePause).toEqual({ reason: 'limit', until: resetsAt * 1000 })
-    expect(meta(client, 't2')?.queuePause).toEqual({ reason: 'limit', until: resetsAt * 1000 })
+    expect(meta(client)).toMatchObject({ queuePause: { reason: 'limit', until: resetsAt * 1000 }, interrupted: 'limit', limitedUntil: resetsAt * 1000 })
+    expect(meta(client, 't2')).toMatchObject({ queuePause: { reason: 'limit', until: resetsAt * 1000 } })
+    expect(meta(client, 't2')?.interrupted).toBeUndefined()
+    await client.waitFor(() => meta(client)?.limitedUntil === undefined, 3000)
+    await client.waitFor(() => meta(client, 't2')?.queuePause === undefined)
+    expect(meta(client)).toMatchObject({ interrupted: 'limit', queuePause: { reason: 'limit' } })
     expect(session.received).toHaveLength(1)
+    await client.ok('tabs.continue', { text: 'continua' })
     await session.waitForInput(2)
-    expect(session.received[1]).toMatchObject({ uuid: cmd(2) })
-    await tick()
-    expect(meta(client, 't2')?.queuePause).toBeUndefined()
+    expect(JSON.stringify(session.received[1]!.message.content)).toContain('continua')
+    session.emit(sdk.success())
+    await session.waitForInput(3)
+    expect(JSON.stringify(session.received[2]!.message.content)).toContain('after the limit')
+    expect(meta(client)?.interrupted).toBeUndefined()
   })
 
   it('survives a core restart, waiting for ▶; closing the tab discards it', async () => {
@@ -1175,6 +1182,7 @@ describe('accounts', () => {
     await client.ok('tab.send', { tabId: 't1', text: 'hello' }, cmd(1))
     await fake.last().waitForInput(1)
     expect(fake.last().options.env?.CLAUDE_CODE_OAUTH_TOKEN).toBe(TOKEN_B)
+    await client.ok('tab.setAccount', { tabId: 't1', accountId: undefined })
     await client.ok('tab.create', { tabId: 't2', cwd: CWD })
     await client.ok('tab.send', { tabId: 't2', text: 'hello' }, cmd(2))
     await client.waitFor(() => fake.sessions.length === 2)
@@ -1196,14 +1204,59 @@ describe('accounts', () => {
     expect(items(client).filter((item) => item.kind === 'user').map((item) => item.itemId)).toEqual([cmd(1), cmd(2)])
   })
 
-  it('a switch while Claude works happens at the end of the turn', async () => {
+  it('a switch while Claude works stops the turn now: the session is marked stopped by the switch, and "Continua" resumes it with the new account', async () => {
     const session = await startedTab()
     const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
     await client.ok('tab.setAccount', { tabId: 't1', accountId })
-    await tick()
-    expect(session.closed).toBe(false)
-    session.emit(sdk.success())
+    await client.waitFor(() => session.calls.some((call) => call.method === 'interrupt'))
+    expect(meta(client)?.interrupted).toBe('switch')
+    session.emit(sdk.aborted())
     await client.waitFor(() => session.closed)
+    await client.ok('tabs.continue', { text: 'continua' })
+    await client.waitFor(() => fake.sessions.length === 2)
+    await fake.last().waitForInput(1)
+    expect(fake.last().options.env?.CLAUDE_CODE_OAUTH_TOKEN).toBe(TOKEN_B)
+    expect(JSON.stringify(fake.last().received[0]!.message.content)).toContain('continua')
+    expect(meta(client)?.interrupted).toBeUndefined()
+  })
+
+  it('the account is one for every session: switching it in one switches all of them and the new sessions', async () => {
+    const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD })
+    await client.ok('tab.create', { tabId: 't2', cwd: CWD })
+    await client.ok('tab.setAccount', { tabId: 't2', accountId })
+    await client.waitFor(() => meta(client)?.account === accountId && meta(client, 't2')?.account === accountId)
+    await client.waitFor(() => accounts(client).defaultAccount === accountId)
+    await client.ok('accounts.setDefault', { accountId: undefined })
+    await client.waitFor(() => meta(client)?.account === undefined && meta(client, 't2')?.account === undefined)
+  })
+
+  it('switching after a limit leaves the stopped session ready to continue; a message sent by hand, or "Continua" without text, clears the mark', async () => {
+    const session = await startedTab()
+    await client.ok('tab.create', { tabId: 't2', cwd: CWD })
+    const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
+    session.emit(sdk.rateLimit('rejected', Math.ceil(Date.now() / 1000) + 3600), sdk.success())
+    await client.waitFor(() => meta(client)?.interrupted === 'limit')
+    await client.ok('tab.setAccount', { tabId: 't2', accountId })
+    await client.waitFor(() => meta(client)?.account === accountId)
+    expect(meta(client)).toMatchObject({ interrupted: 'limit' })
+    expect(meta(client)?.limitedUntil).toBeUndefined()
+    await client.ok('tabs.continue', {})
+    await client.waitFor(() => meta(client)?.interrupted === undefined)
+    expect(fake.sessions).toHaveLength(1)
+  })
+
+  it('the stopped mark survives a core restart', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'cw-stopped-'))
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    const session = await startedTab()
+    session.emit(sdk.init('s-stopped'), sdk.rateLimit('rejected', Math.ceil(Date.now() / 1000) + 3600), sdk.success())
+    await client.waitFor(() => meta(client)?.interrupted === 'limit')
+    await core.closeAll()
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    expect(meta(client)).toMatchObject({ interrupted: 'limit' })
   })
 
   it('new sessions take the default account; a removed account sends its sessions back to the login', async () => {
@@ -1218,17 +1271,16 @@ describe('accounts', () => {
     expect(accounts(client).defaultAccount).toBeUndefined()
   })
 
-  it('a usage limit holds only the sessions of that account; switching to another frees the session', async () => {
+  it('a usage limit belongs to its account: switching to another frees the sessions, switching back holds them again', async () => {
     const session = await startedTab()
     const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
-    await client.ok('tab.create', { tabId: 't2', cwd: CWD })
-    await client.ok('tab.setAccount', { tabId: 't2', accountId })
     const resetsAt = Math.ceil(Date.now() / 1000) + 3600
     session.emit(sdk.rateLimit('rejected', resetsAt), sdk.success())
     await client.waitFor(() => meta(client)?.limitedUntil === resetsAt * 1000)
-    expect(meta(client, 't2')?.limitedUntil).toBeUndefined()
     await client.ok('tab.setAccount', { tabId: 't1', accountId })
     await client.waitFor(() => meta(client)?.limitedUntil === undefined)
+    await client.ok('tab.setAccount', { tabId: 't1', accountId: undefined })
+    await client.waitFor(() => meta(client)?.limitedUntil === resetsAt * 1000)
   })
 })
 

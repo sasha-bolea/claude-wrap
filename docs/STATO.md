@@ -15,8 +15,10 @@ updates itself from `main`. Details per session: [storico-sessioni.md](storico-s
   ora" on waiting messages, file explorer with previews (also from the Home, without a session), notes (20% rule),
   settings (theme, devices, notifications), 🔜 placeholders, both orientations, no zoom, splash screens, update bar.
 - **Claude accounts** (after the buonanotte, Sasha's request): besides Claude Code's own login, accounts added in
-  Settings with a token made by `claude setup-token`; each session picks one (menu ⋯ → Account) and can switch
-  keeping its conversation; usage limits are per account, with "Passa a …" in the chat. Real-CLI check
+  Settings with a token made by `claude setup-token`; one account for every session (picked in Settings or in any
+  session's menu ⋯ → Account), conversations kept; usage limits per account, with "Passa a …" in the chat. Sessions
+  Claude stopped mid-work (usage limit, or a switch while it worked) get a "Continua" card once the account is free
+  (right after a switch, or when the limit resets): it sends "continua" to all of them. Real-CLI check
   `smoke:accounts`: the account's token reaches the CLI (a bad one fails with 401), back to the login in the same
   conversation.
 - **Context and usage panels** (Sasha's request, ahead of Phase 4): session menu → Contesto (window bar, categories,
@@ -59,6 +61,7 @@ updates itself from `main`. Details per session: [storico-sessioni.md](storico-s
 | 2026-10-03 | Open session = a tab of the core; saved session = the CLI's JSONL. Past lists exclude open ones; a chat left with nothing sent and an empty composer is closed; never-used tabs are not restored; the tab title follows Claude Code's title until the user renames it | Sasha saw the same session twice and empty sessions kept |
 | 2026-10-03 | ~~Portrait only~~ (reverted the same day: both orientations, text never enlarged in landscape); no zoom; no emoji in UI badges (icons of the set) | Sasha's choices |
 | 2026-10-03 | Rewind stays a 🔜 placeholder until D (built with the core) | Its screens depend on what `rewindFiles` dry runs return |
+| 2026-10-03 | One account for every session (a switch anywhere moves all sessions and the new ones); a switch stops a session at work at once; sessions stopped mid-work by a limit or a switch are marked (`TabMeta.interrupted`, persisted) and wait — queue included — for "Continua" (`tabs.continue`, sends "continua") or a message | Sasha: "quando cambio account in una chat si cambi in tutte le sessioni" + a continue card after a switch or a reset |
 | 2026-10-03 | Context and usage panels before C2; the window is `rawMaxTokens` (the autocompact window, as /context); the usage call is the SDK's experimental one, kept in `core/src/usage.ts` and checked by `smoke:usage` at every SDK bump; reset times normalized to plain ISO in core | Sasha asked for them now; the experimental API may be renamed |
 | 2026-10-03 | Claude accounts: tokens from `claude setup-token` pasted in the app, kept by core in `accounts.json` (0600, never sent back), passed to the CLI as `CLAUDE_CODE_OAUTH_TOKEN`; per session with a default for new ones; Claude Code's own login stays; a switch restarts the process on the same stored session (at the turn's end if busy); usage limits per account | Sasha: "voglio poter usare la stessa conversazione con più account, esattamente come faccio qui" — like /login in the terminal |
 
