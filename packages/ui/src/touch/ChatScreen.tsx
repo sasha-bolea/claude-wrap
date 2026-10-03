@@ -21,31 +21,42 @@ type UserItem = Extract<Item, { kind: 'user' }>
 const FOLLOW = 60
 // Dragging the ghost up past this distance puts it away.
 const GHOST_AWAY = 28
+// Bottom of a one-line ghost under the top of the conversation (px: .ghost top 12 + bubble 44), until one is measured.
+const GHOST_BOTTOM = 56
 // Panels of a session that come later (🔜), in the session menu.
 const SESSION_PANELS: LaterKey[] = ['context', 'usage', 'tasks', 'todo', 'diff', 'mcp', 'hooks', 'status']
 
 // The ghost of your message whose answer you are reading, once it has scrolled off the top and you scroll up from the
 // bottom: a tap goes back to it, a drag up puts it away until that message is on screen again. Gone at the bottom of
-// the chat and while the keyboard is open.
-function useGhost(conversation: React.RefObject<HTMLDivElement | null>) {
+// the chat and while the keyboard is open. It leaves as soon as your next message touches it, so the two never overlap
+// (that message's own ghost comes in once it has scrolled off the top).
+// Parameters: the conversation and the ghost's element. Returns the ghost, `update` (on scroll and new content), `dismiss`.
+function useGhost(conversation: React.RefObject<HTMLDivElement | null>, element: React.RefObject<HTMLButtonElement | null>) {
   const [ghost, setGhost] = useState<{ id: string; text: string }>()
   const dismissed = useRef<string | undefined>(undefined)
+  // Bottom of the ghost from the top of the conversation (px), kept from the last time it was on screen.
+  const ghostBottom = useRef(GHOST_BOTTOM)
   const update = useCallback(() => {
     const box = conversation.current
     if (!box) return
     const top = box.getBoundingClientRect().top + 8
-    let found: HTMLElement | undefined
-    for (const bubble of box.querySelectorAll<HTMLElement>('.msg-user')) if (bubble.getBoundingClientRect().bottom < top) found = bubble
+    const bubbles = [...box.querySelectorAll<HTMLElement>('.msg-user')]
+    const index = bubbles.findLastIndex((bubble) => bubble.getBoundingClientRect().bottom < top)
+    const found = bubbles[index]
+    const ghostElement = element.current
+    if (ghostElement) ghostBottom.current = ghostElement.offsetTop + ghostElement.offsetHeight
+    const next = bubbles[index + 1]
+    const touching = next !== undefined && next.getBoundingClientRect().top < box.getBoundingClientRect().top + ghostBottom.current
     const away = dismissed.current ? box.querySelector<HTMLElement>(`[data-msg="${dismissed.current}"]`) : null
     if (dismissed.current && (!away || away.getBoundingClientRect().bottom >= top)) dismissed.current = undefined
     const keyboard = box.closest('.device')?.classList.contains('kb-open')
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < FOLLOW
-    if (!found || atBottom || found.dataset.msg === dismissed.current || keyboard) return setGhost(undefined)
+    if (!found || touching || atBottom || found.dataset.msg === dismissed.current || keyboard) return setGhost(undefined)
     const text = [...found.childNodes].filter((node) => !(node instanceof HTMLElement && (node.classList.contains('thumbs') || node.classList.contains('pending-note')))).map((node) => node.textContent).join('').trim()
     const label = `${found.querySelector('.thumbs') ? '🖼 ' : ''}${text}`
     const id = found.dataset.msg!
     setGhost((current) => (current?.id === id && current.text === label ? current : { id, text: label }))
-  }, [conversation])
+  }, [conversation, element])
   const dismiss = () => {
     dismissed.current = ghost?.id
     setGhost(undefined)
@@ -98,7 +109,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const dock = useRef<HTMLDivElement>(null)
   const ghostDrag = useRef<{ y: number; dy: number } | undefined>(undefined)
   const ghostElement = useRef<HTMLButtonElement>(null)
-  const { ghost, update: updateGhost, dismiss: dismissGhost } = useGhost(conversation)
+  const { ghost, update: updateGhost, dismiss: dismissGhost } = useGhost(conversation, ghostElement)
   const { thumb, place: placeThumb } = useScrollThumb(conversation, dock)
   // The ghost on screen: once `ghost` goes away it stays for its slide back up (`.leaving`), then it is removed.
   const [lastGhost, setLastGhost] = useState(ghost)
