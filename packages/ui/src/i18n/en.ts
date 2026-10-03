@@ -477,7 +477,6 @@ export const en = {
   filesOne: '1 file',
   filesHidden: ', {hidden} hidden',
   filesHiddenOne: ', 1 hidden',
-  rotatePhone: 'Turn your phone upright',
   sendPendingNow: 'Send now: Claude reads it right away',
   claudeAccounts: 'Claude accounts',
   cliLogin: 'Claude Code login',

@@ -479,7 +479,6 @@ export const it: Record<MessageKey, string> = {
   filesOne: '1 file',
   filesHidden: ' di cui {hidden} nascosti',
   filesHiddenOne: ' di cui 1 nascosto',
-  rotatePhone: 'Gira il telefono in verticale',
   sendPendingNow: 'Invia ora: Claude lo legge subito',
   claudeAccounts: 'Account Claude',
   cliLogin: 'Login di Claude Code',

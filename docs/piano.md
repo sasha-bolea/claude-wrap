@@ -61,7 +61,7 @@ time with a report after each.
 queue" (not paused → the first message goes); one trash for files and folders (server only; system trash on this PC);
 project mark at any level; ↶ for rewind, clock for past sessions; effort only with the model's levels; desktop widths
 300 / 380 / ~780 px fixed; this PC's Home seeded from the open sessions; the prototype's iPhone keyboard tricks, no
-native wrapper; Stop = plain interrupt; portrait only; open sessions are tabs, saved ones the CLI's JSONL (no
+native wrapper; Stop = plain interrupt; both orientations (portrait only reverted on 2026-10-03); open sessions are tabs, saved ones the CLI's JSONL (no
 duplicates, no empty sessions kept, titles from Claude Code).
 
 **Verification per sub-phase:** unit + contract tests (also on Linux), e2e of the platform touched (PWA in Chrome,

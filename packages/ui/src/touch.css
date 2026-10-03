@@ -3,7 +3,8 @@
 [hidden] { display: none !important; }
 html, body { margin: 0; }
 /* No zoom (Sasha's choice for the PWA): no double-tap zoom; pinch is blocked by the PWA host. */
-html { touch-action: manipulation; }
+/* iOS enlarges text in landscape (and keeps it after turning back) unless told not to */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 :root {
   --background: #faf9f7; --surface: #ffffff; --surface-2: #f1efeb; --border: #e2ded7;
   --text: #1f1e1c; --text-muted: #6b6862; --accent: #c96442; --accent-text: #ffffff;
@@ -442,6 +443,4 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .kb-open .chat-screen:has(.request :focus) .dock { display: none; }
 .kb-open .chat-screen:has(.request :focus) .conversation { padding-bottom: 12px; }
 /* Portrait only: a phone turned sideways (html[data-landscape], set by the PWA host) gets this notice over the app */
-.rotate-notice { display: none; }
-html[data-landscape] .rotate-notice { display: grid; place-items: center; position: fixed; inset: 0; z-index: 100; padding: 24px; background: var(--background); color: var(--text); font-size: 17px; font-weight: 600; text-align: center; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

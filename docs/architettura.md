@@ -148,7 +148,7 @@ Import rule: `protocol` ← `core`, `client`; `client` ← `ui`; `core` ← `ser
   (`/srv/progetti`). It serves the PWA build (`no-cache`) and `version.json`. Deploy: [deploy.md](deploy.md).
 - **PWA host** ([apps/mobile/src/main.tsx](../apps/mobile/src/main.tsx)): pairing screen, WebSocket connection,
   Web Push through the service worker, version checks (`checkVersion` at every reconnection, back on screen, every
-  15 min), gestures and orientation (portrait only: manifest + a notice set from the screen's orientation).
+  15 min), gestures (no zoom). Both orientations (until 2026-10-03 portrait only).
 - **Desktop**: unchanged UI until C2; the local core asks main for the system trash (`trashItem` over `parentPort`,
   [coreHost.ts](../apps/desktop/src/main/coreHost.ts) ↔ [coreProcess.ts](../apps/desktop/src/main/coreProcess.ts)).
 

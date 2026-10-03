@@ -296,19 +296,15 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('.field').first().evaluate((element) => getComputedStyle(element).fontSize)).toBe('16px')
   })
 
-  it('portrait only: the manifest asks for it, and a phone turned sideways shows a notice over the app', async () => {
+  it('both orientations: the manifest locks none, a phone turned sideways shows the app, text is never enlarged', async () => {
     const manifest = (await (await fetch(`${backend.url}/manifest.webmanifest`)).json()) as { orientation?: string }
-    expect(manifest.orientation).toBe('portrait')
-    const notice = (page: Awaited<ReturnType<BrowserContext['newPage']>>) => page.getByRole('alert').filter({ hasText: 'Turn your phone upright' })
-    const upright = await (await newPhone()).newPage()
-    await upright.goto(backend.url)
-    await upright.getByRole('heading', { name: 'Pair this device' }).waitFor()
-    expect(await notice(upright).isVisible()).toBe(false)
+    expect(manifest.orientation).toBe('any')
     const context = await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true, locale: 'en-US' })
     contexts.push(context)
     const sideways = await context.newPage()
     await sideways.goto(backend.url)
-    await notice(sideways).waitFor()
+    await sideways.getByRole('heading', { name: 'Pair this device' }).waitFor()
+    expect(await sideways.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('-webkit-text-size-adjust'))).toBe('100%')
   })
 
   it('every splash screen link points to a PNG the server serves, light and dark', async () => {

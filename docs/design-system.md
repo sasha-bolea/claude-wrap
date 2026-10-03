@@ -182,8 +182,8 @@ layout only (the old mobile components are gone).
    icon-only button has an `aria-label`; state changes go to the `aria-live` region (`announce`).
 5. **Targets ≥ 44 px, safe areas** (`env(safe-area-inset-*)`), **fields at 16 px** (`input, textarea, select`: smaller
    text makes iOS zoom in on focus), **no zoom** (viewport `maximum-scale=1`, `touch-action: manipulation` on `html`,
-   pinch gestures cancelled by the PWA host), **portrait only** (manifest `orientation: portrait`, which iOS ignores:
-   there a phone turned sideways gets `.rotate-notice`), `prefers-reduced-motion` turns animations off.
+   pinch gestures cancelled by the PWA host), **both orientations** (manifest `orientation: any`; `text-size-adjust: 100%` on `html`, otherwise iOS
+   enlarges text in landscape and keeps it after turning back), `prefers-reduced-motion` turns animations off.
 6. **iPhone keyboard** (decision 10): the composer floats over the chat (`.dock`, its height in `--dock-h`), the field
    takes focus on `touchend` with `preventScroll`, the keyboard height comes from `visualViewport`
    ([keyboard.ts](../packages/ui/src/touch/keyboard.ts)) and `.device.kb-open` drops the bottom safe area; drags on the
@@ -290,12 +290,10 @@ Cards with the first line as title, two lines of preview, the date and "Usa nel 
 full-height textarea saved as you type.
 Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [NotesScreen.tsx:151](../packages/ui/src/touch/NotesScreen.tsx#L151).
 
-### Bars and notices — `.update-bar`, `.banner`, `.toast`, `.snack`, `.viewer`, `.empty-line`, `.rotate-notice`
+### Bars and notices — `.update-bar`, `.banner`, `.toast`, `.snack`, `.viewer`, `.empty-line`
 `.update-bar`: "New version available · Update · ×" under the top bar of Home and chat. `.banner`: the server cannot
-be reached. `.toast` / `.snack`: rule 7. `.viewer`: a photo full screen. `.rotate-notice`: "Gira il telefono in
-verticale" over the whole app while a phone is sideways (`html[data-landscape]`, set by the PWA host from the
-screen's orientation, never the window's: the keyboard shrinks the window).
-Examples: [parts.tsx:88](../packages/ui/src/touch/parts.tsx#L88), [parts.tsx:103](../packages/ui/src/touch/parts.tsx#L103), [TouchApp.tsx:233](../packages/ui/src/touch/TouchApp.tsx#L233), [TouchApp.tsx:248](../packages/ui/src/touch/TouchApp.tsx#L248), [apps/mobile/src/main.tsx:58](../apps/mobile/src/main.tsx#L58).
+be reached. `.toast` / `.snack`: rule 7. `.viewer`: a photo full screen.
+Examples: [parts.tsx:88](../packages/ui/src/touch/parts.tsx#L88), [parts.tsx:103](../packages/ui/src/touch/parts.tsx#L103), [TouchApp.tsx:233](../packages/ui/src/touch/TouchApp.tsx#L233), [TouchApp.tsx:248](../packages/ui/src/touch/TouchApp.tsx#L248).
 
 ### Placeholders to come — `.later-list`, `.later-skeleton` (`.w70`, `.w80`, `.w90`)
 A 🔜 panel or settings page: what it will show, a grey skeleton, and the `/` command to use meanwhile.
