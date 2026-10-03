@@ -166,7 +166,13 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('details.tool').count()).toBe(0)
     await stack.click()
     await page.locator('details.tool').nth(2).waitFor()
-    expect(await page.locator('details.tool summary').allTextContents()).toEqual(['Bashlsdone', 'Bashgit statusdone', 'Bashnpm testdone'])
+    expect(await page.locator('details.tool summary').allTextContents()).toEqual(['Bashlsdone', 'Bashgit log --oneline --decorate --graph --all --since=2026-01-01 -- packages/ui/src/touch packages/core/srcdone', 'Bashnpm testdone'])
+    // Closed, as one line each: a long command is cut, the cards stay as wide as the chat.
+    const width = await page.locator('.conversation').evaluate((box) => box.clientWidth)
+    for (const card of await page.locator('details.tool').all()) {
+      expect(await card.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(false)
+      expect((await card.boundingBox())!.width).toBeLessThan(width)
+    }
     await page.getByRole('button', { name: 'Stack the 3 commands' }).click()
     await stack.waitFor()
     expect(await page.locator('details.tool').count()).toBe(0)
