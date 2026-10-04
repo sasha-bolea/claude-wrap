@@ -432,7 +432,8 @@ describe('PWA (fake SDK)', () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
     await send(page, `a ${'verylongwordwithoutanyspace'.repeat(6)} /srv/progetti/project/${'deep/'.repeat(12)}file.ts`)
-    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo:')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('file.ts')
+    await page.locator('.working-line').waitFor({ state: 'detached' })
     await send(page, 'tools')
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Tools: done')
     // Every visible element ends inside the screen (1 px of rounding allowed).

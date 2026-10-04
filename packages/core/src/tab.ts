@@ -368,7 +368,8 @@ export class Tab {
     this.changed()
     if (!this.session) return
     if (!this.busy) return this.releaseProcess()
-    this.interrupted = 'switch'
+    // Stopped now by the switch, unless a usage limit had already stopped this turn (that stays the reason).
+    this.interrupted ??= 'switch'
     this.switchPending = true
     this.changed()
     await this.interrupt()

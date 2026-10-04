@@ -40,8 +40,11 @@ export async function startBackend(): Promise<Backend> {
   return { url, root, stateDir, core, server, devices, files, stop: async () => (await core.closeAll(), await server!.close()) }
 }
 
+// The system Chrome, or the browser at CLAUDE_WRAP_E2E_CHROME (e.g. Playwright's Chromium on the home server, which has
+// no Chrome).
 export function launchChrome(): Promise<Browser> {
-  return chromium.launch({ channel: 'chrome' })
+  const executablePath = process.env.CLAUDE_WRAP_E2E_CHROME
+  return chromium.launch(executablePath ? { executablePath } : { channel: 'chrome' })
 }
 
 // A phone-sized browser context. ios: an iPhone Safari user agent (not installed → install instructions).

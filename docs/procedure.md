@@ -46,7 +46,8 @@ _Runbook of multi-step or rare procedures. One-liners used often live in CLAUDE.
 **When:** before closing any touch UI, server or core change.
 1. `npm run e2e:mobile` — builds the PWA (`apps/mobile/dist`), then runs `apps/mobile/e2e/*.e2e.ts`: the real server
    in-process on an ephemeral port with the scripted fake SDK, the **system Chrome** (playwright channel `chrome`, no
-   browser download) at 390×844 with touch, `en-US`.
+   browser download) at 390×844 with touch, `en-US`. On the home server (no Chrome) point it at Playwright's Chromium:
+   `CLAUDE_WRAP_E2E_CHROME=~/.cache/ms-playwright/chromium-1247/chrome-linux64/chrome npm run e2e:mobile`.
 2. `pairedPage(context, backend)` pairs with a fresh code and dismisses the notifications offer; `openProject(page)`
    opens a session in the root's `project` folder (trusting it). Fake SDK keywords as for the desktop (`slow` streams
    400 words ≈ 8 s).
