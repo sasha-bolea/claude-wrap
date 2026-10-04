@@ -191,6 +191,12 @@ layout only (the old mobile components are gone).
    tap (`flushSync` then `focus`), as in New note.
 7. **Toasts and the undo bar**: `toast(text)` for outcomes; `snack(text, undo)` with Restore for deletions that can be
    undone (5 s). Failures: `fail(error)` (toast with the reason).
+8. **Nothing leaves the screen; text wraps** (2026-10-04, Sasha): `.device` breaks long words, paths and links
+   anywhere (`overflow-wrap: anywhere`), every box may shrink below its content (`:where(.device *) { min-width: 0 }`;
+   icons `flex: none`), images fit. No ellipsis and no sideways scrolling: titles, rows, chips, toasts, tables and code
+   (chat blocks, file viewer with a hanging indent under the line number) wrap. Only the fixed-height stack cards (queue,
+   tool stack) keep one line, their full text one tap away; previews with a line clamp (ghost, note cards) stay
+   clamped. A grid of one column uses `minmax(0, 1fr)`. The PWA e2e checks no element ends outside the screen.
 
 **Splash screens** of the installed app: the accent "cw" mark on `--background`, light and dark, one PNG per iPhone
 screen size, generated from the token colours by [apps/mobile/scripts/icons.ts](../apps/mobile/scripts/icons.ts).

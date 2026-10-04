@@ -396,6 +396,33 @@ describe('PWA (fake SDK)', () => {
     await card.waitFor({ state: 'detached' })
   })
 
+  it('nothing is wider than the screen: long words, paths and tables wrap (chat, its menu, Settings)', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, `a ${'verylongwordwithoutanyspace'.repeat(6)} /srv/progetti/project/${'deep/'.repeat(12)}file.ts`)
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo:')
+    await send(page, 'tools')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Tools: done')
+    // Every visible element ends inside the screen (1 px of rounding allowed).
+    const outside = () =>
+      page.evaluate(() => {
+        const width = document.documentElement.clientWidth
+        return [...document.querySelectorAll<HTMLElement>('.device *')]
+          .filter((element) => !element.closest('[hidden], .sr-only') && element.getClientRects().length > 0)
+          .filter((element) => {
+            const box = element.getBoundingClientRect()
+            return box.width > 0 && (box.right > width + 1 || box.left < -1)
+          })
+          .map((element) => `${element.tagName.toLowerCase()}.${element.className}`)
+      })
+    expect(await outside()).toEqual([])
+    await page.locator('.tool-stack').click()
+    await page.locator('details.tool').first().click()
+    expect(await outside()).toEqual([])
+    await button(page, 'More actions').click()
+    expect(await outside()).toEqual([])
+  })
+
   it('the theme chosen in Settings applies and stays after a reload', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await button(page, 'Settings').click()
