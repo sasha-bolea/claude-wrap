@@ -19,8 +19,8 @@ function shares(meta: TabMeta): { context?: number; fiveHour?: number; week?: nu
   return { context: meta.context?.percentage, fiveHour: plan(meta.planLimits?.fiveHour), week: plan(meta.planLimits?.sevenDay) }
 }
 
-// The composer's gauge, right of the model: a ring filled to the highest of the three shares, with that share beside
-// it; nothing until core has read one. A tap opens the sheet with the three bars.
+// The composer's gauge, right of the model: a ring filled to the highest of the three shares (the number only for
+// screen readers and in the sheet); nothing until core has read one. A tap opens the sheet with the three bars.
 export function GaugeButton({ meta }: { meta: TabMeta }) {
   const { openSheet } = useTouch()
   const known = Object.values(shares(meta)).filter((share): share is number => share !== undefined)
@@ -32,7 +32,6 @@ export function GaugeButton({ meta }: { meta: TabMeta }) {
         <circle className="gauge-track" cx="12" cy="12" r={RADIUS} />
         <circle className="gauge-fill" cx="12" cy="12" r={RADIUS} strokeDasharray={CIRCUMFERENCE} strokeDashoffset={CIRCUMFERENCE * (1 - Math.min(100, top) / 100)} />
       </svg>
-      <span>{top}%</span>
     </button>
   )
 }

@@ -316,8 +316,8 @@ Examples: [SettingsScreen.tsx:190](../packages/ui/src/touch/SettingsScreen.tsx#L
 
 ### Composer gauge — `.gauge-btn` (`.high`), `.gauge-ring` (`.gauge-track`, `.gauge-fill`), `.gauge-bar`
 Right of the model in the composer: a 20 px ring filled to the **highest** of three shares — context window (after the
-last turn), the 5-hour and the weekly plan windows of the session's account — with that share beside it (12 px,
-tabular); accent, `--danger` from 90%; absent until core has read one. A tap opens a sheet "Contesto e limiti" with
+last turn), the 5-hour and the weekly plan windows of the session's account — no number beside it (the share is in its label and
+the sheet); accent, `--danger` from 90%; absent until core has read one. A tap opens a sheet "Contesto e limiti" with
 one `.gauge-bar` each (name, `.usage-meter`, then the share in bold · tokens used / window for the context, "Si azzera
 …" for the plan windows, which report shares only) and "Compatta ora" (sends `/compact` at once; disabled as
 "Compatta quando Claude ha finito" while it works). Core keeps the values (`TabMeta.context`, `planLimits`), read from
