@@ -46,7 +46,7 @@ svg.i.accent { color: var(--accent); }
 code { font-family: var(--font-mono); }
 
 /* Device: full screen on a phone, a framed screen on a wide window */
-.device { position: relative; width: 100%; max-width: 410px; height: min(860px, 100%); background: var(--background); border-radius: 34px; overflow: hidden; box-shadow: 0 0 0 10px var(--surface-2), 0 24px 60px rgba(0,0,0,.25); display: flex; flex-direction: column; }
+.device { position: relative; width: 100%; max-width: 410px; height: min(860px, 100%); background: var(--background); border-radius: 34px; overflow: hidden; overflow: clip; box-shadow: 0 0 0 10px var(--surface-2), 0 24px 60px rgba(0,0,0,.25); display: flex; flex-direction: column; }
 /* On a phone (also in landscape) the app fills the visual viewport: --app-h and the shift follow the keyboard. */
 @media (max-width: 520px), (pointer: coarse) {
   html, body { overflow: hidden; overscroll-behavior: none; }
@@ -56,7 +56,9 @@ code { font-family: var(--font-mono); }
 
 /* One wrapper per stack entry: hidden unless on top (or under a screen being swiped away) */
 .screen-host { display: contents; }
-.screen { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--background); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+/* clip, not hidden: the composer's veil reaches past the bottom, and a hidden overflow can still be scrolled (focus,
+   scrollIntoView), which slid the whole screen up */
+.screen { position: absolute; inset: 0; overflow: clip; display: flex; flex-direction: column; background: var(--background); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
 .screen.enter { animation: enter .22s ease-out; }
 @keyframes enter { from { transform: translateX(28%); opacity: .4; } }
 .screen.dragging { z-index: 5; box-shadow: -8px 0 24px rgba(0,0,0,.18); }

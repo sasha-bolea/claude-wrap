@@ -311,3 +311,13 @@ These were solved in the first attempt. Files refer to that repository. Each ent
   folder's name, following the CLI again; top bar titles show two lines at most.
 - **Files:** `packages/core/src/tab.ts`, `workspace.ts`, `commands.ts`, `packages/ui/src/touch/sessions.tsx`,
   `parts.tsx`, `touch.css`.
+
+### 2026-10-04 — The chat slid up: header gone, an empty band under the composer
+- **Symptom:** seen in screenshots of the PWA at iPhone size: the top bar out of view and ~120px of empty background
+  under the composer.
+- **Cause:** the composer's veil reaches 120px past the screen's bottom (so no strip of chat shows under it), and the
+  screen and device clipped it with `overflow: hidden` — a hidden overflow can still be scrolled (focus,
+  scrollIntoView), and the whole screen slid up by that much.
+- **Fix:** `overflow: clip` on `.screen` and `.device` (not scrollable at all).
+- **Files:** `packages/ui/src/touch.css`.
+- **Rule:** anything drawn past an edge on purpose is clipped with `overflow: clip`, never `hidden`.
