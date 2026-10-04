@@ -141,8 +141,8 @@ export function AccountPickSheet({ tabId }: { tabId: string }) {
 // Limits whose card was put away with Annulla (account and until when), on this device: every chat hides it.
 const dismissedLimits = new Set<string>()
 
-// In the chat while the session's account is at its usage limit: until when, a quiet switch to every other account
-// (for every session) or adding one, and Annulla, which puts the card away for that limit.
+// In the chat while the session's account is at its usage limit: until when, a quiet switch to every other added
+// account (for every session) or adding one, and Annulla, which puts the card away for that limit.
 export function LimitCard({ meta }: { meta: TabMeta }) {
   const { state, connection, go, toast, fail } = useTouch()
   const [, setDismissed] = useState(0)
@@ -153,8 +153,8 @@ export function LimitCard({ meta }: { meta: TabMeta }) {
     setDismissed((count) => count + 1)
   }
   const time = new Date(meta.limitedUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  const every: { accountId?: string; name: string }[] = [{ name: t('cliLogin') }, ...(state.accounts ?? [])]
-  const others = every.filter((account) => account.accountId !== meta.account)
+  // Only the added accounts are offered (Claude Code's own login is not, as Sasha asked); it stays in the account menu.
+  const others = (state.accounts ?? []).filter((account) => account.accountId !== meta.account)
   const switchTo = (accountId: string | undefined) =>
     connection.request('tab.setAccount', { tabId: meta.tabId, accountId }).then(() => toast(t('accountSwitched', { name: accountName(state, accountId) })), fail)
   return (
