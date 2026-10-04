@@ -279,7 +279,7 @@ arrived; "Claude ti aspetta" with a request open).
 Examples: [ChatScreen.tsx:281](../packages/ui/src/touch/ChatScreen.tsx#L281), [ChatScreen.tsx:294](../packages/ui/src/touch/ChatScreen.tsx#L294).
 
 ### Composer and dock — `.dock`, `.composer` (`.queue-mode`), `.input-box`, `.input-tools`, `.model-btn`, `.mode-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.linked-note`, `.shell-hint`, `.suggest`
-One box floating over the chat behind a blurred fade: the text on top; + (photos and files), model · effort, the
+One box floating over the chat over a light veil (2 px blur, a slightly dark gradient, fading to the page colour only in the last line above the bottom: the chat stays readable under it): the text on top; + (photos and files), model · effort, the
 permission mode icon, Stop (while Claude works or waits) and Send below. Queue mode: dashed border, Send adds to the
 queue. A linked note shows above the box (× unlinks it). Composer and box are one `minmax(0, 1fr)` column: a long note
 title or file name is cut with "…", never pushing Send off the screen.

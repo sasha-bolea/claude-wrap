@@ -400,12 +400,14 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
    "…" and never widens the bar past the screen with Send */
 .composer { background: none; padding: 0 10px 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; position: relative; }
 .input-box { position: relative; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: 0 2px 10px rgba(0,0,0,.06); display: grid; grid-template-columns: minmax(0, 1fr); }
-/* Blurred gradient behind the bar: it starts just below the bar's top edge (above it the text stays sharp) and
-   reaches the screen edges and well past the bottom (the device clips it): no strip of chat shows under it, with the
-   queue tray below the bar, the Home bar, or a rounded keyboard height */
+/* Light veil behind the bar: it starts just below the bar's top edge and reaches the screen edges and well past the
+   bottom (the device clips it; the screen's bottom edge is 112px above its own). A faint blur and a slightly dark
+   gradient keep the chat readable under the bar; it fades to the page colour only in the last line above the bottom */
 .input-box::before { content: ''; position: absolute; z-index: -1; pointer-events: none; top: 14px; left: calc(-10px - env(safe-area-inset-left, 0px)); right: calc(-10px - env(safe-area-inset-right, 0px)); bottom: calc(-120px - env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--background) 70%, transparent), var(--background) calc(100% - 112px));
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  background:
+    linear-gradient(to bottom, transparent calc(100% - 134px), color-mix(in srgb, var(--background) 85%, transparent) calc(100% - 112px)),
+    linear-gradient(to bottom, rgba(0,0,0,.02), rgba(0,0,0,.14) calc(100% - 112px));
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px); mask-image: linear-gradient(to bottom, transparent, #000 14px); }
 .kb-open .input-box::before { bottom: -120px; }
 .input-box:focus-within { border-color: var(--text-muted); }
