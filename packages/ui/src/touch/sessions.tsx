@@ -224,7 +224,7 @@ function useResume() {
   return (session: SessionInfo, cwd: string) => {
     closeSheets()
     if (session.tabId) return go({ name: 'chat', tabId: session.tabId })
-    connection.request('tab.create', { tabId: crypto.randomUUID(), cwd, resume: session.sessionId, title: session.title }).then(({ tabId }) => go({ name: 'chat', tabId }), fail)
+    connection.request('tab.create', { tabId: crypto.randomUUID(), cwd, resume: session.sessionId }).then(({ tabId }) => go({ name: 'chat', tabId }), fail)
   }
 }
 

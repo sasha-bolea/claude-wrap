@@ -164,6 +164,24 @@ describe('tabs and lazy start', () => {
     expect(meta(client)?.title).toBe('Mine')
   })
 
+  it("a CLI summary longer than a title (a prompt it fell back to) is not adopted; a stored session opened from the list follows the CLI's title", async () => {
+    const session = await startedTab()
+    session.emit(sdk.init('s-long'))
+    fake.histories.set('s-long', [stored.user('u1', 'Short title')])
+    session.emit(sdk.success())
+    await client.waitFor(() => meta(client)?.title === 'Short title')
+    fake.histories.set('s-long', [stored.user('u1', 'A very long prompt that goes on '.repeat(5))])
+    await client.ok('tab.send', { tabId: 't1', text: 'again' }, cmd(2))
+    await session.waitForInput(2)
+    session.emit(sdk.success())
+    await tick()
+    await tick()
+    expect(meta(client)?.title).toBe('Short title')
+    fake.histories.set('s-stored', [stored.user('u2', 'Stored one')])
+    await client.ok('tab.create', { tabId: 't2', cwd: CWD, resume: 's-stored' })
+    await client.waitFor(() => meta(client, 't2')?.title === 'Stored one')
+  })
+
   it('init sets the session id and the active model', async () => {
     const session = await startedTab()
     session.emit(sdk.init('s-new', { model: 'claude-haiku-4-5' }))

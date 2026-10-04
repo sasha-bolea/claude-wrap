@@ -103,6 +103,16 @@ export type TabInit = {
   context?: ContextGauge
 }
 
+// Longest title taken from the CLI (chars). Its "summary" is its generated title, but for some sessions (long ones,
+// before a title exists) it falls back to a prompt: a longer text is not a title and is not adopted.
+export const MAX_AUTO_TITLE = 80
+
+// The CLI's title of a stored session: its custom title (/rename), else its summary when short enough to be a title.
+export function cliTitle(info: { customTitle?: string; summary?: string } | undefined): string | undefined {
+  const summary = info?.summary?.trim()
+  return info?.customTitle || (summary && summary.length <= MAX_AUTO_TITLE ? summary : undefined)
+}
+
 // Lifecycle of the tab's process; the visible status adds the turn state on top of `live`.
 type Lifecycle = 'dormant' | 'starting' | 'live' | 'closing' | 'needs_trust' | 'error'
 
@@ -827,12 +837,12 @@ export class Tab {
     void this.followCliTitle()
   }
 
-  // The CLI's own title of the session (its generated title, a /rename, or at first the first prompt), while the tab
-  // has no title given by the user.
-  private async followCliTitle(): Promise<void> {
+  // The CLI's own title of the session (its generated title, a /rename, or at first a short first prompt), while the
+  // tab has no title given by the user. Also right after a stored session is opened.
+  async followCliTitle(): Promise<void> {
     if (!this.autoTitle || !this.sessionId) return
     const info = await this.env.sdk.getSessionInfo(this.sessionId, { dir: this.cwd }).catch(() => undefined)
-    const title = info?.customTitle || info?.summary
+    const title = cliTitle(info)
     if (!title || title === this.title || !this.autoTitle) return
     this.title = title
     this.changed()

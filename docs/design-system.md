@@ -196,7 +196,7 @@ layout only (the old mobile components are gone).
    icons `flex: none`), images fit. No ellipsis and no sideways scrolling: titles, rows, chips, toasts, tables and code
    (chat blocks, file viewer with a hanging indent under the line number) wrap. Only the fixed-height stack cards (queue,
    tool stack) keep one line, their full text one tap away; previews with a line clamp (ghost, note cards) stay
-   clamped. A grid of one column uses `minmax(0, 1fr)`. The PWA e2e checks no element ends outside the screen.
+   clamped; top bar titles (screen and chat) wrap to two lines at most. A grid of one column uses `minmax(0, 1fr)`. The PWA e2e checks no element ends outside the screen.
 
 **Splash screens** of the installed app: the accent "cw" mark on `--background`, light and dark, one PNG per iPhone
 screen size, generated from the token colours by [apps/mobile/scripts/icons.ts](../apps/mobile/scripts/icons.ts).

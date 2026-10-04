@@ -11,12 +11,20 @@ import { waitForCleanups } from './process.ts'
 import { PromptHistory } from './promptHistory.ts'
 import type { PersistedState, StateStore } from './state.ts'
 import { DEFAULT_RING, Stream } from './stream.ts'
-import { Tab, type TabEnvironment, type TabInit } from './tab.ts'
+import { MAX_AUTO_TITLE, Tab, type TabEnvironment, type TabInit } from './tab.ts'
 import { Trash } from './trash.ts'
 import { TrustGate, canonicalFolder, checkRoots, withinRoots } from './trustGate.ts'
 
 // Upper bound for closing everything on quit.
 const QUIT_CAP_MS = 8000
+
+// The title of a saved tab when it comes back. Older states have no autoTitle: the folder's name meant automatic. A
+// title longer than a title is a prompt the CLI fell back to (fixed by older versions when a stored session was
+// opened): back to the folder's name, following the CLI again.
+function restoredTitle(saved: PersistedState['tabs'][number]): { title: string; autoTitle: boolean } {
+  if (saved.title.length > MAX_AUTO_TITLE) return { title: basename(saved.cwd) || saved.cwd, autoTitle: true }
+  return { title: saved.title, autoTitle: saved.autoTitle ?? saved.title === basename(saved.cwd) }
+}
 // The plan windows of an account are read again at the end of a turn at most this often (ms).
 const PLAN_READ_MS = 60_000
 const DAY_MS = 24 * 3600 * 1000
@@ -75,7 +83,7 @@ export class Workspace {
     this.env = this.environment(config)
     // A tab where nothing was ever sent (no stored session, nothing queued) does not come back.
     for (const saved of store.data.tabs.filter((tab) => tab.sessionId || tab.queue?.length))
-      this.add(new Tab({ ...saved, resume: saved.sessionId, autoTitle: saved.autoTitle ?? saved.title === basename(saved.cwd) }, this.env))
+      this.add(new Tab({ ...saved, ...restoredTitle(saved), resume: saved.sessionId }, this.env))
     this.savedTabs = JSON.stringify(store.data.tabs)
     // Restored tabs are dormant: 0 overwrites what a previous run may have left.
     this.activity = config.activityFile ? new ActivityFile(config.activityFile) : undefined
@@ -131,6 +139,8 @@ export class Workspace {
     this.add(tab)
     this.stream.emit({ type: 'tab.added', tab: tab.meta() })
     this.persist()
+    // A stored session opened without a title takes the CLI's own title now (it follows it afterwards).
+    if (init.resume && !init.title) void tab.followCliTitle()
     return init.tabId
   }
 

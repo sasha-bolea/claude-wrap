@@ -299,3 +299,15 @@ These were solved in the first attempt. Files refer to that repository. Each ent
   and Send stay within the screen with a long note.
 - **Files:** `packages/ui/src/touch.css`, `apps/mobile/e2e/pwa.e2e.ts`.
 - **Rule:** a grid holding one-line ellipsized text needs a `minmax(0, 1fr)` column.
+
+### 2026-10-04 — A session's title became a whole prompt and filled half the chat header
+- **Symptom:** the title of a long session turned from a short phrase into the start of its first prompt (ending in
+  "…"), with nobody renaming it; with titles wrapping, the chat header took half the screen.
+- **Cause:** the CLI's `SDKSessionInfo.summary` is its generated title, but for some sessions (a long one here) it falls
+  back to a prompt (the first, later the last). Opening a stored session from the list passed that text as the tab's
+  title, which made it fixed (`autoTitle: false`), as if the user had renamed it.
+- **Fix:** a title from the CLI is its custom title, or the summary only when ≤ 80 chars (`cliTitle`); a stored session
+  is opened without a title and takes the CLI's right away; a saved title longer than 80 chars comes back as the
+  folder's name, following the CLI again; top bar titles show two lines at most.
+- **Files:** `packages/core/src/tab.ts`, `workspace.ts`, `commands.ts`, `packages/ui/src/touch/sessions.tsx`,
+  `parts.tsx`, `touch.css`.

@@ -3,6 +3,7 @@ import { CoreError, messageOf } from './errors.ts'
 import { deletable, listFiles, makeDir, moveFile, readFileFor, writeFileFor } from './files.ts'
 import { createFolder, listFolders } from './folders.ts'
 import type { Send } from './stream.ts'
+import { MAX_AUTO_TITLE, cliTitle } from './tab.ts'
 import { withinRoots } from './trustGate.ts'
 import type { Workspace } from './workspace.ts'
 
@@ -48,7 +49,7 @@ async function listSessions(workspace: Workspace, cwd: string | undefined): Prom
       .sort((a, b) => b.lastModified - a.lastModified)
       .map((info) => ({
         sessionId: info.sessionId,
-        title: info.customTitle || info.summary,
+        title: cliTitle(info) ?? info.firstPrompt?.slice(0, MAX_AUTO_TITLE) ?? info.summary.slice(0, MAX_AUTO_TITLE),
         lastModified: info.lastModified,
         cwd: info.cwd,
         gitBranch: info.gitBranch,

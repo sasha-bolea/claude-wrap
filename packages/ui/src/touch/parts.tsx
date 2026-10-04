@@ -47,7 +47,7 @@ export function IconButton({ icon, label, onClick, dot, count, countIcon, classN
 export function Title({ text, sub, padLeft }: { text: ReactNode; sub?: ReactNode; padLeft?: boolean }) {
   return (
     <h1 className={padLeft ? 'pad-left' : undefined}>
-      {text}
+      <span className="title-main">{text}</span>
       {sub !== undefined && <span className="sub">{sub}</span>}
     </h1>
   )

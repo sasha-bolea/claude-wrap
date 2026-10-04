@@ -202,7 +202,7 @@ type StoredInfo = { cwd?: string; customTitle?: string; lastModified: number }
 function summaryOf(history: SessionMessage[]): string {
   const first = history.find((message) => message.type === 'user')
   const content = (first?.message as { content?: unknown } | undefined)?.content
-  return typeof content === 'string' ? content.slice(0, 80) : 'Session'
+  return typeof content === 'string' ? content.slice(0, 200) : 'Session'
 }
 
 // A fake SDK: query() creates FakeSessions; the session functions work on an in-memory store of histories.
