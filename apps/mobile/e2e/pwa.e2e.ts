@@ -472,6 +472,18 @@ describe('PWA (fake SDK)', () => {
     await page.locator('.col-right').getByRole('button', { name: 'New note' }).waitFor()
     await button(page, 'Folder notes').click()
     await page.locator('.col-right').waitFor({ state: 'detached' })
+    // Menus are popovers by their button: below one at the top, above the composer's.
+    await button(page, 'More actions').click()
+    const menu = page.locator('.sheet.popover')
+    const more = (await button(page, 'More actions').boundingBox())!
+    expect((await menu.boundingBox())!.y).toBeGreaterThanOrEqual(more.y + more.height)
+    await page.keyboard.press('Escape')
+    await page.locator('.model-btn').click()
+    await page.getByRole('dialog', { name: 'Model and effort' }).getByText('Haiku').waitFor()
+    const model = (await page.locator('.model-btn').boundingBox())!
+    const popover = (await menu.boundingBox())!
+    expect(popover.y + popover.height).toBeLessThanOrEqual(model.y)
+    await page.keyboard.press('Escape')
     await button(page, 'Settings').click()
     const settings = page.getByRole('dialog', { name: 'Settings' })
     await settings.getByRole('button', { name: 'Back' }).click()

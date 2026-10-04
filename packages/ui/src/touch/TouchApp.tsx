@@ -136,9 +136,14 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
     setSheets((current) => current.slice(0, -1))
   }, [closeSheets])
   const openSheet = useCallback((sheet: SheetSpec) => {
-    if (!sheetsRef.current.length) opener.current = document.activeElement as HTMLElement | null
+    const first = !sheetsRef.current.length
+    if (first) opener.current = document.activeElement as HTMLElement | null
+    // Wide: a menu opened from a button is a popover by it; typing sheets and those opened from a sheet are centred.
+    const button = first && wideRef.current && !sheet.field ? opener.current?.closest('button') : null
+    const box = button?.getBoundingClientRect()
+    const anchor = box && box.width ? { top: box.top, bottom: box.bottom, left: box.left, right: box.right } : undefined
     setInstant(false)
-    setSheets((current) => [...current, { ...sheet, id: nextId++ }])
+    setSheets((current) => [...current, { ...sheet, id: nextId++, anchor }])
   }, [])
 
   const go = useCallback((screen: Screen) => {

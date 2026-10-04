@@ -74,6 +74,13 @@ code { font-family: var(--font-mono); }
 .row.current { background: var(--surface-2); }
 .window-scrim { position: fixed; inset: 0; z-index: 20; background: var(--scrim); display: grid; place-items: center; }
 .window { position: relative; width: min(560px, calc(100% - 48px)); height: min(760px, calc(100% - 48px)); border-radius: 16px; overflow: clip; background: var(--background); box-shadow: 0 24px 60px rgba(0,0,0,.3); }
+/* A menu opened from a button: a popover by it (placed by SheetHost through --pop-top/--pop-left/--pop-max), the
+   rest of the app still visible under a clear scrim */
+.device.wide .sheet.popover { position: fixed; left: var(--pop-left); top: var(--pop-top); width: 320px; max-height: var(--pop-max); transform: none; border: 1px solid var(--border); border-radius: 14px; padding: 0 12px 12px; gap: 8px; box-shadow: 0 12px 32px rgba(0,0,0,.18); animation: fade .12s ease-out; }
+.sheet.popover .sheet-head { padding-top: 6px; }
+.sheet.popover .sheet-head::before { display: none; }
+.sheet.popover h2 { font-size: 15px; }
+.scrim.clear { background: transparent; animation: none; }
 .device.wide .sheet { left: 50%; right: auto; top: 50%; bottom: auto; width: min(460px, calc(100% - 48px)); max-height: 80%; border-radius: 16px; padding-bottom: 16px; transform: translate(-50%, -50%); animation: fade .18s ease-out; }
 
 /* One wrapper per stack entry: hidden unless on top (or under a screen being swiped away) */

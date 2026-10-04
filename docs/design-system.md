@@ -207,7 +207,10 @@ Home in a 300 px column (with "Aperte", the backend's open sessions, on top — 
 folder sessions and trash open in the column itself), the chat in the middle without a back arrow, its conversation
 padded to ~780 px of content and the composer as wide, **File** and **Note** in its top bar opening and closing a
 380 px panel on the right (tabs File | Note and ×; the 🔜 panels, Contesto and Consumo open there too), Settings in a
-window over the app (Back or a click outside closes it), sheets as centred dialogs (popovers come next). Each region
+window over the app (Back or a click outside closes it). A menu opened from a button is a **popover** by it
+(`.sheet.popover`, 320 px, below a button in the upper half of the window, above one in the lower half — the composer —
+re-placed when its content grows, over a clear scrim); typing sheets and sheets opened from a sheet (confirmations)
+are centred dialogs. Each region
 has its own Back; a new chat closes the panel; "Menziona in chat" / "Usa nel messaggio" leave the panel open. Below
 1024 px the phone arrangement (one screen at a time) is used.
 Examples: [TouchApp.tsx:24](../packages/ui/src/touch/TouchApp.tsx#L24), [TouchApp.tsx:445](../packages/ui/src/touch/TouchApp.tsx#L445).
