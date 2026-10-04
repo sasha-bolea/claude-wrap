@@ -613,9 +613,9 @@ describe('controls', () => {
     expect(session.calls.at(-1)).toEqual({ method: 'usage', args: [{ skipBehaviors: true }] })
     expect(usage.session).toMatchObject({ costUsd: 0.42, linesAdded: 12, models: [{ model: 'fake-model', inputTokens: 1200, outputTokens: 3400, cacheReadTokens: 52000, cacheWriteTokens: 8000, costUsd: 0.42 }] })
     expect(usage.limits).toEqual({
-      fiveHour: { utilization: 37, resetsAt: '2026-10-03T22:00:00.000Z' },
-      sevenDay: { utilization: 12, resetsAt: '2026-10-08T09:00:00.000Z' },
-      models: [{ name: 'Fable', utilization: 5, resetsAt: '2026-10-08T09:00:00.000Z' }]
+      fiveHour: { utilization: 37, resetsAt: '2099-10-03T22:00:00.000Z' },
+      sevenDay: { utilization: 12, resetsAt: '2099-10-08T09:00:00.000Z' },
+      models: [{ name: 'Fable', utilization: 5, resetsAt: '2099-10-08T09:00:00.000Z' }]
     })
     session.usage = { ...session.usage!, subscription_type: null, rate_limits_available: false, rate_limits: null }
     expect((await client.ok('tab.usage', { tabId: 't1' })).limits).toBeNull()
@@ -630,7 +630,7 @@ describe('controls', () => {
     await client.waitFor(() => meta(client)?.planLimits !== undefined)
     expect(meta(client)).toMatchObject({
       context: { percentage: 24, totalTokens: 48500, maxTokens: 200000 },
-      planLimits: { fiveHour: { utilization: 37, resetsAt: '2026-10-03T22:00:00.000Z' }, sevenDay: { utilization: 12 } }
+      planLimits: { fiveHour: { utilization: 37, resetsAt: '2099-10-03T22:00:00.000Z' }, sevenDay: { utilization: 12 } }
     })
     expect(meta(client, 't2')?.planLimits?.fiveHour?.utilization).toBe(37)
     expect(meta(client, 't2')?.context).toBeUndefined()
@@ -1331,6 +1331,9 @@ describe('accounts', () => {
     core = makeCore({ stateDir })
     client = await connect(core)
     await client.waitFor(() => accounts(client).accounts?.length === 1)
+    await client.ok('accounts.rename', { accountId, name: 'Work' })
+    await client.waitFor(() => accounts(client).accounts?.[0]?.name === 'Work')
+    expect(await client.fails('accounts.rename', { accountId: 'nobody', name: 'X' })).toMatchObject({ code: 'not_found' })
     await client.ok('accounts.remove', { accountId })
     await client.waitFor(() => accounts(client).accounts?.length === 0)
   })

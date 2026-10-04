@@ -552,6 +552,7 @@ export const en = {
   continueOne: 'Continue',
   continueAll: 'Continue in all ({count})',
   continueText: 'continue',
+  accountRenamed: 'Now it is {name}',
   close: 'Close'
 }
 

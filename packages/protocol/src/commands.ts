@@ -187,6 +187,8 @@ export const COMMANDS = {
   // back to the login. setDefault: the account of new sessions (undefined = the login).
   'accounts.add': { args: z.object({ name: z.string().trim().min(1).max(40), token: z.string().trim().min(1) }), result: z.object({ accountId: z.string() }) },
   'accounts.remove': { args: z.object({ accountId: z.string() }), result: empty },
+  // A new name for an account (its token stays).
+  'accounts.rename': { args: z.object({ accountId: z.string(), name: z.string().trim().min(1).max(40) }), result: empty },
   // The same switch made from Settings: the account of every session and of the new ones.
   'accounts.setDefault': { args: z.object({ accountId: z.string().optional() }), result: empty },
   // "Continua": every session stopped by a usage limit or an account switch whose account is free gets text as a

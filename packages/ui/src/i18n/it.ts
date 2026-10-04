@@ -554,5 +554,6 @@ export const it: Record<MessageKey, string> = {
   continueOne: 'Continua',
   continueAll: 'Continua in tutte ({count})',
   continueText: 'continua',
+  accountRenamed: 'Ora si chiama {name}',
   close: 'Chiudi'
 }

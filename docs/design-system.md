@@ -357,7 +357,8 @@ Example: [LaterScreen.tsx:42](../packages/ui/src/touch/LaterScreen.tsx#L42).
 ### Claude accounts — Settings group, account sheet, limit card, continue card (existing `.list`/`.row`, `.menu` radios, `.card`; new: `.button.quiet`, `.card-actions`)
 No new classes. **One account for every session**: Settings → "Account Claude" is a row list — "Login di Claude
 Code" first (the backend's own login), then the added accounts; a tap makes one the account of every session (chip
-"in uso"), ⋯ removes an added one; "Aggiungi account" opens a sheet with a name and a **password-type mono token
+"in uso"), ⋯ of an added one opens a `.menu` with "Rinomina" (a sheet with the name field, prefilled, and Salva; the
+token stays) and "Rimuovi account" (after a confirmation sheet); "Aggiungi account" opens a sheet with a name and a **password-type mono token
 field** (never shown again). The session menu has an "Account" row (current name on the right) opening a radio
 `.menu`: picking one there switches every session too. While the account is at its usage limit, the conversation
 shows a `.card` (`role="status"`) with until when, one quiet "Passa a …" button (`.button.quiet` in `.card-actions`)
@@ -365,7 +366,7 @@ per other added account (never Claude Code's login), each taking the row's width
 conversation shows, once the account is free (after a switch, or when the limit resets), a `.card` with why it
 stopped (or how many sessions stopped) and `.card-actions`: a quiet "Continua" / "Continua in tutte (N)" and "Non
 ora" (`.link-btn`, takes the cards away) (sends "continua" to every stopped session; their queues go on after it).
-Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [accounts.tsx:113](../packages/ui/src/touch/accounts.tsx#L113), [accounts.tsx:146](../packages/ui/src/touch/accounts.tsx#L146), [accounts.tsx:185](../packages/ui/src/touch/accounts.tsx#L185), [Conversation.tsx:309](../packages/ui/src/touch/Conversation.tsx#L309), [ChatScreen.tsx:367](../packages/ui/src/touch/ChatScreen.tsx#L367), [Conversation.tsx:308](../packages/ui/src/touch/Conversation.tsx#L308).
+Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [accounts.tsx:80](../packages/ui/src/touch/accounts.tsx#L80), [accounts.tsx:137](../packages/ui/src/touch/accounts.tsx#L137), [accounts.tsx:170](../packages/ui/src/touch/accounts.tsx#L170), [accounts.tsx:209](../packages/ui/src/touch/accounts.tsx#L209), [Conversation.tsx:309](../packages/ui/src/touch/Conversation.tsx#L309), [ChatScreen.tsx:367](../packages/ui/src/touch/ChatScreen.tsx#L367), [Conversation.tsx:308](../packages/ui/src/touch/Conversation.tsx#L308).
 
 ### Launch and pairing — `.splash` (`.splash-main`, `.splash-state` `.bad`, `.dots`), `.hero-mark` (`.big`), `.hero-title`, `.steps`, `.error-text`, `.code-box`
 The launch screen until the server answers (same mark as the iOS splash). The pairing screen: install steps in iPhone

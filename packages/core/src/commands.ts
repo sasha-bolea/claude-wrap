@@ -131,6 +131,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     },
     'accounts.add': async ({ name, token }) => ({ accountId: await workspace.accounts.add(name, token) }),
     'accounts.remove': async ({ accountId }) => (await workspace.removeAccount(accountId), {}),
+    'accounts.rename': async ({ accountId, name }) => (await workspace.accounts.rename(accountId, name), {}),
     'accounts.setDefault': async ({ accountId }) => {
       await workspace.accounts.loaded
       if (accountId && !workspace.accounts.has(accountId)) throw new CoreError('not_found', `no account ${accountId}`)

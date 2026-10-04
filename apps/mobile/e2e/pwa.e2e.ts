@@ -296,9 +296,9 @@ describe('PWA (fake SDK)', () => {
     await openProject(page)
     await send(page, 'hello')
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo: hello')
-    // Back to the Home (through the project's screen, if the session was opened from there).
+    // Back to the Home root (through the project's folder, which goes up with "Up: <parent>").
     const actions = page.getByRole('button', { name: 'Actions for the folder project' })
-    for (let step = 0; step < 3 && !(await actions.waitFor({ timeout: 1500 }).then(() => true, () => false)); step++) await button(page, 'Back').click()
+    for (let step = 0; step < 3 && !(await actions.waitFor({ timeout: 1500 }).then(() => true, () => false)); step++) await button(page, /^Back$|^Up: /).click()
     await actions.click()
     await button(page, 'Delete').click()
     const dialog = page.getByRole('dialog')
@@ -334,6 +334,17 @@ describe('PWA (fake SDK)', () => {
     await page.getByRole('button', { name: 'Use Second in every session' }).waitFor()
     // The token is never sent back to the app.
     expect(await page.content()).not.toContain('x'.repeat(40))
+    // A name can be changed later; the token stays.
+    await button(page, 'Actions for Second').click()
+    await button(page, 'Rename').click()
+    await page.getByRole('textbox', { name: 'Name' }).fill('Work')
+    await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('button', { name: 'Use Work in every session' }).waitFor()
+    await button(page, 'Actions for Work').click()
+    await button(page, 'Rename').click()
+    await page.getByRole('textbox', { name: 'Name' }).fill('Second')
+    await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('button', { name: 'Use Second in every session' }).waitFor()
     await button(page, 'Back').click()
     await openProject(page)
     await send(page, 'limit')
@@ -398,7 +409,8 @@ describe('PWA (fake SDK)', () => {
     await button(page, 'Settings').click()
     const group = page.getByRole('radiogroup', { name: 'Compact when the conversation reaches' })
     expect(await group.getByRole('radio', { name: 'Default' }).isChecked()).toBe(true)
-    await group.getByText('200k').click()
+    // A click, not check(): the radio turns on only once the backend has the new value.
+    await group.getByRole('radio', { name: '200k' }).click()
     await page.getByText('Sessions compact by themselves at 200k').waitFor()
     await page.reload()
     await button(page, 'Settings').click()

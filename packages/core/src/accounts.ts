@@ -68,6 +68,14 @@ export class AccountStore {
     await this.save()
   }
 
+  // Gives an account a new name (its token stays).
+  async rename(accountId: string, name: string): Promise<void> {
+    await this.loaded
+    if (!this.has(accountId)) throw new CoreError('not_found', `no account ${accountId}`)
+    this.data = { ...this.data, accounts: this.data.accounts.map((account) => (account.accountId === accountId ? { ...account, name } : account)) }
+    await this.save()
+  }
+
   // The account of new sessions (undefined = the login).
   async setDefault(accountId: string | undefined): Promise<void> {
     await this.loaded

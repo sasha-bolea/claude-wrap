@@ -29,7 +29,7 @@ export function AccountsGroup() {
         </span>
         <span className="row-sub">{sub}</span>
       </button>
-      {account && <IconButton icon="more" label={t('accountActions', { name })} onClick={() => openSheet({ title: name, body: <RemoveAccountSheet account={account} /> })} />}
+      {account && <IconButton icon="more" label={t('accountActions', { name })} onClick={() => openSheet({ title: name, body: <AccountMenu account={account} /> })} />}
     </li>
   )
   return (
@@ -76,7 +76,8 @@ function AddAccountSheet() {
   )
 }
 
-function RemoveAccountSheet({ account }: { account: Account }) {
+// ⋯ of an added account: rename it, or remove it (after a confirmation).
+function AccountMenu({ account }: { account: Account }) {
   const { connection, openSheet, closeSheets, toast, fail } = useTouch()
   const remove = () =>
     connection.request('accounts.remove', { accountId: account.accountId }).then(() => {
@@ -85,6 +86,9 @@ function RemoveAccountSheet({ account }: { account: Account }) {
     }, fail)
   return (
     <ul className="menu">
+      <li>
+        <button onClick={() => openSheet({ title: t('rename'), field: true, body: <RenameAccountSheet account={account} /> })}>{t('rename')}</button>
+      </li>
       <li>
         <button
           className="danger"
@@ -106,6 +110,26 @@ function RemoveAccountSheet({ account }: { account: Account }) {
         </button>
       </li>
     </ul>
+  )
+}
+
+// A new name for an account (its token stays).
+function RenameAccountSheet({ account }: { account: Account }) {
+  const { connection, closeSheets, toast, fail } = useTouch()
+  const [name, setName] = useState(account.name)
+  const save = () =>
+    name.trim() &&
+    connection.request('accounts.rename', { accountId: account.accountId, name: name.trim() }).then(() => {
+      closeSheets()
+      toast(t('accountRenamed', { name: name.trim() }))
+    }, fail)
+  return (
+    <>
+      <input className="field" aria-label={t('accountName')} autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void save()} />
+      <button className="button primary block" disabled={!name.trim()} onClick={() => void save()}>
+        {t('save')}
+      </button>
+    </>
   )
 }
 

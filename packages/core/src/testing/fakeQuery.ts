@@ -34,7 +34,8 @@ const FAKE_CONTEXT = {
   apiUsage: null
 } as SDKControlGetContextUsageResponse
 
-// A /usage answer on a Max plan: $0.42 spent with one model, 5-hour window at 37 %, weekly at 12 %.
+// A /usage answer on a Max plan: $0.42 spent with one model, 5-hour window at 37 %, weekly at 12 % (resets far ahead, so
+// the windows never count as already reset).
 const FAKE_USAGE = {
   session: {
     total_cost_usd: 0.42,
@@ -47,10 +48,10 @@ const FAKE_USAGE = {
   subscription_type: 'max',
   rate_limits_available: true,
   rate_limits: {
-    five_hour: { utilization: 37, resets_at: '2026-10-03T22:00:00.000000+00:00' },
-    seven_day: { utilization: 12, resets_at: '2026-10-08T09:00:00Z' },
+    five_hour: { utilization: 37, resets_at: '2099-10-03T22:00:00.000000+00:00' },
+    seven_day: { utilization: 12, resets_at: '2099-10-08T09:00:00Z' },
     seven_day_opus: null,
-    model_scoped: [{ display_name: 'Fable', utilization: 5, resets_at: '2026-10-08T09:00:00Z' }]
+    model_scoped: [{ display_name: 'Fable', utilization: 5, resets_at: '2099-10-08T09:00:00Z' }]
   },
   behaviors: null
 } as SDKControlGetUsageResponse
