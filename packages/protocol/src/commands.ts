@@ -91,6 +91,9 @@ export const COMMANDS = {
   'tab.queueEdit': { args: z.object({ tabId, queueId: z.string(), text: z.string() }), result: empty },
   'tab.queueMove': { args: z.object({ tabId, queueId: z.string(), index: z.number().int().nonnegative() }), result: empty },
   'tab.unqueue': { args: z.object({ tabId, queueId: z.string() }), result: empty },
+  // Stops the countdown of the next queued message: it leaves the queue and comes back (text, images) for the
+  // composer; the rest of the queue waits (paused) until ▶.
+  'tab.queueHold': { args: z.object({ tabId, queueId: z.string() }), result: z.object({ text: z.string(), images: z.array(imageSchema).optional() }) },
   // Takes a message out of the queue and sends it now (read at Claude's next step: nothing is interrupted).
   'tab.sendNow': { args: z.object({ tabId, queueId: z.string() }), result: empty },
   // ⏸ / ▶ of the queue (▶ also ends a pause after Stop or a usage limit).
@@ -200,6 +203,9 @@ export const COMMANDS = {
   'push.subscribe': { args: z.object({ endpoint: z.url(), keys: z.object({ p256dh: z.string(), auth: z.string() }) }), result: empty },
   'push.unsubscribe': { args: empty, result: empty },
   // The client's page is shown or hidden (push notifications skip devices with a visible client).
+  // The chat this client shows on screen (none: tabId absent): while one is shown, its next queued message waits a
+  // countdown there (TabMeta.queueCountdown) instead of going at once.
+  'client.watch': { args: z.object({ tabId: z.string().optional() }), result: empty },
   'client.visibility': { args: z.object({ visible: z.boolean() }), result: empty },
   // Folder trust: what the folder would load and run, and where an accepted trust applies.
   'trust.check': {

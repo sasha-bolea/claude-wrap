@@ -96,6 +96,8 @@ export const tabMetaSchema = z.object({
   // Gauges for the composer, kept by core without starting a process: the context window after the last turn, and
   // the plan windows of the session's account (5 hours, week) as last read.
   context: z.object({ percentage: z.number(), totalTokens: z.number(), maxTokens: z.number() }).optional(),
+  // The next queued message goes at `until` (ms) unless stopped: a countdown shown while someone looks at the chat.
+  queueCountdown: z.object({ queueId: z.string(), until: z.number() }).optional(),
   planLimits: z.object({ fiveHour: limitWindowSchema.optional(), sevenDay: limitWindowSchema.optional() }).optional()
 })
 

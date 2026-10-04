@@ -39,7 +39,8 @@ export function createCore(config: CoreConfig): Core {
   const greeted = new Set<Connection>()
   const visibleDevices = () => [...new Set([...greeted].flatMap((connection) => (connection.visible && connection.deviceId ? [connection.deviceId] : [])))]
   const notifier = config.notifier
-  const runtime = start({ ...config, notifier: notifier && ((notice) => notifier({ ...notice, visibleDevices: visibleDevices() })) })
+  const watching = (tabId: string) => [...greeted].some((connection) => connection.visible && connection.watching === tabId)
+  const runtime = start({ ...config, watching, notifier: notifier && ((notice) => notifier({ ...notice, visibleDevices: visibleDevices() })) })
   const replies = new ReplyCache()
   const welcome: Welcome = { t: 'welcome', protocolVersion: PROTOCOL_VERSION, backendId: config.backendId, backendKind: config.backendKind, ...readVersions(), limits: LIMITS }
 

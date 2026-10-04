@@ -210,14 +210,14 @@ Examples: [TouchApp.tsx:224](../packages/ui/src/touch/TouchApp.tsx#L224), [Touch
 ### Top bar — `.topbar`, `h1` (`.sub`, `.pad-left`), `.title-btn` (`.title-text`)
 52 px bar: back icon button, the title with its small `.sub` line (path, state), icon buttons on the right. In the
 chat the title is a `.title-btn` (badge + title + folder) that opens the session menu.
-Examples: [FilesScreen.tsx:211](../packages/ui/src/touch/FilesScreen.tsx#L211), [ChatScreen.tsx:261](../packages/ui/src/touch/ChatScreen.tsx#L261), [parts.tsx:46](../packages/ui/src/touch/parts.tsx#L46).
+Examples: [FilesScreen.tsx:211](../packages/ui/src/touch/FilesScreen.tsx#L211), [ChatScreen.tsx:268](../packages/ui/src/touch/ChatScreen.tsx#L268), [parts.tsx:46](../packages/ui/src/touch/parts.tsx#L46).
 
 ### Icon button — `.icon-btn` (`.dot`, `.count`, `.on`, `.dim`, `.accent`)
 44×44 line icon ([icons.tsx](../packages/ui/src/touch/icons.tsx), class `.i`, the prototype's set) with `aria-label`.
 `.dot`: something waits elsewhere; `.count`: a small number (queue, trash) or a small icon of the set (`countIcon`:
 the queue's pause — never an emoji); `.on`: a mode is active (queue); `.dim`: not available now (Torna indietro while
 Claude works); `.accent`: the screen's main action as an icon (Note: use in the message).
-Examples: [parts.tsx:31](../packages/ui/src/touch/parts.tsx#L31), [ChatScreen.tsx:268](../packages/ui/src/touch/ChatScreen.tsx#L268).
+Examples: [parts.tsx:31](../packages/ui/src/touch/parts.tsx#L31), [ChatScreen.tsx:275](../packages/ui/src/touch/ChatScreen.tsx#L275).
 
 ### Row list — `.list`, `.row` (`.end-pad`, `.stacked`, `.uploading`), `.row-main`, `.row-title` (`.plain`), `.row-sub`, `.ficon` (`.dir`), `.chevron`
 Rounded list of 56 px rows: an icon or badge, a full-width `.row-main` button (title, muted subtitle), then a chip,
@@ -235,7 +235,7 @@ Examples: [parts.tsx:56](../packages/ui/src/touch/parts.tsx#L56), [FilesScreen.t
 `SheetHost` renders the stack of sheets (rule 2). `.menu`: 50 px rows, `.right` for the current value or a hint,
 `.danger` for closing/deleting actions, `role="radio"` + `aria-checked` for a choice. `.two-buttons`: Cancel and the
 action of a confirmation.
-Examples: [SheetHost.tsx:49](../packages/ui/src/touch/SheetHost.tsx#L49), [ChatScreen.tsx:337](../packages/ui/src/touch/ChatScreen.tsx#L337), [HomeScreen.tsx:275](../packages/ui/src/touch/HomeScreen.tsx#L275).
+Examples: [SheetHost.tsx:49](../packages/ui/src/touch/SheetHost.tsx#L49), [ChatScreen.tsx:344](../packages/ui/src/touch/ChatScreen.tsx#L344), [HomeScreen.tsx:275](../packages/ui/src/touch/HomeScreen.tsx#L275).
 
 ### Buttons and fields — `.button` (`.primary`, `.danger`, `.block`), `.link-btn`, `.field` (`.mono`), `.check-row`, `.segmented` (`.effort`, `.cols-N`), `.toggle-input`
 Same roles as on the desktop; `.link-btn`: the light text actions under a list ("Sessioni passate · + Nuova
@@ -246,7 +246,7 @@ Examples: [HomeScreen.tsx:164](../packages/ui/src/touch/HomeScreen.tsx#L164), [H
 `.card`: a framed block (session info in the menu, error and trust notices, the 🔜 placeholder). `.chip`: small
 state words (draft, queued, "this one"); `.chip.changed`: new / changed by Claude. `.badge`: the session state dot,
 pulsing while it waits for you (`Badge` component, with its meaning for screen readers).
-Examples: [ChatScreen.tsx:333](../packages/ui/src/touch/ChatScreen.tsx#L333), [FilesScreen.tsx:235](../packages/ui/src/touch/FilesScreen.tsx#L235), [parts.tsx:113](../packages/ui/src/touch/parts.tsx#L113).
+Examples: [ChatScreen.tsx:340](../packages/ui/src/touch/ChatScreen.tsx#L340), [FilesScreen.tsx:235](../packages/ui/src/touch/FilesScreen.tsx#L235), [parts.tsx:113](../packages/ui/src/touch/parts.tsx#L113).
 
 ### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-user-row`, `.send-now`, `.msg-ai`, `.think`, `.tool`, `.working-line`, `.turn-end`
 Your messages right in a bubble (a long press or right click opens their actions; "waiting" until Claude reads a
@@ -276,20 +276,27 @@ Examples: [Conversation.tsx:336](../packages/ui/src/touch/Conversation.tsx#L336)
 On touch screens (`pointer: coarse`) the native indicator of `.conversation` is hidden (iOS draws it down behind the
 dock's blur and cannot inset it); a thin thumb runs from the top of the chat to just above the dock, shows while
 scrolling and fades out. Mouse screens keep the native scrollbar.
-Examples: [ChatScreen.tsx:278](../packages/ui/src/touch/ChatScreen.tsx#L278).
+Examples: [ChatScreen.tsx:285](../packages/ui/src/touch/ChatScreen.tsx#L285).
 
 ### Ghost and jump — `.ghost` (`.ghost-bubble`, `.leaving`), `.jump` (`.ask`, `.dot`)
 The ghost: your message whose answer you are reading, once it scrolled off the top and you scroll up from the bottom
 (tap = back to it, drag up = put away; hidden at the bottom of the chat, with the keyboard open, and as soon as your next message touches it, so the two never overlap); it slides in from under the top bar and always leaves the same way (also after a drag, from where the finger left it). The jump button "Torna giù" when not at the bottom (a dot when something new
 arrived; "Claude ti aspetta" with a request open).
-Examples: [ChatScreen.tsx:281](../packages/ui/src/touch/ChatScreen.tsx#L281), [ChatScreen.tsx:294](../packages/ui/src/touch/ChatScreen.tsx#L294).
+Examples: [ChatScreen.tsx:288](../packages/ui/src/touch/ChatScreen.tsx#L288), [ChatScreen.tsx:301](../packages/ui/src/touch/ChatScreen.tsx#L301).
 
 ### Composer and dock — `.dock`, `.composer` (`.queue-mode`), `.input-box`, `.input-tools`, `.model-btn`, `.mode-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.linked-note`, `.shell-hint`, `.suggest`
 One box floating over the chat over a light veil (2 px blur, a slightly dark gradient, fading to the page colour only in the last line above the bottom: the chat stays readable under it): the text on top; + (photos and files), model · effort, the
 permission mode icon, Stop (while Claude works or waits) and Send below. Queue mode: dashed border, Send adds to the
 queue. A linked note shows above the box (× unlinks it). Composer and box are one `minmax(0, 1fr)` column: a long note
 title or file name is cut with "…", never pushing Send off the screen.
-Examples: [ChatScreen.tsx:301](../packages/ui/src/touch/ChatScreen.tsx#L301), [TouchComposer.tsx:216](../packages/ui/src/touch/TouchComposer.tsx#L216), [TouchComposer.tsx:209](../packages/ui/src/touch/TouchComposer.tsx#L209).
+Examples: [ChatScreen.tsx:308](../packages/ui/src/touch/ChatScreen.tsx#L308), [TouchComposer.tsx:265](../packages/ui/src/touch/TouchComposer.tsx#L265), [TouchComposer.tsx:258](../packages/ui/src/touch/TouchComposer.tsx#L258).
+
+### Queue countdown — `.countdown`, `.countdown-text`, `.countdown-label`, `.countdown-stop`, `.countdown-ring`
+While the chat is on screen, the next queued message does not go at once: the composer shows its text, "Dalla coda:
+parte tra N s" and a danger Stop inside a ring that empties in 5 s (`role="status"`). Stop puts the message back into
+the field (before what was being written) and the rest of the queue waits for ▶; at 0 it goes. With the chat not on
+screen (another screen, the app hidden, nobody connected) the queue goes at once, as before.
+Examples: [TouchComposer.tsx:38](../packages/ui/src/touch/TouchComposer.tsx#L38).
 
 ### Queue — `.queue-tray`, `.q-stack`, `.q-card` (`.k0-3`, `.m0-3`), `.q-line`, `.q-play`, `.q-sheet-item`
 The deck under the composer: the first card shows the next message, the others peek out on the right; ▶/⏸ beside
@@ -358,7 +365,7 @@ per other account (or "Aggiungi un account") and "Annulla" (`.link-btn`: puts th
 conversation shows, once the account is free (after a switch, or when the limit resets), a `.card` with why it
 stopped (or how many sessions stopped) and `.card-actions`: a quiet "Continua" / "Continua in tutte (N)" and "Non
 ora" (`.link-btn`, takes the cards away) (sends "continua" to every stopped session; their queues go on after it).
-Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [accounts.tsx:113](../packages/ui/src/touch/accounts.tsx#L113), [accounts.tsx:146](../packages/ui/src/touch/accounts.tsx#L146), [accounts.tsx:185](../packages/ui/src/touch/accounts.tsx#L185), [Conversation.tsx:309](../packages/ui/src/touch/Conversation.tsx#L309), [ChatScreen.tsx:360](../packages/ui/src/touch/ChatScreen.tsx#L360), [Conversation.tsx:308](../packages/ui/src/touch/Conversation.tsx#L308).
+Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [accounts.tsx:113](../packages/ui/src/touch/accounts.tsx#L113), [accounts.tsx:146](../packages/ui/src/touch/accounts.tsx#L146), [accounts.tsx:185](../packages/ui/src/touch/accounts.tsx#L185), [Conversation.tsx:309](../packages/ui/src/touch/Conversation.tsx#L309), [ChatScreen.tsx:367](../packages/ui/src/touch/ChatScreen.tsx#L367), [Conversation.tsx:308](../packages/ui/src/touch/Conversation.tsx#L308).
 
 ### Launch and pairing — `.splash` (`.splash-main`, `.splash-state` `.bad`, `.dots`), `.hero-mark` (`.big`), `.hero-title`, `.steps`, `.error-text`, `.code-box`
 The launch screen until the server answers (same mark as the iOS splash). The pairing screen: install steps in iPhone

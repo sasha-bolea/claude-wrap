@@ -202,6 +202,13 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     element.addEventListener('touchmove', block, { passive: false })
     return () => element.removeEventListener('touchmove', block)
   }, [])
+  // This chat on screen (again after a reconnection): core holds its next queued message for a countdown here.
+  const connected = state.status === 'connected'
+  useEffect(() => {
+    if (!top || !connected) return
+    void connection.request('client.watch', { tabId }).catch(() => undefined)
+    return () => void connection.request('client.watch', {}).catch(() => undefined)
+  }, [top, connected, tabId, connection])
   // Back on top (from File, Note): the conversation at the bottom again if it was following.
   useEffect(() => {
     if (top && follow) toBottom()

@@ -12,7 +12,8 @@ const ALL_SESSIONS_LIMIT = 200
 
 // One attached client. label: how other clients see it (device name on the server, else the clientId);
 // deviceId: the paired device (remote only); visible: its page is on screen.
-export type Connection = { clientId: string; send: Send; label: string; deviceId?: string; visible: boolean }
+// watching: the tab whose chat it shows on screen.
+export type Connection = { clientId: string; send: Send; label: string; deviceId?: string; visible: boolean; watching?: string }
 type Handler<N extends CommandName> = (args: CommandArgs<N>, connection: Connection, cmdId: string) => Promise<CommandResult<N>> | CommandResult<N>
 export type Handlers = { [N in CommandName]: Handler<N> }
 // Commands the host implements itself (the remote server's device management).
@@ -108,6 +109,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'tab.queueEdit': ({ tabId, queueId, text }) => (tabOf(tabId).queueEdit(queueId, text), {}),
     'tab.queueMove': ({ tabId, queueId, index }) => (tabOf(tabId).queueMove(queueId, index), {}),
     'tab.unqueue': ({ tabId, queueId }) => (tabOf(tabId).unqueue(queueId), {}),
+    'tab.queueHold': ({ tabId, queueId }) => tabOf(tabId).holdQueued(queueId),
     'tab.sendNow': async ({ tabId, queueId }) => (await tabOf(tabId).sendNow(queueId), {}),
     'tab.queuePause': ({ tabId, paused }) => (tabOf(tabId).setQueuePaused(paused), {}),
     'tab.shell': ({ tabId, command }, _connection, cmdId) => tabOf(tabId).shell(command, cmdId),
@@ -193,6 +195,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'push.unsubscribe': notHere,
     ...host,
     'client.visibility': ({ visible }, connection) => ((connection.visible = visible), {}),
+    'client.watch': ({ tabId }, connection) => ((connection.watching = tabId), {}),
     'trust.check': ({ cwd }) => workspace.trust.check(cwd),
     'trust.grant': async ({ cwd }) => (await workspace.grantTrust(cwd), {}),
     'request.answer': ({ tabId, requestId, ...answer }, connection) => (tabOf(tabId).answer(requestId, answer, connection.label), {})

@@ -195,8 +195,28 @@ describe('PWA (fake SDK)', () => {
     await page.locator('.working-line').waitFor({ state: 'detached' })
     expect(await page.locator('.msg-user').filter({ hasText: 'queued one' }).count()).toBe(0)
     await resume.click()
-    await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: queued one')
+    // The chat is on screen: the message counts down in the composer before it goes.
+    await page.getByRole('status').filter({ hasText: /From the queue: goes in \d s/ }).waitFor()
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toBe('Echo: queued one')
     await page.locator('.queue-tray').waitFor({ state: 'detached' })
+  })
+
+  it('the next queued message counts down in the composer while the chat is on screen; Stop brings it back into the field', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'slow')
+    await page.locator('.working-line').waitFor()
+    await button(page, /^Queue: empty/).click()
+    await composer(page).fill('wait for me')
+    await button(page, 'Add to the queue').click()
+    await button(page, 'Stop: stop Claude').click()
+    await button(page, 'Queue paused: Resume').click()
+    const countdown = page.getByRole('status').filter({ hasText: 'wait for me' })
+    await countdown.waitFor()
+    await countdown.getByRole('button', { name: 'Stop: it comes back into the field' }).click()
+    await expect.poll(() => composer(page).inputValue()).toBe('wait for me')
+    await page.waitForTimeout(6000)
+    expect(await page.locator('.msg-user').filter({ hasText: 'wait for me' }).count()).toBe(0)
   })
 
   it("the folder's files: browse, preview with colours, mention in the chat, upload, trash with undo", async () => {

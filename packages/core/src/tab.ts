@@ -44,6 +44,9 @@ export interface TabEnvironment {
   sdkOptions: Options
   transcript: TranscriptOptions
   closeTimeoutMs: number
+  // The next queued message waits this long (ms) while its chat is on screen (watched).
+  queueCountdownMs: number
+  watched(tabId: string): boolean
   // Throws limit_reached when no more processes may start.
   checkCanStart(): void
   // Runs before every spawn: canonical cwd, allowed roots and trust gate. Returns the cwd to spawn in, or throws
@@ -125,6 +128,8 @@ export class Tab {
   private interrupted?: 'limit' | 'switch'
   // The context window after the last turn (composer gauge).
   private contextGauge?: ContextGauge
+  // The countdown of the next queued message, while its chat is on screen.
+  private countdown?: { queueId: string; until: number; timer: NodeJS.Timeout }
   sessionId?: string
   model?: string
   activeModel?: string
@@ -222,8 +227,9 @@ export class Tab {
     const limitedUntil = this.env.limitedUntil(account)
     const planLimits = this.env.planLimits(account)
     const context = this.contextGauge
+    const queueCountdown = this.countdown && { queueId: this.countdown.queueId, until: this.countdown.until }
     const queue = this.queue.map(({ queueId, text, from, images }) => ({ queueId, text, from, images: images?.length }))
-    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}), ...(interrupted ? { interrupted } : {}), ...(context ? { context } : {}), ...(planLimits ? { planLimits } : {}) }
+    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}), ...(interrupted ? { interrupted } : {}), ...(context ? { context } : {}), ...(planLimits ? { planLimits } : {}), ...(queueCountdown ? { queueCountdown } : {}) }
   }
 
   // Subscribes a connection to the transcript (loading a resumed session's history first, without a process).
@@ -275,11 +281,25 @@ export class Tab {
     this.queue = this.queue.filter((other) => other !== message)
     this.queue.splice(Math.min(index, this.queue.length), 0, message)
     this.changed()
+    this.dispatchNext()
   }
 
   unqueue(queueId: string): void {
     this.queue = this.queue.filter((message) => message.queueId !== queueId)
     this.changed()
+    this.dispatchNext()
+  }
+
+  // Stops the countdown of the next queued message: it leaves the queue and is returned for the composer; the rest of
+  // the queue waits for ▶.
+  holdQueued(queueId: string): { text: string; images?: Image[] } {
+    if (this.countdown?.queueId !== queueId) throw new CoreError('request_resolved', 'that message is no longer waiting to go')
+    const { text, images } = this.queued(queueId)
+    this.stopCountdown()
+    this.queue = this.queue.filter((message) => message.queueId !== queueId)
+    if (this.queue.length) this.queuePause = { reason: 'user' }
+    this.changed()
+    return { text, ...(images?.length ? { images } : {}) }
   }
 
   // Takes a message out of the queue and sends it now: read at Claude's next step, nothing interrupted.
@@ -573,6 +593,7 @@ export class Tab {
   close(keepQueue = false): Promise<void> {
     this.closePromise ??= (async () => {
       this.lifecycle = 'closing'
+      this.stopCountdown()
       if (!keepQueue) this.queue = []
       this.changed()
       this.requests.denyAll('Session closed')
@@ -705,8 +726,36 @@ export class Tab {
   // The head of the queue goes when Claude is free (no turn, no message held by the CLI, no request) and the queue
   // does not wait. A failure puts it back (needs_trust: it goes once the folder is trusted).
   private dispatchNext(): void {
+    if (!this.queueFree()) return this.stopCountdown()
+    const first = this.queue[0]!
+    if (this.countdown?.queueId === first.queueId) return
+    this.stopCountdown()
+    if (!this.env.watched(this.tabId)) return this.sendFirstQueued()
+    // The chat is on screen: the message waits a countdown in its composer, where it can be stopped.
+    const timer = setTimeout(() => {
+      this.countdown = undefined
+      if (this.queueFree() && this.queue[0]?.queueId === first.queueId) this.sendFirstQueued()
+      else this.dispatchNext()
+    }, this.env.queueCountdownMs)
+    timer.unref?.()
+    this.countdown = { queueId: first.queueId, until: Date.now() + this.env.queueCountdownMs, timer }
+    this.changed()
+  }
+
+  // The queue may send now: Claude is free, the queue is not paused and not empty.
+  private queueFree(): boolean {
     const free = !this.turnRunning && !this.held.size && !this.requests.size && this.lifecycle !== 'closing' && this.lifecycle !== 'starting'
-    if (!free || this.queuePause || !this.queue.length) return
+    return free && !this.queuePause && this.queue.length > 0
+  }
+
+  private stopCountdown(): void {
+    if (!this.countdown) return
+    clearTimeout(this.countdown.timer)
+    this.countdown = undefined
+  }
+
+  // Sends the first queued message (back at the head of the queue if it cannot go).
+  private sendFirstQueued(): void {
     const next = this.queue.shift()!
     this.changed()
     this.deliver(next).catch((error: unknown) => {
@@ -857,6 +906,8 @@ export class Tab {
   // also holds the next message typed into the queue until the reset).
   private changed(): void {
     if (!this.queue.length && this.queuePause && this.queuePause.reason !== 'limit') this.queuePause = undefined
+    // A countdown ends when its message is no longer next, the queue waits, or Claude started working.
+    if (this.countdown && (this.queue[0]?.queueId !== this.countdown.queueId || this.queuePause || this.turnRunning)) this.stopCountdown()
     this.env.changed(this)
   }
 }

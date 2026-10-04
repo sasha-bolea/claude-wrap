@@ -27,6 +27,42 @@ const enterSends = () => matchMedia('(hover: hover)').matches
 
 type ComposerProps = { meta: TabMeta; queueMode: boolean; running: boolean; requestOpen: boolean; onFocusField: () => void }
 
+// Ring of the countdown around Stop (SVG units, a 44×44 box).
+const RING_RADIUS = 20
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS
+// How often the countdown's seconds and ring move (ms).
+const COUNTDOWN_TICK = 200
+
+// The next queued message in the composer while it counts down to go: its text (and how many images), "parte tra N s"
+// and Stop inside a ring that empties until it goes.
+function QueuedCountdown({ text, images, until, onStop }: { text: string; images?: number; until: number; onStop: () => void }) {
+  const [now, setNow] = useState(() => Date.now())
+  const total = useRef(Math.max(1, until - Date.now()))
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), COUNTDOWN_TICK)
+    return () => clearInterval(timer)
+  }, [until])
+  const left = Math.max(0, until - now)
+  const seconds = Math.ceil(left / 1000)
+  return (
+    <div className="countdown" role="status">
+      <p className="countdown-text">
+        {images ? `${t('imagesCount', { count: String(images) })} ` : ''}
+        {text}
+      </p>
+      <div className="input-tools">
+        <span className="countdown-label">{t('queuedGoesIn', { seconds: String(seconds) })}</span>
+        <button className="countdown-stop" aria-label={t('stopQueued')} onClick={onStop}>
+          <svg className="countdown-ring" viewBox="0 0 44 44" aria-hidden="true">
+            <circle cx="22" cy="22" r={RING_RADIUS} strokeDasharray={RING_LENGTH} strokeDashoffset={RING_LENGTH * (1 - left / total.current)} />
+          </svg>
+          <Icon name="stop" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // The composer of the touch layout: one box floating over the chat — the text on top; under it + (photos and files),
 // model and effort, then permissions, Stop and Send. `/` suggests commands, `@` files; `!` runs a shell command; long
 // pastes collapse. Queue mode writes into the queue. Files that are not photos go to allegati/ and are mentioned.
@@ -46,6 +82,19 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusFi
   const askTrust = useTrustPrompt()
   const shellMode = text.startsWith('!')
   const hasContent = Boolean(text.trim() || images.length || docs.length)
+
+  // The next queued message counting down to go (while this chat is on screen); Stop brings it back into the field,
+  // before what was being written.
+  const countdown = meta.queueCountdown
+  const waiting = countdown && meta.queue.find((message) => message.queueId === countdown.queueId)
+  const hold = () =>
+    countdown &&
+    connection.request('tab.queueHold', { tabId, queueId: countdown.queueId }).then(({ text: held, images: heldImages }) => {
+      const joined = text.trim() ? `${held}\n\n${text}` : held
+      draft.setValue(joined, held.length)
+      if (heldImages?.length) draft.setImages([...heldImages, ...images])
+      toast(t('queuedStopped'))
+    }, fail)
 
   const setLinked = (note: LinkedNote | undefined) => {
     setLinkedState(note)
@@ -214,7 +263,9 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusFi
       )}
       {shellMode && <div className="shell-hint">{t('shellHintShort')}</div>}
       <div className="input-box">
+        {waiting && countdown && <QueuedCountdown text={waiting.text} images={waiting.images} until={countdown.until} onStop={hold} />}
         <textarea
+          hidden={Boolean(waiting)}
           ref={input}
           rows={1}
           aria-label={t('composerLabel')}
@@ -230,7 +281,7 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusFi
           onFocus={onFocusField}
           onBlur={() => suggestions.close()}
         />
-        <div className="input-tools">
+        <div className="input-tools" hidden={Boolean(waiting)}>
           <IconButton icon="plus" label={t('attachPhotoOrFile')} onClick={() => picker.current?.click()} />
           <button className="model-btn" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
             <span>{modelLabel(meta, models)}</span>

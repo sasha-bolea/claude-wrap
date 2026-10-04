@@ -356,6 +356,8 @@ export class Workspace {
       sdkOptions: config.sdkOptions ?? {},
       transcript: { coalesceMs: config.coalesceMs ?? 16, snapshotItems: config.snapshotItems ?? 200, ring: config.ring ?? DEFAULT_RING },
       closeTimeoutMs: config.closeTimeoutMs ?? 3000,
+      queueCountdownMs: config.queueCountdownMs ?? 5000,
+      watched: (tabId) => config.watching?.(tabId) ?? false,
       checkCanStart: () => {
         const live = [...this.tabs.values()].filter((tab) => tab.holdsProcess).length
         if (live >= maxLiveSessions) throw new CoreError('limit_reached', `at most ${maxLiveSessions} live sessions`)
