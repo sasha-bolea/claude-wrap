@@ -153,8 +153,8 @@ details.tool { border: 1px solid var(--border); background: var(--surface); }
 details.tool > summary { list-style: none; display: flex; gap: 8px; align-items: center; min-height: 44px; padding: 6px 12px; cursor: pointer; }
 details.tool > summary::-webkit-details-marker, details.think > summary::-webkit-details-marker { display: none; }
 .tool-name { font-weight: 600; font-size: 14px; }
-.tool-sum { flex: 1; min-width: 0; font: 12px var(--font-mono); color: var(--text-muted); }
-.tool-card .tool-sum { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The command of a tool card stays on one line (the whole input is in the open card's body) */
+.tool-sum { flex: 1; min-width: 0; font: 12px var(--font-mono); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tool-state { font-size: 12px; color: var(--text-muted); }
 .tool-state.ok { color: var(--success); }
 .tool-state.bad { color: var(--danger); }
