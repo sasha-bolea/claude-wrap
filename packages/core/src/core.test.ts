@@ -356,9 +356,13 @@ describe('queue', () => {
     await client.ok('tab.queuePause', { tabId: 't1', paused: false })
     await session.waitForInput(2)
     expect(session.received[1]).toMatchObject({ uuid: cmd(2) })
+    await client.ok('tab.queueAdd', { tabId: 't1', text: 'after' }, cmd(3))
     await client.ok('tab.queuePause', { tabId: 't1', paused: true })
     await tick()
     expect(meta(client)?.queuePause).toEqual({ reason: 'user' })
+    session.emit(sdk.success())
+    await tick()
+    expect(session.received).toHaveLength(2)
   })
 
   it('a usage limit pauses the queue of every tab until it resets; the session it stopped waits for "Continua", the others go on', async () => {
@@ -382,6 +386,21 @@ describe('queue', () => {
     await session.waitForInput(3)
     expect(JSON.stringify(session.received[2]!.message.content)).toContain('after the limit')
     expect(meta(client)?.interrupted).toBeUndefined()
+  })
+
+  it('an empty queue is never paused, except by a usage limit', async () => {
+    const session = await startedTab()
+    await client.ok('tab.queueAdd', { tabId: 't1', text: 'later' }, cmd(2))
+    await client.ok('tab.interrupt', { tabId: 't1' })
+    await client.waitFor(() => meta(client)?.queuePause?.reason === 'stop')
+    await client.ok('tab.unqueue', { tabId: 't1', queueId: cmd(2) })
+    await client.waitFor(() => meta(client)?.queuePause === undefined)
+    await client.ok('tab.queuePause', { tabId: 't1', paused: true })
+    await tick()
+    expect(meta(client)?.queuePause).toBeUndefined()
+    session.emit(sdk.rateLimit('rejected', Math.ceil(Date.now() / 1000) + 3600), sdk.success())
+    await client.waitFor(() => meta(client)?.queuePause?.reason === 'limit')
+    expect(meta(client)?.queue).toEqual([])
   })
 
   it('survives a core restart, waiting for ▶; closing the tab discards it', async () => {

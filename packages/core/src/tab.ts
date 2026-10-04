@@ -853,7 +853,10 @@ export class Tab {
     if (this.lifecycle === 'closing') throw new CoreError('not_found', 'tab is closing')
   }
 
+  // Something of the tab changed: tell the workspace. An empty queue is never paused, except by a usage limit (which
+  // also holds the next message typed into the queue until the reset).
   private changed(): void {
+    if (!this.queue.length && this.queuePause && this.queuePause.reason !== 'limit') this.queuePause = undefined
     this.env.changed(this)
   }
 }
