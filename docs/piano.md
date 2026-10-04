@@ -54,6 +54,7 @@ time with a report after each.
 | **A** — PWA polish and updates | no zoom, iPhone splash screens, installed app offered newer builds, server auto-update when no session works | ✅ 2026-10-03, live |
 | **B** — core and protocol | Home of folders + project marks, files and one trash, mid-turn messages + separate queue, folder notes, model and effort | ✅ 2026-10-03, live |
 | **C1** — touch UI (PWA) | the prototype's screens and rules in `packages/ui/src/touch/` | ✅ 2026-10-03, live (comparison with the prototype at the end of C) |
+| **C1+** — requests from the phone | context/usage panels and the composer gauge (from Phase 4), accounts for every session, queue countdown, layout rule 8 — see STATO | ✅ 2026-10-04, live |
 | **C2** — desktop | the same elements arranged from 1024 px: left column 300 px (backend switch, Home, open sessions), chat ~780 px, right panel 380 px (File, Note, rewind, 🔜), settings window, popovers, desktop-only keys (Esc, Shift+Tab, Enter/Shift+Enter, ↑/↓ and Ctrl+R, drag and drop, paste images, native save dialog); remove the tab bar and the start screen | next |
 | **D** — rewind and cleanup | native "torna indietro" (code and conversation / conversation / code, with a preview of the files) via `rewindFiles` and resume at a message; delete the prototype (server folder, `cw-prototipo` service, port 3013, local copy) after the final comparison | after C2 |
 

@@ -46,7 +46,7 @@ Example: [packages/ui/src/StartScreen.tsx:60](../packages/ui/src/StartScreen.tsx
 
 ### Buttons — `.button`, `.button.primary`, `.button.danger`
 `.button` secondary action; `.primary` the main action of a group (one per group); `.danger` destructive or stopping actions (Stop, No). Never auto-focused when they grant something (rule 6).
-Examples: primary [packages/ui/src/Composer.tsx:232](../packages/ui/src/Composer.tsx#L232), danger [packages/ui/src/Composer.tsx:228](../packages/ui/src/Composer.tsx#L228), secondary [packages/ui/src/Composer.tsx:221](../packages/ui/src/Composer.tsx#L221).
+Examples: primary [packages/ui/src/Composer.tsx:198](../packages/ui/src/Composer.tsx#L198), danger [packages/ui/src/Composer.tsx:194](../packages/ui/src/Composer.tsx#L194), secondary [packages/ui/src/Composer.tsx:187](../packages/ui/src/Composer.tsx#L187).
 
 ### Fields — `.field`, `.select`
 `.field` for text inputs and textareas (full width), `.select` for pickers. Every field and select has an `aria-label` (rule 5).
@@ -210,7 +210,7 @@ Examples: [TouchApp.tsx:224](../packages/ui/src/touch/TouchApp.tsx#L224), [Touch
 ### Top bar — `.topbar`, `h1` (`.sub`, `.pad-left`), `.title-btn` (`.title-text`)
 52 px bar: back icon button, the title with its small `.sub` line (path, state), icon buttons on the right. In the
 chat the title is a `.title-btn` (badge + title + folder) that opens the session menu.
-Examples: [FilesScreen.tsx:211](../packages/ui/src/touch/FilesScreen.tsx#L211), [ChatScreen.tsx:268](../packages/ui/src/touch/ChatScreen.tsx#L268), [parts.tsx:46](../packages/ui/src/touch/parts.tsx#L46).
+Examples: [FilesScreen.tsx:211](../packages/ui/src/touch/FilesScreen.tsx#L211), [ChatScreen.tsx:268](../packages/ui/src/touch/ChatScreen.tsx#L268), [parts.tsx:47](../packages/ui/src/touch/parts.tsx#L47).
 
 ### Icon button — `.icon-btn` (`.dot`, `.count`, `.on`, `.dim`, `.accent`)
 44×44 line icon ([icons.tsx](../packages/ui/src/touch/icons.tsx), class `.i`, the prototype's set) with `aria-label`.

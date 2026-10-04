@@ -2,6 +2,52 @@
 
 _Append-only archive of session entries that left [STATO.md](STATO.md), newest on top._
 
+## 2026-10-04 17:00 — A day of requests from the phone (dev clone on the server)
+Sasha worked from the iPhone in a session of the claude-wrap PWA itself, on the server's dev clone
+`/srv/progetti/claude-wrap`; 37 commits, each pushed over SSH (the clone's HTTPS `origin` has no credentials) and
+deployed by the update timer when no session worked (this session counted as working while it answered, so a
+deploy waited for a quiet moment). No C2 work: Sasha's requests came first.
+- **Chat and composer:** own scroll indicator stopping above the composer (iOS cannot inset its own), ghost leaving
+  upwards and before the next message touches it (and above the tool cards), smooth glide following new text, quick
+  drag closes the keyboard, commands in a row stacked like the queue, queued messages counting down 5 s in the
+  composer while the chat is on screen (Stop → back into the field), a light veil under the composer, long press on
+  your message no longer selects the screen, landscape back (text-size-adjust).
+- **Context, usage, limits:** Contesto and Consumo e limiti panels (`tab.context`, `tab.usage`; the usage call is the
+  SDK's experimental one), composer gauge with its sheet and "Compatta ora", Settings → automatic compaction (Claude
+  Code's `autoCompactWindow`, read by the CLI only at spawn: live processes restart), plan windows from
+  `rate_limit_event` for token accounts, saved across restarts.
+- **Accounts:** one account for every session, "Continua" card after a stop by a limit or a switch (`tabs.continue`),
+  limit card with quiet "Passa a …" (added accounts only) and Annulla; limits attributed to the process's own account.
+- **Other:** delete a folder together with its open sessions; an empty queue is never paused (except by a limit);
+  session titles stay short; nothing leaves the screen and text wraps (rule 8).
+- **Verification:** the PWA e2e ran on the server for the first time (Playwright's Chromium): 29/29, after fixing a
+  real bug (an account switch during the limit message) and a test; screenshots at iPhone size found the screen
+  sliding up under the composer's veil (`overflow: clip`). Real-CLI checks: `smoke:usage` (100k window → compacts at
+  67k), `/usage` per account (token accounts: no limits), `rate_limit_event` `unifiedWindows` with both accounts.
+- **Not done / pending:** rewind stays for D (Sasha: no); colours and logo await Sasha's choice (palette screenshots
+  in `/srv/progetti/test/palette/`); server WebSocket heartbeat proposed; the percentage auto-compact (only an
+  undocumented test env) refused by Sasha's own rule.
+
+### Cambiamenti al codice
+- `packages/core`: `usage.ts` (context/usage reduction, gauges, `planLimitsFromEvent`, `readUsage`), `tab.ts`
+  (gauges, `processAccount`, `turnRejected`/`limitLifted`, `interrupted` + `resume`, queue countdown + `holdQueued`,
+  `applyAutoCompactWindow`, `cliTitle`/`MAX_AUTO_TITLE`, empty-queue pause rule), `workspace.ts` (`useAccount`,
+  `continueStopped`, plans per account saved in state, `refreshGauges`, `setAutoCompactWindow`, `deleteFolder` with
+  `closeSessions`, `restoredTitle`), `commands.ts`, `core.ts` (`client.watch`), `config.ts`, `state.ts`; testing:
+  fake `getContextUsage`/usage, scenario `tools`; `scripts/smoke-usage.ts`.
+- `packages/protocol`: `tab.context`, `tab.usage`, `tab.refreshGauges`, `tab.queueHold`, `tabs.continue`,
+  `client.watch`, `settings.setAutoCompactWindow`, `folders.delete.closeSessions`; TabMeta `interrupted`, `context`,
+  `planLimits`, `queueCountdown`; snapshot `autoCompactWindow`, event `settings.updated`.
+- `packages/client`: store `autoCompactWindow`.
+- `packages/ui/src/touch`: `UsageScreens.tsx`, `gauge.tsx` (new); `ChatScreen` (scroll thumb, glide, keyboard
+  close, ghost, watch), `Conversation` (ToolStack), `TouchComposer` (gauge, countdown), `accounts` (ContinueCard,
+  limit card), `SettingsScreen` (automatic compaction), `HomeScreen` (folder delete), `NotesScreen`, `parts`
+  (title clamp), `icons` (`to-chat`); `touch.css` (rule 8 wrap/clip, veil, stacks, gauge, countdown, quiet buttons);
+  i18n en + it.
+- `apps/mobile`: manifest `orientation: any`, `main.tsx` (rotate notice removed), e2e (+9 tests, harness
+  `CLAUDE_WRAP_E2E_CHROME`).
+- Docs: STATO, architettura, design-system, procedure, bug-risolti (6 entries), CLAUDE.md (`smoke:usage`).
+
 ## 2026-10-03 17:49 — Sub-phases A, B, C1 and the first fixes from the phone
 The approved prototype (built with Sasha by a session on the server) became the UI spec; the plan was realigned in
 sub-phases A–D after a check on the real CLI ([piano.md](piano.md) §4). A, B and C1 were done with Sasha's "vai" and
