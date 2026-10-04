@@ -92,6 +92,9 @@ code { font-family: var(--font-mono); }
 /* A quiet action inside a card of the chat (limit, continue): outlined, no fill, smaller text */
 .button.quiet { padding: 0 12px; background: none; font-size: 14px; color: var(--text); }
 .card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* The card's action takes the row, the quiet link beside it (Annulla, Non ora) only what it needs */
+.card-actions .button.quiet { flex: 1 1 auto; }
+.card-actions .link-btn { flex: none; }
 .field { width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); }
 .field.mono { font-family: var(--font-mono); }
 /* 16 px in every field: smaller text makes iOS zoom in on focus */

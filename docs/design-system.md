@@ -361,7 +361,7 @@ Code" first (the backend's own login), then the added accounts; a tap makes one 
 field** (never shown again). The session menu has an "Account" row (current name on the right) opening a radio
 `.menu`: picking one there switches every session too. While the account is at its usage limit, the conversation
 shows a `.card` (`role="status"`) with until when, one quiet "Passa a …" button (`.button.quiet` in `.card-actions`)
-per other added account (never Claude Code's login) (or "Aggiungi un account") and "Annulla" (`.link-btn`: puts the card away for that limit on this device). In a session Claude stopped mid-work (usage limit, or a switch while it worked) the
+per other added account (never Claude Code's login), each taking the row's width but the link beside it (or "Aggiungi un account") and "Annulla" (`.link-btn`: puts the card away for that limit on this device). In a session Claude stopped mid-work (usage limit, or a switch while it worked) the
 conversation shows, once the account is free (after a switch, or when the limit resets), a `.card` with why it
 stopped (or how many sessions stopped) and `.card-actions`: a quiet "Continua" / "Continua in tutte (N)" and "Non
 ora" (`.link-btn`, takes the cards away) (sends "continua" to every stopped session; their queues go on after it).
