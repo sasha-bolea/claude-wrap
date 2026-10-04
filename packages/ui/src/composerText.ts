@@ -27,6 +27,12 @@ export function applySuggestion(text: string, trigger: Trigger, replacement: str
 }
 
 // An `@` mention as the CLI reads it (quoted when the path has spaces).
+// True when the caret is on the first (Up) or last (Down) line of the field, with nothing selected.
+export function caretOnEdgeLine(field: HTMLTextAreaElement, edge: 'first' | 'last'): boolean {
+  if (field.selectionStart !== field.selectionEnd) return false
+  return edge === 'first' ? !field.value.slice(0, field.selectionStart).includes('\n') : !field.value.slice(field.selectionEnd).includes('\n')
+}
+
 export const mention = (path: string) => (/\s/.test(path) ? `@"${path}"` : `@${path}`)
 
 // Commands matching a query: name prefix first, then name or description containing it.

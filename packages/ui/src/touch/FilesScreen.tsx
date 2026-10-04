@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react'
 import { LIMITS, type CommandResult, type FileEntry } from '@claude-wrap/protocol'
 import { t } from '../i18n.ts'
 import { readBase64 } from '../images.ts'
@@ -187,6 +187,14 @@ export function FilesScreen({ tabId, folder: home }: FilePlace) {
     const where = folder ? baseName(folder) : root
     toast(done.length === 1 ? t('uploadedOne', { name: done[0]!, folder: where }) : t('uploadedMany', { count: String(done.length), folder: where }))
   }
+  // Files dropped on the explorer are uploaded into the folder shown.
+  const dropping = (event: DragEvent<HTMLElement>) => event.dataTransfer.types.includes('Files') && (event.preventDefault(), event.currentTarget.classList.add('dropping'))
+  const dropped = (event: DragEvent<HTMLElement>) => {
+    event.currentTarget.classList.remove('dropping')
+    if (!event.dataTransfer.files.length) return
+    event.preventDefault()
+    void upload([...event.dataTransfer.files])
+  }
   const picked = (event: ChangeEvent<HTMLInputElement>) => {
     const files = [...(event.target.files ?? [])]
     event.target.value = ''
@@ -207,7 +215,7 @@ export function FilesScreen({ tabId, folder: home }: FilePlace) {
   const shownUploads = uploading.filter((entry) => entry.folder === path)
 
   return (
-    <section className="screen" aria-label={t('folderFiles')}>
+    <section className="screen" aria-label={t('folderFiles')} onDragOver={dropping} onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && event.currentTarget.classList.remove('dropping')} onDrop={dropped}>
       <header className="topbar">
         <IconButton icon="back" label={path ? t('upTo', { name: parts.at(-2) ?? root }) : t(tabId ? 'chat' : 'back')} onClick={back} />
         <Title text={t('files')} sub={fullPath(cwd, path)} />

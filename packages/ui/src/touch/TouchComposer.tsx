@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type TouchEvent } from 'react'
 import { ClientError } from '@claude-wrap/client'
 import { LIMITS, type TabMeta } from '@claude-wrap/protocol'
-import { useComposerPopup, useDraft } from '../composerHooks.ts'
-import { applySuggestion, expandPastes, isLongPaste, pastePlaceholder } from '../composerText.ts'
+import { useComposerPopup, useDraft, usePromptHistory } from '../composerHooks.ts'
+import { applySuggestion, caretOnEdgeLine, expandPastes, isLongPaste, pastePlaceholder } from '../composerText.ts'
 import { t } from '../i18n.ts'
 import { dataUrl, readBase64, readImages } from '../images.ts'
-import { modeLabel } from '../modes.ts'
+import { modeLabel, nextMode } from '../modes.ts'
 import { noteUsed } from '../notes.ts'
 import type { Option } from '../Suggestions.tsx'
 import { readLinkedNote, writeLinkedNote, type LinkedNote } from '../viewState.ts'
@@ -76,7 +76,9 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusFi
   const { text, images } = draft
   const [docs, setDocs] = useState<File[]>([])
   const [linked, setLinkedState] = useState<LinkedNote | undefined>(() => readLinkedNote(backendId, tabId))
-  const suggestions = useComposerPopup(connection, tabId, noHistory)
+  // Previous messages (shared with the CLI): Up/Down and Ctrl+R where there is a hardware keyboard, none on the phone.
+  const history = usePromptHistory(connection, meta.cwd)
+  const suggestions = useComposerPopup(connection, tabId, enterSends() ? history.load : noHistory)
   const popup = suggestions.popup
   const models = useModels(tabId)
   const askTrust = useTrustPrompt()
@@ -119,9 +121,12 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusFi
 
   const change = (value: string, caret: number) => {
     draft.setValue(value)
+    history.reset()
     suggestions.refresh(value, caret)
   }
   const pick = (option: Option) => {
+    // A previous message (Ctrl+R) takes the field's place.
+    if (popup?.kind === 'history') return void (draft.setValue(option.value, option.value.length), suggestions.close())
     if (!popup?.trigger) return
     const applied = applySuggestion(text, popup.trigger, option.value)
     draft.setValue(applied.text, applied.caret)
@@ -156,6 +161,8 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusFi
     if (!hasContent) return
     const sent = { text, images, docs, pastes: draft.pastes }
     const expanded = expandPastes(text.trimEnd(), draft.pastes)
+    history.reset()
+    history.invalidate()
     draft.clear()
     setDocs([])
     suggestions.close()
@@ -190,9 +197,52 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusFi
     else if (choosing && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) suggestions.move(event.key === 'ArrowDown' ? 1 : -1)
     else if (choosing && (event.key === 'Enter' || event.key === 'Tab') && !event.shiftKey) pick(popup!.options[popup!.active]!)
     else if (event.key === 'Enter' && !event.shiftKey && enterSends()) void send()
+    else if (enterSends() && !choosing && keyboardAction(event)) return
     else return
     event.preventDefault()
   }
+  // Hardware keyboard, as in the CLI prompt: Ctrl+R searches previous messages, Up on the first line / Down on the last
+  // browse them, Shift+Tab switches the permission mode (not with a request open: there it moves focus back). Returns
+  // whether the key was handled (its default then prevented).
+  const keyboardAction = (event: KeyboardEvent<HTMLTextAreaElement>): boolean => {
+    const field = event.currentTarget
+    const browse = (direction: 1 | -1) => void history.step(direction, text).then((value) => value !== undefined && draft.setValue(value, direction === 1 ? 0 : value.length))
+    if (event.key === 'r' && event.ctrlKey) suggestions.openHistory(text)
+    else if (event.key === 'ArrowUp' && !event.shiftKey && caretOnEdgeLine(field, 'first')) browse(1)
+    else if (event.key === 'ArrowDown' && !event.shiftKey && history.browsing() && caretOnEdgeLine(field, 'last')) browse(-1)
+    else if (event.key === 'Tab' && event.shiftKey && !requestOpen) void connection.request('tab.setMode', { tabId, mode: nextMode(meta.mode) }).catch(fail)
+    else return false
+    event.preventDefault()
+    return true
+  }
+  // Files dropped on the chat are attached (photos as thumbnails, other files into allegati/), as with +.
+  useEffect(() => {
+    const chat = input.current?.closest<HTMLElement>('.chat-screen')
+    if (!chat) return
+    const carriesFiles = (event: DragEvent) => Boolean(event.dataTransfer?.types.includes('Files'))
+    const over = (event: DragEvent) => {
+      if (!carriesFiles(event)) return
+      event.preventDefault()
+      chat.classList.add('dropping')
+    }
+    const leave = (event: DragEvent) => {
+      if (!chat.contains(event.relatedTarget as Node | null)) chat.classList.remove('dropping')
+    }
+    const drop = (event: DragEvent) => {
+      chat.classList.remove('dropping')
+      if (!carriesFiles(event)) return
+      event.preventDefault()
+      void attach([...(event.dataTransfer?.files ?? [])])
+    }
+    chat.addEventListener('dragover', over)
+    chat.addEventListener('dragleave', leave)
+    chat.addEventListener('drop', drop)
+    return () => {
+      chat.removeEventListener('dragover', over)
+      chat.removeEventListener('dragleave', leave)
+      chat.removeEventListener('drop', drop)
+    }
+  })
   // Pasted images are attached; a long text paste becomes a placeholder (the whole text is sent).
   const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
     const files = [...event.clipboardData.files]

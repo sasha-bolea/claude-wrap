@@ -210,21 +210,26 @@ padded to ~780 px of content and the composer as wide, **File** and **Note** in 
 window over the app (Back or a click outside closes it). A menu opened from a button is a **popover** by it
 (`.sheet.popover`, 320 px, below a button in the upper half of the window, above one in the lower half — the composer —
 re-placed when its content grows, over a clear scrim); typing sheets and sheets opened from a sheet (confirmations)
-are centred dialogs. Each region
+are centred dialogs. **Hardware keyboard and mouse** (where a pointer hovers): Enter
+sends and Shift+Enter adds a line; Up on the first line / Down on the last browse previous messages and Ctrl+R lists
+them (shared with the CLI; none on the phone); Shift+Tab in the field switches the permission mode (not with a request
+open); Esc closes the photo, a sheet or popover, the Settings window, otherwise stops Claude in the chat on screen;
+files dropped on the chat are attached, on the file explorer uploaded (`.dropping` outline while dragging); pasted
+images are attached; right click on your message opens its actions. Each region
 has its own Back; a new chat closes the panel; "Menziona in chat" / "Usa nel messaggio" leave the panel open. Below
 1024 px the phone arrangement (one screen at a time) is used.
-Examples: [TouchApp.tsx:24](../packages/ui/src/touch/TouchApp.tsx#L24), [TouchApp.tsx:445](../packages/ui/src/touch/TouchApp.tsx#L445).
+Examples: [TouchApp.tsx:24](../packages/ui/src/touch/TouchApp.tsx#L24), [TouchApp.tsx:468](../packages/ui/src/touch/TouchApp.tsx#L468).
 
 ### Device and screens — `.device`, `.screen-host`, `.screen` (`.enter`, `.dragging`), `.scroll`, `.pad` (`.tight`, `.settings`)
 `.device`: the app box (full screen on a phone or touch device, a framed 410 px box on a wide screen). `.screen-host`
 wraps each stack entry (`display: contents`, `hidden` below the top). `.screen`: one screen — top bar, `.scroll` body
 with a `.pad` grid (16 px gaps; `.tight` 10 px; `.settings` 22 px), optional `.sticky-actions`.
-Examples: [TouchApp.tsx:303](../packages/ui/src/touch/TouchApp.tsx#L303), [TouchApp.tsx:316](../packages/ui/src/touch/TouchApp.tsx#L316), [FilesScreen.tsx:218](../packages/ui/src/touch/FilesScreen.tsx#L218).
+Examples: [TouchApp.tsx:326](../packages/ui/src/touch/TouchApp.tsx#L326), [TouchApp.tsx:339](../packages/ui/src/touch/TouchApp.tsx#L339), [FilesScreen.tsx:226](../packages/ui/src/touch/FilesScreen.tsx#L226).
 
 ### Top bar — `.topbar`, `h1` (`.sub`, `.pad-left`), `.title-btn` (`.title-text`)
 52 px bar: back icon button, the title with its small `.sub` line (path, state), icon buttons on the right. In the
 chat the title is a `.title-btn` (badge + title + folder) that opens the session menu.
-Examples: [FilesScreen.tsx:211](../packages/ui/src/touch/FilesScreen.tsx#L211), [ChatScreen.tsx:268](../packages/ui/src/touch/ChatScreen.tsx#L268), [parts.tsx:47](../packages/ui/src/touch/parts.tsx#L47).
+Examples: [FilesScreen.tsx:219](../packages/ui/src/touch/FilesScreen.tsx#L219), [ChatScreen.tsx:268](../packages/ui/src/touch/ChatScreen.tsx#L268), [parts.tsx:47](../packages/ui/src/touch/parts.tsx#L47).
 
 ### Icon button — `.icon-btn` (`.dot`, `.count`, `.on`, `.dim`, `.accent`)
 44×44 line icon ([icons.tsx](../packages/ui/src/touch/icons.tsx), class `.i`, the prototype's set) with `aria-label`.
@@ -239,11 +244,11 @@ a `⋯` icon button or an action button (`.end-pad`). Folders (`.ficon.dir` = pr
 devices, trash items. `.stacked`: a row holding a control under its title (theme). A folder of the Home ends with a
 plain row for the files right inside it ("12 file di cui 3 nascosti", never shown with 0 files) that opens the file
 explorer on that folder.
-Examples: [HomeScreen.tsx:47](../packages/ui/src/touch/HomeScreen.tsx#L47), [HomeScreen.tsx:146](../packages/ui/src/touch/HomeScreen.tsx#L146), [sessions.tsx:211](../packages/ui/src/touch/sessions.tsx#L211), [FilesScreen.tsx:230](../packages/ui/src/touch/FilesScreen.tsx#L230), [SettingsScreen.tsx:166](../packages/ui/src/touch/SettingsScreen.tsx#L166).
+Examples: [HomeScreen.tsx:47](../packages/ui/src/touch/HomeScreen.tsx#L47), [HomeScreen.tsx:146](../packages/ui/src/touch/HomeScreen.tsx#L146), [sessions.tsx:211](../packages/ui/src/touch/sessions.tsx#L211), [FilesScreen.tsx:238](../packages/ui/src/touch/FilesScreen.tsx#L238), [SettingsScreen.tsx:166](../packages/ui/src/touch/SettingsScreen.tsx#L166).
 
 ### Path — `.crumbs.path-bar` (`.sep`, `[aria-current]`)
 The path from the root as mono buttons, scrolled to its end; a part jumps there (`Crumbs` component).
-Examples: [parts.tsx:56](../packages/ui/src/touch/parts.tsx#L56), [FilesScreen.tsx:217](../packages/ui/src/touch/FilesScreen.tsx#L217).
+Examples: [parts.tsx:56](../packages/ui/src/touch/parts.tsx#L56), [FilesScreen.tsx:225](../packages/ui/src/touch/FilesScreen.tsx#L225).
 
 ### Bottom sheet — `.scrim`, `.sheet` (`.instant`), `.sheet-head`, `.menu` (`.right`, `.danger`, `role="radio"`), `.two-buttons`
 `SheetHost` renders the stack of sheets (rule 2). `.menu`: 50 px rows, `.right` for the current value or a hint,
@@ -260,7 +265,7 @@ Examples: [HomeScreen.tsx:166](../packages/ui/src/touch/HomeScreen.tsx#L166), [H
 `.card`: a framed block (session info in the menu, error and trust notices, the 🔜 placeholder). `.chip`: small
 state words (draft, queued, "this one"); `.chip.changed`: new / changed by Claude. `.badge`: the session state dot,
 pulsing while it waits for you (`Badge` component, with its meaning for screen readers).
-Examples: [ChatScreen.tsx:346](../packages/ui/src/touch/ChatScreen.tsx#L346), [FilesScreen.tsx:235](../packages/ui/src/touch/FilesScreen.tsx#L235), [parts.tsx:113](../packages/ui/src/touch/parts.tsx#L113).
+Examples: [ChatScreen.tsx:346](../packages/ui/src/touch/ChatScreen.tsx#L346), [FilesScreen.tsx:243](../packages/ui/src/touch/FilesScreen.tsx#L243), [parts.tsx:113](../packages/ui/src/touch/parts.tsx#L113).
 
 ### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-user-row`, `.send-now`, `.msg-ai`, `.think`, `.tool`, `.working-line`, `.turn-end`
 Your messages right in a bubble (a long press or right click opens their actions; "waiting" until Claude reads a
@@ -303,7 +308,7 @@ One box floating over the chat over a light veil (2 px blur, a slightly dark gra
 permission mode icon, Stop (while Claude works or waits) and Send below. Queue mode: dashed border, Send adds to the
 queue. A linked note shows above the box (× unlinks it). Composer and box are one `minmax(0, 1fr)` column: a long note
 title or file name is cut with "…", never pushing Send off the screen.
-Examples: [ChatScreen.tsx:314](../packages/ui/src/touch/ChatScreen.tsx#L314), [TouchComposer.tsx:265](../packages/ui/src/touch/TouchComposer.tsx#L265), [TouchComposer.tsx:258](../packages/ui/src/touch/TouchComposer.tsx#L258).
+Examples: [ChatScreen.tsx:314](../packages/ui/src/touch/ChatScreen.tsx#L314), [TouchComposer.tsx:315](../packages/ui/src/touch/TouchComposer.tsx#L315), [TouchComposer.tsx:308](../packages/ui/src/touch/TouchComposer.tsx#L308).
 
 ### Queue countdown — `.countdown`, `.countdown-text`, `.countdown-label`, `.countdown-stop`, `.countdown-ring`
 While the chat is on screen, the next queued message does not go at once: the composer shows its text, "Dalla coda:
@@ -322,7 +327,7 @@ The file list says what Claude created or changed at the end of a turn (`.refres
 preview: code with line numbers coloured by highlight.js (loaded only when a file is opened; four colours from the
 tokens), markdown, images (SVG only as `<img>`), "no preview" otherwise; Mention in chat and Download stay at the
 bottom (`.at` is the mono "@" glyph).
-Examples: [FilesScreen.tsx:221](../packages/ui/src/touch/FilesScreen.tsx#L221), [FilesScreen.tsx:477](../packages/ui/src/touch/FilesScreen.tsx#L477), [FilesScreen.tsx:406](../packages/ui/src/touch/FilesScreen.tsx#L406), [FilesScreen.tsx:438](../packages/ui/src/touch/FilesScreen.tsx#L438).
+Examples: [FilesScreen.tsx:229](../packages/ui/src/touch/FilesScreen.tsx#L229), [FilesScreen.tsx:485](../packages/ui/src/touch/FilesScreen.tsx#L485), [FilesScreen.tsx:414](../packages/ui/src/touch/FilesScreen.tsx#L414), [FilesScreen.tsx:446](../packages/ui/src/touch/FilesScreen.tsx#L446).
 
 ### Notes — `.note-list`, `.note-card` (`.note-open`, `.note-preview`, `.note-date`, `.note-actions`), `.note-editor`
 Cards with the first line as title, two lines of preview, the date and "Usa nel messaggio"; the editor is a
@@ -333,7 +338,7 @@ Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [N
 ### Bars and notices — `.update-bar`, `.banner`, `.toast`, `.snack`, `.viewer`, `.empty-line`
 `.update-bar`: "New version available · Update · ×" under the top bar of Home and chat. `.banner`: the server cannot
 be reached. `.toast` / `.snack`: rule 7. `.viewer`: a photo full screen.
-Examples: [parts.tsx:88](../packages/ui/src/touch/parts.tsx#L88), [parts.tsx:103](../packages/ui/src/touch/parts.tsx#L103), [TouchApp.tsx:336](../packages/ui/src/touch/TouchApp.tsx#L336), [TouchApp.tsx:365](../packages/ui/src/touch/TouchApp.tsx#L365).
+Examples: [parts.tsx:88](../packages/ui/src/touch/parts.tsx#L88), [parts.tsx:103](../packages/ui/src/touch/parts.tsx#L103), [TouchApp.tsx:359](../packages/ui/src/touch/TouchApp.tsx#L359), [TouchApp.tsx:381](../packages/ui/src/touch/TouchApp.tsx#L381).
 
 ### Settings → automatic compaction (existing `.list`, `.row.stacked`, `.segmented.cols-5`, `.row-sub.wrap`)
 A row "Compatta quando la conversazione arriva a" with five segments: Standard (Claude Code's own setting), 100k,

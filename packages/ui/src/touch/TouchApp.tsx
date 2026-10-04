@@ -112,6 +112,8 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
   const [snackState, setSnackState] = useState<{ text: string; undo?: () => void }>()
   const [announcement, setAnnouncement] = useState('')
   const [viewer, setViewer] = useState<string>()
+  const viewerRef = useRef(viewer)
+  viewerRef.current = viewer
   const [inserts, setInserts] = useState<Record<string, ComposerInsert>>({})
   const backHandlers = useRef(new Map<number, BackHandler>())
   const opener = useRef<HTMLElement | null>(null)
@@ -221,6 +223,27 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
       }),
     []
   )
+
+  // Esc (hardware keyboard) closes what is open — the photo, a sheet or popover, the Settings window — otherwise it
+  // stops Claude in the chat on screen, as in the terminal. Keys already handled (a field's popup, a sheet) are left.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      if (viewerRef.current) setViewer(undefined)
+      else if (sheetsRef.current.length) closeSheet()
+      else if (wideRef.current && stackRef.current.some((entry) => regionOf(entry.screen) === 'window')) regionBack('window')
+      else {
+        const chat = stackRef.current.findLast((entry) => entry.screen.name === 'chat')
+        const shown = chat && (wideRef.current || chat === stackRef.current.at(-1)) ? tabOf(chat.screen) : undefined
+        const tab = shown && connection.store.getSnapshot().tabs?.find((candidate) => candidate.tabId === shown)
+        if (!tab || !['running', 'starting', 'requires_action'].includes(tab.status)) return
+        void connection.request('tab.interrupt', { tabId: tab.tabId }).catch(fail)
+      }
+      event.preventDefault()
+    }
+    addEventListener('keydown', onKey)
+    return () => removeEventListener('keydown', onKey)
+  }, [closeSheet, regionBack, connection, fail])
 
   // A notification tap: Home, then that session's chat.
   useEffect(() => capabilities.onActivateTab?.((tabId) => reset([{ name: 'home' }, { name: 'chat', tabId }])), [capabilities, reset])

@@ -2,7 +2,7 @@ import { useRef, type ClipboardEvent, type DragEvent, type KeyboardEvent, type R
 import type { Connection } from '@claude-wrap/client'
 import type { Image, PermissionMode, TabMeta } from '@claude-wrap/protocol'
 import { useComposerPopup, useDraft, usePromptHistory } from './composerHooks.ts'
-import { applySuggestion, expandPastes, isLongPaste, mention, pastePlaceholder } from './composerText.ts'
+import { caretOnEdgeLine, applySuggestion, expandPastes, isLongPaste, mention, pastePlaceholder } from './composerText.ts'
 import { t } from './i18n.ts'
 import { Icon } from './Icon.tsx'
 import { dataUrl, isImageFile, readImages } from './images.ts'
@@ -37,12 +37,6 @@ const ACCEPTED_IMAGES = 'image/png,image/jpeg,image/gif,image/webp'
 // turns them into JPEG).
 const ACCEPTED_PHOTOS = 'image/*'
 const SUGGESTIONS_ID = 'composer-suggestions'
-
-// True when the caret is on the first (Up) or last (Down) line of the field, with nothing selected.
-function caretOnEdgeLine(field: HTMLTextAreaElement, edge: 'first' | 'last'): boolean {
-  if (field.selectionStart !== field.selectionEnd) return false
-  return edge === 'first' ? !field.value.slice(0, field.selectionStart).includes('\n') : !field.value.slice(field.selectionEnd).includes('\n')
-}
 
 // Message field. Enter sends, Shift+Enter adds a line, Shift+Tab switches mode (as in the CLI prompt) — only here
 // and with no request open: elsewhere Shift+Tab moves focus back as usual. `/` suggests commands, `@` files of the

@@ -67,6 +67,8 @@ code { font-family: var(--font-mono); }
 .panel-tab { min-height: 36px; padding: 0 14px; border: 0; border-radius: 10px; background: none; color: var(--text-muted); font-weight: 600; }
 .panel-tab[aria-pressed="true"] { background: var(--surface-2); color: var(--text); }
 .panel-close { margin-left: auto; }
+/* Files dragged over the chat or the file explorer (dropping attaches or uploads them) */
+.chat-screen.dropping .conversation, .screen.dropping .scroll { outline: 2px dashed var(--accent); outline-offset: -8px; }
 /* A readable column: the conversation padded to ~780 px of content, the composer as wide */
 .col-center .conversation { padding-inline: max(14px, calc((100% - 780px) / 2)); }
 .col-center .composer { width: 100%; max-width: 808px; margin-inline: auto; }

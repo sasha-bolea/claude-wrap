@@ -492,6 +492,48 @@ describe('PWA (fake SDK)', () => {
     expect((await page.locator('.col-center .composer').boundingBox())!.width).toBeLessThanOrEqual(808)
   })
 
+  it('hardware keyboard and mouse (wide window): Enter, Up and Ctrl+R history, Shift+Tab, Esc closes then stops, files dropped on the chat', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'en-US' })
+    contexts.push(context)
+    const page = await pairedPage(context, backend)
+    await openProject(page)
+    const field = composer(page)
+    await field.fill('first message')
+    await field.press('Enter')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo: first message')
+    await page.locator('.working-line').waitFor({ state: 'detached' })
+    // Up on the empty field brings the previous message back; Ctrl+R lists them.
+    await field.press('ArrowUp')
+    await expect.poll(() => field.inputValue()).toBe('first message')
+    await field.fill('')
+    await field.press('Control+r')
+    await page.locator('.suggest').getByText('first message').waitFor()
+    await field.press('Escape')
+    // Shift+Tab switches the permission mode.
+    const mode = await page.locator('.mode-btn').getAttribute('data-mode')
+    await field.press('Shift+Tab')
+    await expect.poll(() => page.locator('.mode-btn').getAttribute('data-mode')).not.toBe(mode)
+    // Esc closes a popover first, then stops Claude.
+    await field.fill('slow')
+    await field.press('Enter')
+    await page.locator('.working-line').waitFor()
+    await page.locator('.model-btn').click()
+    await page.locator('.sheet.popover').waitFor()
+    await page.keyboard.press('Escape')
+    await page.locator('.sheet.popover').waitFor({ state: 'detached' })
+    expect(await page.locator('.working-line').count()).toBe(1)
+    await page.keyboard.press('Escape')
+    await page.locator('.working-line').waitFor({ state: 'detached', timeout: 10_000 })
+    // A file dropped on the chat is attached.
+    const files = await page.evaluateHandle(() => {
+      const transfer = new DataTransfer()
+      transfer.items.add(new File(['notes'], 'readme.txt', { type: 'text/plain' }))
+      return transfer
+    })
+    await page.dispatchEvent('.chat-screen', 'drop', { dataTransfer: files })
+    await page.locator('.doc-chip').getByText('readme.txt').waitFor()
+  })
+
   it('the theme chosen in Settings applies and stays after a reload', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await button(page, 'Settings').click()
