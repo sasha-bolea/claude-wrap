@@ -47,6 +47,52 @@ deploy waited for a quiet moment). No C2 work: Sasha's requests came first.
 - `apps/mobile`: manifest `orientation: any`, `main.tsx` (rotate notice removed), e2e (+9 tests, harness
   `CLAUDE_WRAP_E2E_CHROME`).
 - Docs: STATO, architettura, design-system, procedure, bug-risolti (6 entries), CLAUDE.md (`smoke:usage`).
+## 2026-10-04 12:15 — Claude accounts, rename, and a second session on the server
+After the 2026-10-03 buonanotte Sasha asked to switch Claude accounts from the app ("voglio poter usare la stessa
+conversazione con più account, esattamente come faccio qui", "fallo subito", keeping the normal login): accounts with
+`claude setup-token` tokens, committed as `dc963a7` and live. Overnight a **second Claude session**, working from the
+server dev clone `/srv/progetti/claude-wrap` (set up by linux stup), pushed 33 commits to `main` from Sasha's phone
+requests; this session pulled them before going on ("sei indietro con i commit").
+- **Accounts (this session):** `AccountStore`, token check, per-process `CLAUDE_CODE_OAUTH_TOKEN`, switch = restart on
+  the same stored session, limits per account, `smoke:accounts` on the real CLI (a bad token fails with 401; back to
+  the login in the same conversation). Then **Rinomina** (`7359924`): ⋯ of an added account → Rename / Remove.
+- **Server session (summary of its commits, documented by it in STATO, design system and bug-risolti):** one account
+  for every session with a "Continua" card after a stop (`d6a0b29`), limit card offering only added accounts; context
+  and usage panels and the composer gauge (`fab0edb`, `d6d3d58`); Settings → automatic compaction (`b68a337`); deleting
+  a folder with its open sessions (`384b7c3`); stacked command cards; queue countdown of 5 s while the chat is on screen
+  (`d8692cb`); an empty queue never paused; short session titles (`b59dc8a`); both orientations again; many
+  composer/veil/ghost/scroll polish commits.
+- **Before pushing the rename**, 3 PWA e2e tests failed on `main` without an app bug (fake reset dates had passed;
+  "Up:" instead of "Back"; segmented radios) — fixed in the same commit ([bug-risolti.md](bug-risolti.md)).
+- **Shared browser** (Sasha's idea via linux stup): a Chromium on the server driven by Claude that Sasha also sees and
+  touches in the app. Sasha (2026-10-04): keep the order, design it after C2 and D. Meanwhile linux stup installed the
+  Playwright MCP for the server user (`@playwright/mcp` 0.0.83, headless Chrome 155, `--isolated`, started on first
+  use, 150–300 MB each); claude-wrap sessions load it too (`settingSources` includes `user`). A real test loaded a
+  local service (127.0.0.1) — the browser Claude drives reaches local services.
+- Tests at the end: 205 unit (+3 skipped), 29 PWA e2e, 175 core+server on Linux. Live: `7359924`.
+
+### Cambiamenti al codice
+- `packages/core`: new `accounts.ts` (`AccountStore`: add / rename / remove / setDefault, `accounts.json` 0600);
+  `jsonFile.ts` (`mode` option); `workspace.ts` / `tab.ts` (account per process env, limits per account,
+  `limitedUntil`); `commands.ts` (accounts.* and `tab.setAccount` handlers); testing: FakeQuery raw `request`,
+  scenario keyword `limit`, fake `/usage` reset dates in 2099; `scripts/smoke-accounts.ts` (`npm run smoke:accounts`).
+- `packages/protocol`: `accountSchema`, snapshot `accounts` / `defaultAccount`, event `accounts.updated`, TabMeta
+  `account` / `limitedUntil`, commands `accounts.add|rename|remove|setDefault`, `tab.setAccount`.
+- `packages/client`: store keeps accounts.
+- `packages/ui`: `touch/accounts.tsx` (AccountsGroup, AddAccountSheet, AccountMenu, RenameAccountSheet,
+  AccountPickSheet, LimitCard), session menu Account row, i18n keys (en + it).
+- Tests: core accounts tests (incl. rename), PWA e2e accounts test (add, rename twice, pick, limit card), e2e fixes
+  for "Up:" and segmented radios.
+- Docs: design-system Claude accounts entry (Rename), architettura §9.7, procedure (PWA e2e warnings).
+
+### Decisions moved from STATO
+| Date | Decision | Reason |
+|------|----------|--------|
+| 2026-10-03 | Repo public with the GitHub noreply email; probe split in public `sdk-probe.json` and ignored `sdk-probe.local.json` | No personal data in history |
+| 2026-10-03 | Pairing over `POST /pair`; device and push commands are host commands of the server; contract tests on two transports | Pairing happens before a WS identity exists; the core stays host-agnostic |
+| 2026-10-03 | Touch UI in `packages/ui/src/touch/` with its own `touch.css` (the prototype's CSS); the desktop keeps the old components until C2 | No half-migrated screens on either platform |
+| 2026-10-03 | highlight.js loaded only when a file is opened; its output rendered as React nodes (`spanNodes`), never injected HTML | Plan choice; design rule 10 (no `dangerouslySetInnerHTML` on untrusted content) |
+| 2026-10-03 | ~~Portrait only~~ (reverted the same day: both orientations, text never enlarged in landscape); no zoom; no emoji in UI badges (icons of the set) | Sasha's choices |
 
 ## 2026-10-03 17:49 — Sub-phases A, B, C1 and the first fixes from the phone
 The approved prototype (built with Sasha by a session on the server) became the UI spec; the plan was realigned in

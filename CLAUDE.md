@@ -95,6 +95,7 @@ deploy/             install.sh (--when-idle), rollback.sh, systemd units (servic
 - SDK runtime methods outside its types (raw control requests: send now, `cancelAsyncMessage`, `command_lifecycle` frames) stay behind casts in core and are covered by `smoke:composer`.
 - UI: follow [docs/design-system.md](docs/design-system.md) before building or changing any interface.
 - Host changes on the home server are done by the `linux stup` session on Sasha's request, never from here.
+- A second Claude session (server dev clone `/srv/progetti/claude-wrap`) also pushes to `main`: `git pull --ff-only` before working and before committing, push promptly.
 - Do not run multi-agent review workflows without telling Sasha the cost first (they exhausted the 5-hour subscription quota before).
 
 ## 7. Docs references

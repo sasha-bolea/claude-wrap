@@ -201,3 +201,17 @@ Import rule: `protocol` ← `core`, `client`; `client` ← `ui`; `core` ← `ser
 - Server: `claude-wrap-update.timer` → `install.sh main --when-idle` (build, tests on the server, switch only while
   `activity.json` says no session works; `.failed` releases skipped). PWA: `__APP_BUILD__` compiled in vs the served
   `version.json` → update bar and Settings → App.
+
+### 9.7 Claude accounts
+- [accounts.ts](../packages/core/src/accounts.ts): besides Claude Code's own login of the backend, accounts added with a
+  token made by `claude setup-token` (format checked when added), a name each, in `<stateDir>/accounts.json` (mode
+  0600). Tokens never leave core: clients get `{accountId, name, addedAt}` (`accounts.updated`, snapshot `accounts` /
+  `defaultAccount`). Commands: `accounts.add`, `accounts.rename`, `accounts.remove`, `accounts.setDefault`,
+  `tab.setAccount`.
+- The token reaches the CLI as `CLAUDE_CODE_OAUTH_TOKEN` in that process's `Options.env`; no account = the login.
+- **One account for every session**: a switch anywhere moves every tab and the new ones. A switch restarts each live
+  process on the same stored session (the conversation stays); a session at work is stopped at once and marked
+  `interrupted`, like one stopped by a usage limit, and waits — queue included — for "Continua" (`tabs.continue`) or a
+  message.
+- Usage limits are kept per account (`limitedUntil` in TabMeta; plan windows from `/usage` and from every
+  `rate_limit_event`, since `/usage` gives no limits for setup-token accounts). Real-CLI check: `npm run smoke:accounts`.

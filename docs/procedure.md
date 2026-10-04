@@ -56,6 +56,9 @@ _Runbook of multi-step or rare procedures. One-liners used often live in CLAUDE.
 
 **Warnings:** names come from `packages/ui/src/i18n/en.ts`; `getByRole` names are substrings unless `exact` (a tab
 title can contain "fork"); hidden screens of the stack are in the DOM: scope locators (`.chat-screen .topbar`).
+In a `.segmented` group the invisible radio covers its label: click the radio by role, never its text; use `click()`,
+not `check()`, when the radio turns on only after the backend answers. A folder screen goes up with "Up: <parent>",
+not "Back". Dates in fake data must be relative to now or far ahead (a fixed date that passes breaks the test later).
 
 ## Core and server tests on Linux (WSL)
 **When:** before a push that touches core, server or deploy (the server runs the same tests before switching).

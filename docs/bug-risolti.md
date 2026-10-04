@@ -331,3 +331,15 @@ These were solved in the first attempt. Files refer to that repository. Each ent
 - **Fix:** limits and plan windows go to the account the process was started with (`processAccount`); a turn that
   ends in success without a rejection lifts the limit recorded for its account (`limitLifted`).
 - **Files:** `packages/core/src/tab.ts`, `workspace.ts`.
+
+### 2026-10-04 — Three PWA e2e tests broke without an app bug
+- **Symptom:** before pushing the account rename, `npm run e2e:mobile` failed 3 of 29 tests (also on the commit before):
+  the gauge read 24% instead of 37%; "deleting a folder with a session open inside" never found the folder's ⋯; the
+  automatic-compaction test could not click "200k".
+- **Causes:** (1) the fake `/usage` answer had fixed reset dates (2026-10-03 22:00): once past, the UI rightly counts
+  the window as reset (0%). (2) Leaving a chat now lands in the project's folder, which goes up with "Up: <parent>",
+  while the test only pressed "Back". (3) In `.segmented` the invisible radio sits over its label, so a click on the
+  text is intercepted; and `check()` fails on a radio that turns on only after the backend answers.
+- **Fix:** fake reset dates in 2099; the test presses "Back" or "Up: …"; the radio is clicked by role with `click()`.
+  Warnings added to [procedure.md](procedure.md#end-to-end-tests-pwa-fake-sdk).
+- **Files:** `packages/core/src/testing/fakeQuery.ts`, `packages/core/src/core.test.ts`, `apps/mobile/e2e/pwa.e2e.ts`.

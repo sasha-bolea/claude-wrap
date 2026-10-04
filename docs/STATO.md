@@ -60,6 +60,9 @@ requests to the PWA one by one, each pushed and deployed by the update timer. De
   long session keeps the folder's name unless renamed.
 - The composer gauge's context share is the CLI's quick estimate (`detail: 'summary'`), which can differ from the
   full /context of the Contesto panel.
+- The Playwright MCP installed for the server user (by linux stup) is loaded by claude-wrap sessions too
+  (`settingSources` includes `user`), and the browser it drives reaches local services (127.0.0.1): a page could steer
+  Claude there (prompt injection). To weigh in the shared-browser design.
 - Licence/ToS of the SDK and subscription login in a third-party app: before any public release
   ([note-rilascio.md](note-rilascio.md)).
 
@@ -71,13 +74,8 @@ requests to the PWA one by one, each pushed and deployed by the update timer. De
 | 2026-10-03 | Mid-turn messages go to the CLI at once (`priority: 'next'`), `pending` until its `command_lifecycle` says started; a separate per-tab queue (pause after Stop and on usage limits) | Verified on the real CLI: `next` is read at the next tool step in the same turn |
 | 2026-10-03 | Stop = plain `interrupt()`; "Invia ora" on a waiting message = the CLI's own send-now (interrupt with `send_now` + message uuid), not a Stop | Same as the terminal (Ctrl+Enter); the queue is not paused |
 | 2026-10-03 | Server updates itself: `claude-wrap-update.timer` every 5 min, builds and tests a new `main`, switches only while no session works (`activity.json`); `.failed` blocks a release that failed or was rolled back | Pushes reach the phone without a manual step; nothing restarts under a working session |
-| 2026-10-03 | Repo public with the GitHub noreply email; probe split in public `sdk-probe.json` and ignored `sdk-probe.local.json` | No personal data in history |
-| 2026-10-03 | Pairing over `POST /pair`; device and push commands are host commands of the server; contract tests on two transports | Pairing happens before a WS identity exists; the core stays host-agnostic |
-| 2026-10-03 | Touch UI in `packages/ui/src/touch/` with its own `touch.css` (the prototype's CSS); the desktop keeps the old components until C2 | No half-migrated screens on either platform |
-| 2026-10-03 | highlight.js loaded only when a file is opened; its output rendered as React nodes (`spanNodes`), never injected HTML | Plan choice; design rule 10 (no `dangerouslySetInnerHTML` on untrusted content) |
 | 2026-10-03 | File commands take a tab (trusted folder) or a Home folder (inside the roots, no trust needed) | Browsing files is the user's own action; trusting the root just to look would trust every subfolder |
 | 2026-10-03 | Open session = a tab of the core; saved session = the CLI's JSONL. Past lists exclude open ones; a chat left with nothing sent and an empty composer is closed; never-used tabs are not restored; the tab title follows Claude Code's title until the user renames it | Sasha saw the same session twice and empty sessions kept |
-| 2026-10-03 | ~~Portrait only~~ (reverted the same day: both orientations, text never enlarged in landscape); no zoom; no emoji in UI badges (icons of the set) | Sasha's choices |
 | 2026-10-03 | Rewind stays a 🔜 placeholder until D (built with the core) | Its screens depend on what `rewindFiles` dry runs return |
 | 2026-10-04 | Limits and plan windows belong to the account the process was started with (`processAccount`); a turn that ends in success without a rejection lifts its account's limit | A switch left the old process reporting "CREAaps"'s weekly limit as "personale"'s |
 | 2026-10-04 | Titles from the CLI: its custom title, or its summary when ≤ 80 chars; a stored session is opened without a fixed title | The CLI's summary fell back to a whole prompt and became a fixed title |
@@ -88,6 +86,9 @@ requests to the PWA one by one, each pushed and deployed by the update timer. De
 | 2026-10-03 | Automatic compaction in Settings = Claude Code's official `autoCompactWindow` (tokens, 100k–1M), not a percentage: the only percentage is the undocumented test env `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`. Passed as flag settings at spawn; a live `applyFlagSettings` does not move it (CLI 2.1.287), so live processes restart (idle now, working at the turn's end) | Sasha chose B ("only if it is a native Claude Code setting") |
 | 2026-10-03 | One account for every session (a switch anywhere moves all sessions and the new ones); a switch stops a session at work at once; sessions stopped mid-work by a limit or a switch are marked (`TabMeta.interrupted`, persisted) and wait — queue included — for "Continua" (`tabs.continue`, sends "continua") or a message | Sasha: "quando cambio account in una chat si cambi in tutte le sessioni" + a continue card after a switch or a reset |
 | 2026-10-03 | Context and usage panels before C2; the window is `rawMaxTokens` (the autocompact window, as /context); the usage call is the SDK's experimental one, kept in `core/src/usage.ts` and checked by `smoke:usage` at every SDK bump; reset times normalized to plain ISO in core | Sasha asked for them now; the experimental API may be renamed |
+| 2026-10-04 | Shared browser (a Chromium on the server driven by Claude, seen and touched in the app) designed after C2 and D | Sasha: "teniamo l'ordine" |
+| 2026-10-04 | A second Claude session in the server dev clone pushes to `main` too; every session pulls before working | Sasha works on claude-wrap from the phone through it |
+| 2026-10-04 | Accounts can be renamed (token kept) | Sasha: "posso dare un nome ai token?" |
 | 2026-10-03 | Claude accounts: tokens from `claude setup-token` pasted in the app, kept by core in `accounts.json` (0600, never sent back), passed to the CLI as `CLAUDE_CODE_OAUTH_TOKEN`; per session with a default for new ones; Claude Code's own login stays; a switch restarts the process on the same stored session (at the turn's end if busy); usage limits per account | Sasha: "voglio poter usare la stessa conversazione con più account, esattamente come faccio qui" — like /login in the terminal |
 
 ## Backlog
@@ -99,10 +100,12 @@ requests to the PWA one by one, each pushed and deployed by the update timer. De
 3. **D** — native rewind (code / conversation / both, with preview), then cleanup: remove the old desktop
    components and `style.css` mobile rules, delete the prototype (server folder, `cw-prototipo` service, port 3013 in
    `~/.claude/porte.md`, local copy) after the final comparison.
-4. **Colours and logo** (Sasha, 2026-10-04): replace Claude's palette and the "cw" mark (tokens in `touch.css` and
+4. **Shared browser** — after D: who has control, touch and keyboard from the phone, where it opens, one per session or
+   one per server (memory), isolated profile (see open problems).
+5. **Colours and logo** (Sasha, 2026-10-04): replace Claude's palette and the "cw" mark (tokens in `touch.css` and
    `style.css`, `manifest.webmanifest`, `index.html` theme colour, `apps/mobile/scripts/icons.ts` for icons and splash
    screens); maybe the name.
-5. Server heartbeat for WebSockets (dead connections; "visible" only with recent signs of life) — see Open problems.
-6. Restrict the server's GitHub key (read-only deploy key, or push only from a dev clone Sasha accepts).
-7. Phase 4+ — data panels (tasks, todo, diff, MCP, hooks, status; context and usage done in the PWA), config pages, advanced editor.
-8. Move the desktop/packaged real-CLI smoke scripts into the repo.
+6. Server heartbeat for WebSockets (dead connections; "visible" only with recent signs of life) — see Open problems.
+7. Restrict the server's GitHub key (read-only deploy key, or push only from a dev clone Sasha accepts).
+8. Phase 4+ — data panels (tasks, todo, diff, MCP, hooks, status; context and usage done in the PWA), config pages, advanced editor.
+9. Move the desktop/packaged real-CLI smoke scripts into the repo.
