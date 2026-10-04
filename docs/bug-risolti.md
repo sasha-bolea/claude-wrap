@@ -321,3 +321,13 @@ These were solved in the first attempt. Files refer to that repository. Each ent
 - **Fix:** `overflow: clip` on `.screen` and `.device` (not scrollable at all).
 - **Files:** `packages/ui/src/touch.css`.
 - **Rule:** anything drawn past an edge on purpose is clipped with `overflow: clip`, never `hidden`.
+
+### 2026-10-04 — "Passa a …" shown although the account was not at its limit
+- **Symptom:** the usage limit card appeared on sessions of "personale", whose 5-hour window was at 0%; the limit ran
+  until 20:00, the weekly reset of the other account "CREAaps" (at 100%).
+- **Cause:** a switch takes effect at the end of the running turn, but `Tab.account` changes at once: the old
+  process's `rate_limit_event` (CREAaps rejected) was recorded for the new account (and its plan windows merged
+  there). Nothing ever lifted a limit before its reset time either.
+- **Fix:** limits and plan windows go to the account the process was started with (`processAccount`); a turn that
+  ends in success without a rejection lifts the limit recorded for its account (`limitLifted`).
+- **Files:** `packages/core/src/tab.ts`, `workspace.ts`.

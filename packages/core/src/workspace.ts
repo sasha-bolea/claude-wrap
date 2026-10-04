@@ -246,6 +246,20 @@ export class Workspace {
     for (const tab of this.tabsOf(account)) (tab.pauseQueue({ reason: 'limit', until }), this.env.changed(tab))
   }
 
+  // A turn of an account went through: a usage limit still recorded for it is over now (its queues go on, except
+  // where Claude was stopped mid-work, which waits for "Continua").
+  limitLifted(account: string | undefined): void {
+    const key = account ?? ''
+    const limit = this.limits.get(key)
+    if (!limit) return
+    clearTimeout(limit.timer)
+    this.limits.delete(key)
+    for (const tab of this.tabsOf(account)) {
+      if (!tab.interruptedBy) tab.resumeQueue('limit')
+      this.env.changed(tab)
+    }
+  }
+
   // When the usage limit of an account ends, while it lasts.
   limitedUntil(account: string | undefined): number | undefined {
     const limit = this.limits.get(account ?? '')
@@ -391,6 +405,7 @@ export class Workspace {
       promptSent: (tab, text) => this.prompts.add(text, tab.cwd, tab.sessionId),
       notify: (tab, kind, detail) => config.notifier?.({ kind, tabId: tab.tabId, title: tab.title, detail }),
       rateLimited: (until, account) => this.rateLimited(until, account),
+      limitLifted: (account) => this.limitLifted(account),
       limitedUntil: (account) => this.limitedUntil(account),
       planLimits: (account) => this.planLimits(account),
       mergePlanLimits: (account, limits) => this.mergePlanLimits(account, limits),

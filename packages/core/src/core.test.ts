@@ -1434,6 +1434,28 @@ describe('accounts', () => {
     expect(accounts(client).defaultAccount).toBeUndefined()
   })
 
+  it("a limit reported by the old account's process, still finishing its turn after a switch, stays with the old account", async () => {
+    const session = await startedTab()
+    const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
+    await client.ok('tab.setAccount', { tabId: 't1', accountId })
+    await client.waitFor(() => meta(client)?.account === accountId)
+    session.emit(sdk.rateLimit('rejected', Math.ceil(Date.now() / 1000) + 3600), sdk.aborted())
+    await client.waitFor(() => session.closed)
+    expect(meta(client)?.limitedUntil).toBeUndefined()
+    await client.ok('tab.setAccount', { tabId: 't1', accountId: undefined })
+    await client.waitFor(() => meta(client)?.limitedUntil !== undefined)
+  })
+
+  it('a turn that goes through lifts the limit recorded for its account', async () => {
+    const session = await startedTab()
+    session.emit(sdk.rateLimit('rejected', Math.ceil(Date.now() / 1000) + 3600), sdk.success())
+    await client.waitFor(() => meta(client)?.limitedUntil !== undefined)
+    await client.ok('tab.send', { tabId: 't1', text: 'it works again' }, cmd(2))
+    await session.waitForInput(2)
+    session.emit(sdk.success())
+    await client.waitFor(() => meta(client)?.limitedUntil === undefined)
+  })
+
   it('a usage limit belongs to its account: switching to another frees the sessions, switching back holds them again', async () => {
     const session = await startedTab()
     const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })

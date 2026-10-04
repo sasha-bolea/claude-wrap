@@ -65,6 +65,8 @@ export interface TabEnvironment {
   // A usage limit was hit: every queue waits until `until` (ms).
   // A usage limit of an account (undefined = the login) until `until` (ms); limitedUntil: when it ends, if limited.
   rateLimited(until: number, account: string | undefined): void
+  // A turn of that account went through: its usage limit, if any, is over.
+  limitLifted(account: string | undefined): void
   limitedUntil(account: string | undefined): number | undefined
   // Plan windows per account (composer gauges): the last read, whether a new read is due, and storing one.
   planLimits(account: string | undefined): PlanLimits | undefined
@@ -134,6 +136,11 @@ export class Tab {
   // (an account switch, a new auto-compact window).
   private account?: string
   private switchPending = false
+  // The account the running process was started with: until a switch takes effect (at the end of a turn) it is not
+  // `account`, and what the process reports (limits, plan windows) belongs to it.
+  private processAccount?: string
+  // A usage limit was reported during the current turn (a turn that ends without one lifts the account's limit).
+  private turnRejected = false
   // Claude was stopped mid-work by a usage limit or an account switch, until "Continua" or a message of the user.
   private interrupted?: 'limit' | 'switch'
   // The context window after the last turn (composer gauge).
@@ -554,7 +561,7 @@ export class Tab {
       this.contextGauge = toContextGauge(answer)
       this.changed()
     }
-    const account = this.account
+    const account = this.processAccount
     if (!force && !this.env.planLimitsDue(account)) return
     const usage = await readUsage(session.query).catch(() => undefined)
     // A token account answers without limits: the windows seen in rate_limit_events stay.
@@ -659,7 +666,9 @@ export class Tab {
       await this.refreshHistory()
       this.cwd = await this.env.prepareStart(this.cwd)
       this.assertOpen()
-      const token = await this.env.accountToken(this.account)
+      const account = this.account
+      const token = await this.env.accountToken(account)
+      this.processAccount = account
       const session = new Session(this.env.sdk.query, this.sessionOptions(token), {
         message: (message) => this.onMessage(message),
         handlerError: (error) => this.notice('warning', `Internal error while reading the session: ${messageOf(error)}`),
@@ -794,12 +803,15 @@ export class Tab {
       this.resetConversation(message.new_conversation_id)
     } else if (message.type === 'rate_limit_event') {
       const windows = planLimitsFromEvent(message.rate_limit_info)
-      if (windows) this.env.mergePlanLimits(this.account, windows)
+      if (windows) this.env.mergePlanLimits(this.processAccount, windows)
       if (message.rate_limit_info.status === 'rejected' && message.rate_limit_info.resetsAt) {
         if (this.turnRunning) this.interrupted = 'limit'
-        this.env.rateLimited(message.rate_limit_info.resetsAt * 1000, this.account)
+        this.turnRejected = true
+        this.env.rateLimited(message.rate_limit_info.resetsAt * 1000, this.processAccount)
       }
     } else if (message.type === 'result') {
+      if (message.subtype === 'success' && !message.is_error && !this.turnRejected) this.env.limitLifted(this.processAccount)
+      this.turnRejected = false
       this.endTurn()
     }
   }
