@@ -138,11 +138,20 @@ export function AccountPickSheet({ tabId }: { tabId: string }) {
   )
 }
 
-// In the chat while the session's account is at its usage limit: until when, and a switch to every other account
-// (for every session), or adding one.
+// Limits whose card was put away with Annulla (account and until when), on this device: every chat hides it.
+const dismissedLimits = new Set<string>()
+
+// In the chat while the session's account is at its usage limit: until when, a quiet switch to every other account
+// (for every session) or adding one, and Annulla, which puts the card away for that limit.
 export function LimitCard({ meta }: { meta: TabMeta }) {
   const { state, connection, go, toast, fail } = useTouch()
-  if (!meta.limitedUntil) return null
+  const [, setDismissed] = useState(0)
+  const key = `${meta.account ?? ''}:${meta.limitedUntil}`
+  if (!meta.limitedUntil || dismissedLimits.has(key)) return null
+  const dismiss = () => {
+    dismissedLimits.add(key)
+    setDismissed((count) => count + 1)
+  }
   const time = new Date(meta.limitedUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const every: { accountId?: string; name: string }[] = [{ name: t('cliLogin') }, ...(state.accounts ?? [])]
   const others = every.filter((account) => account.accountId !== meta.account)
@@ -151,17 +160,22 @@ export function LimitCard({ meta }: { meta: TabMeta }) {
   return (
     <div className="card" role="status">
       <span>{t('limitReached', { name: accountName(state, meta.account), time })}</span>
-      {others.length > 0 ? (
-        others.map((account) => (
-          <button key={account.accountId ?? 'login'} className="button primary" onClick={() => void switchTo(account.accountId)}>
-            {t('switchTo', { name: account.name })}
+      <div className="card-actions">
+        {others.length > 0 ? (
+          others.map((account) => (
+            <button key={account.accountId ?? 'login'} className="button quiet" onClick={() => void switchTo(account.accountId)}>
+              {t('switchTo', { name: account.name })}
+            </button>
+          ))
+        ) : (
+          <button className="button quiet" onClick={() => go({ name: 'settings' })}>
+            {t('addAnAccount')}
           </button>
-        ))
-      ) : (
-        <button className="button" onClick={() => go({ name: 'settings' })}>
-          {t('addAnAccount')}
+        )}
+        <button className="link-btn" onClick={dismiss}>
+          {t('cancel')}
         </button>
-      )}
+      </div>
     </div>
   )
 }
@@ -176,12 +190,12 @@ export function ContinueCard({ meta }: { meta: TabMeta }) {
   return (
     <div className="card" role="status">
       <span>{count > 1 ? t('stoppedMany', { count: String(count) }) : t(meta.interrupted === 'limit' ? 'stoppedByLimit' : 'stoppedBySwitch')}</span>
-      <div className="two-buttons">
-        <button className="button" onClick={() => void go()}>
-          {t('notNow')}
-        </button>
-        <button className="button primary" onClick={() => void go(t('continueText'))}>
+      <div className="card-actions">
+        <button className="button quiet" onClick={() => void go(t('continueText'))}>
           {count > 1 ? t('continueAll', { count: String(count) }) : t('continueOne')}
+        </button>
+        <button className="link-btn" onClick={() => void go()}>
+          {t('notNow')}
         </button>
       </div>
     </div>

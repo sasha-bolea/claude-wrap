@@ -385,6 +385,17 @@ describe('PWA (fake SDK)', () => {
     expect(await page.getByRole('radiogroup', { name: 'Compact when the conversation reaches' }).getByRole('radio', { name: '200k' }).isChecked()).toBe(true)
   })
 
+  it('the usage limit card: quiet "Switch to" buttons and Cancel, which puts it away', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'limit')
+    const card = page.getByRole('status').filter({ hasText: 'Usage limit of Claude Code login reached until' })
+    await card.waitFor()
+    expect(await card.getByRole('button', { name: 'Add an account' }).getAttribute('class')).toContain('quiet')
+    await card.getByRole('button', { name: 'Cancel' }).click()
+    await card.waitFor({ state: 'detached' })
+  })
+
   it('the theme chosen in Settings applies and stays after a reload', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await button(page, 'Settings').click()

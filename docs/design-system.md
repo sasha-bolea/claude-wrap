@@ -341,18 +341,18 @@ Examples: [UsageScreens.tsx:55](../packages/ui/src/touch/UsageScreens.tsx#L55), 
 A 🔜 panel or settings page: what it will show, a grey skeleton, and the `/` command to use meanwhile.
 Example: [LaterScreen.tsx:42](../packages/ui/src/touch/LaterScreen.tsx#L42).
 
-### Claude accounts — Settings group, account sheet, limit card, continue card (existing `.list`/`.row`, `.menu` radios, `.card`, `.two-buttons`)
+### Claude accounts — Settings group, account sheet, limit card, continue card (existing `.list`/`.row`, `.menu` radios, `.card`; new: `.button.quiet`, `.card-actions`)
 No new classes. **One account for every session**: Settings → "Account Claude" is a row list — "Login di Claude
 Code" first (the backend's own login), then the added accounts; a tap makes one the account of every session (chip
 "in uso"), ⋯ removes an added one; "Aggiungi account" opens a sheet with a name and a **password-type mono token
 field** (never shown again). The session menu has an "Account" row (current name on the right) opening a radio
 `.menu`: picking one there switches every session too. While the account is at its usage limit, the conversation
-shows a `.card` (`role="status"`) with until when and one "Passa a …" primary button per other account (or
-"Aggiungi un account"). In a session Claude stopped mid-work (usage limit, or a switch while it worked) the
+shows a `.card` (`role="status"`) with until when, one quiet "Passa a …" button (`.button.quiet` in `.card-actions`)
+per other account (or "Aggiungi un account") and "Annulla" (`.link-btn`: puts the card away for that limit on this device). In a session Claude stopped mid-work (usage limit, or a switch while it worked) the
 conversation shows, once the account is free (after a switch, or when the limit resets), a `.card` with why it
-stopped (or how many sessions stopped) and `.two-buttons`: "Non ora" (takes the cards away) and "Continua" /
-"Continua in tutte (N)" (sends "continua" to every stopped session; their queues go on after it).
-Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [accounts.tsx:113](../packages/ui/src/touch/accounts.tsx#L113), [accounts.tsx:143](../packages/ui/src/touch/accounts.tsx#L143), [accounts.tsx:171](../packages/ui/src/touch/accounts.tsx#L171), [Conversation.tsx:309](../packages/ui/src/touch/Conversation.tsx#L309), [ChatScreen.tsx:360](../packages/ui/src/touch/ChatScreen.tsx#L360), [Conversation.tsx:308](../packages/ui/src/touch/Conversation.tsx#L308).
+stopped (or how many sessions stopped) and `.card-actions`: a quiet "Continua" / "Continua in tutte (N)" and "Non
+ora" (`.link-btn`, takes the cards away) (sends "continua" to every stopped session; their queues go on after it).
+Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [accounts.tsx:113](../packages/ui/src/touch/accounts.tsx#L113), [accounts.tsx:146](../packages/ui/src/touch/accounts.tsx#L146), [accounts.tsx:185](../packages/ui/src/touch/accounts.tsx#L185), [Conversation.tsx:309](../packages/ui/src/touch/Conversation.tsx#L309), [ChatScreen.tsx:360](../packages/ui/src/touch/ChatScreen.tsx#L360), [Conversation.tsx:308](../packages/ui/src/touch/Conversation.tsx#L308).
 
 ### Launch and pairing — `.splash` (`.splash-main`, `.splash-state` `.bad`, `.dots`), `.hero-mark` (`.big`), `.hero-title`, `.steps`, `.error-text`, `.code-box`
 The launch screen until the server answers (same mark as the iOS splash). The pairing screen: install steps in iPhone
