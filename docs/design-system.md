@@ -281,7 +281,8 @@ Examples: [ChatScreen.tsx:281](../packages/ui/src/touch/ChatScreen.tsx#L281), [C
 ### Composer and dock — `.dock`, `.composer` (`.queue-mode`), `.input-box`, `.input-tools`, `.model-btn`, `.mode-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.linked-note`, `.shell-hint`, `.suggest`
 One box floating over the chat behind a blurred fade: the text on top; + (photos and files), model · effort, the
 permission mode icon, Stop (while Claude works or waits) and Send below. Queue mode: dashed border, Send adds to the
-queue. A linked note shows above the box (× unlinks it).
+queue. A linked note shows above the box (× unlinks it). Composer and box are one `minmax(0, 1fr)` column: a long note
+title or file name is cut with "…", never pushing Send off the screen.
 Examples: [ChatScreen.tsx:301](../packages/ui/src/touch/ChatScreen.tsx#L301), [TouchComposer.tsx:216](../packages/ui/src/touch/TouchComposer.tsx#L216), [TouchComposer.tsx:209](../packages/ui/src/touch/TouchComposer.tsx#L209).
 
 ### Queue — `.queue-tray`, `.q-stack`, `.q-card` (`.k0-3`, `.m0-3`), `.q-line`, `.q-play`, `.q-sheet-item`

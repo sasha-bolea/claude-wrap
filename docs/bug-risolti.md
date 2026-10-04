@@ -288,3 +288,14 @@ These were solved in the first attempt. Files refer to that repository. Each ent
   epoch seconds, outside the SDK's types; checked on CLI 2.1.287 with both added accounts), merged per account; a
   `/usage` answer without limits does not erase them; saved in `state.json`.
 - **Files:** `packages/core/src/usage.ts` (`planLimitsFromEvent`), `tab.ts`, `workspace.ts`.
+
+### 2026-10-04 — A linked note pushed Send off the screen
+- **Symptom:** after "Use in the message" on a note with a long first line, its card and the input bar grew wider
+  than the iPhone screen; Send could not be reached.
+- **Cause:** `.composer` and `.input-box` are grids with an implicit `auto` column: the note title (`nowrap`) set its
+  min-content width, so the column widened past the screen (the ellipsis never applied). Same class as the
+  spread-out tool cards (`.tool-group`, fixed the day before).
+- **Fix:** `grid-template-columns: minmax(0, 1fr)` on both, `min-width: 0` on `.linked-note`; the PWA e2e checks bar
+  and Send stay within the screen with a long note.
+- **Files:** `packages/ui/src/touch.css`, `apps/mobile/e2e/pwa.e2e.ts`.
+- **Rule:** a grid holding one-line ellipsized text needs a `minmax(0, 1fr)` column.
