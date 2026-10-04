@@ -456,6 +456,30 @@ describe('PWA (fake SDK)', () => {
     expect(await outside()).toEqual([])
   })
 
+  it('wide window (≥ 1024 px): Home on the left with the open sessions, the chat in the middle, File/Note on the right, Settings in a window', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'en-US' })
+    contexts.push(context)
+    const page = await pairedPage(context, backend)
+    await page.getByText('Open a session from the column on the left').waitFor()
+    await openProject(page)
+    await send(page, 'hello')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo: hello')
+    // The Home stays on the left, with the open session highlighted; the chat has no back arrow.
+    expect(await page.locator('.col-left .row.current').count()).toBe(1)
+    expect(await page.locator('.col-center').getByRole('button', { name: 'Back', exact: true }).count()).toBe(0)
+    await button(page, 'Folder files').click()
+    await page.locator('.col-right').getByRole('button', { name: 'Notes' }).click()
+    await page.locator('.col-right').getByRole('button', { name: 'New note' }).waitFor()
+    await button(page, 'Folder notes').click()
+    await page.locator('.col-right').waitFor({ state: 'detached' })
+    await button(page, 'Settings').click()
+    const settings = page.getByRole('dialog', { name: 'Settings' })
+    await settings.getByRole('button', { name: 'Back' }).click()
+    await settings.waitFor({ state: 'detached' })
+    // The composer and the conversation stay within a readable width in the middle.
+    expect((await page.locator('.col-center .composer').boundingBox())!.width).toBeLessThanOrEqual(808)
+  })
+
   it('the theme chosen in Settings applies and stays after a reload', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await button(page, 'Settings').click()

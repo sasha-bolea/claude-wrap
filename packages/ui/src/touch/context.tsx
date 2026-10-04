@@ -59,6 +59,14 @@ export type Touch = {
   insertInComposer(tabId: string, insert: ComposerInsert): void
   clearInsert(tabId: string): void
   inserts: Record<string, ComposerInsert>
+  // The wide arrangement (a window ≥ 1024 px): the Home in a left column, the chat in the middle, File, Note and the
+  // panels in a right panel, Settings in a window; no back arrow on the chat.
+  wide: boolean
+  // Wide: the chat in the middle and the right panel's first screen (undefined when closed).
+  chatTabId?: string
+  panel?: Screen
+  // Wide: opens that panel on the right, or closes it when it is the one open.
+  togglePanel(screen: Screen): void
 }
 
 export const TouchContext = createContext<Touch | null>(null)

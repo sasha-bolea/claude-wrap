@@ -264,7 +264,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   return (
     <section className="screen chat-screen" ref={screen} aria-label={t('chat')}>
       <header className="topbar">
-        <IconButton icon="back" label={otherWaiting ? t('backWaiting') : t('back')} dot={otherWaiting} onClick={back} />
+        {!touch.wide && <IconButton icon="back" label={otherWaiting ? t('backWaiting') : t('back')} dot={otherWaiting} onClick={back} />}
         <button className="title-btn" aria-haspopup="dialog" onClick={openMenu}>
           <Badge state={sessionState(meta)} />
           <span className="title-text">
@@ -272,6 +272,12 @@ export function ChatScreen({ tabId }: { tabId: string }) {
             <span className="sub">{baseName(meta.cwd)}</span>
           </span>
         </button>
+        {touch.wide && (
+          <>
+            <IconButton icon="files" className={touch.panel?.name === 'files' ? 'on' : undefined} label={t('folderFiles')} expanded={touch.panel?.name === 'files'} onClick={() => touch.togglePanel({ name: 'files', tabId })} />
+            <IconButton icon="note" className={touch.panel?.name === 'notes' ? 'on' : undefined} label={t('folderNotes')} expanded={touch.panel?.name === 'notes'} onClick={() => touch.togglePanel({ name: 'notes', tabId })} />
+          </>
+        )}
         <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'later', key: 'rewind', tabId }))} />
         <IconButton icon="queue" className={`queue-btn${queueMode ? ' on' : ''}`} label={queueLabel} count={queueCount} countIcon={meta.queuePause ? 'pause' : undefined} expanded={queueMode} onClick={toggleQueue} />
         <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />

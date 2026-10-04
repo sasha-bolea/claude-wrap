@@ -5,7 +5,7 @@ import { useBackHandler, useScreen, useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
 import { baseName, folderSummary, inside, type SessionState } from './model.ts'
 import { ConnectionBanner, Crumbs, IconButton, Title, UpdateBar, useQuery } from './parts.tsx'
-import { pastOnly, SessionLists, useStartSession } from './sessions.tsx'
+import { OpenSessions, pastOnly, SessionLists, useStartSession } from './sessions.tsx'
 
 const VIEW_KEY = 'claude-wrap:homeView'
 type View = 'projects' | 'sessions'
@@ -65,7 +65,7 @@ function FolderRow({ entry, project, tabs, onEnter, onChanged }: { entry: Folder
 // Home: the folders of the backend (server: its root; this PC: the added folders), with the sessions of the folder
 // shown and a new session right there; or every session (the Sessioni view). Back goes up one folder first.
 export function HomeScreen() {
-  const { state, connection, go, openSheet } = useTouch()
+  const { state, connection, go, openSheet, wide } = useTouch()
   const { top } = useScreen()
   const startSession = useStartSession()
   const [view, setView] = useHomeView()
@@ -128,6 +128,8 @@ export function HomeScreen() {
             <SessionLists open={state.tabs} stored={everySession.data?.sessions} folder="" withFolder onChange={everySession.reload} />
           ) : (
             <>
+              {wide && <OpenSessions />}
+              {wide && state.tabs.length > 0 && <p className="label spaced">{t('foldersTitle')}</p>}
               <ul className="list">
                 {folders.map((entry) => (
                   <FolderRow key={entry.path} entry={entry} project={isProject(state.projects, entry.path)} tabs={state.tabs} onEnter={enter} onChanged={listing.reload} />

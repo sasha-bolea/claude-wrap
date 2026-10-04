@@ -19,6 +19,39 @@ import { TrashScreen } from './TrashScreen.tsx'
 
 type Entry = { id: number; screen: Screen; returnSheet?: SheetSpec }
 
+// Where a screen goes in the wide arrangement.
+type Region = 'left' | 'center' | 'right' | 'window'
+function regionOf(screen: Screen): Region {
+  switch (screen.name) {
+    case 'home':
+    case 'folderSessions':
+    case 'trash':
+      return 'left'
+    case 'chat':
+      return 'center'
+    case 'settings':
+      return 'window'
+    default:
+      return 'right'
+  }
+}
+// The right panel's first screens (opened from the chat's top bar or its menu); the others go on top of one.
+const PANEL_ROOTS = new Set<Screen['name']>(['files', 'notes', 'later', 'context', 'usage'])
+// Width from which the wide arrangement is used.
+const WIDE_QUERY = '(min-width: 1024px)'
+
+// Whether the window is wide enough for the three-column arrangement (follows resizes).
+function useWide(): boolean {
+  const [wide, setWide] = useState(() => matchMedia(WIDE_QUERY).matches)
+  useEffect(() => {
+    const query = matchMedia(WIDE_QUERY)
+    const change = () => setWide(query.matches)
+    query.addEventListener('change', change)
+    return () => query.removeEventListener('change', change)
+  }, [])
+  return wide
+}
+
 // Edge swipe: starts within this distance of the left edge, goes back past this distance.
 const EDGE = 24
 const SWIPE_BACK = 90
@@ -68,6 +101,9 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
   useLayoutEffect(() => applyStoredTheme(), [])
   const device = useRef<HTMLDivElement>(null)
   useKeyboard(device)
+  const wide = useWide()
+  const wideRef = useRef(wide)
+  wideRef.current = wide
 
   const [stack, setStack] = useState<Entry[]>(() => [{ id: nextId++, screen: { name: 'home' } }])
   const [sheets, setSheets] = useState<SheetEntry[]>([])
@@ -106,10 +142,33 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
   }, [])
 
   const go = useCallback((screen: Screen) => {
+    if (wideRef.current) {
+      // Wide: one chat in the middle (another one closes the right panel), one panel on the right.
+      const region = regionOf(screen)
+      setSheets([])
+      setStack((current) => {
+        const kept =
+          region === 'center' ? current.filter((entry) => regionOf(entry.screen) === 'left' || regionOf(entry.screen) === 'window')
+          : region === 'right' && PANEL_ROOTS.has(screen.name) ? current.filter((entry) => regionOf(entry.screen) !== 'right')
+          : current
+        return [...kept, { id: nextId++, screen }]
+      })
+      return
+    }
     // Entered from a sheet (the session menu): coming back, that sheet is open again.
     const returnSheet = sheetsRef.current.at(-1)
     setSheets([])
     setStack((current) => [...current, { id: nextId++, screen, returnSheet }])
+  }, [])
+  // Wide: Back inside one region (its own top screen; the Home stays), or the screen's own back first (up a folder).
+  const regionBack = useCallback((region: Region) => {
+    const current = stackRef.current
+    const top = current.findLast((entry) => regionOf(entry.screen) === region)
+    if (!top) return
+    const handler = backHandlers.current.get(top.id)
+    if (handler?.active) return handler.run()
+    if (top.screen.name === 'home') return
+    setStack(current.filter((entry) => entry !== top))
   }, [])
   const back = useCallback(() => {
     const current = stackRef.current
@@ -124,6 +183,8 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
     }
   }, [])
   const backTo = useCallback((match: (screen: Screen) => boolean) => {
+    // Wide: the chat is already on screen; the panel stays open (Menziona in chat, Usa nel messaggio).
+    if (wideRef.current) return setSheets([])
     const current = stackRef.current
     const index = current.findLastIndex((entry) => match(entry.screen))
     if (index < 0) return
@@ -190,7 +251,7 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
     }
   }, [state.tabs])
 
-  const swipe = useEdgeSwipe(device, stack, backHandlers, sheets.length > 0, back)
+  const swipe = useEdgeSwipe(device, stack, backHandlers, sheets.length > 0 || wide, back)
   // A screen entered forward slides in (the class goes after, or it would slide again when shown on the way back).
   const shown = useRef(stack.length)
   useEffect(() => {
@@ -202,9 +263,27 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
     shown.current = stack.length
   }, [stack])
 
+  // Wide: the screen shown in each region (the last of its entries).
+  const shownIn = (region: Region) => stack.findLast((entry) => regionOf(entry.screen) === region)
+  const chatEntry = wide ? shownIn('center') : undefined
+  const panelEntries = wide ? stack.filter((entry) => regionOf(entry.screen) === 'right') : []
+  const panelRoot = panelEntries[0]?.screen
+  const togglePanel = useCallback(
+    (screen: Screen) => {
+      const open = stackRef.current.find((entry) => regionOf(entry.screen) === 'right')?.screen
+      if (open && open.name === screen.name && tabOf(open) === tabOf(screen)) setStack((current) => current.filter((entry) => regionOf(entry.screen) !== 'right'))
+      else go(screen)
+    },
+    [go]
+  )
+
   const touch = useMemo<Touch | undefined>(() => {
     if (!state.welcome || !state.tabs || !state.home || !state.projects) return undefined
     return {
+      wide,
+      chatTabId: chatEntry && tabOf(chatEntry.screen),
+      panel: panelRoot,
+      togglePanel,
       connection,
       state: state as LiveState,
       capabilities,
@@ -225,7 +304,13 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
       clearInsert,
       inserts
     }
-  }, [state, connection, capabilities, go, back, backTo, reset, openSheet, closeSheet, closeSheets, toast, snack, fail, insertInComposer, clearInsert, inserts])
+  }, [state, connection, capabilities, go, back, backTo, reset, openSheet, closeSheet, closeSheets, toast, snack, fail, insertInComposer, clearInsert, inserts, wide, chatEntry, panelRoot, togglePanel])
+  // Wide: each region's screens get Back for that region.
+  const regionTouch = useMemo(() => {
+    if (!touch) return undefined
+    const of = (region: Region): Touch => ({ ...touch, back: () => regionBack(region) })
+    return { left: of('left'), center: of('center'), right: of('right'), window: of('window') }
+  }, [touch, regionBack])
 
   // Just paired: the notifications offered once, if iOS has not been asked yet.
   const pushOffered = useRef(false)
@@ -235,10 +320,71 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
     openSheet({ title: t('pairedTitle'), body: <EnablePushSheet /> })
   }, [touch])
 
+  // Wide: the regions side by side, each showing its last screen (the others stay mounted, hidden).
+  const regionView = (region: Region) =>
+    stack
+      .filter((entry) => regionOf(entry.screen) === region)
+      .map((entry, index, entries) => (
+        <ScreenContext.Provider key={entry.id} value={{ entryId: entry.id, top: index === entries.length - 1, registerBack }}>
+          <div className="screen-host" hidden={index < entries.length - 1} data-entry={entry.id}>
+            <ScreenView screen={entry.screen} />
+          </div>
+        </ScreenContext.Provider>
+      ))
+  const settingsOpen = wide && Boolean(shownIn('window'))
+
   return (
-    <div className="device" ref={device}>
-      {!touch ? (
+    <div className={`device${wide ? ` wide${panelEntries.length ? ' with-panel' : ''}` : ''}`} ref={device}>
+      {!touch || !regionTouch ? (
         <Splash connection={connection} state={state} app={capabilities.app} />
+      ) : wide ? (
+        <TouchContext.Provider value={touch}>
+          <div className="col-left">
+            <TouchContext.Provider value={regionTouch.left}>{regionView('left')}</TouchContext.Provider>
+          </div>
+          <main className="col-center">
+            <TouchContext.Provider value={regionTouch.center}>{chatEntry ? regionView('center') : <NoChat />}</TouchContext.Provider>
+          </main>
+          {panelEntries.length > 0 && panelRoot && (
+            <aside className="col-right" aria-label={t('sidePanel')}>
+              <PanelTabs root={panelRoot} chatTabId={tabOf(chatEntry?.screen ?? panelRoot)} onToggle={togglePanel} onClose={() => setStack((current) => current.filter((entry) => regionOf(entry.screen) !== 'right'))} />
+              <div className="panel-body">
+                <TouchContext.Provider value={regionTouch.right}>{regionView('right')}</TouchContext.Provider>
+              </div>
+            </aside>
+          )}
+          {settingsOpen && (
+            <div className="window-scrim" onClick={(event) => event.target === event.currentTarget && regionBack('window')}>
+              <div className="window" role="dialog" aria-modal="true" aria-label={t('settings')}>
+                <TouchContext.Provider value={regionTouch.window}>{regionView('window')}</TouchContext.Provider>
+              </div>
+            </div>
+          )}
+          <SheetHost sheets={sheets} instant={instant} onClose={closeSheet} />
+          {snackState && (
+            <div className="snack" role="status">
+              <span>{snackState.text}</span>
+              {snackState.undo && (
+                <button
+                  onClick={() => {
+                    setSnackState(undefined)
+                    snackState.undo?.()
+                  }}
+                >
+                  {t('restore')}
+                </button>
+              )}
+            </div>
+          )}
+          {viewer && (
+            <div className="viewer" role="dialog" aria-modal="true" aria-label={t('photo')}>
+              <img src={viewer} alt="" />
+              <button className="icon-btn" aria-label={t('closePhoto')} autoFocus onClick={() => setViewer(undefined)}>
+                <Icon name="close" />
+              </button>
+            </div>
+          )}
+        </TouchContext.Provider>
       ) : (
         <TouchContext.Provider value={touch}>
           {stack.map((entry, index) => (
@@ -283,6 +429,43 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
         {announcement}
       </div>
     </div>
+  )
+}
+
+// Wide: the middle column before a chat is chosen.
+function NoChat() {
+  return (
+    <section className="screen no-chat" aria-label={t('chat')}>
+      <p className="muted">{t('pickASession')}</p>
+    </section>
+  )
+}
+
+// Wide: the right panel's head — File and Note of the chat's folder as tabs (the panel shown highlighted), × closes.
+function PanelTabs({ root, chatTabId, onToggle, onClose }: { root: Screen; chatTabId?: string; onToggle: (screen: Screen) => void; onClose: () => void }) {
+  return (
+    <div className="panel-tabs">
+      {chatTabId && (
+        <>
+          <button className="panel-tab" aria-pressed={root.name === 'files'} onClick={() => root.name !== 'files' && onToggle({ name: 'files', tabId: chatTabId })}>
+            {t('files')}
+          </button>
+          <button className="panel-tab" aria-pressed={root.name === 'notes'} onClick={() => root.name !== 'notes' && onToggle({ name: 'notes', tabId: chatTabId })}>
+            {t('notes')}
+          </button>
+        </>
+      )}
+      <IconButtonClose onClose={onClose} />
+    </div>
+  )
+}
+
+// The × of the right panel.
+function IconButtonClose({ onClose }: { onClose: () => void }) {
+  return (
+    <button className="icon-btn panel-close" aria-label={t('closePanel')} onClick={onClose}>
+      <Icon name="close" />
+    </button>
   )
 }
 

@@ -54,6 +54,28 @@ code { font-family: var(--font-mono); }
   .device { position: fixed; top: 0; left: 0; max-width: none; height: var(--app-h, 100%); border-radius: 0; box-shadow: none; }
 }
 
+/* Wide arrangement (≥ 1024 px, desktop and large tablets): the Home in a 300 px column, the chat in the middle (its
+   conversation and composer at a readable ~780 px), File / Note and the panels in a 380 px panel on the right,
+   Settings in a window over the app, sheets as centred dialogs */
+.device.wide { position: fixed; inset: 0; max-width: none; height: 100%; border-radius: 0; box-shadow: none; display: grid; grid-template-columns: 300px minmax(0, 1fr); flex-direction: row; }
+.device.wide.with-panel { grid-template-columns: 300px minmax(0, 1fr) 380px; }
+.col-left, .col-center, .col-right { position: relative; min-width: 0; height: 100%; overflow: clip; }
+.col-left { border-right: 1px solid var(--border); }
+.col-right { border-left: 1px solid var(--border); display: flex; flex-direction: column; background: var(--surface); }
+.panel-body { position: relative; flex: 1; min-height: 0; }
+.panel-tabs { display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.panel-tab { min-height: 36px; padding: 0 14px; border: 0; border-radius: 10px; background: none; color: var(--text-muted); font-weight: 600; }
+.panel-tab[aria-pressed="true"] { background: var(--surface-2); color: var(--text); }
+.panel-close { margin-left: auto; }
+/* A readable column: the conversation padded to ~780 px of content, the composer as wide */
+.col-center .conversation { padding-inline: max(14px, calc((100% - 780px) / 2)); }
+.col-center .composer { width: 100%; max-width: 808px; margin-inline: auto; }
+.no-chat { display: grid; place-items: center; padding: 24px; text-align: center; }
+.row.current { background: var(--surface-2); }
+.window-scrim { position: fixed; inset: 0; z-index: 20; background: var(--scrim); display: grid; place-items: center; }
+.window { position: relative; width: min(560px, calc(100% - 48px)); height: min(760px, calc(100% - 48px)); border-radius: 16px; overflow: clip; background: var(--background); box-shadow: 0 24px 60px rgba(0,0,0,.3); }
+.device.wide .sheet { left: 50%; right: auto; top: 50%; bottom: auto; width: min(460px, calc(100% - 48px)); max-height: 80%; border-radius: 16px; padding-bottom: 16px; transform: translate(-50%, -50%); animation: fade .18s ease-out; }
+
 /* One wrapper per stack entry: hidden unless on top (or under a screen being swiped away) */
 .screen-host { display: contents; }
 /* clip, not hidden: the composer's veil reaches past the bottom, and a hidden overflow can still be scrolled (focus,
