@@ -201,6 +201,14 @@ layout only (the old mobile components are gone).
 **Splash screens** of the installed app: the accent "cw" mark on `--background`, light and dark, one PNG per iPhone
 screen size, generated from the token colours by [apps/mobile/scripts/icons.ts](../apps/mobile/scripts/icons.ts).
 
+### Backend switch (desktop) — `.backend-switch`, `.backend-choices`, `.switch-dot`, `.core-failed`
+On top of the Home when the host offers several backends (the desktop: `capabilities.backends` from `DesktopShell`):
+a segmented switch **Questo PC | servers** (a dot on a backend where a session waits) and ⋯ "Server…" opening a sheet
+to remove a paired server (asked first) or add one from a pairing link. This PC's Home is the list of added folders
+with "Aggiungi cartella…" (the system's folder dialog) and "Togli dall'elenco" in a folder's menu; what is deleted there
+goes to the system Trash (no "Eliminate di recente"). A local backend that crashed for good shows `.core-failed`.
+Examples: [backends.tsx:28](../packages/ui/src/touch/backends.tsx#L28).
+
 ### Wide arrangement — `.device.wide` (`.with-panel`), `.col-left`, `.col-center`, `.col-right`, `.panel-tabs`, `.panel-tab`, `.panel-close`, `.window-scrim`, `.window`, `.no-chat`, `.row.current`
 From 1024 px of width (desktop, large tablets) the same screens are arranged side by side (NOTE-CONSEGNA §5): the
 Home in a 300 px column (with "Aperte", the backend's open sessions, on top — the one in the chat highlighted; its

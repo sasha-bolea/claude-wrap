@@ -5,6 +5,7 @@ import { useBackHandler, useScreen, useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
 import { baseName, folderSummary, inside, type SessionState } from './model.ts'
 import { ConnectionBanner, Crumbs, IconButton, Title, UpdateBar, useQuery } from './parts.tsx'
+import { BackendSwitch } from './backends.tsx'
 import { OpenSessions, pastOnly, SessionLists, useStartSession } from './sessions.tsx'
 
 const VIEW_KEY = 'claude-wrap:homeView'
@@ -65,7 +66,7 @@ function FolderRow({ entry, project, tabs, onEnter, onChanged }: { entry: Folder
 // Home: the folders of the backend (server: its root; this PC: the added folders), with the sessions of the folder
 // shown and a new session right there; or every session (the Sessioni view). Back goes up one folder first.
 export function HomeScreen() {
-  const { state, connection, go, openSheet, wide } = useTouch()
+  const { state, connection, go, openSheet, wide, capabilities, fail } = useTouch()
   const { top } = useScreen()
   const startSession = useStartSession()
   const [view, setView] = useHomeView()
@@ -89,6 +90,11 @@ export function HomeScreen() {
 
   const waitingAnywhere = state.tabs.some((tab) => tab.status === 'requires_action')
   const enter = (path: string) => setTrail((path0) => [...path0, path])
+  // This PC: a folder chosen in the system's dialog joins the Home (its files stay where they are).
+  const addFolder = async () => {
+    const path = await capabilities.chooseFolder!()
+    if (path) await connection.request('folders.add', { path }).catch(fail)
+  }
   const added = home.kind === 'added' && !trail.length
   const folders: FolderEntry[] = added ? home.folders.map((path) => ({ name: baseName(path), path, project: false })) : (listing.data?.folders ?? [])
   const name = current ? baseName(current) : t('thisComputer')
@@ -103,6 +109,7 @@ export function HomeScreen() {
 
   return (
     <section className="screen" aria-label={t(view === 'sessions' ? 'sessions' : 'foldersTitle')}>
+      <BackendSwitch />
       <header className="topbar">
         {view === 'projects' && trail.length > 0 && <IconButton icon="back" label={t('upTo', { name: baseName(trail.at(-2) ?? root ?? '') || t('thisComputer') })} onClick={() => setTrail((path) => path.slice(0, -1))} />}
         {view === 'sessions' ? (
@@ -146,6 +153,14 @@ export function HomeScreen() {
                       <span className="row-title plain">{filesWords(files)}</span>
                     </button>
                     <Icon name="chevron" className="chevron" />
+                  </li>
+                )}
+                {added && capabilities.chooseFolder && (
+                  <li className="row">
+                    <Icon name="folder-plus" className="ficon dir" />
+                    <button className="row-main" onClick={() => void addFolder()}>
+                      <span className="row-title plain">{t('addFolderEllipsis')}</span>
+                    </button>
                   </li>
                 )}
                 {!trail.length && home.kind === 'root' && (

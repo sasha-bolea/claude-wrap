@@ -114,6 +114,9 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
   const [viewer, setViewer] = useState<string>()
   const viewerRef = useRef(viewer)
   viewerRef.current = viewer
+  // The local backend (desktop) crashed too often and will not come back.
+  const [coreFailed, setCoreFailed] = useState(false)
+  useEffect(() => capabilities.onCoreFailed?.(() => setCoreFailed(true)), [capabilities])
   const [inserts, setInserts] = useState<Record<string, ComposerInsert>>({})
   const backHandlers = useRef(new Map<number, BackHandler>())
   const opener = useRef<HTMLElement | null>(null)
@@ -447,6 +450,11 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
             </div>
           )}
         </TouchContext.Provider>
+      )}
+      {coreFailed && (
+        <div className="core-failed" role="alert">
+          {t('coreFailed')}
+        </div>
       )}
       {toastText && (
         <div className="toast" role="status">

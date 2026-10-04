@@ -255,6 +255,8 @@ export const it: Record<MessageKey, string> = {
   nowProject: '{name} ora è un progetto',
   noLongerProject: '{name} non è più un progetto',
   takeOffList: 'Togli dall’elenco',
+  addFolderEllipsis: 'Aggiungi cartella…',
+  serverAdded: 'Server {name} aggiunto',
   takenOffList: '{name} tolta dall’elenco: i file restano',
   deleteFolderTitle: 'Eliminare “{name}”?',
   deleteFolderBody: 'Va in Eliminate di recente: hai 7 giorni per ripristinarla.',

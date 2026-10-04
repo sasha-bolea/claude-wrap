@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Connection } from '@claude-wrap/client'
 import { DesktopShell, type BackendEntry, type Capabilities } from '@claude-wrap/ui'
-import '@claude-wrap/ui/style.css'
+import '@claude-wrap/ui/touch.css'
 import type { BridgedChannel } from '../preload/index.ts'
 
 type BackendInfo = { id: string; name: string; kind: 'local' | 'remote' }

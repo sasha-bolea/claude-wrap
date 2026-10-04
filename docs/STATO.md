@@ -28,8 +28,9 @@ requests to the PWA one by one, each pushed and deployed by the update timer. De
     Annulla), "Continua" card after a stop by a limit or a switch;
   - nothing leaves the screen and text wraps (design rule 8; one-line exceptions: stack cards, a tool card's command,
     titles clamped to two lines); deleting a folder with sessions open inside it closes them too.
-- **Desktop:** still the Phase 1–3 UI (tab bar, start screen, old chat and composer) on the new core; it moves to the
-  touch elements in **C2**.
+- **Desktop:** runs the touch app since C2.4 (three columns from 1024 px, backend switch on top of the Home, This PC's
+  added folders); the old components and the desktop e2e (written for the tab bar) are still in the repo until C2.5.
+  Electron cannot start on the home server (no GTK libraries: `libgtk-3.so.0`), so desktop e2e run on the PC.
 - **Pending with Sasha:** new colours and logo (not Claude's): four palettes shown as screenshots in
   `/srv/progetti/test/palette/` (A indaco, B verde acqua, C viola, D grafite e lime) and three logo ideas (cw
   monogram, `< • >`, folded square); Sasha asked for an artifact, which this session cannot make — proposed a live

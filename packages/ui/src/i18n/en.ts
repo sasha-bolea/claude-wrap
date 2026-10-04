@@ -253,6 +253,8 @@ export const en = {
   nowProject: '{name} is now a project',
   noLongerProject: '{name} is no longer a project',
   takeOffList: 'Take off the list',
+  addFolderEllipsis: 'Add folder…',
+  serverAdded: 'Server {name} added',
   takenOffList: '{name} taken off the list: its files stay',
   deleteFolderTitle: 'Delete “{name}”?',
   deleteFolderBody: 'It goes to Recently deleted: you have 7 days to restore it.',
