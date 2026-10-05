@@ -92,13 +92,17 @@ requests to the PWA one by one, each pushed and deployed by the update timer. De
 
 ## Backlog
 1. **C2** — desktop with the same elements ([piano.md](piano.md) §4; prototype delivery on the server: `/srv/progetti/claude-wrap-prototipo/NOTE-CONSEGNA.md` §5, read it before `index.html`).
-2. **D** — native rewind (code / conversation / both, with preview), then cleanup: remove the old desktop
+2. **Terminal in the app** (Sasha, 2026-10-05; after C2): an interactive shell through core (`node-pty`, rebuilt for
+   Electron) and `xterm.js` — desktop: a third tab of the right panel (File | Note | Terminale); phone: its own screen
+   with a key bar (Esc, Tab, Ctrl, arrows, |, ~); several terminals that survive a reconnection; folders inside the
+   roots only.
+3. **D** — native rewind (code / conversation / both, with preview), then cleanup: remove the old desktop
    components and `style.css` mobile rules, delete the prototype (server folder, `cw-prototipo` service, port 3013 in
    `~/.claude/porte.md`, local copy) after the final comparison.
-3. **Colours and logo** (Sasha, 2026-10-04): replace Claude's palette and the "cw" mark (tokens in `touch.css` and
+4. **Colours and logo** (Sasha, 2026-10-04): replace Claude's palette and the "cw" mark (tokens in `touch.css` and
    `style.css`, `manifest.webmanifest`, `index.html` theme colour, `apps/mobile/scripts/icons.ts` for icons and splash
    screens); maybe the name.
-4. Server heartbeat for WebSockets (dead connections; "visible" only with recent signs of life) — see Open problems.
-5. Restrict the server's GitHub key (read-only deploy key, or push only from a dev clone Sasha accepts).
-6. Phase 4+ — data panels (tasks, todo, diff, MCP, hooks, status; context and usage done in the PWA), config pages, advanced editor.
-7. Move the desktop/packaged real-CLI smoke scripts into the repo.
+5. Server heartbeat for WebSockets (dead connections; "visible" only with recent signs of life) — see Open problems.
+6. Restrict the server's GitHub key (read-only deploy key, or push only from a dev clone Sasha accepts).
+7. Phase 4+ — data panels (tasks, todo, diff, MCP, hooks, status; context and usage done in the PWA), config pages, advanced editor.
+8. Move the desktop/packaged real-CLI smoke scripts into the repo.
