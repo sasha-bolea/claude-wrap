@@ -1,17 +1,18 @@
 // Sub-phase A: deploy/install.sh and rollback.sh on Linux (skipped on Windows), with stub npm, npx and systemctl so
 // nothing is built and no service is touched. User stories: a manual install goes live and installs the update timer;
 // a timer run leaves the live commit alone, builds a new commit but switches to it only while no session is working,
-// never retries a commit whose tests failed, and never brings back a release I rolled back from.
+// never retries a commit whose tests failed, never brings back a release I rolled back from, and does not fill the disk
+// with old releases.
 import { describe, expect, it } from 'vitest'
 import { spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const DEPLOY = join(import.meta.dirname, '..', '..', '..', 'deploy')
 
 describe.skipIf(process.platform === 'win32')('deploy/install.sh', () => {
-  it('installs, then updates only when idle and never retries a failed commit', { timeout: 60_000 }, () => {
+  it('installs, then updates only when idle, never retries a failed commit, and keeps only the releases it needs', { timeout: 60_000 }, () => {
     const root = mkdtempSync(join(tmpdir(), 'cw-deploy-'))
     const at = (...parts: string[]) => join(root, ...parts)
     const log = at('log')
@@ -97,5 +98,17 @@ describe.skipIf(process.platform === 'win32')('deploy/install.sh', () => {
     result = run('main', '--when-idle')
     expect(result.status).toBe(0)
     expect(result.calls).toBe('')
+
+    // Each switch keeps only current, previous and the newest failed release (old ones fill the disk).
+    const releases = () => readdirSync(at('app', 'releases')).sort()
+    rmSync(at('origin', 'FAIL'))
+    const fourth = commit('fourth')
+    expect(run('main', '--when-idle').status).toBe(0)
+    expect(current()).toBe(release(fourth))
+    expect(releases()).toEqual([first, third, fourth].sort())
+    writeFileSync(at('origin', 'change.txt'), 'fifth')
+    const fifth = commit('fifth')
+    expect(run('main', '--when-idle').status).toBe(0)
+    expect(releases()).toEqual([third, fourth, fifth].sort())
   })
 })

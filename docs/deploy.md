@@ -8,7 +8,7 @@ Sasha's request; the install script itself needs no sudo. Files: [deploy/](../de
 | Path | What |
 |---|---|
 | `/srv/apps/claude-wrap/repo` | git clone of https://github.com/sasha-bolea/claude-wrap |
-| `/srv/apps/claude-wrap/releases/<commit>` | one built release per commit (`.ready` once its tests passed) |
+| `/srv/apps/claude-wrap/releases/<commit>` | one built release per commit (`.ready` once its tests passed), ~740 MB each; after every switch only `current`, `previous` and the newest `.failed` one are kept |
 | `/srv/apps/claude-wrap/current`, `previous` | symlinks: the running release, the one before (rollback) |
 | `~/.config/claude-wrap/env` | the service environment (0600): root, public URL, Tailscale login — **not in the repo** |
 | `~/.config/systemd/user/claude-wrap.service` | the unit ([deploy/claude-wrap.service](../deploy/claude-wrap.service)) |

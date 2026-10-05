@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Installs or updates claude-wrap on the home server, as the service user (no sudo).
 # Each version is a release under /srv/apps/claude-wrap/releases/<commit>; `current` points at the running one and
-# `previous` at the one before (deploy/rollback.sh switches back). A release goes live only if its tests pass.
+# `previous` at the one before (deploy/rollback.sh switches back). A release goes live only if its tests pass; after a
+# switch only current, previous and the newest failed release are kept.
 # Usage: install.sh [git ref] [--when-idle]   (default ref: main)
 #   --when-idle  run by claude-wrap-update.timer: does nothing when the ref is already live, or marked .failed (its
 #                tests failed, or rollback.sh left it); otherwise builds and tests it, and switches only while no
@@ -75,6 +76,16 @@ fi
 # Switch: previous ← current, current ← this release, restart.
 if [ -L "$APP/current" ] && [ "$(readlink "$APP/current")" != "$RELEASE" ]; then ln -sfn "$(readlink "$APP/current")" "$APP/previous"; fi
 ln -sfn "$RELEASE" "$APP/current"
+
+# Old releases (~740 MB each, node_modules included): keep current, previous (rollback.sh) and the newest failed one
+# (to look into); remove the rest. A removed failed release is an older commit, so the timer never builds it again.
+PREVIOUS=$(readlink "$APP/previous" 2>/dev/null || true)
+LAST_FAILED=$(ls -td "$APP"/releases/*/.failed 2>/dev/null | head -n 1 | xargs -r dirname || true)
+for dir in "$APP"/releases/*/; do
+  dir=${dir%/}
+  case "$dir" in "$RELEASE" | "$PREVIOUS" | "$LAST_FAILED") ;; *) rm -rf "$dir" ;; esac
+done
+
 systemctl --user daemon-reload
 systemctl --user enable --quiet claude-wrap
 systemctl --user enable --now --quiet claude-wrap-update.timer

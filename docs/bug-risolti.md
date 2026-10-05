@@ -343,3 +343,12 @@ These were solved in the first attempt. Files refer to that repository. Each ent
 - **Fix:** fake reset dates in 2099; the test presses "Back" or "Up: …"; the radio is clicked by role with `click()`.
   Warnings added to [procedure.md](procedure.md#end-to-end-tests-pwa-fake-sdk).
 - **Files:** `packages/core/src/testing/fakeQuery.ts`, `packages/core/src/core.test.ts`, `apps/mobile/e2e/pwa.e2e.ts`.
+
+### 2026-10-05 — Automatic updates filled the server's disk
+- **Symptom (reported by linux stup):** 42 releases of ~740 MB in `/srv/apps/claude-wrap/releases` = 31 GB, growing
+  ~8 GB a day while developing; at that pace the free 366 GB would last weeks, then Jellyfin and the system stop too.
+- **Cause:** `install.sh` builds one release per commit (each with its own `node_modules`) and never removed old ones.
+- **Fix:** after every switch keep `current`, `previous` (rollback) and the newest `.failed` release (to look into);
+  remove the rest. A removed failed release is an older commit than the live one, so the timer never rebuilds it.
+  First version exited at once under `pipefail` when no release had `.failed` (`ls` with no match) → `|| true`.
+- **Files:** `deploy/install.sh`, `packages/server/src/deploy.test.ts`, `docs/deploy.md`.
