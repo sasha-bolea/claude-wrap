@@ -343,7 +343,7 @@ export const it: Record<MessageKey, string> = {
   thinkingSummary: 'Ragionamento (tocca per aprire)',
   readByClaude: 'letto',
   startingClaude: 'Avvio di Claude…',
-  workingSeconds: 'Claude sta lavorando · {seconds} s',
+  workingFor: 'Claude sta lavorando · {time}',
   shellExitCode: 'uscita {code}',
   allowTool: 'Consentire {tool}?',
   noEllipsis: 'No…',

@@ -8,6 +8,7 @@ import type { Answer } from '../chatHooks.ts'
 import { ContinueCard, LimitCard } from './accounts.tsx'
 import { useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
+import { durationLabel } from './model.ts'
 
 type LoadImage = (imageId: string) => Promise<Image>
 type ToolCall = Extract<Item, { kind: 'toolCall' }>
@@ -280,7 +281,7 @@ function WorkingLine({ starting }: { starting: boolean }) {
   return (
     <div className="working-line">
       <span className="badge working" />
-      <span>{starting ? t('startingClaude') : t('workingSeconds', { seconds: String(Math.round((Date.now() - since.current) / 1000)) })}</span>
+      <span>{starting ? t('startingClaude') : t('workingFor', { time: durationLabel(Date.now() - since.current) })}</span>
     </div>
   )
 }

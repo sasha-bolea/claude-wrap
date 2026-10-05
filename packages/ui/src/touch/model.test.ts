@@ -13,6 +13,8 @@ describe('touch model', () => {
     expect([850, 48500, 200000, 1250000].map((tokens) => tokenLabel(tokens, 'en-US'))).toEqual(['850', '48.5k', '200k', '1.3M'])
     expect(tokenLabel(48500, 'it-IT')).toBe('48,5k')
     expect([45000, 95000, 120000, 7500000].map(durationLabel)).toEqual(['45 s', '1 min 35 s', '2 min', '2 h 5 min'])
+    // "Claude is working · …" past a minute and an hour.
+    expect([59400, 567000, 3600000].map(durationLabel)).toEqual(['59 s', '9 min 27 s', '1 h'])
     const now = new Date(2026, 9, 3, 18, 0)
     expect(resetLabel(new Date(2026, 9, 3, 22, 0).toISOString(), now, 'en-GB')).toBe('22:00')
     expect(resetLabel(new Date(2026, 9, 8, 11, 0).toISOString(), now, 'en-GB')).toBe('Thu 8 Oct, 11:00')

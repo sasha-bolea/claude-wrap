@@ -341,7 +341,7 @@ export const en = {
   thinkingSummary: 'Reasoning (tap to open)',
   readByClaude: 'read',
   startingClaude: 'Starting Claude…',
-  workingSeconds: 'Claude is working · {seconds} s',
+  workingFor: 'Claude is working · {time}',
   shellExitCode: 'exit {code}',
   allowTool: 'Allow {tool}?',
   noEllipsis: 'No…',
