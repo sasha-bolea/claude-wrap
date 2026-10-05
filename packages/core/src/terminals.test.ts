@@ -3,7 +3,7 @@
 // back after a reconnection gets what it missed; a shell that ends says so; I close it; at most 5 at a time; never
 // outside the server's root.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mkdirSync, mkdtempSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { WORKSPACE_STREAM, terminalStream, type TerminalMeta, type TerminalSnapshot, type WorkspaceEvent, type WorkspaceSnapshot } from '@claude-wrap/protocol'
@@ -116,5 +116,27 @@ describe('terminals', () => {
     await back.hello({ [terminalStream(ids[0]!)]: { epoch: 'x', lastSeq: 1 } })
     await back.waitFor(() => back.frames.some((frame) => frame.t === 'gone' && frame.stream === terminalStream(ids[0]!)))
     back.close()
+  })
+
+  // The automatic update restarts the server only while nothing works: a command running in a terminal counts.
+  it.skipIf(process.platform === 'win32')('a command running in a terminal counts as work in the activity file; the shell at its prompt does not', async () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'cw-term-activity-')), 'activity.json')
+    const working = () => {
+      try {
+        return (JSON.parse(readFileSync(file, 'utf8')) as { working: number }).working
+      } catch {
+        return undefined
+      }
+    }
+    client.close()
+    await core.closeAll()
+    core = createCore({ backendId: 'test', backendKind: 'remote', sdk: createFakeSdk(), allowedRoots: [ROOT], coalesceMs: 2, activityFile: file, activityPollMs: 30 })
+    client = await connect()
+    const { terminalId } = await client.ok('terminal.open', { folder: CWD, cols: 80, rows: 24 })
+    // At its prompt (once its start-up files ran) the shell is not work.
+    await expect.poll(working, { timeout: 5000 }).toBe(0)
+    await client.ok('terminal.input', { terminalId, data: 'sleep 1\r' })
+    await expect.poll(working, { timeout: 3000 }).toBe(1)
+    await expect.poll(working, { timeout: 5000 }).toBe(0)
   })
 })

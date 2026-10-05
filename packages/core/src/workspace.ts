@@ -18,6 +18,8 @@ import { TrustGate, canonicalFolder, checkRoots, withinRoots } from './trustGate
 
 // Upper bound for closing everything on quit.
 const QUIT_CAP_MS = 8000
+// How often the terminals are looked at for a running command (activity file).
+const ACTIVITY_POLL_MS = 2000
 
 // The title of a saved tab when it comes back. Older states have no autoTitle: the folder's name meant automatic. A
 // title longer than a title is a prompt the CLI fell back to (fixed by older versions when a stored session was
@@ -51,6 +53,7 @@ export class Workspace {
   private readonly store: StateStore
   private readonly env: TabEnvironment
   private readonly activity?: ActivityFile
+  private readonly activityTimer?: NodeJS.Timeout
   private readonly trashTimer?: NodeJS.Timeout
   // Plan windows per account ('' = the login) for the composer gauges, and when they were read.
   private readonly plans = new Map<string, { limits?: PlanLimits; readAt: number }>()
@@ -94,6 +97,8 @@ export class Workspace {
     // Restored tabs are dormant: 0 overwrites what a previous run may have left.
     this.activity = config.activityFile ? new ActivityFile(config.activityFile) : undefined
     this.activity?.set(0)
+    // A command in a terminal starts and ends without any event: it is looked at regularly.
+    if (this.activity) this.activityTimer = setInterval(() => this.countActivity(), config.activityPollMs ?? ACTIVITY_POLL_MS).unref()
     // The first start with a Home on this PC: it begins with the folders of the open sessions.
     if (this.allowedRoots === 'any' && !store.data.addedFolders) {
       const folders = [...new Set(store.data.tabs.map((tab) => tab.cwd))]
@@ -148,6 +153,12 @@ export class Workspace {
     // A stored session opened without a title takes the CLI's own title now (it follows it afterwards).
     if (init.resume && !init.title) void tab.followCliTitle()
     return init.tabId
+  }
+
+  // Work in progress for the automatic update: sessions starting, running or waiting for an answer, and terminals
+  // running a command.
+  private countActivity(): void {
+    this.activity?.set([...this.tabs.values()].filter((tab) => tab.busy).length + this.terminals.busyCount())
   }
 
   // Someone looks at the chat of a tab: it no longer counts as finished in the notification.
@@ -347,6 +358,7 @@ export class Workspace {
   // after QUIT_CAP_MS.
   async closeAll(): Promise<void> {
     clearInterval(this.trashTimer)
+    clearInterval(this.activityTimer)
     this.terminals.closeAll()
     for (const { timer } of this.limits.values()) clearTimeout(timer)
     const closing = Promise.all([...this.tabs.values()].map((tab) => tab.close(true))).then(waitForCleanups)
@@ -415,7 +427,7 @@ export class Workspace {
       },
       changed: (tab) => {
         if (tab.busy) this.finished.delete(tab.tabId)
-        this.activity?.set([...this.tabs.values()].filter((other) => other.busy).length)
+        this.countActivity()
         if (this.tabs.get(tab.tabId) !== tab) return
         this.stream.emit({ type: 'tab.updated', tab: tab.meta() })
         this.persist()

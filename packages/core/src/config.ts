@@ -40,6 +40,8 @@ export interface CoreConfig {
   notifier?: (notice: Notice) => void
   // The terminals' shell (default: the user's shell, PowerShell on Windows); tests pin one.
   terminalShell?: ShellCommand
+  // How often the activity file looks at the terminals for a running command (default 2 s; tests go faster).
+  activityPollMs?: number
   // Commands the host answers itself (remote server: devices.*).
   hostCommands?: HostCommands
   // File kept up to date with the number of sessions at work (remote server: its automatic update waits for 0).

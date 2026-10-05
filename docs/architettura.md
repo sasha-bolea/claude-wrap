@@ -242,5 +242,7 @@ Import rule: `protocol` ← `core`, `client`; `client` ← `ui`; `core` ← `ser
 - **CSP:** `style-src` allows `'unsafe-inline'` on the server and in the desktop, because xterm.js writes its measures
   and theme in `<style>` elements; scripts stay `'self'` only, and images, fonts and connections stay on the backend.
   Alternative kept in mind: xterm's WebGL renderer (strict CSP, but iOS loses the WebGL context in the background).
-- **Limits:** terminals end with core (a restart or an automatic update closes them); the update does not know a
-  command is running in a terminal.
+- **Automatic update:** a terminal running a command (its foreground process is not the shell) counts as work in
+  `activity.json`, looked at every 2 s, so the update waits for it — a server left running in a terminal holds the
+  updates until it stops. A shell started inside the shell is not seen as work.
+- **Limits:** terminals end with core (a restart or an update closes them).

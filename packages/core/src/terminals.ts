@@ -33,6 +33,14 @@ export class Terminals {
     this.shell = shell ?? defaultShell()
   }
 
+  // Terminals running a command: the foreground process (as started: a name or a path) is not the shell itself.
+  // A shell started inside the shell looks the same, so it does not count; on Windows node-pty always names the
+  // shell, so none counts there.
+  busyCount(): number {
+    const shell = basename(this.shell.file)
+    return [...this.terminals.values()].filter((terminal) => terminal.pty && basename(terminal.pty.process) !== shell).length
+  }
+
   list(): TerminalMeta[] {
     return [...this.terminals.values()].map((terminal) => terminal.meta)
   }
