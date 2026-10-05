@@ -51,8 +51,8 @@ packages/core       the backend: core.ts (startup, connections) → workspace.ts
                     testing/ (FakeQuery, scripted scenarios, raw client); scripts/probe.ts, scripts/chat.ts
                     + files.ts (confined paths), trash.ts, notes.ts, folders.ts, activity.ts; scripts/smoke-composer.ts
 packages/client     Connection (handshake, retries, resume, ping) + Store (home, projects, notesVersion)
-packages/ui         App → TouchApp (layout 'mobile') or DesktopApp; touch/ = the PWA's screens and sheets (prototype),
-                    touch.css; the desktop components (TabBar, StartScreen, ChatView, Composer, …) and style.css until C2;
+packages/ui         App → TouchApp on every host (one screen at a time on a phone, three columns from 1024 px);
+                    touch/ = screens, sheets/popovers, composer, backend switch; touch.css; DesktopShell (backends);
                     i18n/ (en, it)
 apps/desktop        Electron: main/index.ts (app://, IPC, notifications, quit), main/coreProcess.ts (utilityProcess, restart,
                     system trash), main/coreHost.ts, preload/, renderer/; e2e/ (harness + suites)

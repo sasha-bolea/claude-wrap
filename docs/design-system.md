@@ -15,7 +15,7 @@ _Living catalogue: updated at the same moment a UI element is added or changed. 
 10. **Untrusted content** (assistant markdown, tool output, MCP resources): no raw HTML, no `dangerouslySetInnerHTML`; remote images render as links.
 
 ## Tokens
-Defined in [packages/ui/src/style.css](../packages/ui/src/style.css), carried over from the first attempt's palette with English names; every colour token has a light and a dark value.
+Defined in [packages/ui/src/touch.css](../packages/ui/src/touch.css) (the old `style.css` of the first desktop UI is gone since C2.5); every colour token has a light and a dark value.
 
 | Token | Use |
 |---|---|
@@ -29,136 +29,12 @@ Defined in [packages/ui/src/style.css](../packages/ui/src/style.css), carried ov
 | `--font`, `--font-mono` | UI font; code and technical values |
 | `--content-width` | max width of conversation items, request panel and composer |
 
-## Elements
-_Each element added gets: name, classes, when to use it, and a link to a real usage example (file:line)._
-
-### App frame — `.app`, `.page`
-`.app`: full-height column holding the current screen. `.page`: a screen that fills the rest (header, scrolling body, footer). The chat panel is a `.page` with `tabIndex={-1}` so focus can land on it when a request panel disappears (rule 6).
-Examples: [packages/ui/src/App.tsx:98](../packages/ui/src/App.tsx#L98), [packages/ui/src/ChatView.tsx:94](../packages/ui/src/ChatView.tsx#L94).
-
-### Screen container — `.screen`
-Full-height page area with centred content; a `[role='alert']` inside it is shown in `--danger`. Use for whole-screen states (connecting, connection error).
-Example: [packages/ui/src/App.tsx:131](../packages/ui/src/App.tsx#L131).
-
-### Start screen — `.start` (+ `.subtitle`)
-Narrow centred column with title, hint and the first action; `.subtitle` for its section headings. Use for "nothing open yet" screens.
-Example: [packages/ui/src/StartScreen.tsx:60](../packages/ui/src/StartScreen.tsx#L60).
-
-### Buttons — `.button`, `.button.primary`, `.button.danger`
-`.button` secondary action; `.primary` the main action of a group (one per group); `.danger` destructive or stopping actions (Stop, No). Never auto-focused when they grant something (rule 6).
-Examples: primary [packages/ui/src/Composer.tsx:198](../packages/ui/src/Composer.tsx#L198), danger [packages/ui/src/Composer.tsx:194](../packages/ui/src/Composer.tsx#L194), secondary [packages/ui/src/Composer.tsx:187](../packages/ui/src/Composer.tsx#L187).
-
-### Fields — `.field`, `.select`
-`.field` for text inputs and textareas (full width), `.select` for pickers. Every field and select has an `aria-label` (rule 5).
-Examples: [packages/ui/src/RequestPanel.tsx:37](../packages/ui/src/RequestPanel.tsx#L37), [packages/ui/src/ChatHeader.tsx:49](../packages/ui/src/ChatHeader.tsx#L49).
-
-### Button row — `.actions`
-Horizontal wrapping row of buttons, gap `--space`.
-Example: [packages/ui/src/RequestPanel.tsx:38](../packages/ui/src/RequestPanel.tsx#L38).
-
-### Header bar — `.bar` (+ `.title`)
-Top bar of a screen: the `.title` takes the free space and ellipsizes, controls follow on the right.
-Example: [packages/ui/src/ChatHeader.tsx:33](../packages/ui/src/ChatHeader.tsx#L33).
-
-### Secondary text — `.muted`
-Small `--text-muted` text for hints and metadata.
-Example: [packages/ui/src/ChatHeader.tsx:37](../packages/ui/src/ChatHeader.tsx#L37).
-
-### Conversation — `.conversation` and `.item` kinds
-Scrolling column of transcript items, each `.item` capped at `--content-width`. Kinds: `.item.user` (filled bubble; sent images above the text in `.user-images`, see Image thumbnail; `.pending` while Claude has not read it yet — sent mid-turn: faded, with a "waiting" chip), `.item.assistant-text` (markdown, rule 10), `.item.thinking` (italic, left rule), `.item.tool` (see Tool card), `.item.turn-end` (right-aligned stats / "Interrupted", `.failed` in `--danger`), `.item.notice` (`.info` / `.warning` / `.error`), `.item.local-output` (preformatted block), `.item.shell` (see Shell item).
-Examples: [packages/ui/src/ChatView.tsx:100](../packages/ui/src/ChatView.tsx#L100), [packages/ui/src/ItemView.tsx:74](../packages/ui/src/ItemView.tsx#L74), [packages/ui/src/ItemView.tsx:87](../packages/ui/src/ItemView.tsx#L87), [packages/ui/src/ItemView.tsx:96](../packages/ui/src/ItemView.tsx#L96), [packages/ui/src/ItemView.tsx:102](../packages/ui/src/ItemView.tsx#L102).
-
-### Tool card — `.item.tool` (`<details>`)
-Closed: `.tool-name`, `.tool-summary` (mono, ellipsized), `.tool-state`; open: `.tool-body` with input and result. `.failed` borders it in `--danger`.
-Example: [packages/ui/src/ItemView.tsx:24](../packages/ui/src/ItemView.tsx#L24).
-
-### Request panel — `.request-panel`
-Accent-bordered `<section aria-label>` at the end of the conversation for permissions, questions and plan approvals. Takes focus on the container only when focus is free, never on a button (rule 6). Inside: `.preview` (input / plan), `.question` fieldsets with `.chip` headers and `.option` rows (`.option-description`).
-Examples: [packages/ui/src/RequestPanel.tsx:22](../packages/ui/src/RequestPanel.tsx#L22), [packages/ui/src/RequestPanel.tsx:75](../packages/ui/src/RequestPanel.tsx#L75), [packages/ui/src/RequestPanel.tsx:80](../packages/ui/src/RequestPanel.tsx#L80).
-
-### Chip — `.chip`
-Small rounded label (e.g. a question header).
-Example: [packages/ui/src/RequestPanel.tsx:77](../packages/ui/src/RequestPanel.tsx#L77).
-
-### Composer — `.composer`, `.composer-inner`, `.composer-row`, `.composer.shell`
-Footer: `.composer-inner` stacks (top to bottom) the Suggestion list, the Attachments and the shell hint over the
-`.composer-row` (textarea, Image, History, Stop, Send). Shift+Tab switches mode only here (rule 6 of the first
-attempt, kept). Keys: `/` commands, `@` files, Up/Down on the first/last line and Ctrl+R previous messages, Esc
-closes the list before it interrupts (`preventDefault`). Every keyboard action has a button (rule 9): Image =
-paste/drop, History = Up/Ctrl+R. Text starting with `!` turns the composer into `.composer.shell` (mono, accent
-border; Send becomes Run). Long pastes become the CLI's `[Pasted text #N +L lines]` placeholder in the text (kept
-verbatim for history compatibility, not translated); a trailing blank is trimmed on send.
-Examples: [packages/ui/src/Composer.tsx:184](../packages/ui/src/Composer.tsx#L184), [packages/ui/src/Composer.tsx:200](../packages/ui/src/Composer.tsx#L200), [packages/ui/src/Composer.tsx:199](../packages/ui/src/Composer.tsx#L199).
-
-### Suggestion list — `.suggestions`, `.suggestion` (`.active`), `.suggestion-label`, `.suggestion-detail`
-`role="listbox"` floating above the composer for `/` commands, `@` files and previous messages. The textarea keeps
-the focus and points at the active option with `aria-activedescendant` (+ `aria-controls`); a click picks on
-`mousedown` with `preventDefault`, so focus never leaves the field. Label mono, detail muted and ellipsized; an
-empty list says "No matches".
-Examples: [packages/ui/src/Suggestions.tsx:22](../packages/ui/src/Suggestions.tsx#L22), [packages/ui/src/Composer.tsx:186](../packages/ui/src/Composer.tsx#L186).
-
-### Attachments — `.attachments`, `.attachment`, `.attachment-thumb`
-Row of images waiting to be sent, each a thumbnail (with `alt`) and a `.tab-close` × whose `aria-label` names the
-image. Only images Claude can read (PNG, JPEG, GIF, WebP, within the protocol limits); refusals go to the chat's
-error line.
-Example: [packages/ui/src/Composer.tsx:188](../packages/ui/src/Composer.tsx#L188).
-
-### Image thumbnail — `.image-thumb` (+ `.user-images`)
-Image of a sent message, fetched from core (`blob.get`) when shown, as a `data:` URL (allowed by the CSP); a
-`.chip` with the same label until it loads. Same size rules as `.attachment-thumb`.
-Example: [packages/ui/src/ItemView.tsx:47](../packages/ui/src/ItemView.tsx#L47), [packages/ui/src/ItemView.tsx:76](../packages/ui/src/ItemView.tsx#L76).
-
-### Queue — `.item.queue`, `.queue-list`, `.queue-entry`, `.queue-text`
-`<section aria-label="Queued messages">` at the end of the conversation: one dashed row per waiting message (text
-ellipsized, a `.chip` with the image count) with "Send now" (`.button`) and "Remove" (`.button.danger`).
-Examples: [packages/ui/src/QueueList.tsx:14](../packages/ui/src/QueueList.tsx#L14), [packages/ui/src/ChatView.tsx:114](../packages/ui/src/ChatView.tsx#L114).
-
-### Shell item — `.item.shell` (`.failed`), `.shell-command`
-A `!` command in the conversation: `$ command` in bold mono, the output preformatted, "running…" while it runs and
-the exit code when it failed (`.failed` adds a `--danger` left rule).
-Example: [packages/ui/src/ItemView.tsx:53](../packages/ui/src/ItemView.tsx#L53).
-
-### Screen-reader text — `.sr-only`
-Invisible but accessible text for `aria-live` regions, one region per message type (rule 7).
-Example: [packages/ui/src/ChatView.tsx:128](../packages/ui/src/ChatView.tsx#L128).
-
-### Connection banner — `.connection-banner`
-Thin status strip shown while the connection is being re-established.
-Example: [packages/ui/src/App.tsx:119](../packages/ui/src/App.tsx#L119).
-
-### Version line — `.version-line`
-One line of technical versions in `--font-mono` / `--text-muted`, bottom right.
-Example: [packages/ui/src/App.tsx:123](../packages/ui/src/App.tsx#L123).
-
-### Tab bar — `.tab-bar`, `.tab`, `.tab-title`, `.tab-field`, `.tab-close`, `.new-tab`
-`role="tablist"` row of open sessions. A `.tab` (`role="tab"`, `.active` when shown) holds a status badge, the
-title (double click or F2 renames into a `.tab-field`, confirmed only with Enter; Esc cancels with
-`preventDefault`) and a `.tab-close` ×. Ctrl+Shift+←/→ moves the focused tab. `.new-tab` opens the start
-screen (`aria-pressed` while it is shown). The shown tab's content sits in a `.tab-panel` (`role="tabpanel"`).
-Examples: [packages/ui/src/TabBar.tsx:100](../packages/ui/src/TabBar.tsx#L100), [packages/ui/src/TabBar.tsx:63](../packages/ui/src/TabBar.tsx#L63), [packages/ui/src/TabBar.tsx:70](../packages/ui/src/TabBar.tsx#L70), [packages/ui/src/TabBar.tsx:104](../packages/ui/src/TabBar.tsx#L104), [packages/ui/src/App.tsx:99](../packages/ui/src/App.tsx#L99).
-
-### Status badge — `.badge` (`.working`, `.waiting`, `.error`, idle)
-8 px dot with `role="img"` and an `aria-label`: idle (border colour), working (`--success`), waiting for the
-user (`--accent`, pulses unless reduced motion), error (`--danger`).
-Example: [packages/ui/src/TabBar.tsx:67](../packages/ui/src/TabBar.tsx#L67).
-
-### Session list — `.session-list`, `.session-entry`, `.session-open`
-Stored sessions of a folder: a full-width `.session-open` button (title, date, branch, `.chip` "open") and an
-`.actions` row (Rename, Delete with a two-step confirmation; both disabled while a tab has the session open).
-Examples: [packages/ui/src/SessionList.tsx:100](../packages/ui/src/SessionList.tsx#L100), [packages/ui/src/SessionList.tsx:42](../packages/ui/src/SessionList.tsx#L42), [packages/ui/src/SessionList.tsx:58](../packages/ui/src/SessionList.tsx#L58).
-
-### Trust dialog — `.request-panel` + `.config-list`
-The folder trust dialog reuses the request panel (`aria-label` "Folder trust"), with one `.config-list` per
-category of project configuration. Like every self-appearing panel it never focuses "Yes".
-Examples: [packages/ui/src/TrustDialog.tsx:39](../packages/ui/src/TrustDialog.tsx#L39), [packages/ui/src/TrustDialog.tsx:17](../packages/ui/src/TrustDialog.tsx#L17).
-
-
-## Touch layout (PWA, `layout: 'mobile'`) — the approved prototype
-The PWA renders [`TouchApp`](../packages/ui/src/touch/TouchApp.tsx) with its own stylesheet,
+## Touch app (every host) — the approved prototype
+Every host (PWA, desktop) renders [`TouchApp`](../packages/ui/src/touch/TouchApp.tsx) with one stylesheet,
 [packages/ui/src/touch.css](../packages/ui/src/touch.css): the prototype's CSS ported as it is (prototype delivery:
-`NOTE-CONSEGNA.md` §1 screens, §3 rules). The PWA loads **only** `touch.css`; the desktop keeps `style.css` until
-sub-phase C2 moves it to the same elements. Components live in `packages/ui/src/touch/` and are used by the touch
-layout only (the old mobile components are gone).
+`NOTE-CONSEGNA.md` §1 screens, §3 rules, §5 desktop). One screen at a time on a phone, three columns from 1024 px (see
+Wide arrangement). Components live in `packages/ui/src/touch/`; the first desktop UI (tab bar, start screen, old chat
+and composer, `style.css`) was removed in C2.5.
 
 **Touch tokens** (same names as the prototype; light on `:root`, dark under `prefers-color-scheme` and again under
 `:root[data-theme="dark"]` so the theme chosen in Settings wins both ways, `data-theme="light"` likewise):
@@ -400,11 +276,3 @@ The launch screen until the server answers (same mark as the iOS splash). The pa
 Safari, the link-or-code field in the installed app; right after pairing a sheet offers the notifications once.
 `.code-box`: a one-time pairing code (Settings → Add device).
 Examples: [Splash.tsx:13](../packages/ui/src/touch/Splash.tsx#L13), [PairScreen.tsx:41](../packages/ui/src/PairScreen.tsx#L41), [SettingsScreen.tsx:319](../packages/ui/src/touch/SettingsScreen.tsx#L319).
-
-## Desktop with several backends
-### Backend switcher — `.shell`, `.backend-bar`, `.backend` (`[aria-pressed]`, `.add`), `.servers-panel`
-Desktop with several backends: a 28 px pill row above the tab bar — "This PC", each paired server (a pulsing
-`.badge.waiting` when that hidden backend has a session waiting; its label joins the button's name), and
-"Servers…" on the right, which opens the `.servers-panel` (a `.request-panel` with `aria-label` "Servers": paste a
-pairing link + optional name to add, Remove with a two-step confirmation). Every backend's connection stays open.
-Examples: [packages/ui/src/DesktopShell.tsx:132](../packages/ui/src/DesktopShell.tsx#L132), [packages/ui/src/DesktopShell.tsx:134](../packages/ui/src/DesktopShell.tsx#L134), [packages/ui/src/DesktopShell.tsx:64](../packages/ui/src/DesktopShell.tsx#L64).

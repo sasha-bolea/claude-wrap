@@ -9,7 +9,7 @@ import { crc32, deflateSync } from 'node:zlib'
 type Rgb = readonly [number, number, number]
 type Image = { width: number; height: number; data: Buffer }
 
-// The tokens of packages/ui/src/style.css (--background, --accent) in both themes.
+// The tokens of packages/ui/src/touch.css (--background, --accent) in both themes.
 const THEMES = {
   light: { background: [0xfa, 0xf9, 0xf7], accent: [0xc9, 0x64, 0x42] },
   dark: { background: [0x1e, 0x1d, 0x1b], accent: [0xd9, 0x77, 0x57] }

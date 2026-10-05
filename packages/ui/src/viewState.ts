@@ -20,8 +20,6 @@ function write(name: string, value: string | undefined): void {
   }
 }
 
-export const readActiveTab = (backendId: string) => read(key(backendId, 'activeTab'))
-export const writeActiveTab = (backendId: string, tabId: string | undefined) => write(key(backendId, 'activeTab'), tabId)
 export const readDraft = (backendId: string, tabId: string) => read(key(backendId, `draft:${tabId}`)) ?? ''
 export const writeDraft = (backendId: string, tabId: string, text: string) => write(key(backendId, `draft:${tabId}`), text)
 // Long pastes of a draft, by placeholder number (the draft text holds their placeholders).
@@ -34,8 +32,6 @@ export function readPastes(backendId: string, tabId: string): Record<number, str
 }
 export const writePastes = (backendId: string, tabId: string, pastes: Record<number, string>) =>
   write(key(backendId, `pastes:${tabId}`), Object.keys(pastes).length ? JSON.stringify(pastes) : undefined)
-export const readRecentFolder = (backendId: string) => read(key(backendId, 'recentFolder'))
-export const writeRecentFolder = (backendId: string, folder: string) => write(key(backendId, 'recentFolder'), folder)
 // The note a draft uses ("Usa nel messaggio"): kept with the draft, so the link survives a reload.
 export type LinkedNote = { noteId: string; text: string }
 export function readLinkedNote(backendId: string, tabId: string): LinkedNote | undefined {

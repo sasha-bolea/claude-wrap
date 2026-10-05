@@ -4,7 +4,7 @@ import type { Image, ImageRef, Item, Request, TabMeta } from '@claude-wrap/proto
 import { t } from '../i18n.ts'
 import { dataUrl } from '../images.ts'
 import { Markdown } from '../Markdown.tsx'
-import type { Answer } from '../RequestPanel.tsx'
+import type { Answer } from '../chatHooks.ts'
 import { ContinueCard, LimitCard } from './accounts.tsx'
 import { useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
