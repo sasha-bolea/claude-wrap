@@ -69,7 +69,8 @@ code { font-family: var(--font-mono); }
 .panel-close { margin-left: auto; }
 /* Desktop: the backend switch on top of the Home (This PC | servers, a dot where a session waits, Servers…) */
 .backend-switch { display: flex; align-items: center; gap: 4px; padding: 8px 8px 0 12px; background: var(--surface); }
-.backend-choices { flex: 1; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+.segmented.backend-choices { flex: 1; display: flex; }
+.segmented.backend-choices label { flex: 1 1 0; min-width: 0; }
 .backend-choices span { position: relative; padding: 0 10px; }
 .switch-dot { position: absolute; top: 8px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 /* The local backend crashed for good: a notice over the app */
