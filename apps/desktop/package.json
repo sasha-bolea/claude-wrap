@@ -30,6 +30,7 @@
   "productName": "claude-wrap",
   "build": {
     "appId": "dev.claude-wrap",
+    "npmRebuild": false,
     "productName": "claude-wrap",
     "directories": {
       "output": "dist"

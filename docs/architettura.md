@@ -220,3 +220,27 @@ Import rule: `protocol` ← `core`, `client`; `client` ← `ui`; `core` ← `ser
   message.
 - Usage limits are kept per account (`limitedUntil` in TabMeta; plan windows from `/usage` and from every
   `rate_limit_event`, since `/usage` gives no limits for setup-token accounts). Real-CLI check: `npm run smoke:accounts`.
+
+### 9.8 Terminals (2026-10-06)
+- **Why in core:** a terminal must outlive the screen showing it and be the same on every device, like a chat; core
+  already owns shared state and streams, so a terminal is one more stream.
+- [terminals.ts](../packages/core/src/terminals.ts): real shells through **node-pty 1.2 (beta)**, chosen because it
+  ships N-API prebuilds for Linux and Windows: no compiler on the server, the same binary in Node 24 and in Electron
+  (no rebuild; `npmRebuild: false` in the desktop's electron-builder config, `node_modules/node-pty` unpacked from
+  asar, external in electron-vite). Shell: `$SHELL` (else bash), PowerShell on Windows; `TERM=xterm-256color`.
+- Opened in a session's folder (`tabId`, trust-gated like files) or a Home folder (`folder`, inside the roots); at most
+  `MAX_TERMINALS` (5). The list is on the workspace stream (`terminals` in the snapshot — absent from an older backend
+  reads as none — and `terminal.added/updated/removed`); `TerminalMeta` = id, cwd, title, tabId, cols/rows (the last
+  client that resized wins), exitCode once the shell ended (it stays listed until closed).
+- Each terminal has a `terminal:<id>` stream: raw output gathered for 16 ms per event (`terminal.output`), its end
+  (`terminal.exit`); ring 1 MB for replay after a reconnection; the snapshot carries the recent screen (256k chars, cut
+  at a line start). Commands: `terminal.open/subscribe/unsubscribe/input/resize/close`.
+- Client: `Connection.subscribeTerminal(id, sink)` routes the stream straight to the terminal on screen (high
+  frequency, never through the store); the store keeps only the list.
+- UI: [TerminalScreen.tsx](../packages/ui/src/touch/TerminalScreen.tsx) — xterm.js loaded on demand, colours from the
+  tokens, fit to the screen (resize sent after 120 ms of quiet), key bar on touch screens (see design-system.md).
+- **CSP:** `style-src` allows `'unsafe-inline'` on the server and in the desktop, because xterm.js writes its measures
+  and theme in `<style>` elements; scripts stay `'self'` only, and images, fonts and connections stay on the backend.
+  Alternative kept in mind: xterm's WebGL renderer (strict CSP, but iOS loses the WebGL context in the background).
+- **Limits:** terminals end with core (a restart or an automatic update closes them); the update does not know a
+  command is running in a terminal.

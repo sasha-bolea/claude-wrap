@@ -38,8 +38,12 @@ _Runbook of multi-step or rare procedures. One-liners used often live in CLAUDE.
 3. Check its signature is still Anthropic's (electron-builder logs "signing" it):
    `Get-AuthenticodeSignature <that claude.exe>` → `Valid`, `CN="Anthropic, PBC"`.
 4. Launch it: the bottom-right line shows `core · SDK · CLI` versions; open a folder and chat.
+5. Terminal: in the chat, the right panel's Terminal tab opens PowerShell in the folder; `echo hi` answers. Its native
+   addon must be unpacked: `resources/app.asar.unpacked/node_modules/node-pty/prebuilds/win32-x64/conpty.node`.
 
 **Warnings:** no public distribution until the SDK licence/ToS question is settled ([note-rilascio.md](note-rilascio.md)).
+`npmRebuild: false` must stay in the build config: electron-builder would otherwise try to compile node-pty from
+source (Visual Studio tools on Windows; impossible when cross-building), while its N-API prebuilds already work.
 
 ## Real-CLI smoke (few haiku tokens)
 **When:** after changes to process lifecycle, resume, packaging, or an SDK bump.
