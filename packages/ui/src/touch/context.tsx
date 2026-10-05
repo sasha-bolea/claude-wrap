@@ -8,7 +8,8 @@ export type LaterKey = 'context' | 'usage' | 'tasks' | 'todo' | 'diff' | 'mcp' |
 
 // Screens of the touch layout, one at a time; the stack keeps them mounted, so going back finds them as they were.
 export type Screen =
-  | { name: 'home' }
+  // view: open on that view of the Home (a notification about several chats opens the sessions).
+  | { name: 'home'; view?: 'sessions' }
   | { name: 'folderSessions'; path: string }
   | { name: 'trash'; under?: string }
   | { name: 'chat'; tabId: string }

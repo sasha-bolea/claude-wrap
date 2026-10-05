@@ -1,16 +1,15 @@
-// Service worker of the PWA: shows Web Push notifications and opens their session when tapped.
-// The push payload carries only {kind, title, tabId} (push services see it); the words come from here.
-// No offline cache: the app is useless without the server, and a stale shell would only mislead.
+// Service worker of the PWA: shows Web Push as one notification for every chat and opens what it is about when
+// tapped. The push payload carries only {kind, title, tabId, waiting, finished} (push services see it); the words
+// come from notice.js. No offline cache: the app is useless without the server, and a stale shell would only mislead.
 
-const TEXT = {
-  en: { request: 'Claude is waiting for your answer', turnFinished: 'Claude finished', error: 'Claude stopped with an error' },
-  it: { request: 'Claude aspetta una tua risposta', turnFinished: 'Claude ha finito', error: 'Claude si è fermato con un errore' }
-}
+importScripts('/notice.js')
+const TAG = 'claude-wrap'
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
 
-// One notification per session (same tag): a newer event replaces the older one.
+// Always one notification (same tag): a newer event replaces it with the new counts. Notifications of older builds
+// (one per session) are closed first.
 self.addEventListener('push', (event) => {
   let data = {}
   try {
@@ -19,17 +18,16 @@ self.addEventListener('push', (event) => {
     data = {}
   }
   const language = (self.navigator.language || 'en').toLowerCase().startsWith('it') ? 'it' : 'en'
+  const view = self.noticeView(data, language)
   event.waitUntil(
-    self.registration.showNotification(data.title || 'claude-wrap', {
-      body: TEXT[language][data.kind] || '',
-      tag: data.tabId || 'claude-wrap',
-      icon: '/icon-192.png',
-      data: { tabId: data.tabId }
-    })
+    (async () => {
+      for (const old of await self.registration.getNotifications()) if (old.tag !== TAG) old.close()
+      await self.registration.showNotification(view.title, { body: view.body, tag: TAG, icon: '/icon-192.png', data: { tabId: view.tabId } })
+    })()
   )
 })
 
-// Tap: focus the open app and tell it which session to show, or open the app on that session.
+// Tap: focus the open app and tell it which session to show (none: the open sessions), or open the app there.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const tabId = event.notification.data && event.notification.data.tabId
@@ -40,7 +38,7 @@ self.addEventListener('notificationclick', (event) => {
         windows[0].postMessage({ type: 'open-tab', tabId })
         return windows[0].focus()
       }
-      return self.clients.openWindow(tabId ? `/#tab-${tabId}` : '/')
+      return self.clients.openWindow(tabId ? `/#tab-${tabId}` : '/#sessions')
     })()
   )
 })

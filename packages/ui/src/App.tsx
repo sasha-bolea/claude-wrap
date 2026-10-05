@@ -10,6 +10,8 @@ export type Capabilities = {
   openExternal?: (url: string) => void
   // A system notification was clicked: show that tab. Returns the unsubscribe function.
   onActivateTab?: (listener: (tabId: string) => void) => () => void
+  // A notification about several chats was tapped: show the open sessions. Returns the unsubscribe function.
+  onShowSessions?: (listener: () => void) => () => void
   // The local backend crashed too often and will not come back.
   onCoreFailed?: (listener: () => void) => () => void
   // Local path of a dropped file (desktop; with a remote backend files will be uploaded instead, Phase 3).

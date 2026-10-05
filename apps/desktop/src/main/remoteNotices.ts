@@ -6,12 +6,14 @@ import type { Notice } from '@claude-wrap/core'
 
 type Frame = { t?: string; stream?: string; snapshot?: { kind?: string; tabs?: TabLike[] }; ev?: { type?: string; tab?: TabLike; tabId?: string } }
 type TabLike = { tabId: string; title: string; status: string }
+// The desktop shows one notification per event: it does not use the counts of the phone's single notification.
+export type DesktopNotice = Omit<Notice, 'waiting' | 'finished'>
 
 export class RemoteNotices {
   private readonly tabs = new Map<string, TabLike>()
 
   // Notices raised by one frame from the server (most frames raise none).
-  feed(frame: unknown): Notice[] {
+  feed(frame: unknown): DesktopNotice[] {
     const { t, stream, snapshot, ev } = (frame ?? {}) as Frame
     if (stream !== 'workspace') return []
     if (t === 'reset' && snapshot?.kind === 'workspace') {

@@ -11,13 +11,14 @@ import { OpenSessions, pastOnly, SessionLists, useStartSession } from './session
 const VIEW_KEY = 'claude-wrap:homeView'
 type View = 'projects' | 'sessions'
 
-// The Home's view (Progetti or Sessioni), remembered on this device.
-function useHomeView(): [View, (view: View) => void] {
+// The Home's view (Progetti or Sessioni), remembered on this device. asked: a view to open on instead (remembered).
+function useHomeView(asked?: View): [View, (view: View) => void] {
   const [view, setView] = useState<View>(() => {
     try {
-      return localStorage.getItem(VIEW_KEY) === 'sessions' ? 'sessions' : 'projects'
+      if (asked) localStorage.setItem(VIEW_KEY, asked)
+      return asked ?? (localStorage.getItem(VIEW_KEY) === 'sessions' ? 'sessions' : 'projects')
     } catch {
-      return 'projects'
+      return asked ?? 'projects'
     }
   })
   const choose = (next: View) => {
@@ -65,11 +66,12 @@ function FolderRow({ entry, project, tabs, onEnter, onChanged }: { entry: Folder
 
 // Home: the folders of the backend (server: its root; this PC: the added folders), with the sessions of the folder
 // shown and a new session right there; or every session (the Sessioni view). Back goes up one folder first.
-export function HomeScreen() {
+// view: the view to open on (otherwise the one remembered).
+export function HomeScreen({ view: asked }: { view?: View }) {
   const { state, connection, go, openSheet, wide, capabilities, fail } = useTouch()
   const { top } = useScreen()
   const startSession = useStartSession()
-  const [view, setView] = useHomeView()
+  const [view, setView] = useHomeView(asked)
   const [trail, setTrail] = useState<string[]>([])
   const home = state.home
   const root = home.kind === 'root' ? home.path : undefined

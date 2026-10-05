@@ -1,11 +1,10 @@
 import { app, BrowserWindow, dialog, ipcMain, MessageChannelMain, Notification, protocol, session, shell, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join } from 'node:path'
-import type { Notice } from '@claude-wrap/core'
 import { APP_ORIGIN, BackendStore } from './backends.ts'
 import { CoreProcess } from './coreProcess.ts'
 import { bridgeRemote } from './remoteBridge.ts'
-import { RemoteNotices } from './remoteNotices.ts'
+import { RemoteNotices, type DesktopNotice } from './remoteNotices.ts'
 
 const APP_ID = 'dev.claude-wrap'
 const CSP =
@@ -109,7 +108,7 @@ function openExternal(event: IpcMainEvent, url: unknown): void {
 
 // System notification for a notice of a backend, only while the window is not focused. Clicking it brings the
 // window back on that backend and tab. A remote backend's name prefixes the title.
-function showNotice(notice: Notice, backendId: string): void {
+function showNotice(notice: DesktopNotice, backendId: string): void {
   if (!Notification.isSupported() || mainWindow?.isFocused()) return
   const text = NOTICE_TEXT[app.getLocale().toLowerCase().startsWith('it') ? 'it' : 'en'][notice.kind]
   const server = backends.list().find((backend) => backend.id === backendId && backend.kind === 'remote')

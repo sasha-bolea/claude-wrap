@@ -196,8 +196,17 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'push.subscribe': notHere,
     'push.unsubscribe': notHere,
     ...host,
-    'client.visibility': ({ visible }, connection) => ((connection.visible = visible), {}),
-    'client.watch': ({ tabId }, connection) => ((connection.watching = tabId), {}),
+    // A chat on screen is a chat looked at: it leaves the notification count.
+    'client.visibility': ({ visible }, connection) => {
+      connection.visible = visible
+      if (visible && connection.watching) workspace.seen(connection.watching)
+      return {}
+    },
+    'client.watch': ({ tabId }, connection) => {
+      connection.watching = tabId
+      if (tabId && connection.visible) workspace.seen(tabId)
+      return {}
+    },
     'trust.check': ({ cwd }) => workspace.trust.check(cwd),
     'trust.grant': async ({ cwd }) => (await workspace.grantTrust(cwd), {}),
     'request.answer': ({ tabId, requestId, ...answer }, connection) => (tabOf(tabId).answer(requestId, answer, connection.label), {})

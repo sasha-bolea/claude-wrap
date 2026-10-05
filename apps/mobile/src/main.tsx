@@ -40,13 +40,26 @@ const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platfor
 const standalone = matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true
 const root = createRoot(document.getElementById('root')!)
 
-// Session to open, from a notification tap (cold start: #tab-<id>; app open: a message from the service worker).
+// What a notification tap opens: a session (cold start: #tab-<id>), or the open sessions when it was about several
+// chats (cold start: #sessions); with the app open, a message from the service worker.
 let pendingTab = /^#tab-(.+)$/.exec(location.hash)?.[1]
+let pendingSessions = location.hash === '#sessions'
 const tabListeners = new Set<(tabId: string) => void>()
+const sessionsListeners = new Set<() => void>()
 navigator.serviceWorker?.register('/sw.js').catch(() => undefined)
 navigator.serviceWorker?.addEventListener('message', (event: MessageEvent<{ type?: string; tabId?: string }>) => {
-  if (event.data?.type === 'open-tab' && event.data.tabId) tabListeners.forEach((listener) => listener(event.data.tabId!))
+  if (event.data?.type !== 'open-tab') return
+  if (event.data.tabId) tabListeners.forEach((listener) => listener(event.data.tabId!))
+  else sessionsListeners.forEach((listener) => listener())
 })
+
+// The app on screen: the notification has been seen, it goes away.
+async function clearNotifications(): Promise<void> {
+  const registration = await navigator.serviceWorker?.getRegistration()
+  for (const notification of (await registration?.getNotifications()) ?? []) notification.close()
+}
+document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && void clearNotifications().catch(() => undefined))
+void clearNotifications().catch(() => undefined)
 
 // iOS ignores the viewport's maximum-scale when pinching: its gesture events are cancelled instead.
 for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, (event) => event.preventDefault(), { passive: false })
@@ -157,6 +170,12 @@ function start(token: string, justPaired = false): void {
       if (pendingTab) listener(pendingTab)
       pendingTab = undefined
       return () => void tabListeners.delete(listener)
+    },
+    onShowSessions: (listener: () => void) => {
+      sessionsListeners.add(listener)
+      if (pendingSessions) listener()
+      pendingSessions = false
+      return () => void sessionsListeners.delete(listener)
     }
   }
   root.render(<App connection={connection} capabilities={capabilities} />)

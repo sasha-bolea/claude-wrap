@@ -4,7 +4,7 @@ import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
 import { WORKSPACE_STREAM, tabStream, type Home, type PlanLimits } from '@claude-wrap/protocol'
 import { AccountStore } from './accounts.ts'
 import { ActivityFile } from './activity.ts'
-import type { CoreConfig, SdkApi } from './config.ts'
+import type { CoreConfig, Notice, SdkApi } from './config.ts'
 import { CoreError } from './errors.ts'
 import { NoteStore } from './notes.ts'
 import { waitForCleanups } from './process.ts'
@@ -33,6 +33,8 @@ const DAY_MS = 24 * 3600 * 1000
 // the trust gate, the Home (folders, project marks), trash, notes, and their persistence.
 export class Workspace {
   readonly tabs = new Map<string, Tab>()
+  // Chats that finished (or stopped with an error) while nobody looked at them, for the notification count.
+  private readonly finished = new Set<string>()
   readonly stream: Stream
   readonly trust: TrustGate
   readonly sdk: SdkApi
@@ -144,11 +146,17 @@ export class Workspace {
     return init.tabId
   }
 
+  // Someone looks at the chat of a tab: it no longer counts as finished in the notification.
+  seen(tabId: string): void {
+    this.finished.delete(tabId)
+  }
+
   // Closes a tab (its queue is discarded); the session lock is released only once its process has exited.
   async close(tabId: string): Promise<void> {
     const tab = this.tabOf(tabId)
     await tab.close()
     this.tabs.delete(tabId)
+    this.finished.delete(tabId)
     if (tab.sessionId && this.sessionIndex.get(tab.sessionId) === tabId) this.sessionIndex.delete(tab.sessionId)
     this.stream.emit({ type: 'tab.removed', tabId })
     this.persist()
@@ -372,6 +380,15 @@ export class Workspace {
       .catch(() => undefined)
   }
 
+  // Tells the host about an event, with the chats now waiting for an answer and the ones finished while nobody looked.
+  // tab, kind, detail: the event; config: where the notifier is.
+  private notify(tab: Tab, kind: Notice['kind'], detail: string | undefined, config: CoreConfig): void {
+    if (kind !== 'request' && !(config.watching?.(tab.tabId) ?? false)) this.finished.add(tab.tabId)
+    const waiting = [...this.tabs.values()].filter((other) => other.meta().pendingRequests > 0 || (other === tab && kind === 'request'))
+    for (const other of waiting) this.finished.delete(other.tabId)
+    config.notifier?.({ kind, tabId: tab.tabId, title: tab.title, detail, waiting: waiting.length, finished: this.finished.size })
+  }
+
   // What tabs need from their surroundings: SDK, options, limits, and the callbacks that feed the workspace.
   private environment(config: CoreConfig): TabEnvironment {
     const maxLiveSessions = config.maxLiveSessions ?? 8
@@ -392,6 +409,7 @@ export class Workspace {
         return folder
       },
       changed: (tab) => {
+        if (tab.busy) this.finished.delete(tab.tabId)
         this.activity?.set([...this.tabs.values()].filter((other) => other.busy).length)
         if (this.tabs.get(tab.tabId) !== tab) return
         this.stream.emit({ type: 'tab.updated', tab: tab.meta() })
@@ -403,7 +421,7 @@ export class Workspace {
         if (tab.sessionId) this.sessionIndex.set(tab.sessionId, tab.tabId)
       },
       promptSent: (tab, text) => this.prompts.add(text, tab.cwd, tab.sessionId),
-      notify: (tab, kind, detail) => config.notifier?.({ kind, tabId: tab.tabId, title: tab.title, detail }),
+      notify: (tab, kind, detail) => this.notify(tab, kind, detail, config),
       rateLimited: (until, account) => this.rateLimited(until, account),
       limitLifted: (account) => this.limitLifted(account),
       limitedUntil: (account) => this.limitedUntil(account),

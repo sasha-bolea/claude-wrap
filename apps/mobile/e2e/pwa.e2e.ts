@@ -554,6 +554,19 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('.field').first().evaluate((element) => getComputedStyle(element).fontSize)).toBe('16px')
   })
 
+  it('the notification about several chats opens the open sessions: tapped with the app open or closed', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    // App open: the service worker posts open-tab without a tab.
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => navigator.serviceWorker.dispatchEvent(new MessageEvent('message', { data: { type: 'open-tab' } }))))
+    await button(page, 'Show projects').waitFor()
+    await button(page, 'Show projects').click()
+    // App closed: it opens on /#sessions.
+    await page.goto(`${backend.url}/#sessions`)
+    await page.reload()
+    await button(page, 'Show projects').waitFor()
+  })
+
   it('the app comes back from the background with the keyboard closed: no field focused, the full height', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)

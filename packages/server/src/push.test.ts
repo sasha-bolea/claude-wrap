@@ -27,15 +27,15 @@ async function storeWith(names: string[]) {
 }
 
 describe('web push', () => {
-  it('pushes to subscribed devices that are not looking, with title, kind and tab only', async () => {
+  it('pushes to subscribed devices that are not looking, with title, kind, tab and the counts only', async () => {
     const { stateDir, devices, ids } = await storeWith(['phone', 'tablet', 'laptop'])
     await devices.setPush(ids.phone!, target('phone'))
     await devices.setPush(ids.tablet!, target('tablet'))
     const sent: { endpoint: string; payload: string }[] = []
     const sender: PushSender = async (to, payload) => (sent.push({ endpoint: to.endpoint, payload }), { gone: false })
     const push = await PushService.load(stateDir, 'https://server.example', devices, sender, () => undefined)
-    await push.notify({ kind: 'request', tabId: 't1', title: 'Pagination', detail: 'Bash: rm -rf secret', visibleDevices: [ids.tablet!] })
-    expect(sent).toEqual([{ endpoint: 'https://push.example/phone', payload: JSON.stringify({ kind: 'request', title: 'Pagination', tabId: 't1' }) }])
+    await push.notify({ kind: 'request', tabId: 't1', title: 'Pagination', detail: 'Bash: rm -rf secret', waiting: 2, finished: 1, visibleDevices: [ids.tablet!] })
+    expect(sent).toEqual([{ endpoint: 'https://push.example/phone', payload: JSON.stringify({ kind: 'request', title: 'Pagination', tabId: 't1', waiting: 2, finished: 1 }) }])
     expect(JSON.parse(readFileSync(join(stateDir, 'vapid.json'), 'utf8'))).toMatchObject({ publicKey: push.publicKey, privateKey: expect.any(String) })
   })
 
@@ -43,7 +43,7 @@ describe('web push', () => {
     const { stateDir, devices, ids } = await storeWith(['phone'])
     await devices.setPush(ids.phone!, target('phone'))
     const push = await PushService.load(stateDir, 'https://server.example', devices, async () => ({ gone: true }), () => undefined)
-    await push.notify({ kind: 'turnFinished', tabId: 't1', title: 'x' })
+    await push.notify({ kind: 'turnFinished', tabId: 't1', title: 'x', waiting: 0, finished: 1 })
     expect(devices.list()[0]?.push).toBeUndefined()
   })
 

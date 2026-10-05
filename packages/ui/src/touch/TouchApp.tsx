@@ -64,7 +64,7 @@ let nextId = 1
 function ScreenView({ screen }: { screen: Screen }): ReactNode {
   switch (screen.name) {
     case 'home':
-      return <HomeScreen />
+      return <HomeScreen view={screen.view} />
     case 'folderSessions':
       return <FolderSessionsScreen path={screen.path} />
     case 'trash':
@@ -250,6 +250,7 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
 
   // A notification tap: Home, then that session's chat.
   useEffect(() => capabilities.onActivateTab?.((tabId) => reset([{ name: 'home' }, { name: 'chat', tabId }])), [capabilities, reset])
+  useEffect(() => capabilities.onShowSessions?.(() => reset([{ name: 'home', view: 'sessions' }])), [capabilities, reset])
   // A session closed elsewhere: its screens (and those above them) go.
   useEffect(() => {
     if (!state.tabs) return

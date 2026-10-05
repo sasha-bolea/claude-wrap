@@ -6,8 +6,9 @@ import type { DeviceStore, PushTarget } from './devices.ts'
 
 // Web Push to paired devices (iOS: only to the installed PWA, 16.4+). The VAPID keypair is created at the first
 // start (vapid.json, owner-only). A notice goes to every device with a subscription and no client on screen.
-// The payload carries only the session title, the kind of event and the tab: push services (Apple, Google) see
-// it, so never message text, tool input or errors. The service worker turns the kind into words.
+// The payload carries only the session title, the kind of event, the tab and the counts of chats waiting / finished:
+// push services (Apple, Google) see it, so never message text, tool input or errors. The service worker turns it into
+// words, in one notification for every chat.
 
 type Vapid = { publicKey: string; privateKey: string }
 // Delivers one payload; gone = the subscription no longer exists (expired, app removed) and must be forgotten.
@@ -59,7 +60,7 @@ export class PushService {
 
   // Pushes a notice to the devices that are not looking; forgets subscriptions the push service reports gone.
   async notify(notice: Notice): Promise<void> {
-    const payload = JSON.stringify({ kind: notice.kind, title: notice.title, tabId: notice.tabId })
+    const payload = JSON.stringify({ kind: notice.kind, title: notice.title, tabId: notice.tabId, waiting: notice.waiting, finished: notice.finished })
     const visible = new Set(notice.visibleDevices ?? [])
     const targets = this.devices.list().filter((device) => device.push && !visible.has(device.deviceId))
     await Promise.all(

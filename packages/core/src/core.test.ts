@@ -985,6 +985,50 @@ describe('notices and client visibility (Phase 3b)', () => {
     await tick()
     expect(notices.at(-1)).toMatchObject({ kind: 'turnFinished', visibleDevices: [] })
   })
+
+  it('every notice counts the chats waiting for an answer and the ones finished but not looked at yet', async () => {
+    const notices: Notice[] = []
+    core = makeCore({ notifier: (notice) => notices.push(notice) })
+    client = await connect(core)
+    const counts = () => notices.map(({ kind, tabId, waiting, finished }) => ({ kind, tabId, waiting, finished }))
+    const first = await startedTab()
+    first.emit(sdk.success())
+    await tick()
+    // A second chat asks for permission, then an error stops a third one.
+    await client.ok('tab.create', { tabId: 't2', cwd: CWD })
+    await client.ok('tab.send', { tabId: 't2', text: 'two' })
+    await fake.last().waitForInput(1)
+    fake.last().askPermission('Write', { file_path: 'a' }, { title: 'Write a' })
+    await tick()
+    await client.ok('tab.create', { tabId: 't3', cwd: CWD })
+    await client.ok('tab.send', { tabId: 't3', text: 'three' })
+    await fake.last().waitForInput(1)
+    fake.last().exit(new Error('boom'))
+    await tick()
+    expect(counts()).toEqual([
+      { kind: 'turnFinished', tabId: 't1', waiting: 0, finished: 1 },
+      { kind: 'request', tabId: 't2', waiting: 1, finished: 1 },
+      { kind: 'error', tabId: 't3', waiting: 1, finished: 2 }
+    ])
+    // Looking at a finished chat takes it off; a chat working again too.
+    await client.ok('client.watch', { tabId: 't1' })
+    await client.ok('client.watch', {})
+    await client.ok('tab.send', { tabId: 't3', text: 'again' })
+    await fake.last().waitForInput(1)
+    await client.ok('tab.create', { tabId: 't4', cwd: CWD })
+    await client.ok('tab.send', { tabId: 't4', text: 'four' })
+    await fake.last().waitForInput(1)
+    fake.last().emit(sdk.success())
+    await tick()
+    expect(counts().at(-1)).toEqual({ kind: 'turnFinished', tabId: 't4', waiting: 1, finished: 1 })
+    // A chat finished while on screen is not counted.
+    await client.ok('client.watch', { tabId: 't4' })
+    await client.ok('tab.send', { tabId: 't4', text: 'more' })
+    await fake.last().waitForInput(2)
+    fake.last().emit(sdk.success())
+    await tick()
+    expect(counts().at(-1)).toEqual({ kind: 'turnFinished', tabId: 't4', waiting: 1, finished: 0 })
+  })
 })
 
 // Sub-phase A: the server updates itself only while no session is working; core keeps their number in a file.

@@ -19,8 +19,10 @@ export type SdkApi = {
 
 // Something the user may want to hear about while not looking: the host turns it into a system notification
 // (desktop: Electron Notification when the window is not focused; server: Web Push in Phase 3).
+// waiting / finished: how many chats wait for an answer, and how many finished (or stopped with an error) since anyone
+// last looked at them — the phone shows one notification with these numbers.
 // visibleDevices: paired devices with a client on screen right now (the server skips their push).
-export type Notice = { kind: 'request' | 'turnFinished' | 'error'; tabId: string; title: string; detail?: string; visibleDevices?: string[] }
+export type Notice = { kind: 'request' | 'turnFinished' | 'error'; tabId: string; title: string; detail?: string; waiting: number; finished: number; visibleDevices?: string[] }
 
 export interface CoreConfig {
   backendId: string
