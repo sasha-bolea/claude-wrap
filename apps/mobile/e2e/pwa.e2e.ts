@@ -554,6 +554,29 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('.field').first().evaluate((element) => getComputedStyle(element).fontSize)).toBe('16px')
   })
 
+  it('the app comes back from the background with the keyboard closed: no field focused, the full height', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await composer(page).click()
+    // The state iOS can leave behind: the field still focused and the app shrunk for a keyboard that is gone.
+    await page.evaluate(() => {
+      const device = document.querySelector<HTMLElement>('.device')!
+      device.classList.add('kb-open')
+      device.style.setProperty('--app-h', '300px')
+    })
+    const setVisibility = (state: string) => page.evaluate((value) => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => value })
+      document.dispatchEvent(new Event('visibilitychange'))
+    }, state)
+    await setVisibility('hidden')
+    expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe('TEXTAREA')
+    await setVisibility('visible')
+    await expect.poll(() => page.evaluate(() => {
+      const device = document.querySelector<HTMLElement>('.device')!
+      return { open: device.classList.contains('kb-open'), height: device.style.getPropertyValue('--app-h') === `${window.visualViewport!.height}px` }
+    })).toEqual({ open: false, height: true })
+  })
+
   it('both orientations: the manifest locks none, a phone turned sideways shows the app, text is never enlarged', async () => {
     const manifest = (await (await fetch(`${backend.url}/manifest.webmanifest`)).json()) as { orientation?: string }
     expect(manifest.orientation).toBe('any')

@@ -3,7 +3,9 @@ import { useEffect, type RefObject } from 'react'
 // Keyboard of the installed iPhone app (NOTE-CONSEGNA §4): iOS does not shrink the page when the keyboard opens, it
 // scrolls it. The app follows the visual viewport instead (--app-h on the device), so the composer and a sheet being
 // typed in sit right on the keyboard; .kb-open marks it open. From the second time on, the remembered keyboard height
-// shrinks the app as soon as a field has focus, before iOS pans the page. Scrolled ancestors snap back.
+// shrinks the app as soon as a field has focus, before iOS pans the page. Scrolled ancestors snap back. The app always
+// comes back from the background (or opens) with the keyboard closed: iOS may keep a field focused, or the app shrunk,
+// for a keyboard that is no longer there.
 export function useKeyboard(device: RefObject<HTMLDivElement | null>): void {
   useEffect(() => {
     const viewport = window.visualViewport
@@ -36,18 +38,29 @@ export function useKeyboard(device: RefObject<HTMLDivElement | null>): void {
       setTimeout(fit, 700)
     }
     const soon = () => setTimeout(fit, 50)
+    // Leaving: the focused field lets go, so iOS puts the keyboard away. Back: same, and the height is measured again.
+    const closed = () => {
+      if (isField(document.activeElement)) (document.activeElement as HTMLElement).blur()
+      root.classList.remove('kb-open')
+      fit()
+      setTimeout(fit, 300)
+    }
     viewport.addEventListener('resize', fit)
     viewport.addEventListener('scroll', fit)
     document.addEventListener('focusin', early)
     document.addEventListener('focusin', soon)
     document.addEventListener('focusout', soon)
-    fit()
+    document.addEventListener('visibilitychange', closed)
+    window.addEventListener('pageshow', closed)
+    closed()
     return () => {
       viewport.removeEventListener('resize', fit)
       viewport.removeEventListener('scroll', fit)
       document.removeEventListener('focusin', early)
       document.removeEventListener('focusin', soon)
       document.removeEventListener('focusout', soon)
+      document.removeEventListener('visibilitychange', closed)
+      window.removeEventListener('pageshow', closed)
     }
   }, [device])
 }
