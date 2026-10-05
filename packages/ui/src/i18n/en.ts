@@ -573,7 +573,14 @@ export const en = {
   keyLeft: 'Left',
   keyUp: 'Up',
   keyDown: 'Down',
-  keyRight: 'Right'
+  keyRight: 'Right',
+  closeTerminalQuestion: 'Close the terminal?',
+  leaveTerminalHint: 'Closing it ends the shell and any command running in it, on every device.',
+  keepItOpen: 'Keep it open',
+  closeAllTerminals: 'Close all terminals',
+  closeAllTerminalsQuestion: 'Close all terminals?',
+  closeAllTerminalsHint: 'Every shell ends, with the commands running in it, on every device.',
+  closeAll: 'Close all'
 }
 
 export type MessageKey = keyof typeof en

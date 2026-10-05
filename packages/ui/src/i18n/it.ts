@@ -575,5 +575,12 @@ export const it: Record<MessageKey, string> = {
   keyLeft: 'Sinistra',
   keyUp: 'Su',
   keyDown: 'Giù',
-  keyRight: 'Destra'
+  keyRight: 'Destra',
+  closeTerminalQuestion: 'Chiudere il terminale?',
+  leaveTerminalHint: 'Chiudendolo si fermano la shell e i comandi in corso, su ogni dispositivo.',
+  keepItOpen: 'Lascialo aperto',
+  closeAllTerminals: 'Chiudi tutti i terminali',
+  closeAllTerminalsQuestion: 'Chiudere tutti i terminali?',
+  closeAllTerminalsHint: 'Si fermano tutte le shell e i comandi in corso, su ogni dispositivo.',
+  closeAll: 'Chiudi tutti'
 }

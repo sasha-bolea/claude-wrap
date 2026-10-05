@@ -599,10 +599,11 @@ describe('PWA (fake SDK)', () => {
     await terminal.getByRole('button', { name: 'Up' }).click()
     await page.keyboard.press('Enter')
     await expect.poll(async () => (await rows.textContent())!.split('cw-marker').length - 1, { timeout: 10_000 }).toBeGreaterThanOrEqual(2)
-    // Back to the session menu it came from (closed), then the Home: the Sessioni view lists it; it opens again with
-    // its screen.
+    // Leaving asks whether to close it: kept open, back to the session menu it came from (closed), then the Home: the
+    // Sessioni view lists it; it opens again with its screen.
     await button(page, 'Back').click()
-    await page.getByRole('dialog').waitFor()
+    await page.getByRole('dialog', { name: 'Close the terminal?' }).getByRole('button', { name: 'Keep it open' }).click()
+    await page.getByRole('dialog', { name: 'project' }).waitFor()
     await page.keyboard.press('Escape')
     await page.getByRole('dialog').waitFor({ state: 'detached' })
     await button(page, 'Back').click()
@@ -620,6 +621,25 @@ describe('PWA (fake SDK)', () => {
     await button(page, 'Actions for the folder project').click()
     await page.getByRole('dialog').getByRole('button', { name: 'Terminal here' }).click()
     await page.getByRole('region', { name: 'Terminal' }).locator('.xterm-rows').waitFor()
+    // Kept open on leaving; a second one in the same folder is closed on leaving: the Home lists one.
+    await button(page, 'Back').click()
+    await page.getByRole('dialog', { name: 'Close the terminal?' }).getByRole('button', { name: 'Keep it open' }).click()
+    // Back to the folder's menu it came from.
+    await page.getByRole('dialog', { name: 'project' }).getByRole('button', { name: 'Terminal here' }).click()
+    await page.getByRole('region', { name: 'Terminal' }).locator('.xterm-rows').waitFor()
+    await button(page, 'Back').click()
+    await page.getByRole('dialog', { name: 'Close the terminal?' }).getByRole('button', { name: 'Close terminal' }).click()
+    await page.getByRole('region', { name: 'Terminal' }).waitFor({ state: 'detached' })
+    await page.getByRole('dialog', { name: 'project' }).waitFor()
+    await page.keyboard.press('Escape')
+    await page.getByRole('dialog').waitFor({ state: 'detached' })
+    await button(page, 'Show sessions').click()
+    const rowsOf = () => page.getByRole('button', { name: /^project/ }).filter({ hasText: 'Terminal' })
+    await expect.poll(() => rowsOf().count()).toBe(1)
+    // "Close all terminals", confirmed, ends the rest.
+    await button(page, 'Close all terminals').click()
+    await page.getByRole('dialog', { name: 'Close all terminals?' }).getByRole('button', { name: 'Close all' }).click()
+    await expect.poll(() => rowsOf().count()).toBe(0)
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'en-US' })
     contexts.push(context)
     const wide = await pairedPage(context, backend, 'laptop')

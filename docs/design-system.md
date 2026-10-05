@@ -227,7 +227,9 @@ from the session menu ("Terminale": the session's live one, else a new one), fro
 and, wide, from the Terminale tab of the right panel; the Home's Sessioni view (and the wide left column) lists the
 open ones (`terminal` icon, "Terminale · attivo / terminato (codice N)"). On a touch screen the key bar under it
 (on the keyboard while typing): Ctrl (lit until the next key), Esc, Tab, arrows, `|`, `~`, `/`; the keys never take
-the focus. A shell that ended shows `.terminal-ended` with Chiudi; the ⋯ menu closes it for every device.
+the focus. A shell that ended shows `.terminal-ended` with Chiudi; the ⋯ menu closes it for every device. Leaving it
+(Back, edge swipe; not on a wide window) asks "Chiudere il terminale?" — Lascialo aperto / Chiudi il terminale (red);
+under the Home's list, "Chiudi tutti i terminali" (`.link-btn`) asks first, then ends them all.
 Examples: [TerminalScreen.tsx:58](../packages/ui/src/touch/TerminalScreen.tsx#L58), [TerminalScreen.tsx:138](../packages/ui/src/touch/TerminalScreen.tsx#L138), [TerminalScreen.tsx:171](../packages/ui/src/touch/TerminalScreen.tsx#L171), [TouchApp.tsx:498](../packages/ui/src/touch/TouchApp.tsx#L498).
 
 ### Bars and notices — `.update-bar`, `.banner`, `.toast`, `.snack`, `.viewer`, `.empty-line`

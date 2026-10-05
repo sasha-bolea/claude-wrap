@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Terminal as Xterm } from '@xterm/xterm'
 import type { TerminalMeta } from '@claude-wrap/protocol'
 import { t } from '../i18n.ts'
-import { useTouch, type Screen } from './context.tsx'
+import { useBackHandler, useScreen, useTouch, type Screen } from './context.tsx'
 import { Icon } from './icons.tsx'
 import { baseName } from './model.ts'
 import { IconButton, Title } from './parts.tsx'
@@ -56,8 +56,24 @@ export function useOpenTerminal() {
 // A terminal of the backend: the shell's screen (xterm.js) fed by its stream, what I type sent back, its size
 // following the screen; on a touch screen the key bar. When the shell ends, a bar says so and offers to close it.
 export function TerminalScreen({ terminalId }: { terminalId: string }) {
-  const { state, connection, back, openSheet, wide } = useTouch()
+  const { state, connection, back, openSheet, closeSheets, wide, fail } = useTouch()
+  const { entryId, registerBack } = useScreen()
   const meta = state.terminals.find((terminal) => terminal.terminalId === terminalId)
+  // Leaving (Back, edge swipe) asks whether to close it; either answer then leaves for real.
+  const leave = () => {
+    closeSheets()
+    registerBack(entryId, undefined)
+    back()
+  }
+  const closeAndLeave = () => connection.request('terminal.close', { terminalId }).then(leave, fail)
+  useBackHandler(!wide && meta !== undefined, () =>
+    openSheet({
+      title: t('closeTerminalQuestion'),
+      body: (
+        <ConfirmClose hint={t('leaveTerminalHint')} keep={t('keepItOpen')} close={t('closeTerminal')} onKeep={leave} onClose={() => void closeAndLeave()} />
+      )
+    })
+  )
   const host = useRef<HTMLDivElement>(null)
   const xterm = useRef<Xterm | undefined>(undefined)
   const ctrl = useRef(false)
@@ -151,6 +167,23 @@ export function TerminalScreen({ terminalId }: { terminalId: string }) {
   )
 }
 
+// A question with its hint, "keep" and a red "close" (leaving a terminal, closing them all).
+function ConfirmClose({ hint, keep, close, onKeep, onClose }: { hint: string; keep: string; close: string; onKeep: () => void; onClose: () => void }) {
+  return (
+    <>
+      <p className="flat">{hint}</p>
+      <div className="two-buttons">
+        <button className="button" onClick={onKeep}>
+          {keep}
+        </button>
+        <button className="button danger" onClick={onClose}>
+          {close}
+        </button>
+      </div>
+    </>
+  )
+}
+
 // Menu of a terminal: close it (the shell ends, for every device).
 function TerminalMenu({ terminalId, onClosed }: { terminalId: string; onClosed: () => void }) {
   const { connection, closeSheets, fail } = useTouch()
@@ -167,10 +200,18 @@ function TerminalMenu({ terminalId, onClosed }: { terminalId: string; onClosed: 
   )
 }
 
-// The backend's terminals in a list (the Home): folder, running or ended; a tap opens one.
+// The backend's terminals in a list (the Home): folder, running or ended; a tap opens one; all closed at once.
 export function OpenTerminals() {
-  const { state, go, panel, wide } = useTouch()
+  const { state, connection, go, panel, wide, openSheet, closeSheet, closeSheets, fail } = useTouch()
   if (!state.terminals.length) return null
+  // Every terminal of the backend ends (each closed like from its menu), after a confirmation.
+  const closeAll = () =>
+    Promise.all(state.terminals.map((terminal) => connection.request('terminal.close', { terminalId: terminal.terminalId }))).then(closeSheets, fail)
+  const askCloseAll = () =>
+    openSheet({
+      title: t('closeAllTerminalsQuestion'),
+      body: <ConfirmClose hint={t('closeAllTerminalsHint')} keep={t('cancel')} close={t('closeAll')} onKeep={closeSheet} onClose={() => void closeAll()} />
+    })
   const current = wide && panel?.name === 'terminal' ? panel.terminalId : undefined
   return (
     <>
@@ -186,6 +227,10 @@ export function OpenTerminals() {
           </li>
         ))}
       </ul>
+      <button className="link-btn" onClick={askCloseAll}>
+        <Icon name="close" />
+        {t('closeAllTerminals')}
+      </button>
     </>
   )
 }
