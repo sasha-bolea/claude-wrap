@@ -107,6 +107,9 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   useTabSubscription(connection, tabId, fail)
   const [queueMode, setQueueMode] = useState(false)
   const [follow, setFollow] = useState(true)
+  // follow for the dock's observer, which lives as long as the chat.
+  const following = useRef(follow)
+  following.current = follow
   const [missed, setMissed] = useState(false)
   const screen = useRef<HTMLElement>(null)
   const conversation = useRef<HTMLDivElement>(null)
@@ -131,8 +134,10 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const askTrust = useTrustPrompt()
   const loadImage = useCallback((imageId: string) => connection.request('blob.get', { tabId, imageId }), [connection, tabId])
 
-  // A glide to the bottom in progress (its animation frame), and whether a finger is on the chat.
+  // A glide to the bottom in progress (its animation frame) and the position its last step set, and whether a finger
+  // is on the chat.
   const glide = useRef<number | undefined>(undefined)
+  const glideAt = useRef(0)
   const touching = useRef(false)
   // Where and when the finger last moved on the chat (speed of the drag).
   const lastMove = useRef<{ y: number; at: number } | undefined>(undefined)
@@ -158,16 +163,18 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   }
   // Follows new text without jumps: each frame the chat moves a share of the way still left, so the bottom is
   // reached softly however the text arrives. Farther than a screen (a history loaded), with reduced motion or while
-  // a finger is on the chat it goes at once (or not at all).
+  // a finger is on the chat it goes at once (or not at all). Moved by anything else (a wheel, a fling), it gives way.
   const glideToBottom = () => {
     const box = conversation.current
     if (!box || touching.current) return
     if (box.scrollHeight - box.clientHeight - box.scrollTop > box.clientHeight || matchMedia('(prefers-reduced-motion: reduce)').matches) return toBottom()
     if (glide.current !== undefined) return
+    glideAt.current = box.scrollTop
     const step = () => {
       const left = box.scrollHeight - box.clientHeight - box.scrollTop
-      if (left <= 1 || touching.current) return void (glide.current = undefined)
+      if (left <= 1 || touching.current || Math.abs(box.scrollTop - glideAt.current) > 1) return void (glide.current = undefined)
       box.scrollTop += Math.max(1, Math.ceil(left * GLIDE_SHARE))
+      glideAt.current = box.scrollTop
       glide.current = requestAnimationFrame(step)
     }
     glide.current = requestAnimationFrame(step)
@@ -179,18 +186,23 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     else setMissed(true)
     updateGhost()
   }, [view?.items, view?.requests])
-  // The dock floats over the conversation, which leaves room for it under its last message.
+  // The dock floats over the conversation, which leaves room for it under its last message. Only a real change of the
+  // dock's height moves the chat: reaching the bottom by hand is never touched, or iOS would cut its bounce short.
   useEffect(() => {
     const element = dock.current
     if (!element || !window.ResizeObserver) return
+    let height: number | undefined
     const observer = new ResizeObserver(() => {
-      screen.current?.style.setProperty('--dock-h', `${Math.round(element.offsetHeight)}px`)
-      if (follow) toBottom()
+      const next = Math.round(element.offsetHeight)
+      if (next === height) return
+      height = next
+      screen.current?.style.setProperty('--dock-h', `${next}px`)
+      if (following.current) toBottom()
       placeThumb(false)
     })
     observer.observe(element)
     return () => observer.disconnect()
-  }, [follow])
+  }, [])
   // A drag on the dock never scrolls the page (only the text inside the field, when it overflows).
   useEffect(() => {
     const element = dock.current
@@ -221,8 +233,9 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const otherWaiting = state.tabs.some((tab) => tab.tabId !== tabId && tab.status === 'requires_action')
   const onScroll = () => {
     const box = conversation.current!
-    // The glide's own steps: the chat keeps following (new text may outrun it for a moment).
-    if (glide.current !== undefined && !touching.current) return void (updateGhost(), placeThumb(false))
+    // The glide's own steps: the chat keeps following (new text may outrun it for a moment). Any other move stops it.
+    if (glide.current !== undefined && !touching.current && Math.abs(box.scrollTop - glideAt.current) <= 1) return void (updateGhost(), placeThumb(false))
+    stopGlide()
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < FOLLOW
     setFollow(atBottom)
     if (atBottom) setMissed(false)

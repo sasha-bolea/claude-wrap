@@ -155,6 +155,30 @@ describe('PWA (fake SDK)', () => {
     await ghost.waitFor({ state: 'detached' })
   })
 
+  it('scrolling down to the end of the chat is never moved by the app (the native bounce is not cut short)', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'slow')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('word399')
+    await page.locator('.working-line').waitFor({ state: 'detached' })
+    const conversation = page.locator('.conversation')
+    await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight - box.clientHeight - 600))
+    await page.waitForTimeout(300)
+    // From now on every scrollTop the app sets is counted; the wheel scrolls natively.
+    await conversation.evaluate((box) => {
+      const native = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')!
+      const counted = box as HTMLElement & { writes?: number }
+      counted.writes = 0
+      Object.defineProperty(box, 'scrollTop', { configurable: true, get: () => native.get!.call(box), set: (value: number) => ((counted.writes! += 1), native.set!.call(box, value)) })
+    })
+    const area = (await conversation.boundingBox())!
+    await page.mouse.move(area.x + area.width / 2, area.y + 100)
+    for (let step = 0; step < 8; step += 1) await page.mouse.wheel(0, 120)
+    await page.waitForTimeout(400)
+    expect(await conversation.evaluate((box) => box.scrollHeight - box.scrollTop - box.clientHeight)).toBeLessThan(2)
+    expect(await conversation.evaluate((box) => (box as HTMLElement & { writes?: number }).writes)).toBe(0)
+  })
+
   it('commands in a row stack up like the queue; a tap spreads them into their cards, "Stack" gathers them again', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
