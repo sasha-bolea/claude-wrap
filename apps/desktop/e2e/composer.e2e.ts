@@ -6,13 +6,12 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Page } from 'playwright-core'
-import { launch, lastAnswer, openChat, send, type App } from './harness.ts'
+import { composer, launch, lastAnswer, openChat, send, type App } from './harness.ts'
 
 // A 1×1 transparent PNG.
 const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 let ctx: App
-const composer = (page: Page) => page.getByRole('textbox', { name: 'Message to Claude' })
 
 // Fires a paste on the composer, with a file or a text, as the system clipboard would.
 async function paste(page: Page, content: { png: string } | { text: string }): Promise<void> {
@@ -47,7 +46,7 @@ describe('composer (fake SDK)', () => {
     expect(await composer(page).inputValue()).toBe('/context ')
     await composer(page).press('Enter')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Ran /context')
-    expect(await page.locator('.item.user').last().textContent()).toBe('/context')
+    expect(await page.locator('.msg-user').last().textContent()).toBe('/context')
   })
 
   it('@ suggests files of the folder and inserts the mention', async () => {
@@ -64,8 +63,8 @@ describe('composer (fake SDK)', () => {
     await page.getByRole('img', { name: 'Image 1' }).waitFor()
     await send(page, 'what is it')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: what is it [1 images]')
-    await page.locator('.item.user img.image-thumb').waitFor()
-    expect(await page.locator('.attachment').count()).toBe(0)
+    await page.locator('.msg-user img.thumb').waitFor()
+    expect(await page.locator('.attachments').count()).toBe(0)
   })
 
   it('a long paste collapses into a placeholder and is sent whole', async () => {
@@ -76,7 +75,7 @@ describe('composer (fake SDK)', () => {
     expect(await composer(page).inputValue()).toBe('log: [Pasted text #1 +29 lines]')
     await composer(page).press('Enter')
     await expect.poll(() => lastAnswer(page).textContent()).toContain('l29')
-    expect(await page.locator('.item.user').last().textContent()).toContain('l0\nl1')
+    expect(await page.locator('.msg-user').last().textContent()).toContain('l0\nl1')
   })
 
   it('Up/Down browse previous messages; Ctrl+R searches them', async () => {
@@ -109,22 +108,22 @@ describe('composer (fake SDK)', () => {
     const request = page.getByRole('region', { name: 'Permission request' })
     await request.waitFor()
     await send(page, 'also this')
-    const waiting = page.locator('.item.user.pending')
+    const waiting = page.locator('.msg-user.pending')
     await expect.poll(() => waiting.textContent()).toContain('waiting')
     await request.getByRole('button', { name: 'Yes', exact: true }).click()
     await expect.poll(() => lastAnswer(page).textContent()).toContain('Echo: also this')
     expect(await waiting.count()).toBe(0)
-    expect(await page.locator('.item.turn-end').count()).toBe(1)
+    expect(await page.locator('.turn-end').count()).toBe(1)
   })
 
   it('! runs a shell command in the folder and shows its output', async () => {
     const { page } = ctx
     await send(page, '!echo hello-shell')
-    await expect.poll(() => page.locator('.item.shell').textContent()).toContain('hello-shell')
-    expect(await page.locator('.item.shell .shell-command').textContent()).toBe('$ echo hello-shell')
+    await expect.poll(() => page.locator('.shell').textContent()).toContain('hello-shell')
+    expect(await page.locator('.shell .cmd').textContent()).toBe('$ echo hello-shell')
     // No turn ran: the CLI's empty results for the transcript-only messages are not shown.
     await page.waitForTimeout(300)
-    expect(await page.locator('.item.turn-end').count()).toBe(0)
+    expect(await page.locator('.turn-end').count()).toBe(0)
     await send(page, 'after')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: after')
   })
