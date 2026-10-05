@@ -7,8 +7,10 @@ import { describe, expect, it } from 'vitest'
 
 type View = { title: string; body: string; tabId?: string }
 type Data = { kind?: string; title?: string; tabId?: string; waiting?: number; finished?: number }
+type Shown = { title: string; options: { tag: string; body: string } }
+type Registration = { getNotifications: () => Promise<{ close: () => void }[]>; showNotification: (title: string, options: Shown['options']) => Promise<void> }
 
-const scope: { noticeView?: (data: Data, language: string) => View } = {}
+const scope: { noticeView?: (data: Data, language: string) => View; showOnly?: (registration: Registration, title: string, options: Shown['options']) => Promise<void> } = {}
 runInNewContext(readFileSync(new URL('../public/notice.js', import.meta.url), 'utf8'), { self: scope })
 const view = (data: Data, language = 'it') => scope.noticeView!(data, language)
 
@@ -27,5 +29,15 @@ describe('the single notification', () => {
 
   it('a payload without counts (older server) still names its chat', () => {
     expect(view({ kind: 'error', title: 'Old', tabId: 't9' }, 'en')).toEqual({ title: 'Old', body: 'Claude stopped with an error', tabId: 't9' })
+  })
+
+  it('every notification on screen is closed before the new one: iOS does not replace one with the same tag', async () => {
+    const log: string[] = []
+    const registration: Registration = {
+      getNotifications: async () => ['a', 'b'].map((name) => ({ close: () => void log.push(`close ${name}`) })),
+      showNotification: async (title) => void log.push(`show ${title}`)
+    }
+    await scope.showOnly!(registration, 'claude-wrap', { tag: 'claude-wrap', body: '2 chat aspettano te' })
+    expect(log).toEqual(['close a', 'close b', 'show claude-wrap'])
   })
 })

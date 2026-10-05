@@ -8,8 +8,7 @@ const TAG = 'claude-wrap'
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
 
-// Always one notification (same tag): a newer event replaces it with the new counts. Notifications of older builds
-// (one per session) are closed first.
+// Always one notification: a newer event replaces it with the new counts (the old ones closed, see showOnly).
 self.addEventListener('push', (event) => {
   let data = {}
   try {
@@ -20,10 +19,7 @@ self.addEventListener('push', (event) => {
   const language = (self.navigator.language || 'en').toLowerCase().startsWith('it') ? 'it' : 'en'
   const view = self.noticeView(data, language)
   event.waitUntil(
-    (async () => {
-      for (const old of await self.registration.getNotifications()) if (old.tag !== TAG) old.close()
-      await self.registration.showNotification(view.title, { body: view.body, tag: TAG, icon: '/icon-192.png', data: { tabId: view.tabId } })
-    })()
+    self.showOnly(self.registration, view.title, { body: view.body, tag: TAG, icon: '/icon-192.png', data: { tabId: view.tabId } })
   )
 })
 

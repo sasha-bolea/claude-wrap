@@ -1,4 +1,4 @@
-// Words of the phone's single notification, loaded by the service worker (sw.js) and unit-tested (src/notice.test.ts).
+// Words of the phone's single notification and how it is shown, loaded by the service worker (sw.js) and unit-tested (src/notice.test.ts).
 // The push payload carries {kind, title, tabId, waiting, finished}: the chats waiting for an answer and the ones
 // finished since anyone looked at them. One chat → its title and what happened (a tap opens it); more → the counts.
 
@@ -28,4 +28,11 @@ self.noticeView = (data, language) => {
   if (waiting + finished <= 1) return { title: data.title || 'claude-wrap', body: text[data.kind] || '', tabId: data.tabId }
   const parts = [waiting ? text.waiting(waiting) : '', finished ? text.finished(finished) : ''].filter(Boolean)
   return { title: 'claude-wrap', body: parts.join(' · ') }
+}
+
+// Shows the notification as the only one: every notification on screen is closed first, since iOS does not replace
+// one with the same tag (WebKit bug 258922). registration: the service worker's; title, options: the new one.
+self.showOnly = async (registration, title, options) => {
+  for (const old of await registration.getNotifications()) old.close()
+  await registration.showNotification(title, options)
 }
