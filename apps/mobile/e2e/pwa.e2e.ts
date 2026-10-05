@@ -595,11 +595,13 @@ describe('PWA (fake SDK)', () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
     await composer(page).click()
-    // The state iOS can leave behind: the field still focused and the app shrunk for a keyboard that is gone.
+    // The state iOS can leave behind: the field still focused, the app shrunk for a keyboard that is gone, and the
+    // visual viewport still reporting the height without the keyboard after the return.
     await page.evaluate(() => {
       const device = document.querySelector<HTMLElement>('.device')!
       device.classList.add('kb-open')
       device.style.setProperty('--app-h', '300px')
+      Object.defineProperty(window.visualViewport!, 'height', { configurable: true, get: () => 300 })
     })
     const setVisibility = (state: string) => page.evaluate((value) => {
       Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => value })
@@ -610,7 +612,7 @@ describe('PWA (fake SDK)', () => {
     await setVisibility('visible')
     await expect.poll(() => page.evaluate(() => {
       const device = document.querySelector<HTMLElement>('.device')!
-      return { open: device.classList.contains('kb-open'), height: device.style.getPropertyValue('--app-h') === `${window.visualViewport!.height}px` }
+      return { open: device.classList.contains('kb-open'), height: Math.round(device.getBoundingClientRect().height) === window.innerHeight }
     })).toEqual({ open: false, height: true })
   })
 

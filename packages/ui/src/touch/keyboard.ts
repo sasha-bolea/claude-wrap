@@ -15,13 +15,16 @@ export function useKeyboard(device: RefObject<HTMLDivElement | null>): void {
     let keyboardHeight = 0
     const isField = (element: EventTarget | null) => element instanceof Element && element.matches('input:not([type=checkbox]):not([type=radio]):not([type=file]), textarea')
 
-    // Follows the visual viewport: height, keyboard state, scrolled boxes put back.
+    // Follows the visual viewport: height, keyboard state, scrolled boxes put back. With no field focused there is no
+    // keyboard: the app fills the screen (CSS height), whatever the visual viewport says — back from the background,
+    // iOS can still report the height without the keyboard.
     const fit = () => {
       if (viewport.offsetTop) window.scrollTo(0, 0)
-      root.style.setProperty('--app-h', `${viewport.height}px`)
-      root.style.transform = viewport.offsetTop ? `translateY(${viewport.offsetTop}px)` : ''
-      if (viewport.width !== full.width) Object.assign(full, { width: viewport.width, height: 0 })
       const typing = isField(document.activeElement)
+      if (typing) root.style.setProperty('--app-h', `${viewport.height}px`)
+      else root.style.removeProperty('--app-h')
+      root.style.transform = typing && viewport.offsetTop ? `translateY(${viewport.offsetTop}px)` : ''
+      if (viewport.width !== full.width) Object.assign(full, { width: viewport.width, height: 0 })
       if (!typing) full.height = Math.max(full.height, viewport.height)
       // Open = a field has focus and the visible height is well below the full one (window.innerHeight shrinks with
       // the keyboard on some iOS versions: it cannot be the only reference).
