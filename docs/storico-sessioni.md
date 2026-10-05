@@ -2,6 +2,55 @@
 
 _Append-only archive of session entries that left [STATO.md](STATO.md), newest on top._
 
+## 2026-10-05 19:03 — C2 done: the desktop on the touch app (phone session)
+Same phone session as the 2026-10-04 entry, in the server dev clone. After the buonanotte of 2026-10-04 it showed the
+palettes (screenshots: the session cannot make artifacts), took the terminal into the backlog after C2 (Sasha), saw
+the PC session's buonanotte (shared browser after D, pull-first rule) and its deploy cleanup, then did C2 in five
+steps with a report after each; Sasha installed `libgtk-3-0t64` so Electron runs on the server, the PC session built
+and installed the desktop, and Sasha closed C2 ("c2 ok").
+- **C2.1 wide arrangement:** the touch app from 1024 px puts the screens in regions (left: Home, folder sessions, trash;
+  centre: one chat; right: File/Note/panels; window: Settings), each with its own Back; "Aperte" on top of the Home;
+  File and Note in the chat's top bar; conversation padded to ~780 px.
+- **C2.2 popovers:** a sheet opened from a button is placed by it (below in the upper half, above in the lower half),
+  re-placed when its content grows.
+- **C2.3 keyboard and mouse:** ↑/↓ and Ctrl+R history (CLI's), Shift+Tab mode, Esc closes or stops, drop files on the
+  chat (attach) and on the explorer (upload).
+- **C2.4 desktop on the touch app:** App renders TouchApp on every host, the renderer loads touch.css, DesktopShell
+  passes the backends as a capability (switch on top of the Home, "Server…" sheet), "Aggiungi cartella…" on This PC.
+- **C2.5 cleanup and e2e:** the first desktop UI deleted (−1836 lines); desktop e2e rewritten by a sonnet subagent and
+  verified here: 31/31 under xvfb.
+- **Verification:** PWA e2e 31/31 (+3 tests: wide window, popovers, keyboard/drop), desktop e2e 31/31, screenshots at
+  1280×800 during C2.1/C2.2 (found the user bubbles stretched and the model popover misplaced, both fixed before
+  commit), the desktop launched under xvfb (found the backend switch cell too narrow).
+- **Decisions archived from STATO (2026-10-03):**
+  | 2026-10-03 | The approved prototype is the UI spec (mobile and desktop); plan realigned in sub-phases A–D | Sasha designed the screens with a prototype session on the server; the old plan predated it |
+  | 2026-10-03 | 10 prototype decisions: `allegati/` (excluded in `.git/info/exclude`), no "start the queue", one trash, project mark at any level, ↶ and clock icons, effort only with the model's levels, desktop widths fixed, system trash on this PC, Home of this PC seeded from open sessions, iPhone keyboard tricks without a native wrapper | Sasha: "concordo su tutto" ([piano.md](piano.md) §4) |
+  | 2026-10-03 | Mid-turn messages go to the CLI at once (`priority: 'next'`), `pending` until its `command_lifecycle` says started; a separate per-tab queue (pause after Stop and on usage limits) | Verified on the real CLI: `next` is read at the next tool step in the same turn |
+  | 2026-10-03 | Stop = plain `interrupt()`; "Invia ora" on a waiting message = the CLI's own send-now (interrupt with `send_now` + message uuid), not a Stop | Same as the terminal (Ctrl+Enter); the queue is not paused |
+  | 2026-10-03 | Server updates itself: `claude-wrap-update.timer` every 5 min, builds and tests a new `main`, switches only while no session works (`activity.json`); `.failed` blocks a release that failed or was rolled back | Pushes reach the phone without a manual step; nothing restarts under a working session |
+  | 2026-10-03 | File commands take a tab (trusted folder) or a Home folder (inside the roots, no trust needed) | Browsing files is the user's own action; trusting the root just to look would trust every subfolder |
+  | 2026-10-03 | Open session = a tab of the core; saved session = the CLI's JSONL. Past lists exclude open ones; a chat left with nothing sent and an empty composer is closed; never-used tabs are not restored; the tab title follows Claude Code's title until the user renames it | Sasha saw the same session twice and empty sessions kept |
+  | 2026-10-03 | Rewind stays a 🔜 placeholder until D (built with the core) | Its screens depend on what `rewindFiles` dry runs return |
+  | 2026-10-03 | Automatic compaction in Settings = Claude Code's official `autoCompactWindow` (tokens, 100k–1M), not a percentage: the only percentage is the undocumented test env `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`. Passed as flag settings at spawn; a live `applyFlagSettings` does not move it (CLI 2.1.287), so live processes restart (idle now, working at the turn's end) | Sasha chose B ("only if it is a native Claude Code setting") |
+  | 2026-10-03 | One account for every session (a switch anywhere moves all sessions and the new ones); a switch stops a session at work at once; sessions stopped mid-work by a limit or a switch are marked (`TabMeta.interrupted`, persisted) and wait — queue included — for "Continua" (`tabs.continue`, sends "continua") or a message | Sasha: "quando cambio account in una chat si cambi in tutte le sessioni" + a continue card after a switch or a reset |
+  | 2026-10-03 | Context and usage panels before C2; the window is `rawMaxTokens` (the autocompact window, as /context); the usage call is the SDK's experimental one, kept in `core/src/usage.ts` and checked by `smoke:usage` at every SDK bump; reset times normalized to plain ISO in core | Sasha asked for them now; the experimental API may be renamed |
+  | 2026-10-03 | Claude accounts: tokens from `claude setup-token` pasted in the app, kept by core in `accounts.json` (0600, never sent back), passed to the CLI as `CLAUDE_CODE_OAUTH_TOKEN`; per session with a default for new ones; Claude Code's own login stays; a switch restarts the process on the same stored session (at the turn's end if busy); usage limits per account | Sasha: "voglio poter usare la stessa conversazione con più account, esattamente come faccio qui" — like /login in the terminal |
+
+### Cambiamenti al codice
+- `packages/ui/src/touch/TouchApp.tsx`: `useWide`, `regionOf`, region-aware `go`/`regionBack`/`backTo`,
+  `togglePanel`, wide render (columns, `PanelTabs`, `NoChat`, Settings window), Esc handler, core-failed notice;
+  popover anchors in `openSheet`.
+- `touch/SheetHost.tsx`: `placePopover` + ResizeObserver; `touch/context.tsx`: `wide`, `chatTabId`, `panel`,
+  `togglePanel`; `touch/ChatScreen.tsx`: no back arrow when wide, File/Note buttons; `touch/sessions.tsx`:
+  `OpenSessions`, current row; `touch/HomeScreen.tsx`: Aperte, `BackendSwitch`, "Aggiungi cartella…";
+  `touch/TouchComposer.tsx`: history keys, Shift+Tab, drop; `touch/FilesScreen.tsx`: drop upload;
+  `touch/backends.tsx` (new): switch + Servers sheet.
+- `packages/ui/src/App.tsx` (TouchApp only), `DesktopShell.tsx` (capabilities.backends), `chatHooks.ts` (`Answer`),
+  `composerText.ts` (`caretOnEdgeLine`); deleted ChatView, StartScreen, TabBar, ChatHeader, Composer, ItemView,
+  QueueList, RequestPanel, TrustDialog, FolderBrowser, SessionList, Mobile*, Sheet, Icon, focus.ts, style.css.
+- `touch.css`: wide arrangement, popovers, backend switch, drop outline, core-failed; i18n en + it.
+- `apps/desktop/src/renderer/main.tsx` (touch.css); `apps/desktop/e2e/*` rewritten; `apps/mobile/e2e` +3 tests.
+
 ## 2026-10-04 17:00 — A day of requests from the phone (dev clone on the server)
 Sasha worked from the iPhone in a session of the claude-wrap PWA itself, on the server's dev clone
 `/srv/progetti/claude-wrap`; 37 commits, each pushed over SSH (the clone's HTTPS `origin` has no credentials) and

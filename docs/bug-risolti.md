@@ -352,3 +352,12 @@ These were solved in the first attempt. Files refer to that repository. Each ent
   remove the rest. A removed failed release is an older commit than the live one, so the timer never rebuilds it.
   First version exited at once under `pipefail` when no release had `.failed` (`ls` with no match) → `|| true`.
 - **Files:** `deploy/install.sh`, `packages/server/src/deploy.test.ts`, `docs/deploy.md`.
+
+### 2026-10-05 — The backend switch squeezed "This PC" into a narrow cell
+- **Symptom:** on the desktop launched under xvfb, with one backend, the switch's only option took a third of the
+  row and its label wrapped ("This / PC").
+- **Cause:** `.backend-choices` (flex) came earlier in `touch.css` than `.segmented` (grid, 3 columns) with the same
+  specificity, so the generic segmented grid won.
+- **Fix:** `.segmented.backend-choices` (flex, options `flex: 1 1 0`).
+- **Files:** `packages/ui/src/touch.css`.
+- **Rule:** a variant of a shared element is written with both classes, so its order in the stylesheet does not matter.

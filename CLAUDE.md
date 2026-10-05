@@ -66,7 +66,7 @@ deploy/             install.sh (--when-idle), rollback.sh, systemd units (servic
 - `npm test` — unit + contract tests (vitest, ~3 s). `npm run typecheck` — tsc over the whole repo.
 - `npm run dev:desktop` — Electron with the renderer dev server on 5199 (real CLI, real app state in `%APPDATA%\claude-wrap`).
 - `npm run start:desktop` — build + run the app as served from `app://` (CSP active).
-- `npm run e2e` — build + desktop e2e on the fake SDK (~1.5 min, zero quota).
+- `npm run e2e` — build + desktop e2e on the fake SDK (~1.5 min, zero quota); on the home server under `xvfb-run -a -s "-screen 0 1440x900x24"`.
 - `npm run e2e:mobile` — build the PWA + its e2e in the system Chrome on the fake SDK (~3 min); on the home server (no Chrome) with `CLAUDE_WRAP_E2E_CHROME=~/.cache/ms-playwright/chromium-1247/chrome-linux64/chrome`.
 - `npm run smoke:composer` — real CLI (haiku): palette, image, shell, mid-turn, send now, effort, history.
 - `npm run smoke:accounts` — real CLI: an account's token reaches the CLI; back to the login in the same conversation.

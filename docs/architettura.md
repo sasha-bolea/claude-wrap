@@ -149,11 +149,16 @@ Import rule: `protocol` ← `core`, `client`; `client` ← `ui`; `core` ← `ser
 - **PWA host** ([apps/mobile/src/main.tsx](../apps/mobile/src/main.tsx)): pairing screen, WebSocket connection,
   Web Push through the service worker, version checks (`checkVersion` at every reconnection, back on screen, every
   15 min), gestures (no zoom). Both orientations (until 2026-10-03 portrait only).
-- **Desktop**: unchanged UI until C2; the local core asks main for the system trash (`trashItem` over `parentPort`,
+- **Desktop**: the touch app since C2 (`DesktopShell` keeps one connection per backend and passes them as
+  `capabilities.backends`: the switch on top of the Home); the local core asks main for the system trash (`trashItem` over `parentPort`,
   [coreHost.ts](../apps/desktop/src/main/coreHost.ts) ↔ [coreProcess.ts](../apps/desktop/src/main/coreProcess.ts)).
 
 ### 9.2 Touch UI ([packages/ui/src/touch](../packages/ui/src/touch))
-- `App` renders `TouchApp` for `layout: 'mobile'`, `DesktopApp` otherwise. `TouchApp` keeps a **stack of mounted
+- `App` renders `TouchApp` on every host. Below 1024 px it shows one screen at a time; from 1024 px (`useWide`) the
+  same stack is split into **regions** by `regionOf` — left (home, folder sessions, trash), centre (one chat), right
+  (files, notes, panels), window (settings) — each showing its last entry, with its own Back (`regionBack`, given to
+  the region's screens through a per-region `Touch` value); a sheet opened from a button becomes a popover anchored to
+  it (`SheetEntry.anchor`, placed by `SheetHost`). `TouchApp` keeps a **stack of mounted
   screens** (only the top is visible, so going back finds a screen as it was), a stack of **bottom sheets** (a sheet
   opened from another returns to it; a screen entered from a sheet reopens it on the way back), edge swipe, toasts and
   the undo bar, the photo viewer, and the texts other screens put in a chat's composer (`insertInComposer`).

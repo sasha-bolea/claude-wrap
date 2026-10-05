@@ -25,7 +25,11 @@ _Runbook of multi-step or rare procedures. One-liners used often live in CLAUDE.
 3. Fake SDK keywords (send them as the message): `permission`, `question`, `plan`, `slow` (long stream to interrupt), `markdown` (remote image + link), `tools` (three Bash commands in a row, one long), `crash`; anything else is echoed word by word. Conversations are stored in the fake session store (in memory of the core process: gone after an app restart).
 4. A failing selector: check names in `packages/ui/src/i18n/en.ts`; playwright `hasText` is a case-insensitive substring ("Renamed" matches "Rename"+"Delete").
 
-**Warnings:** never point e2e at the real `%APPDATA%\claude-wrap`; `openChat(page, folder)` must get the folder the dialog returns, or it may click the previous folder's buttons.
+5. On the home server (no display): `timeout 900 xvfb-run -a -s "-screen 0 1440x900x24" npm run e2e`. Needs the
+   Electron binary in `node_modules/electron/dist` (`node node_modules/electron/install.js`) and the system package
+   `libgtk-3-0t64` (installed 2026-10-05). The harness uses plain-text `safeStorage` on Linux (no keyring under xvfb).
+
+**Warnings:** never point e2e at the real `%APPDATA%\claude-wrap`; the harness's `openChat` adds the folder the stubbed dialog returns and waits for the new session to be highlighted. On the server, never `pkill -f` with a pattern that also matches your own command line (it kills the shell running it): kill stray Electron processes by PID (`pgrep -f node_modules/electron/dist/electron`).
 
 ## Packaged build (personal use only)
 **When:** checking the packaged app, or before giving Sasha an exe to try.
