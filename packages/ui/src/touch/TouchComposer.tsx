@@ -13,9 +13,9 @@ import { useTouch } from './context.tsx'
 import { GaugeButton } from './gauge.tsx'
 import { Icon, modeIcon } from './icons.tsx'
 import { sizeLabel } from './model.ts'
-import { ModelSheet, ModeSheet, modelLabel, useModels } from './modelSheets.tsx'
+import { ModeSheet } from './modelSheets.tsx'
 import { IconButton, noteTitle } from './parts.tsx'
-import { QueueTray } from './queue.tsx'
+import { pauseWords, QueueTray } from './queue.tsx'
 import { useTrustPrompt } from './sessions.tsx'
 
 // Tallest the field grows before it scrolls (px).
@@ -25,7 +25,7 @@ const noHistory = () => Promise.resolve([])
 // Enter sends only where there is a hardware keyboard (a pointer that hovers); on the phone it adds a line.
 const enterSends = () => matchMedia('(hover: hover)').matches
 
-type ComposerProps = { meta: TabMeta; queueMode: boolean; running: boolean; requestOpen: boolean; onFocusField: () => void }
+type ComposerProps = { meta: TabMeta; queueMode: boolean; running: boolean; requestOpen: boolean; onToggleQueue: () => void; onFocusField: () => void }
 
 // Ring of the countdown around Stop (SVG units, a 44×44 box).
 const RING_RADIUS = 20
@@ -63,11 +63,12 @@ function QueuedCountdown({ text, images, until, onStop }: { text: string; images
   )
 }
 
-// The composer of the touch layout: one box floating over the chat — the text on top; under it + (photos and files),
-// model and effort, then permissions, Stop and Send. `/` suggests commands, `@` files; `!` runs a shell command; long
+// The composer of the touch layout: one box floating over the chat — the text on top; under it permissions,
+// + (photos and files) and the context gauge on the left; on the right Stop and Coda (queue mode) while Claude
+// responds, then Send (model and effort are in the chat's top bar). `/` suggests commands, `@` files; `!` runs a shell command; long
 // pastes collapse. Queue mode writes into the queue. Files that are not photos go to allegati/ and are mentioned.
 // A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.
-export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusField }: ComposerProps) {
+export function TouchComposer({ meta, queueMode, running, requestOpen, onToggleQueue, onFocusField }: ComposerProps) {
   const { connection, backendId, openSheet, toast, snack, fail, inserts, clearInsert } = useTouch()
   const tabId = meta.tabId
   const input = useRef<HTMLTextAreaElement>(null)
@@ -80,7 +81,6 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusFi
   const history = usePromptHistory(connection, meta.cwd)
   const suggestions = useComposerPopup(connection, tabId, enterSends() ? history.load : noHistory)
   const popup = suggestions.popup
-  const models = useModels(tabId)
   const askTrust = useTrustPrompt()
   const shellMode = text.startsWith('!')
   const hasContent = Boolean(text.trim() || images.length || docs.length)
@@ -265,6 +265,8 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusFi
   }
   // Send and Stop while typing keep the keyboard open: they never take the focus from the field.
   const keepFocus = { onPointerDown: (event: PointerEvent) => document.activeElement === input.current && event.preventDefault() }
+  const queueCount = meta.queuePause ? undefined : meta.queue.length ? String(meta.queue.length) : undefined
+  const queueLabel = `${t('queue')}: ${meta.queue.length ? t('queuedCount', { count: String(meta.queue.length) }) : t('queueEmptyShort')}${meta.queuePause ? `, ${pauseWords(meta)}` : ''}`
 
   return (
     <footer className={`composer${shellMode ? ' shell-mode' : ''}${queueMode ? ' queue-mode' : ''}`}>
@@ -332,19 +334,25 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onFocusFi
           onBlur={() => suggestions.close()}
         />
         <div className="input-tools" hidden={Boolean(waiting)}>
-          <IconButton icon="plus" label={t('attachPhotoOrFile')} onClick={() => picker.current?.click()} />
-          <button className="model-btn" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
-            <span>{modelLabel(meta, models)}</span>
-            <Icon name="down" />
-          </button>
-          <GaugeButton meta={meta} />
           <button className="icon-btn mode-btn" data-mode={meta.mode} aria-label={t('modeButtonLabel', { mode: t(modeLabel(meta.mode)) })} onClick={() => openSheet({ title: t('modeTitle'), body: <ModeSheet tabId={tabId} /> })}>
             <Icon name={modeIcon(meta.mode)} />
           </button>
+          <IconButton icon="plus" label={t('attachPhotoOrFile')} onClick={() => picker.current?.click()} />
+          <GaugeButton meta={meta} />
           {(running || requestOpen) && (
-            <button className="send stop" aria-label={t('stopClaude')} onClick={stop} {...keepFocus}>
-              <Icon name="stop" />
-            </button>
+            <>
+              <button className="send stop" aria-label={t('stopClaude')} onClick={stop} {...keepFocus}>
+                <Icon name="stop" />
+              </button>
+              <button className={`icon-btn queue-btn${queueMode ? ' on' : ''}`} aria-label={queueLabel} aria-expanded={queueMode} onClick={onToggleQueue} {...keepFocus}>
+                <Icon name="queue" />
+                {(queueCount || meta.queuePause) && (
+                  <span className="count" aria-hidden="true">
+                    {meta.queuePause ? <Icon name="pause" /> : queueCount}
+                  </span>
+                )}
+              </button>
+            </>
           )}
           <button className="send" aria-label={t(queueMode ? 'addToQueue' : shellMode ? 'run' : 'send')} disabled={!hasContent} onClick={() => void send()} {...keepFocus}>
             <Icon name={queueMode ? 'queue' : 'send'} />

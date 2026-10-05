@@ -7,8 +7,8 @@ import { Icon } from './icons.tsx'
 import { baseName } from './model.ts'
 import { IconButton, Title } from './parts.tsx'
 
-// xterm.js and its fit addon, loaded with the first terminal opened (its stylesheet comes with touch.css).
-const loadXterm = () => Promise.all([import('@xterm/xterm'), import('@xterm/addon-fit')])
+// xterm.js, its fit and links addons, loaded with the first terminal opened (its stylesheet comes with touch.css).
+const loadXterm = () => Promise.all([import('@xterm/xterm'), import('@xterm/addon-fit'), import('@xterm/addon-web-links')])
 
 // A size change is sent to the backend once the terminal has stopped changing size for this long (the keyboard
 // sliding in resizes it many times).
@@ -56,7 +56,8 @@ export function useOpenTerminal() {
 // A terminal of the backend: the shell's screen (xterm.js) fed by its stream, what I type sent back, its size
 // following the screen; on a touch screen the key bar. When the shell ends, a bar says so and offers to close it.
 export function TerminalScreen({ terminalId }: { terminalId: string }) {
-  const { state, connection, back, openSheet, closeSheets, wide, fail } = useTouch()
+  const { state, connection, back, openSheet, closeSheets, wide, fail, toast, capabilities } = useTouch()
+  const openLink = useRef((url: string) => void (capabilities.openExternal ? capabilities.openExternal(url) : window.open(url, '_blank', 'noopener')))
   const { entryId, registerBack } = useScreen()
   const meta = state.terminals.find((terminal) => terminal.terminalId === terminalId)
   // Leaving (Back, edge swipe) asks whether to close it; either answer then leaves for real.
@@ -90,12 +91,14 @@ export function TerminalScreen({ terminalId }: { terminalId: string }) {
   useEffect(() => {
     let disposed = false
     let cleanup = () => undefined as void
-    void loadXterm().then(([{ Terminal }, { FitAddon }]) => {
+    void loadXterm().then(([{ Terminal }, { FitAddon }, { WebLinksAddon }]) => {
       const element = host.current
       if (disposed || !element) return
       const terminal = new Terminal({ fontFamily: getComputedStyle(element).getPropertyValue('--font-mono'), fontSize: 13, cursorBlink: true, scrollback: 5000, theme: themeOf(element) })
       const fit = new FitAddon()
       terminal.loadAddon(fit)
+      // A link in the output opens outside the app (the system browser on the desktop).
+      terminal.loadAddon(new WebLinksAddon((_event, url) => openLink.current(url)))
       terminal.open(element)
       xterm.current = terminal
       const input = terminal.onData((data) => typeRef.current(data))
@@ -133,7 +136,21 @@ export function TerminalScreen({ terminalId }: { terminalId: string }) {
     setCtrlOn(ctrl.current)
     xterm.current?.focus()
   }
-  const openMenu = () => openSheet({ title: t('terminal'), path: meta?.cwd, body: <TerminalMenu terminalId={terminalId} onClosed={back} /> })
+  // The whole output (scrollback included) as text, without the empty lines at the end.
+  const copyAll = () => {
+    const buffer = xterm.current?.buffer.active
+    if (!buffer) return
+    const lines = Array.from({ length: buffer.length }, (_, index) => buffer.getLine(index)?.translateToString(true) ?? '')
+    while (lines.length && !lines.at(-1)) lines.pop()
+    navigator.clipboard.writeText(lines.join('\n')).then(() => (closeSheets(), toast(t('copiedOutput'))), fail)
+  }
+  // The clipboard typed into the shell (as a paste: a program that asks for it gets it marked).
+  const paste = () =>
+    navigator.clipboard.readText().then((text) => {
+      closeSheets()
+      xterm.current?.paste(text)
+    }, fail)
+  const openMenu = () => openSheet({ title: t('terminal'), path: meta?.cwd, body: <TerminalMenu terminalId={terminalId} onClosed={back} onCopy={copyAll} onPaste={() => void paste()} /> })
   return (
     <section className="screen terminal-screen" aria-label={t('terminal')}>
       <header className="topbar">
@@ -184,12 +201,24 @@ function ConfirmClose({ hint, keep, close, onKeep, onClose }: { hint: string; ke
   )
 }
 
-// Menu of a terminal: close it (the shell ends, for every device).
-function TerminalMenu({ terminalId, onClosed }: { terminalId: string; onClosed: () => void }) {
+// Menu of a terminal: copy all its output, paste the clipboard into it, close it (the shell ends, for every device).
+function TerminalMenu({ terminalId, onClosed, onCopy, onPaste }: { terminalId: string; onClosed: () => void; onCopy: () => void; onPaste: () => void }) {
   const { connection, closeSheets, fail } = useTouch()
   const close = () => connection.request('terminal.close', { terminalId }).then(() => (closeSheets(), onClosed()), fail)
   return (
     <ul className="menu">
+      <li>
+        <button onClick={onCopy}>
+          <Icon name="files" />
+          {t('copyAll')}
+        </button>
+      </li>
+      <li>
+        <button onClick={onPaste}>
+          <Icon name="download" />
+          {t('paste')}
+        </button>
+      </li>
       <li>
         <button className="danger" onClick={() => void close()}>
           <Icon name="close" />

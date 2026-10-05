@@ -112,9 +112,11 @@ wraps each stack entry (`display: contents`, `hidden` below the top). `.screen`:
 with a `.pad` grid (16 px gaps; `.tight` 10 px; `.settings` 22 px), optional `.sticky-actions`.
 Examples: [TouchApp.tsx:326](../packages/ui/src/touch/TouchApp.tsx#L326), [TouchApp.tsx:339](../packages/ui/src/touch/TouchApp.tsx#L339), [FilesScreen.tsx:226](../packages/ui/src/touch/FilesScreen.tsx#L226).
 
-### Top bar — `.topbar`, `h1` (`.sub`, `.pad-left`), `.title-btn` (`.title-text`)
+### Top bar — `.topbar`, `h1` (`.sub`, `.pad-left`), `.title-btn` (`.title-text`), `.model-btn`
 52 px bar: back icon button, the title with its small `.sub` line (path, state), icon buttons on the right. In the
-chat the title is a `.title-btn` (badge + title + folder) that opens the session menu.
+chat the title is a `.title-btn` (badge, then title and folder side by side on one line, 14 px, each cut with "…",
+the folder gives way first) that opens the session menu; next to it the `.model-btn` (model · effort ⌄, at most 40%
+of the bar) opens the model sheet as a popover below it.
 Examples: [FilesScreen.tsx:219](../packages/ui/src/touch/FilesScreen.tsx#L219), [ChatScreen.tsx:268](../packages/ui/src/touch/ChatScreen.tsx#L268), [parts.tsx:47](../packages/ui/src/touch/parts.tsx#L47).
 
 ### Icon button — `.icon-btn` (`.dot`, `.count`, `.on`, `.dim`, `.accent`)
@@ -189,9 +191,9 @@ The ghost: your message whose answer you are reading, once it scrolled off the t
 arrived; "Claude ti aspetta" with a request open).
 Examples: [ChatScreen.tsx:294](../packages/ui/src/touch/ChatScreen.tsx#L294), [ChatScreen.tsx:307](../packages/ui/src/touch/ChatScreen.tsx#L307).
 
-### Composer and dock — `.dock`, `.composer` (`.queue-mode`), `.input-box`, `.input-tools`, `.model-btn`, `.mode-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.linked-note`, `.shell-hint`, `.suggest`
-One box floating over the chat over a light veil (2 px blur, a slightly dark gradient, fading to the page colour only in the last line above the bottom: the chat stays readable under it): the text on top; + (photos and files), model · effort, the
-permission mode icon, Stop (while Claude works or waits) and Send below. Queue mode: dashed border, Send adds to the
+### Composer and dock — `.dock`, `.composer` (`.queue-mode`), `.input-box`, `.input-tools`, `.mode-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.linked-note`, `.shell-hint`, `.suggest`
+One box floating over the chat over a light veil (2 px blur, a slightly dark gradient, fading to the page colour only in the last line above the bottom: the chat stays readable under it): the text on top; below it the
+permission mode icon, + (photos and files) and the context gauge on the left, Stop (while Claude works or waits) and Send on the right (model · effort is in the top bar). Queue mode: dashed border, Send adds to the
 queue. A linked note shows above the box (× unlinks it). Composer and box are one `minmax(0, 1fr)` column: a long note
 title or file name is cut with "…", never pushing Send off the screen.
 Examples: [ChatScreen.tsx:314](../packages/ui/src/touch/ChatScreen.tsx#L314), [TouchComposer.tsx:315](../packages/ui/src/touch/TouchComposer.tsx#L315), [TouchComposer.tsx:308](../packages/ui/src/touch/TouchComposer.tsx#L308).
@@ -227,7 +229,9 @@ from the session menu ("Terminale": the session's live one, else a new one), fro
 and, wide, from the Terminale tab of the right panel; the Home's Sessioni view (and the wide left column) lists the
 open ones (`terminal` icon, "Terminale · attivo / terminato (codice N)"). On a touch screen the key bar under it
 (on the keyboard while typing): Ctrl (lit until the next key), Esc, Tab, arrows, `|`, `~`, `/`; the keys never take
-the focus. A shell that ended shows `.terminal-ended` with Chiudi; the ⋯ menu closes it for every device. Leaving it
+the focus. A shell that ended shows `.terminal-ended` with Chiudi; the ⋯ menu has Copia tutto (the whole output as
+text, toast "Output copiato"), Incolla (the clipboard as a paste: bash waits for Enter) and Chiudi il terminale (red,
+for every device). Links in the output open outside the app (`openExternal`, else a new tab). Leaving it
 (Back, edge swipe; not on a wide window) asks "Chiudere il terminale?" — Lascialo aperto / Chiudi il terminale (red);
 under the Home's list, "Chiudi tutti i terminali" (`.link-btn`) asks first, then ends them all.
 Examples: [TerminalScreen.tsx:58](../packages/ui/src/touch/TerminalScreen.tsx#L58), [TerminalScreen.tsx:138](../packages/ui/src/touch/TerminalScreen.tsx#L138), [TerminalScreen.tsx:171](../packages/ui/src/touch/TerminalScreen.tsx#L171), [TouchApp.tsx:498](../packages/ui/src/touch/TouchApp.tsx#L498).

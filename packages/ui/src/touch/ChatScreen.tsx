@@ -11,7 +11,6 @@ import { Icon } from './icons.tsx'
 import { baseName, sessionState } from './model.ts'
 import { ModelSheet, modelLabel, useModels } from './modelSheets.tsx'
 import { Badge, ConnectionBanner, IconButton, UpdateBar, useQuery } from './parts.tsx'
-import { pauseWords } from './queue.tsx'
 import { CloseButton, RenameSheet, useTrustPrompt } from './sessions.tsx'
 import { useOpenTerminal } from './TerminalScreen.tsx'
 import { TouchComposer } from './TouchComposer.tsx'
@@ -97,7 +96,7 @@ function useScrollThumb(conversation: React.RefObject<HTMLDivElement | null>, do
   return { thumb, place }
 }
 
-// The chat of a session: top bar (back, title = session menu, Torna indietro, Coda, ⋯), the conversation with
+// The chat of a session: top bar (back, title and folder = session menu, model and effort, Torna indietro, ⋯), the conversation with
 // Claude's request inside it, the ghost of your message and "Torna giù", and the floating dock (composer + queue).
 export function ChatScreen({ tabId }: { tabId: string }) {
   const touch = useTouch()
@@ -105,6 +104,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const { top } = useScreen()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
   const view = state.transcripts[tabId]
+  const models = useModels(tabId)
   useTabSubscription(connection, tabId, fail)
   const [queueMode, setQueueMode] = useState(false)
   const [follow, setFollow] = useState(true)
@@ -222,6 +222,11 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     void connection.request('client.watch', { tabId }).catch(() => undefined)
     return () => void connection.request('client.watch', {}).catch(() => undefined)
   }, [top, connected, tabId, connection])
+  // Claude done (the queue button is gone with Stop): back to sending directly.
+  const responding = meta?.status === 'running' || meta?.status === 'starting' || Boolean(view?.requests[0])
+  useEffect(() => {
+    if (!responding) setQueueMode(false)
+  }, [responding])
   // Back on top (from File, Note): the conversation at the bottom again if it was following.
   useEffect(() => {
     if (top && follow) toBottom()
@@ -251,8 +256,6 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     setQueueMode(!queueMode)
     if (!queueMode) screen.current?.querySelector('textarea')?.focus({ preventScroll: true })
   }
-  const queueCount = meta.queuePause ? undefined : meta.queue.length ? String(meta.queue.length) : undefined
-  const queueLabel = `${t('queue')}: ${meta.queue.length ? t('queuedCount', { count: String(meta.queue.length) }) : t('queueEmptyShort')}${meta.queuePause ? `, ${pauseWords(meta)}` : ''}`
 
   // Ghost: drag up to put away; a tap scrolls back to the message.
   const onGhostStart = (event: TouchEvent) => (ghostDrag.current = { y: event.touches[0]!.clientY, dy: 0 })
@@ -286,6 +289,10 @@ export function ChatScreen({ tabId }: { tabId: string }) {
             <span className="sub">{baseName(meta.cwd)}</span>
           </span>
         </button>
+        <button className="model-btn" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
+          <span>{modelLabel(meta, models)}</span>
+          <Icon name="down" />
+        </button>
         {touch.wide && (
           <>
             <IconButton icon="files" className={touch.panel?.name === 'files' ? 'on' : undefined} label={t('folderFiles')} expanded={touch.panel?.name === 'files'} onClick={() => touch.togglePanel({ name: 'files', tabId })} />
@@ -293,7 +300,6 @@ export function ChatScreen({ tabId }: { tabId: string }) {
           </>
         )}
         <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'later', key: 'rewind', tabId }))} />
-        <IconButton icon="queue" className={`queue-btn${queueMode ? ' on' : ''}`} label={queueLabel} count={queueCount} countIcon={meta.queuePause ? 'pause' : undefined} expanded={queueMode} onClick={toggleQueue} />
         <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />
       </header>
       <UpdateBar />
@@ -326,7 +332,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
         )}
       </div>
       <div className="dock" ref={dock}>
-        <TouchComposer meta={meta} queueMode={queueMode} running={running} requestOpen={Boolean(request)} onFocusField={() => (setFollow(true), toBottom())} />
+        <TouchComposer meta={meta} queueMode={queueMode} running={running} requestOpen={Boolean(request)} onToggleQueue={toggleQueue} onFocusField={() => (setFollow(true), toBottom())} />
       </div>
     </section>
   )

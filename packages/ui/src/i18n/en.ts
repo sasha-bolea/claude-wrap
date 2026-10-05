@@ -580,7 +580,10 @@ export const en = {
   closeAllTerminals: 'Close all terminals',
   closeAllTerminalsQuestion: 'Close all terminals?',
   closeAllTerminalsHint: 'Every shell ends, with the commands running in it, on every device.',
-  closeAll: 'Close all'
+  closeAll: 'Close all',
+  copyAll: 'Copy all',
+  paste: 'Paste',
+  copiedOutput: 'Output copied'
 }
 
 export type MessageKey = keyof typeof en

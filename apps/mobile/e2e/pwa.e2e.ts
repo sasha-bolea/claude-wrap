@@ -496,17 +496,22 @@ describe('PWA (fake SDK)', () => {
     await page.locator('.col-right').getByRole('button', { name: 'New note' }).waitFor()
     await button(page, 'Folder notes').click()
     await page.locator('.col-right').waitFor({ state: 'detached' })
-    // Menus are popovers by their button: below one at the top, above the composer's.
+    // Menus are popovers by their button: below one at the top (the model's too), above the composer's.
     await button(page, 'More actions').click()
     const menu = page.locator('.sheet.popover')
     const more = (await button(page, 'More actions').boundingBox())!
     expect((await menu.boundingBox())!.y).toBeGreaterThanOrEqual(more.y + more.height)
     await page.keyboard.press('Escape')
-    await page.locator('.model-btn').click()
+    await page.locator('.topbar .model-btn').click()
     await page.getByRole('dialog', { name: 'Model and effort' }).getByText('Haiku').waitFor()
     const model = (await page.locator('.model-btn').boundingBox())!
+    expect((await menu.boundingBox())!.y).toBeGreaterThanOrEqual(model.y + model.height)
+    await page.keyboard.press('Escape')
+    await page.locator('.mode-btn').click()
+    await page.getByRole('dialog', { name: 'Permission mode' }).waitFor()
+    const modeButton = (await page.locator('.mode-btn').boundingBox())!
     const popover = (await menu.boundingBox())!
-    expect(popover.y + popover.height).toBeLessThanOrEqual(model.y)
+    expect(popover.y + popover.height).toBeLessThanOrEqual(modeButton.y)
     await page.keyboard.press('Escape')
     await button(page, 'Settings').click()
     const settings = page.getByRole('dialog', { name: 'Settings' })
@@ -614,6 +619,41 @@ describe('PWA (fake SDK)', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'Close terminal' }).click()
     await page.getByRole('region', { name: 'Terminal' }).waitFor({ state: 'detached' })
     expect(await page.getByRole('button', { name: /^project/ }).filter({ hasText: 'Terminal' }).count()).toBe(0)
+  })
+
+  it('a terminal on the phone: "Copy all" puts its output on the clipboard, "Paste" types the clipboard, a link opens', async () => {
+    const context = await newPhone()
+    const page = await pairedPage(context, backend)
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: backend.url })
+    await button(page, 'Actions for the folder project').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Terminal here' }).click()
+    const terminal = page.getByRole('region', { name: 'Terminal' })
+    const rows = terminal.locator('.xterm-rows')
+    await rows.waitFor()
+    await terminal.locator('.xterm').click()
+    await page.keyboard.type('echo cw-"mark"er http://example.test/"pa"th')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => rows.textContent(), { timeout: 10_000 }).toContain('cw-marker http://example.test/path')
+    // Copy all: the whole output, as text.
+    await button(page, 'Terminal actions').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Copy all' }).click()
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('cw-marker http://example.test/path')
+    // Paste: the clipboard goes to the shell as a paste (bash waits for Enter before running it).
+    await page.evaluate(() => navigator.clipboard.writeText('echo pasted-"o"k'))
+    await button(page, 'Terminal actions').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Paste' }).click()
+    await expect.poll(() => rows.textContent(), { timeout: 10_000 }).toContain('echo pasted-"o"k')
+    await terminal.locator('.xterm').click()
+    await page.keyboard.press('Enter')
+    await expect.poll(() => rows.textContent(), { timeout: 10_000 }).toContain('pasted-ok')
+    // A link in the output opens outside the app.
+    await page.evaluate(() => (window.open = ((url: string) => ((window as unknown as { opened: string }).opened = url, null)) as typeof window.open))
+    const row = rows.locator('div').filter({ hasText: /^cw-marker http/ }).first()
+    const box = (await row.boundingBox())!
+    const cell = box.width / (await page.evaluate(() => document.querySelector('.xterm-rows div')!.textContent!.length || 1))
+    await page.mouse.move(box.x + cell * 14, box.y + box.height / 2)
+    await page.mouse.click(box.x + cell * 14, box.y + box.height / 2)
+    await expect.poll(() => page.evaluate(() => (window as unknown as { opened?: string }).opened)).toBe('http://example.test/path')
   })
 
   it('a terminal in a folder of the Home from its menu; on a wide window the chat opens one in the right panel', async () => {

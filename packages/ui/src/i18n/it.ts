@@ -582,5 +582,8 @@ export const it: Record<MessageKey, string> = {
   closeAllTerminals: 'Chiudi tutti i terminali',
   closeAllTerminalsQuestion: 'Chiudere tutti i terminali?',
   closeAllTerminalsHint: 'Si fermano tutte le shell e i comandi in corso, su ogni dispositivo.',
-  closeAll: 'Chiudi tutti'
+  closeAll: 'Chiudi tutti',
+  copyAll: 'Copia tutto',
+  paste: 'Incolla',
+  copiedOutput: 'Output copiato'
 }

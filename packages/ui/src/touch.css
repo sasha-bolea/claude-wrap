@@ -238,8 +238,10 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 /* Chat top bar: the title is a button that opens the session menu */
 .title-btn { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 8px; border: 0; background: none; text-align: left; padding: 0 4px; border-radius: 12px; }
 .title-btn:active { background: var(--surface-2); }
-.title-text { min-width: 0; display: grid; font-weight: 700; font-size: 16px; }
-.title-text > span:first-child { line-height: 1.25; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.title-text { min-width: 0; display: flex; align-items: baseline; gap: 6px; font-weight: 600; font-size: 14px; line-height: 1.25; }
+.title-text > span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.title-text > span:first-child { flex: 0 1 auto; }
+.title-text > .sub { flex: 0 10 auto; min-width: 3ch; display: inline; }
 .icon-btn .count { position: absolute; top: 5px; right: 3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--surface-2); color: var(--text-muted); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
 .icon-btn .count svg.i { width: 11px; height: 11px; stroke-width: 3.2; vertical-align: -1px; }
 
@@ -483,8 +485,10 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .model-btn { min-width: 0; min-height: 44px; display: inline-flex; align-items: center; gap: 2px; border: 0; background: none; border-radius: 12px; padding: 0 8px; color: var(--text-muted); font-size: 14px; }
 .model-btn:active { background: var(--surface-2); }
 .model-btn span { text-align: left; line-height: 1.2; }
-.model-btn svg.i { width: 16px; height: 16px; }
-.mode-btn { margin-left: auto; }
+.model-btn svg.i { width: 16px; height: 16px; flex: none; }
+.topbar .model-btn { flex: 0 1 auto; max-width: 40%; font-size: 13px; padding: 0 6px; }
+.topbar .model-btn span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.input-tools .gauge-btn { margin-right: auto; }
 /* The composer's gauge: a ring filled to the highest of context, 5-hour and weekly use (no number beside it) */
 .gauge-btn { flex: none; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; border-radius: 12px; padding: 0; color: var(--text-muted); }
 .gauge-btn:active { background: var(--surface-2); }
@@ -512,6 +516,8 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .countdown-stop svg.i { width: 18px; height: 18px; }
 .composer.queue-mode .input-box { border-style: dashed; border-color: var(--accent); }
 .queue-btn.on { color: var(--accent); background: var(--surface-2); }
+.input-tools .queue-btn { margin: 0 6px; }
+.input-tools .queue-btn.on { color: var(--accent); }
 /* A message waiting to be read with "Invia ora" beside it (32 px circle, 44 px to the touch) */
 .msg-user-row { align-self: stretch; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
 .send-now { position: relative; flex: none; width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--accent); background: var(--surface); color: var(--accent); }
