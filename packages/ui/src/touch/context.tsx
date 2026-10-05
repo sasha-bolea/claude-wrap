@@ -17,6 +17,7 @@ export type Screen =
   | { name: 'files'; tabId?: string; folder?: string }
   | { name: 'file'; tabId?: string; folder?: string; path: string; modified?: number }
   | { name: 'notes'; tabId: string }
+  | { name: 'terminal'; terminalId: string }
   | { name: 'note'; tabId: string; noteId?: string }
   | { name: 'settings' }
   | { name: 'later'; key: LaterKey; tabId?: string }

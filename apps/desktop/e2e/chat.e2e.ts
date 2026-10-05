@@ -49,6 +49,17 @@ describe('desktop chat (fake SDK)', () => {
     await page.locator('.col-right').waitFor({ state: 'detached' })
   })
 
+  it('the Terminal tab of the right panel runs a shell in the session folder (node-pty inside Electron)', async () => {
+    const { page } = ctx
+    await button(page, 'Folder files').click()
+    await page.locator('.col-right').getByRole('button', { name: 'Terminal', exact: true }).click()
+    const terminal = page.locator('.col-right').getByRole('region', { name: 'Terminal' })
+    await terminal.locator('.xterm').click()
+    await page.keyboard.type('echo cw-"mark"er')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => terminal.locator('.xterm-rows').textContent(), { timeout: 10_000 }).toContain('cw-marker')
+  })
+
   it('streams the answer word by word', async () => {
     const { page } = ctx
     await send(page, 'one two three four five six seven eight nine ten')

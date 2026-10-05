@@ -560,5 +560,20 @@ export const it: Record<MessageKey, string> = {
   continueAll: 'Continua in tutte ({count})',
   continueText: 'continua',
   accountRenamed: 'Ora si chiama {name}',
-  close: 'Chiudi'
+  close: 'Chiudi',
+  terminal: 'Terminale',
+  terminals: 'Terminali',
+  terminalActions: 'Azioni del terminale',
+  terminalKeys: 'Tasti del terminale',
+  closeTerminal: 'Chiudi il terminale',
+  terminalHere: 'Terminale qui',
+  shellEnded: 'La shell è terminata (codice {code})',
+  terminalRunning: 'attivo',
+  terminalEnded: 'terminato (codice {code})',
+  keyEscape: 'Esc',
+  keyTab: 'Tab',
+  keyLeft: 'Sinistra',
+  keyUp: 'Su',
+  keyDown: 'Giù',
+  keyRight: 'Destra'
 }

@@ -1,5 +1,7 @@
 /* Touch layout (the PWA): the approved prototype's styles, ported as they are. Colour and spacing tokens, catalogue
    and binding rules in docs/design-system.md. The desktop moves to this sheet in sub-phase C2. */
+/* xterm.js's own sheet (the terminal screen); its colours come from the tokens (TerminalScreen.tsx). */
+@import '@xterm/xterm/css/xterm.css';
 [hidden] { display: none !important; }
 html, body { margin: 0; }
 /* No zoom (Sasha's choice for the PWA): no double-tap zoom; pinch is blocked by the PWA host. */
@@ -570,9 +572,20 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 
 /* Keyboard open: it covers the Home bar, so no bottom safe-area padding */
 .kb-open .composer, .kb-open .sticky-actions { padding-bottom: 8px; }
+.kb-open .key-bar { padding-bottom: 6px; }
 .kb-open .sheet { padding-bottom: 12px; }
 /* Typing in a request card: the composer steps aside, the card gets the room */
 .kb-open .chat-screen:has(.request :focus) .dock { display: none; }
 .kb-open .chat-screen:has(.request :focus) .conversation { padding-bottom: 12px; }
 /* Portrait only: a phone turned sideways (html[data-landscape], set by the PWA host) gets this notice over the app */
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Terminal (TerminalScreen.tsx): xterm.js fills the screen; the key bar sits under it (on the keyboard while typing),
+   its keys never take the focus; Ctrl stays lit until the next key. */
+.terminal-host { flex: 1; min-height: 0; padding: 6px 4px 0 8px; overflow: clip; background: var(--background); }
+.terminal-host .xterm { height: 100%; }
+.terminal-host .xterm-viewport { background: var(--background) !important; }
+.terminal-ended { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; background: var(--surface-2); border-top: 1px solid var(--border); color: var(--text-muted); }
+.key-bar { display: flex; gap: 6px; padding: 6px 8px; padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); overflow-x: auto; background: var(--surface); border-top: 1px solid var(--border); scrollbar-width: none; }
+.key { flex: none; min-width: 40px; height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); color: var(--text); font: 15px var(--font-mono); touch-action: manipulation; }
+.key[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }

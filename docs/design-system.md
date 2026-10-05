@@ -221,6 +221,15 @@ full-height textarea saved as you type (down to the bottom safe area); in its to
 accent `to-chat` icon (a bubble with an arrow in, dimmed while the note is empty) beside the trash.
 Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [NotesScreen.tsx:152](../packages/ui/src/touch/NotesScreen.tsx#L152).
 
+### Terminal — `.terminal-screen`, `.terminal-host`, `.terminal-ended`, `.key-bar`, `.key` (`aria-pressed`)
+A shell of the backend (xterm.js, loaded on demand; colours from the tokens, its sheet imported by touch.css). Opened
+from the session menu ("Terminale": the session's live one, else a new one), from a folder's menu ("Terminale qui")
+and, wide, from the Terminale tab of the right panel; the Home's Sessioni view (and the wide left column) lists the
+open ones (`terminal` icon, "Terminale · attivo / terminato (codice N)"). On a touch screen the key bar under it
+(on the keyboard while typing): Ctrl (lit until the next key), Esc, Tab, arrows, `|`, `~`, `/`; the keys never take
+the focus. A shell that ended shows `.terminal-ended` with Chiudi; the ⋯ menu closes it for every device.
+Examples: [TerminalScreen.tsx:58](../packages/ui/src/touch/TerminalScreen.tsx#L58), [TerminalScreen.tsx:138](../packages/ui/src/touch/TerminalScreen.tsx#L138), [TerminalScreen.tsx:171](../packages/ui/src/touch/TerminalScreen.tsx#L171), [TouchApp.tsx:498](../packages/ui/src/touch/TouchApp.tsx#L498).
+
 ### Bars and notices — `.update-bar`, `.banner`, `.toast`, `.snack`, `.viewer`, `.empty-line`
 `.update-bar`: "New version available · Update · ×" under the top bar of Home and chat. `.banner`: the server cannot
 be reached. `.toast` / `.snack`: rule 7. `.viewer`: a photo full screen.

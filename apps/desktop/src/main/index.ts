@@ -7,8 +7,9 @@ import { bridgeRemote } from './remoteBridge.ts'
 import { RemoteNotices, type DesktopNotice } from './remoteNotices.ts'
 
 const APP_ID = 'dev.claude-wrap'
+// Inline styles for the terminal (xterm.js), as on the server (packages/server/src/server.ts).
 const CSP =
-  "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
+  "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
   '.js': 'text/javascript',

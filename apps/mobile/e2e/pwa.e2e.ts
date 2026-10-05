@@ -578,6 +578,57 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('.field').first().evaluate((element) => getComputedStyle(element).fontSize)).toBe('16px')
   })
 
+  it('a terminal from the session menu: I type and the shell answers, the key bar sends ↑, the Home lists it, I close it', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    const refused: string[] = []
+    page.on('console', (message) => message.text().includes('Content Security Policy') && refused.push(message.text()))
+    await openProject(page)
+    await button(page, 'More actions').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Terminal', exact: true }).click()
+    const terminal = page.getByRole('region', { name: 'Terminal' })
+    const rows = terminal.locator('.xterm-rows')
+    await rows.waitFor()
+    await terminal.locator('.xterm').click()
+    await page.keyboard.type('echo cw-"mark"er')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => rows.textContent(), { timeout: 10_000 }).toContain('cw-marker')
+    // The terminal takes the app's colours, under the app's CSP (no inline styles).
+    expect(refused).toEqual([])
+    expect(await terminal.locator('.xterm-rows').evaluate((element) => getComputedStyle(element).color)).toBe(await page.evaluate(() => getComputedStyle(document.querySelector('.screen')!).color))
+    // The key bar: ↑ brings the last command back, Enter runs it again.
+    await terminal.getByRole('button', { name: 'Up' }).click()
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => (await rows.textContent())!.split('cw-marker').length - 1, { timeout: 10_000 }).toBeGreaterThanOrEqual(2)
+    // Back to the session menu it came from (closed), then the Home: the Sessioni view lists it; it opens again with
+    // its screen.
+    await button(page, 'Back').click()
+    await page.getByRole('dialog').waitFor()
+    await page.keyboard.press('Escape')
+    await page.getByRole('dialog').waitFor({ state: 'detached' })
+    await button(page, 'Back').click()
+    await button(page, 'Show sessions').click()
+    await page.getByRole('button', { name: /^project/ }).filter({ hasText: 'Terminal' }).click()
+    await expect.poll(() => page.getByRole('region', { name: 'Terminal' }).locator('.xterm-rows').textContent(), { timeout: 10_000 }).toContain('cw-marker')
+    await button(page, 'Terminal actions').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Close terminal' }).click()
+    await page.getByRole('region', { name: 'Terminal' }).waitFor({ state: 'detached' })
+    expect(await page.getByRole('button', { name: /^project/ }).filter({ hasText: 'Terminal' }).count()).toBe(0)
+  })
+
+  it('a terminal in a folder of the Home from its menu; on a wide window the chat opens one in the right panel', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await button(page, 'Actions for the folder project').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Terminal here' }).click()
+    await page.getByRole('region', { name: 'Terminal' }).locator('.xterm-rows').waitFor()
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'en-US' })
+    contexts.push(context)
+    const wide = await pairedPage(context, backend, 'laptop')
+    await openProject(wide)
+    await button(wide, 'Folder files').click()
+    await wide.locator('.col-right').getByRole('button', { name: 'Terminal', exact: true }).click()
+    await wide.locator('.col-right').getByRole('region', { name: 'Terminal' }).locator('.xterm-rows').waitFor()
+  })
+
   it('the notification about several chats opens the open sessions: tapped with the app open or closed', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)

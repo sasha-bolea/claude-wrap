@@ -19,6 +19,7 @@ const SHAPES = {
     </>
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  terminal: <path d="M4 5h16v14H4zM7.5 9.5l3 2.5-3 2.5M12.5 15h4" />,
   photo: (
     <>
       <path d="M4 8h3l2-3h6l2 3h3v11H4z" />

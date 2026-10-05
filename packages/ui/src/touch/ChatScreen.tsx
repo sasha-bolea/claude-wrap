@@ -13,6 +13,7 @@ import { ModelSheet, modelLabel, useModels } from './modelSheets.tsx'
 import { Badge, ConnectionBanner, IconButton, UpdateBar, useQuery } from './parts.tsx'
 import { pauseWords } from './queue.tsx'
 import { CloseButton, RenameSheet, useTrustPrompt } from './sessions.tsx'
+import { useOpenTerminal } from './TerminalScreen.tsx'
 import { TouchComposer } from './TouchComposer.tsx'
 
 type UserItem = Extract<Item, { kind: 'user' }>
@@ -337,6 +338,7 @@ function SessionMenu({ tabId }: { tabId: string }) {
   const { state, connection, go, openSheet, closeSheets, toast, fail } = useTouch()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
   const models = useModels(tabId)
+  const openTerminal = useOpenTerminal()
   const notes = useQuery(() => (meta ? connection.request('notes.list', { cwd: meta.cwd }) : Promise.resolve(undefined)), [connection, meta?.cwd, state.notesVersion[meta?.cwd ?? '']])
   if (!meta) return null
   const busy = meta.status === 'running' || meta.status === 'starting' || meta.status === 'requires_action'
@@ -369,6 +371,9 @@ function SessionMenu({ tabId }: { tabId: string }) {
             {t('folderNotes')}
             {notes.data && <span className="right">{notes.data.notes.length}</span>}
           </button>
+        </li>
+        <li>
+          <button onClick={() => openTerminal({ tabId })}>{t('terminal')}</button>
         </li>
         <li>
           <button disabled={busy} onClick={() => go({ name: 'later', key: 'rewind', tabId })}>

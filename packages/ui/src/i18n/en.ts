@@ -558,7 +558,22 @@ export const en = {
   continueAll: 'Continue in all ({count})',
   continueText: 'continue',
   accountRenamed: 'Now it is {name}',
-  close: 'Close'
+  close: 'Close',
+  terminal: 'Terminal',
+  terminals: 'Terminals',
+  terminalActions: 'Terminal actions',
+  terminalKeys: 'Terminal keys',
+  closeTerminal: 'Close terminal',
+  terminalHere: 'Terminal here',
+  shellEnded: 'The shell ended (code {code})',
+  terminalRunning: 'running',
+  terminalEnded: 'ended (code {code})',
+  keyEscape: 'Escape',
+  keyTab: 'Tab',
+  keyLeft: 'Left',
+  keyUp: 'Up',
+  keyDown: 'Down',
+  keyRight: 'Right'
 }
 
 export type MessageKey = keyof typeof en

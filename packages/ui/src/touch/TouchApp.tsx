@@ -9,6 +9,7 @@ import { FilesScreen, FileScreen } from './FilesScreen.tsx'
 import { FolderSessionsScreen, HomeScreen } from './HomeScreen.tsx'
 import { Icon } from './icons.tsx'
 import { useKeyboard } from './keyboard.ts'
+import { TerminalScreen, useOpenTerminal } from './TerminalScreen.tsx'
 import { LaterScreen } from './LaterScreen.tsx'
 import { ContextScreen, UsageScreen } from './UsageScreens.tsx'
 import { NoteScreen, NotesScreen } from './NotesScreen.tsx'
@@ -36,7 +37,7 @@ function regionOf(screen: Screen): Region {
   }
 }
 // The right panel's first screens (opened from the chat's top bar or its menu); the others go on top of one.
-const PANEL_ROOTS = new Set<Screen['name']>(['files', 'notes', 'later', 'context', 'usage'])
+const PANEL_ROOTS = new Set<Screen['name']>(['files', 'notes', 'terminal', 'later', 'context', 'usage'])
 // Width from which the wide arrangement is used.
 const WIDE_QUERY = '(min-width: 1024px)'
 
@@ -77,6 +78,8 @@ function ScreenView({ screen }: { screen: Screen }): ReactNode {
       return <FileScreen tabId={screen.tabId} folder={screen.folder} path={screen.path} modified={screen.modified} />
     case 'notes':
       return <NotesScreen tabId={screen.tabId} />
+    case 'terminal':
+      return <TerminalScreen terminalId={screen.terminalId} />
     case 'note':
       return <NoteScreen tabId={screen.tabId} noteId={screen.noteId} />
     case 'settings':
@@ -478,8 +481,10 @@ function NoChat() {
   )
 }
 
-// Wide: the right panel's head — File and Note of the chat's folder as tabs (the panel shown highlighted), × closes.
+// Wide: the right panel's head — File, Note and Terminal of the chat's folder as tabs (the panel shown highlighted),
+// × closes. Terminal opens the session's live terminal, or a new one in its folder.
 function PanelTabs({ root, chatTabId, onToggle, onClose }: { root: Screen; chatTabId?: string; onToggle: (screen: Screen) => void; onClose: () => void }) {
+  const openTerminal = useOpenTerminal()
   return (
     <div className="panel-tabs">
       {chatTabId && (
@@ -489,6 +494,9 @@ function PanelTabs({ root, chatTabId, onToggle, onClose }: { root: Screen; chatT
           </button>
           <button className="panel-tab" aria-pressed={root.name === 'notes'} onClick={() => root.name !== 'notes' && onToggle({ name: 'notes', tabId: chatTabId })}>
             {t('notes')}
+          </button>
+          <button className="panel-tab" aria-pressed={root.name === 'terminal'} onClick={() => root.name !== 'terminal' && openTerminal({ tabId: chatTabId }, onToggle)}>
+            {t('terminal')}
           </button>
         </>
       )}

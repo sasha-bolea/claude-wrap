@@ -41,11 +41,13 @@ export type ServerOptions = {
 
 export type RunningServer = { port: number; disconnect(deviceIds: string[]): void; close(): Promise<void> }
 
-// Security headers of every HTTP answer; the CSP matches the desktop's, plus the WebSocket origin.
+// Security headers of every HTTP answer; the CSP matches the desktop's, plus the WebSocket origin. Inline styles are
+// allowed for the terminal (xterm.js writes its measures and colours in <style> elements); scripts stay 'self' only,
+// and images, fonts and connections stay on this server, so an injected style could not carry anything out.
 function securityHeaders(socketOrigin?: string): Record<string, string> {
   const connect = ["'self'", socketOrigin].filter(Boolean).join(' ')
   return {
-    'Content-Security-Policy': `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src ${connect}; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
+    'Content-Security-Policy': `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src ${connect}; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'no-referrer',
     'Cache-Control': 'no-cache'

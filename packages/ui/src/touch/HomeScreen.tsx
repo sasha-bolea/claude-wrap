@@ -7,6 +7,7 @@ import { baseName, folderSummary, inside, type SessionState } from './model.ts'
 import { ConnectionBanner, Crumbs, IconButton, Title, UpdateBar, useQuery } from './parts.tsx'
 import { BackendSwitch } from './backends.tsx'
 import { OpenSessions, pastOnly, SessionLists, useStartSession } from './sessions.tsx'
+import { OpenTerminals, useOpenTerminal } from './TerminalScreen.tsx'
 
 const VIEW_KEY = 'claude-wrap:homeView'
 type View = 'projects' | 'sessions'
@@ -134,11 +135,15 @@ export function HomeScreen({ view: asked }: { view?: View }) {
       <div className="scroll">
         <div className="pad tight">
           {view === 'sessions' ? (
-            <SessionLists open={state.tabs} stored={everySession.data?.sessions} folder="" withFolder onChange={everySession.reload} />
+            <>
+              <OpenTerminals />
+              <SessionLists open={state.tabs} stored={everySession.data?.sessions} folder="" withFolder onChange={everySession.reload} />
+            </>
           ) : (
             <>
               {wide && <OpenSessions />}
-              {wide && state.tabs.length > 0 && <p className="label spaced">{t('foldersTitle')}</p>}
+              {wide && <OpenTerminals />}
+              {wide && (state.tabs.length > 0 || state.terminals.length > 0) && <p className="label spaced">{t('foldersTitle')}</p>}
               <ul className="list">
                 {folders.map((entry) => (
                   <FolderRow key={entry.path} entry={entry} project={isProject(state.projects, entry.path)} tabs={state.tabs} onEnter={enter} onChanged={listing.reload} />
@@ -205,6 +210,7 @@ export function HomeScreen({ view: asked }: { view?: View }) {
 function FolderMenu({ entry, onEnter, onChanged }: { entry: FolderEntry; onEnter: (path: string) => void; onChanged: () => void }) {
   const { state, connection, go, openSheet, closeSheets, toast, fail } = useTouch()
   const startSession = useStartSession()
+  const openTerminal = useOpenTerminal()
   const project = isProject(state.projects, entry.path)
   const addedTop = state.home.kind === 'added' && state.home.folders.includes(entry.path)
   const mark = () =>
@@ -225,6 +231,12 @@ function FolderMenu({ entry, onEnter, onChanged }: { entry: FolderEntry; onEnter
         <button onClick={() => void startSession(entry.path)}>
           <Icon name="plus" />
           {t('newSessionHere')}
+        </button>
+      </li>
+      <li>
+        <button onClick={() => openTerminal({ folder: entry.path })}>
+          <Icon name="terminal" />
+          {t('terminalHere')}
         </button>
       </li>
       {!project && (
