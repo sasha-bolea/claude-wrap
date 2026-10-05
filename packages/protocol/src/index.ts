@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { COMMANDS } from './commands.ts'
-import { tabEventSchema, tabSnapshotSchema, workspaceEventSchema, workspaceSnapshotSchema } from './model.ts'
+import { tabEventSchema, tabSnapshotSchema, terminalEventSchema, terminalSnapshotSchema, workspaceEventSchema, workspaceSnapshotSchema } from './model.ts'
 
 export * from './model.ts'
 export * from './commands.ts'
@@ -87,7 +87,7 @@ export const evSchema = z.object({
   stream: z.string(),
   epoch: z.string(),
   seq: z.number().int(),
-  ev: z.union([workspaceEventSchema, tabEventSchema])
+  ev: z.union([workspaceEventSchema, tabEventSchema, terminalEventSchema])
 })
 // Full state of a stream; may arrive at any time, also on a live stream.
 export const resetSchema = z.object({
@@ -95,7 +95,7 @@ export const resetSchema = z.object({
   stream: z.string(),
   epoch: z.string(),
   seq: z.number().int(),
-  snapshot: z.union([workspaceSnapshotSchema, tabSnapshotSchema])
+  snapshot: z.union([workspaceSnapshotSchema, tabSnapshotSchema, terminalSnapshotSchema])
 })
 // The stream no longer exists (e.g. its tab was closed while the client was away).
 export const goneSchema = z.object({ t: z.literal('gone'), stream: z.string() })

@@ -8,12 +8,11 @@ import {
   type CommandName,
   type CommandResult,
   type CoreFrame,
+  type EvFrame,
   type ProtocolError,
   type Reply,
   type ResetFrame,
-  type StreamPosition,
-  type TabEvent,
-  type WorkspaceEvent
+  type StreamPosition
 } from '@claude-wrap/protocol'
 import type { Core } from '../core.ts'
 
@@ -66,7 +65,7 @@ export class RawClient {
   }
 
   // Events received on a stream, in order.
-  events(stream: string): (TabEvent | WorkspaceEvent)[] {
+  events(stream: string): EvFrame['ev'][] {
     return this.frames.flatMap((frame) => (frame.t === 'ev' && frame.stream === stream ? [frame.ev] : []))
   }
 

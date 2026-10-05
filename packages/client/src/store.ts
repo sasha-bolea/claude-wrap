@@ -1,4 +1,4 @@
-import type { Account, Home, Item, ProtocolError, Request, TabEvent, TabMeta, TabSnapshot, Welcome, WorkspaceEvent, WorkspaceSnapshot } from '@claude-wrap/protocol'
+import type { Account, Home, Item, ProtocolError, Request, TabEvent, TabMeta, TabSnapshot, TerminalMeta, Welcome, WorkspaceEvent, WorkspaceSnapshot } from '@claude-wrap/protocol'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'offline' | 'incompatible' | 'unauthorized'
 
@@ -20,6 +20,8 @@ export type StoreState = {
   defaultAccount?: string
   // Claude Code's auto-compact window set from the app for every session; undefined = Claude Code's own setting.
   autoCompactWindow?: number
+  // The backend's terminals (shared by every client).
+  terminals: TerminalMeta[]
   // Transcripts of the subscribed tabs, by tabId.
   transcripts: Record<string, TabView>
   // Bumped when a folder's notes change (by folder): a screen showing them reads them again.
@@ -29,7 +31,7 @@ export type StoreState = {
 // Client-side copy of the core state the UI displays. Every change produces a new state object
 // (useSyncExternalStore-ready: getSnapshot/subscribe).
 export class Store {
-  private state: StoreState = { status: 'connecting', transcripts: {}, notesVersion: {} }
+  private state: StoreState = { status: 'connecting', terminals: [], transcripts: {}, notesVersion: {} }
   private readonly listeners = new Set<() => void>()
 
   getSnapshot = (): StoreState => this.state
@@ -45,7 +47,7 @@ export class Store {
   }
 
   applyWorkspaceReset(snapshot: WorkspaceSnapshot): void {
-    this.set({ ...this.state, tabs: snapshot.tabs, home: snapshot.home, projects: snapshot.projects, accounts: snapshot.accounts, defaultAccount: snapshot.defaultAccount, autoCompactWindow: snapshot.autoCompactWindow })
+    this.set({ ...this.state, tabs: snapshot.tabs, home: snapshot.home, projects: snapshot.projects, accounts: snapshot.accounts, defaultAccount: snapshot.defaultAccount, autoCompactWindow: snapshot.autoCompactWindow, terminals: snapshot.terminals })
   }
 
   applyTabReset(tabId: string, snapshot: TabSnapshot): void {
@@ -70,6 +72,10 @@ export class Store {
     if (ev.type === 'folders.updated') this.set({ ...this.state, home: ev.home, projects: ev.projects })
     if (ev.type === 'accounts.updated') this.set({ ...this.state, accounts: ev.accounts, defaultAccount: ev.defaultAccount })
     if (ev.type === 'settings.updated') this.set({ ...this.state, autoCompactWindow: ev.autoCompactWindow })
+    const { terminals } = this.state
+    if (ev.type === 'terminal.added') this.set({ ...this.state, terminals: [...terminals.filter((one) => one.terminalId !== ev.terminal.terminalId), ev.terminal] })
+    if (ev.type === 'terminal.updated') this.set({ ...this.state, terminals: terminals.map((one) => (one.terminalId === ev.terminal.terminalId ? ev.terminal : one)) })
+    if (ev.type === 'terminal.removed') this.set({ ...this.state, terminals: terminals.filter((one) => one.terminalId !== ev.terminalId) })
     if (ev.type === 'notes.changed') {
       const notesVersion = { ...this.state.notesVersion, [ev.cwd]: (this.state.notesVersion[ev.cwd] ?? 0) + 1 }
       this.set({ ...this.state, notesVersion })

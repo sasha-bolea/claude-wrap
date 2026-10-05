@@ -5,6 +5,8 @@ import { AUTO_COMPACT_WINDOW, EFFORT_LEVELS, IMAGE_TYPES, contextUsageSchema, ef
 
 const tabId = z.string().min(1)
 const empty = z.object({})
+// Columns or rows of a terminal.
+const terminalSize = z.number().int().min(2).max(1000)
 // A path inside the session's folder, relative to it ('' = the folder itself).
 const relativePath = z.string()
 
@@ -209,6 +211,14 @@ export const COMMANDS = {
   // countdown there (TabMeta.queueCountdown) instead of going at once.
   'client.watch': { args: z.object({ tabId: z.string().optional() }), result: empty },
   'client.visibility': { args: z.object({ visible: z.boolean() }), result: empty },
+  // Terminals: a shell in a session's folder (tabId) or a folder of the Home (folder), shared by every client; its
+  // output on the terminal:<id> stream. input: keys as the terminal sends them; resize: the size every client sees.
+  'terminal.open': { args: filePlace({ cols: terminalSize, rows: terminalSize }), result: z.object({ terminalId: z.string() }) },
+  'terminal.subscribe': { args: z.object({ terminalId: z.string() }), result: empty },
+  'terminal.unsubscribe': { args: z.object({ terminalId: z.string() }), result: empty },
+  'terminal.input': { args: z.object({ terminalId: z.string(), data: z.string().max(64 * 1024) }), result: empty },
+  'terminal.resize': { args: z.object({ terminalId: z.string(), cols: terminalSize, rows: terminalSize }), result: empty },
+  'terminal.close': { args: z.object({ terminalId: z.string() }), result: empty },
   // Folder trust: what the folder would load and run, and where an accepted trust applies.
   'trust.check': {
     args: z.object({ cwd: z.string().min(1) }),

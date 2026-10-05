@@ -12,6 +12,7 @@ import { PromptHistory } from './promptHistory.ts'
 import type { PersistedState, StateStore } from './state.ts'
 import { DEFAULT_RING, Stream } from './stream.ts'
 import { MAX_AUTO_TITLE, Tab, type TabEnvironment, type TabInit } from './tab.ts'
+import { Terminals } from './terminals.ts'
 import { Trash } from './trash.ts'
 import { TrustGate, canonicalFolder, checkRoots, withinRoots } from './trustGate.ts'
 
@@ -41,6 +42,7 @@ export class Workspace {
   readonly prompts: PromptHistory
   readonly notes: NoteStore
   readonly accounts: AccountStore
+  readonly terminals: Terminals
   readonly allowedRoots: 'any' | string[]
   // The app's trash (remote server); the desktop moves things to the system trash instead.
   readonly trash?: Trash
@@ -75,13 +77,15 @@ export class Workspace {
         projects: this.projects(),
         accounts: this.accounts.list(),
         defaultAccount: this.accounts.defaultAccount,
-        autoCompactWindow: this.store.data.autoCompactWindow
+        autoCompactWindow: this.store.data.autoCompactWindow,
+        terminals: this.terminals.list()
       }),
       config.ring ?? DEFAULT_RING
     )
     this.accounts = new AccountStore(config.stateDir && join(config.stateDir, 'accounts.json'), () =>
       this.stream.emit({ type: 'accounts.updated', accounts: this.accounts.list(), defaultAccount: this.accounts.defaultAccount })
     )
+    this.terminals = new Terminals((ev) => this.stream.emit(ev), config.terminalShell)
     this.env = this.environment(config)
     // A tab where nothing was ever sent (no stored session, nothing queued) does not come back.
     for (const saved of store.data.tabs.filter((tab) => tab.sessionId || tab.queue?.length))
@@ -343,6 +347,7 @@ export class Workspace {
   // after QUIT_CAP_MS.
   async closeAll(): Promise<void> {
     clearInterval(this.trashTimer)
+    this.terminals.closeAll()
     for (const { timer } of this.limits.values()) clearTimeout(timer)
     const closing = Promise.all([...this.tabs.values()].map((tab) => tab.close(true))).then(waitForCleanups)
     await Promise.race([closing, new Promise((resolve) => setTimeout(resolve, QUIT_CAP_MS).unref())])

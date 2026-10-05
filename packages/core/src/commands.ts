@@ -207,6 +207,12 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
       if (tabId && connection.visible) workspace.seen(tabId)
       return {}
     },
+    'terminal.open': async ({ tabId, folder, cols, rows }) => ({ terminalId: await workspace.terminals.open(await folderOf({ tabId, folder }), cols, rows, tabId) }),
+    'terminal.subscribe': ({ terminalId }, connection) => (workspace.terminals.subscribe(terminalId, connection.send), {}),
+    'terminal.unsubscribe': ({ terminalId }, connection) => (workspace.terminals.unsubscribe(terminalId, connection.send), {}),
+    'terminal.input': ({ terminalId, data }) => (workspace.terminals.input(terminalId, data), {}),
+    'terminal.resize': ({ terminalId, cols, rows }) => (workspace.terminals.resize(terminalId, cols, rows), {}),
+    'terminal.close': ({ terminalId }) => (workspace.terminals.close(terminalId), {}),
     'trust.check': ({ cwd }) => workspace.trust.check(cwd),
     'trust.grant': async ({ cwd }) => (await workspace.grantTrust(cwd), {}),
     'request.answer': ({ tabId, requestId, ...answer }, connection) => (tabOf(tabId).answer(requestId, answer, connection.label), {})

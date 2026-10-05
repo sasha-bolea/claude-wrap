@@ -2,6 +2,7 @@ import type { Options, SDKSessionInfo, SessionMessage, query } from '@anthropic-
 import type { BackendKind } from '@claude-wrap/protocol'
 import type { HostCommands } from './commands.ts'
 import type { RingLimits } from './stream.ts'
+import type { ShellCommand } from './terminals.ts'
 
 type Dir = { dir: string }
 
@@ -37,6 +38,8 @@ export interface CoreConfig {
   // Folders sessions may run in ('any' on the desktop; the server confines to its root in Phase 3).
   allowedRoots?: 'any' | string[]
   notifier?: (notice: Notice) => void
+  // The terminals' shell (default: the user's shell, PowerShell on Windows); tests pin one.
+  terminalShell?: ShellCommand
   // Commands the host answers itself (remote server: devices.*).
   hostCommands?: HostCommands
   // File kept up to date with the number of sessions at work (remote server: its automatic update waits for 0).

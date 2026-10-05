@@ -1,16 +1,16 @@
 import { randomUUID } from 'node:crypto'
-import type { CoreFrame, EvFrame, ResetFrame, StreamPosition, TabEvent, TabSnapshot, WorkspaceEvent, WorkspaceSnapshot } from '@claude-wrap/protocol'
+import type { CoreFrame, EvFrame, ResetFrame, StreamPosition, TabEvent, TabSnapshot, TerminalEvent, TerminalSnapshot, WorkspaceEvent, WorkspaceSnapshot } from '@claude-wrap/protocol'
 
 export type Send = (frame: CoreFrame) => void
-export type StreamEvent = TabEvent | WorkspaceEvent
-export type StreamSnapshot = TabSnapshot | WorkspaceSnapshot
+export type StreamEvent = TabEvent | WorkspaceEvent | TerminalEvent
+export type StreamSnapshot = TabSnapshot | WorkspaceSnapshot | TerminalSnapshot
 export type RingLimits = { events: number; bytes: number }
 
 export const DEFAULT_RING: RingLimits = { events: 2000, bytes: 4 * 1024 * 1024 }
 
 type Entry = { seq: number; ev: StreamEvent; bytes: number }
 
-// One numbered event stream (workspace or tab:<id>) with its epoch, a bounded ring of recent events for
+// One numbered event stream (workspace, tab:<id> or terminal:<id>) with its epoch, a bounded ring of recent events for
 // replay, and its live subscribers. Events must never be mutated after emit: the ring keeps references.
 export class Stream {
   epoch = randomUUID()

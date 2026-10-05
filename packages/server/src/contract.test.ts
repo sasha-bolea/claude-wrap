@@ -178,6 +178,27 @@ describe.each(TRANSPORTS)('protocol contract ($name)', (current) => {
     expect(state.transcripts['t1']?.items.map((item) => ('text' in item ? item.text : item.kind))).toEqual(['first', 'while away'])
   })
 
+  it('a terminal: listed in the store, its output reaches the sink once, also across a drop', async () => {
+    const net = link()
+    connection = connectOver(net)
+    connection.start()
+    const { terminalId } = await connection.request('terminal.open', { folder: CWD, cols: 80, rows: 24 })
+    await until((state) => state.terminals.some((terminal) => terminal.terminalId === terminalId))
+    let text = ''
+    const stop = connection.subscribeTerminal(terminalId, { reset: (snapshot) => (text = snapshot.screen), output: (data) => (text += data), exit: () => undefined })
+    await connection.request('terminal.input', { terminalId, data: 'echo before-"d"rop\r' })
+    await until(() => text.includes('before-drop'), 5000)
+    net.state.offline = true
+    net.drop()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    net.state.offline = false
+    await until((state) => state.status === 'connected')
+    await connection.request('terminal.input', { terminalId, data: 'echo after-"d"rop\r' })
+    await until(() => text.includes('after-drop'), 5000)
+    expect(text.split('before-drop').length - 1).toBe(1)
+    stop()
+  })
+
   it('when the missed events fell out of the ring, the stream is reset instead', async () => {
     core = makeCore({ ring: { events: 3, bytes: 1_000_000 } })
     const net = link()

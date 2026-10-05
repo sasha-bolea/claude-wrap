@@ -6,6 +6,7 @@ import {
   WORKSPACE_STREAM,
   coreFrameSchema,
   tabStream,
+  terminalStream,
   type Channel,
   type CommandArgs,
   type CommandName,
@@ -15,6 +16,8 @@ import {
   type StreamPosition,
   type TabEvent,
   type TabSnapshot,
+  type TerminalEvent,
+  type TerminalSnapshot,
   type WorkspaceEvent,
   type WorkspaceSnapshot
 } from '@claude-wrap/protocol'
@@ -43,6 +46,11 @@ export interface ConnectionOptions {
 type PendingCommand = { frame: { t: 'cmd'; id: string; name: CommandName; args: unknown }; resolve: (result: unknown) => void; reject: (error: Error) => void }
 
 const TAB_PREFIX = 'tab:'
+const TERMINAL_PREFIX = 'terminal:'
+
+// Where a subscribed terminal's stream goes (straight to the terminal on screen, not through the store): the whole
+// recent screen on a reset (after a reconnection that could not replay), then the output as it comes, and its end.
+export type TerminalSink = { reset(snapshot: TerminalSnapshot): void; output(data: string): void; exit(exitCode: number): void }
 
 // Transport-agnostic link to one backend: hello/welcome, idempotent commands re-sent after reconnects,
 // numbered streams resumed by {epoch, seq}, app-level ping, reconnect with backoff. Feeds a Store.
@@ -53,6 +61,7 @@ export class Connection {
   private greeted = false
   private readonly positions = new Map<string, StreamPosition>()
   private readonly wantedTabs = new Set<string>()
+  private readonly terminalSinks = new Map<string, TerminalSink>()
   private readonly pending = new Map<string, PendingCommand>()
   private pingTimer?: ReturnType<typeof setInterval>
   private missedPings = 0
@@ -94,6 +103,18 @@ export class Connection {
     this.positions.delete(tabStream(tabId))
     this.store.dropTab(tabId)
     return this.request('tab.unsubscribe', { tabId })
+  }
+
+  // Follows a terminal's output into sink until the returned function is called (it unsubscribes).
+  subscribeTerminal(terminalId: string, sink: TerminalSink): () => void {
+    this.terminalSinks.set(terminalId, sink)
+    this.request('terminal.subscribe', { terminalId }).catch(() => undefined)
+    return () => {
+      if (this.terminalSinks.get(terminalId) !== sink) return
+      this.terminalSinks.delete(terminalId)
+      this.positions.delete(terminalStream(terminalId))
+      this.request('terminal.unsubscribe', { terminalId }).catch(() => undefined)
+    }
   }
 
   // Reconnects at once when offline (page back on screen, network back) instead of waiting for the backoff.
@@ -188,25 +209,37 @@ export class Connection {
     else pending.reject(new ClientError('invalid_args', `invalid result for ${pending.frame.name}`))
   }
 
-  private onReset(stream: string, epoch: string, seq: number, snapshot: WorkspaceSnapshot | TabSnapshot): void {
+  private onReset(stream: string, epoch: string, seq: number, snapshot: WorkspaceSnapshot | TabSnapshot | TerminalSnapshot): void {
     if (snapshot.kind === 'workspace') this.store.applyWorkspaceReset(snapshot)
-    else if (this.wantedTabs.has(tabIdOf(stream))) this.store.applyTabReset(tabIdOf(stream), snapshot)
+    else if (snapshot.kind === 'terminal') {
+      const sink = this.terminalSinks.get(terminalIdOf(stream))
+      if (!sink) return
+      sink.reset(snapshot)
+    } else if (this.wantedTabs.has(tabIdOf(stream))) this.store.applyTabReset(tabIdOf(stream), snapshot)
     else return
     this.positions.set(stream, { epoch, lastSeq: seq })
   }
 
   // Applies an event in sequence; a gap means something was lost → reconnect, and the core resets the stream.
-  private onEvent(channel: Channel, stream: string, epoch: string, seq: number, ev: WorkspaceEvent | TabEvent): void {
+  private onEvent(channel: Channel, stream: string, epoch: string, seq: number, ev: WorkspaceEvent | TabEvent | TerminalEvent): void {
     const position = this.positions.get(stream)
     if (!position) return
     if (position.epoch !== epoch || seq !== position.lastSeq + 1) return this.drop(channel)
     this.positions.set(stream, { epoch, lastSeq: seq })
     if (stream === WORKSPACE_STREAM) this.store.applyWorkspaceEvent(ev as WorkspaceEvent)
+    else if (stream.startsWith(TERMINAL_PREFIX)) this.onTerminalEvent(terminalIdOf(stream), ev as TerminalEvent)
     else this.store.applyTabEvent(tabIdOf(stream), ev as TabEvent)
+  }
+
+  private onTerminalEvent(terminalId: string, ev: TerminalEvent): void {
+    const sink = this.terminalSinks.get(terminalId)
+    if (ev.type === 'terminal.output') sink?.output(ev.data)
+    else sink?.exit(ev.exitCode)
   }
 
   private onGone(stream: string): void {
     this.positions.delete(stream)
+    if (stream.startsWith(TERMINAL_PREFIX)) return void this.terminalSinks.delete(terminalIdOf(stream))
     if (!stream.startsWith(TAB_PREFIX)) return
     this.wantedTabs.delete(tabIdOf(stream))
     this.store.dropTab(tabIdOf(stream))
@@ -244,3 +277,4 @@ export class Connection {
 }
 
 const tabIdOf = (stream: string) => stream.slice(TAB_PREFIX.length)
+const terminalIdOf = (stream: string) => stream.slice(TERMINAL_PREFIX.length)

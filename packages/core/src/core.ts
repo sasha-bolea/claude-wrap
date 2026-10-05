@@ -54,13 +54,15 @@ export function createCore(config: CoreConfig): Core {
     void reply.then((frame) => connection.send(frame))
   }
 
-  // After welcome: workspace and resumed tab streams get a replay, a reset, or `gone`.
+  // After welcome: workspace and resumed tab and terminal streams get a replay, a reset, or `gone`.
   async function resumeStreams({ workspace }: Runtime, hello: Hello, connection: Connection): Promise<void> {
     workspace.stream.attach(connection.send, hello.resume[WORKSPACE_STREAM])
     for (const [stream, position] of Object.entries(hello.resume)) {
       if (stream === WORKSPACE_STREAM) continue
       const tab = workspace.tabOfStream(stream)
+      const terminal = tab ? undefined : workspace.terminals.streamOf(stream)
       if (tab) await tab.subscribe(connection.send, position)
+      else if (terminal) terminal.attach(connection.send, position)
       else connection.send({ t: 'gone', stream })
     }
   }
@@ -99,6 +101,7 @@ export function createCore(config: CoreConfig): Core {
         if (connection) greeted.delete(connection)
         workspace.stream.detach(send)
         for (const tab of workspace.tabs.values()) tab.unsubscribe(send)
+        workspace.terminals.detachAll(send)
       })
     )
   }

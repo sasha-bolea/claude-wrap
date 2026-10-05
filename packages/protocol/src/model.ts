@@ -110,6 +110,19 @@ export const homeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('added'), folders: z.array(z.string()) })
 ])
 
+// A terminal of the backend: a shell in a folder (a session's, tabId, or one of the Home), shared by every client.
+// cols/rows: its size (the last client that resized it wins); exitCode: the shell ended (it stays until closed).
+export const terminalMetaSchema = z.object({
+  terminalId: z.string(),
+  cwd: z.string(),
+  title: z.string(),
+  tabId: z.string().optional(),
+  cols: z.number().int().positive(),
+  rows: z.number().int().positive(),
+  createdAt: z.number(),
+  exitCode: z.number().int().optional()
+})
+
 // ---- Stream events and snapshots ----
 
 // Bounds of Claude Code's auto-compact window (tokens), as /autocompact and --autocompact accept it.
@@ -128,7 +141,10 @@ export const workspaceEventSchema = z.discriminatedUnion('type', [
   // The accounts or the default one changed (defaultAccount undefined = Claude Code's own login).
   z.object({ type: z.literal('accounts.updated'), accounts: z.array(accountSchema), defaultAccount: z.string().optional() }),
   // Backend settings for every session changed (autoCompactWindow undefined = Claude Code's own setting).
-  z.object({ type: z.literal('settings.updated'), autoCompactWindow: z.number().int().optional() })
+  z.object({ type: z.literal('settings.updated'), autoCompactWindow: z.number().int().optional() }),
+  z.object({ type: z.literal('terminal.added'), terminal: terminalMetaSchema }),
+  z.object({ type: z.literal('terminal.updated'), terminal: terminalMetaSchema }),
+  z.object({ type: z.literal('terminal.removed'), terminalId: z.string() })
 ])
 
 export const tabEventSchema = z.discriminatedUnion('type', [
@@ -141,6 +157,12 @@ export const tabEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('request.cancelled'), requestId: z.string() })
 ])
 
+// A terminal's stream: what the shell writes (raw, escape sequences included) and its end.
+export const terminalEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('terminal.output'), data: z.string() }),
+  z.object({ type: z.literal('terminal.exit'), exitCode: z.number().int() })
+])
+
 export const workspaceSnapshotSchema = z.object({
   kind: z.literal('workspace'),
   tabs: z.array(tabMetaSchema),
@@ -149,8 +171,12 @@ export const workspaceSnapshotSchema = z.object({
   accounts: z.array(accountSchema),
   defaultAccount: z.string().optional(),
   // Claude Code's auto-compact window set for every session (tokens); undefined = Claude Code's own setting.
-  autoCompactWindow: z.number().int().optional()
+  autoCompactWindow: z.number().int().optional(),
+  // Absent from an older backend: none.
+  terminals: z.array(terminalMetaSchema).default([])
 })
+// screen: the recent output (bounded), written again into the client's terminal from a clean line.
+export const terminalSnapshotSchema = z.object({ kind: z.literal('terminal'), terminal: terminalMetaSchema, screen: z.string() })
 export const tabSnapshotSchema = z.object({ kind: z.literal('tab'), items: z.array(itemSchema), hasMore: z.boolean(), requests: z.array(requestSchema) })
 
 // ---- Stored sessions and folder trust ----
@@ -217,6 +243,8 @@ export const usageSchema = z.object({
 })
 
 export const tabStream = (tabId: string) => `tab:${tabId}`
+// Name of the output stream of one terminal.
+export const terminalStream = (terminalId: string) => `terminal:${terminalId}`
 
 export type PermissionMode = z.infer<typeof permissionModeSchema>
 export type TabStatus = (typeof TAB_STATUSES)[number]
@@ -234,6 +262,9 @@ export type WorkspaceEvent = z.infer<typeof workspaceEventSchema>
 export type TabEvent = z.infer<typeof tabEventSchema>
 export type WorkspaceSnapshot = z.infer<typeof workspaceSnapshotSchema>
 export type TabSnapshot = z.infer<typeof tabSnapshotSchema>
+export type TerminalMeta = z.infer<typeof terminalMetaSchema>
+export type TerminalEvent = z.infer<typeof terminalEventSchema>
+export type TerminalSnapshot = z.infer<typeof terminalSnapshotSchema>
 export type SessionInfo = z.infer<typeof sessionInfoSchema>
 export type ProjectConfig = z.infer<typeof projectConfigSchema>
 export type ContextUsage = z.infer<typeof contextUsageSchema>
