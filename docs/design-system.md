@@ -41,6 +41,8 @@ and composer, `style.css`) was removed in C2.5.
 `--background`, `--surface`, `--surface-2`, `--border`, `--text`, `--text-muted`, `--accent`, `--accent-text`,
 `--danger`, `--success`, `--frame` (around the device box on a wide screen), `--scrim`, `--radius`, `--space`, `--font`,
 `--font-mono`.
+`--danger` is a vivid red (`#c62828` light, `#ff6b5e` dark), never a pale one that reads as pink, with at least
+4.5:1 contrast on `--background`, `--surface` and `--surface-2` and for `--surface` text on it ([touch.css](../packages/ui/src/touch.css)).
 
 **Touch rules** (binding, on top of the general ones):
 1. **One screen at a time from a stack** (`go` / `back` / `backTo` / `reset` in the `Touch` context); screens stay
