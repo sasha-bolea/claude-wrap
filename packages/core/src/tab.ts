@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
-import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { Options, SDKMessage, SDKResultMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import {
   EFFORT_LEVELS,
   tabStream,
@@ -22,7 +22,7 @@ import {
 import type { Notice, SdkApi } from './config.ts'
 import { CoreError, messageOf } from './errors.ts'
 import { suggestFiles } from './fileSuggestions.ts'
-import { Normalizer } from './normalize.ts'
+import { Normalizer, peerOf, storedPeer } from './normalize.ts'
 import { runShell } from './process.ts'
 import { Requests, modeSetBy, type Answer } from './requests.ts'
 import { Session } from './session.ts'
@@ -117,6 +117,13 @@ export function cliTitle(info: { customTitle?: string; summary?: string } | unde
   return info?.customTitle || (summary && summary.length <= MAX_AUTO_TITLE ? summary : undefined)
 }
 
+// A turn the CLI starts for a message core did not send (e.g. from another session): its live messages wait at most
+// this long (ms) while that message is looked up in the stored session, which the CLI writes in batches (~100 ms).
+const INCOMING_WAIT_MS = 1500
+// Pauses before each lookup of that message (ms): at once, then while the CLI has not written it yet.
+const INCOMING_RETRIES_MS = [0, 150, 250, 500]
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 // Words of the first prompt a tab is named after when the CLI generated no title.
 const PROMPT_TITLE_WORDS = 3
 
@@ -174,6 +181,10 @@ export class Tab {
   private queuePause?: QueuePause
   // Messages the CLI holds (command_lifecycle), from queued or started until completed or cancelled.
   private readonly held = new Map<string, 'queued' | 'started'>()
+  // The message the running turn answers when the CLI started it by itself (e.g. a message from another session).
+  private incoming?: string
+  // The live messages held while that message is looked up, so that it shows before the answer (lookUpIncoming).
+  private waitingMessages?: SDKMessage[]
   // Transcript-only messages (the `!` shell output): their lifecycle frames are not turns.
   private readonly silentUuids = new Set<string>()
   private shellAbort?: AbortController
@@ -432,6 +443,7 @@ export class Tab {
     this.switchPending = false
     const session = this.session
     if (!session) return
+    this.endIncoming()
     this.session = undefined
     this.turnRunning = false
     this.held.clear()
@@ -824,11 +836,74 @@ export class Tab {
     })
   }
 
+  // A turn the CLI started for a message core did not send: one from another session shows in the chat with its
+  // sender, before the answer. Its live messages wait (INCOMING_WAIT_MS at most) while the message is read from the
+  // stored session; the stored message's uuid is the command's.
+  private lookUpIncoming(uuid: string): void {
+    this.incoming = uuid
+    const batch: SDKMessage[] = (this.waitingMessages = [])
+    const timer = setTimeout(() => this.releaseWaiting(batch), INCOMING_WAIT_MS)
+    void this.findIncoming(uuid)
+      .then((peer) => this.showPeer(uuid, peer))
+      .catch((error: unknown) => this.notice('warning', `Internal error while reading a message from another session: ${messageOf(error)}`))
+      .finally(() => (clearTimeout(timer), this.releaseWaiting(batch)))
+  }
+
+  // The message from another session that started turn uuid, read from the stored session (again while the CLI has
+  // not written it yet); undefined when the message is not one, has no text, or is not found in time.
+  private async findIncoming(uuid: string): Promise<{ from: string; text: string } | undefined> {
+    for (const pause of INCOMING_RETRIES_MS) {
+      if (pause) await sleep(pause)
+      if (this.incoming !== uuid || !this.sessionId) return undefined
+      const messages = await this.env.sdk.getSessionMessages(this.sessionId, { dir: this.cwd }).catch(() => [])
+      const stored = messages.find((message) => message.uuid === uuid)
+      if (stored) return storedPeer(stored)
+    }
+    return undefined
+  }
+
+  // Lets the live messages held for a lookup go on, in order (unless a newer lookup holds them now). A result among
+  // them that names a message from another session shows it first, if the stored session did not have it.
+  private releaseWaiting(batch: SDKMessage[]): void {
+    if (this.waitingMessages !== batch) return
+    this.waitingMessages = undefined
+    const result = batch.find((message): message is SDKResultMessage => message.type === 'result')
+    if (result && this.incoming) this.showPeer(this.incoming, peerOf(result.origin, ''))
+    for (const message of batch) {
+      try {
+        this.onMessage(message)
+      } catch (error) {
+        this.notice('warning', `Internal error while reading the session: ${messageOf(error)}`)
+      }
+    }
+  }
+
+  // The process is ending: what it sent while a lookup held its messages goes on, and no turn of its is incoming.
+  private endIncoming(): void {
+    if (this.waitingMessages) this.releaseWaiting(this.waitingMessages)
+    this.incoming = undefined
+  }
+
+  // Adds a message from another session to the chat (once).
+  private showPeer(uuid: string, peer: { from: string; text: string } | undefined): void {
+    if (peer && !this.transcript.get(uuid)) this.transcript.add({ kind: 'peerMessage', itemId: uuid, sourceUuid: uuid, ...peer })
+  }
+
+  // The end of a turn another session's message started also names it (origin): shown then, before the end of the
+  // turn, if the stored session did not have it.
+  private peerFromResult(result: SDKResultMessage): void {
+    const uuid = this.incoming
+    this.incoming = undefined
+    if (uuid) this.showPeer(uuid, peerOf(result.origin, ''))
+  }
+
   // Applies one SDK message: transcript items via the normalizer, metadata here. The empty results of
   // transcript-only messages are dropped (they end no turn; the probe checks the CLI still sends them).
   private onMessage(message: SDKMessage): void {
+    if (this.waitingMessages) return void this.waitingMessages.push(message)
     if (isCommandLifecycle(message)) return this.onCommandLifecycle(message)
     if (message.type === 'result' && this.silentResults > 0 && message.num_turns === 0) return void this.silentResults--
+    if (message.type === 'result') this.peerFromResult(message)
     this.normalizer.live(message)
     if (message.type === 'system' && message.subtype === 'init') {
       this.setSessionId(message.session_id)
@@ -864,6 +939,7 @@ export class Tab {
     this.held.set(uuid, state)
     if (state !== 'started') return
     const item = this.transcript.get(uuid)
+    if (!item) this.lookUpIncoming(uuid)
     if (item?.kind === 'user' && item.pending) {
       const { pending: _read, ...read } = item
       this.transcript.update(read)
@@ -915,6 +991,7 @@ export class Tab {
   // after a clean exit), transcript kept, open requests cancelled. The next send starts it again (resume).
   private onExit(session: Session, error: Error | undefined): void {
     if (this.session !== session) return
+    this.endIncoming()
     this.session = undefined
     this.turnRunning = false
     this.held.clear()

@@ -1,4 +1,4 @@
-import type { SDKMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { SDKMessage, SDKMessageOrigin, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
 import { IMAGE_TYPES, type Image, type ImageRef, type ImageType, type Item } from '@athome/protocol'
 
 // Turns SDK messages (live) and stored JSONL messages (history) into transcript items.
@@ -40,9 +40,33 @@ function toolResultText(content: unknown): string {
   return content.map((block: Block) => (block.type === 'text' ? block.text : `[${block.type}]`)).join('\n')
 }
 
+// The origin of a stored message when another session sent it here (SendMessage, kind 'peer'): the CLI stores it with
+// the message, outside the SDK's SessionMessage type.
+export function peerOrigin(message: SessionMessage): SDKMessageOrigin | undefined {
+  const origin = (message as { origin?: SDKMessageOrigin }).origin
+  return origin?.kind === 'peer' ? origin : undefined
+}
+
+// The sender and text of a message another session sent here, from its origin (also on the result of the turn it
+// started): name (empty when the sender gave none) and body, the text without the CLI's envelope (fallback when the
+// sender gave none). undefined for any other message, and for one without text.
+export function peerOf(origin: SDKMessageOrigin | undefined, fallback: string): { from: string; text: string } | undefined {
+  if (origin?.kind !== 'peer') return undefined
+  const text = origin.body ?? fallback
+  return text.trim() ? { from: origin.name ?? '', text } : undefined
+}
+
+// The message another session sent, when a stored message is one with text (see peerOf). Its content comes from a
+// file another session wrote to: read defensively.
+export function storedPeer(message: SessionMessage): { from: string; text: string } | undefined {
+  const origin = peerOrigin(message)
+  const content = (message.message as { content?: unknown } | undefined)?.content
+  return origin && peerOf(origin, typeof content === 'string' || Array.isArray(content) ? userText(content as string | Block[]) : '')
+}
+
 // Text of a user message content (string or blocks).
 function userText(content: string | Block[]): string {
-  return typeof content === 'string' ? content : content.filter((block) => block.type === 'text').map((block) => block.text).join('\n')
+  return typeof content === 'string' ? content : content.filter((block) => block?.type === 'text').map((block) => block.text).join('\n')
 }
 
 // Item for one final assistant block, or undefined for blocks not shown (empty text, redacted thinking…).
@@ -113,6 +137,11 @@ export class Normalizer {
   // commands with their local output and `!` commands with theirs; other CLI markup is not.
   history(message: SessionMessage): void {
     if (message.parent_tool_use_id || message.type === 'system') return
+    // A message from another session: its sender and text, never the CLI's envelope (nothing when it has no text).
+    if (peerOrigin(message)) {
+      const peer = storedPeer(message)
+      return void (peer && this.out.add({ kind: 'peerMessage', itemId: message.uuid, sourceUuid: message.uuid, ...peer }))
+    }
     const { content, id } = message.message as { content: string | Block[]; id?: string }
     if (message.type === 'assistant') return this.assistantBlocks(id ?? message.uuid, content as Block[], message.uuid)
     const text = userText(content)

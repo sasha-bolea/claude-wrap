@@ -57,6 +57,8 @@ export const en = {
   toolFailed: 'error',
   toolDone: 'done',
   compacted: 'Conversation compacted',
+  peerFrom: 'From @{name}',
+  peerFromSession: 'From another session',
 
   permissionRegion: 'Permission request',
   permissionTitle: 'Allow {tool}?',

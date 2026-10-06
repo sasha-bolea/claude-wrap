@@ -39,5 +39,16 @@ export const sdk = {
 export const stored = {
   user: (id: string, content: unknown) => ({ type: 'user', uuid: id, parent_tool_use_id: null, message: { role: 'user', content } }) as unknown as SessionMessage,
   assistant: (id: string, messageId: string, content: object[]) =>
-    ({ type: 'assistant', uuid: id, parent_tool_use_id: null, message: { id: messageId, role: 'assistant', content } }) as unknown as SessionMessage
+    ({ type: 'assistant', uuid: id, parent_tool_use_id: null, message: { id: messageId, role: 'assistant', content } }) as unknown as SessionMessage,
+  // A message another session sent (SendMessage), as the CLI stores it: the envelope for the model, the origin with
+  // the sender's name and the bare text (getSessionMessages returns origin and is_meta outside the SDK's types).
+  peer: (id: string, name: string, body: string) =>
+    ({
+      type: 'user',
+      uuid: id,
+      parent_tool_use_id: null,
+      is_meta: true,
+      origin: { kind: 'peer', from: 'uds:/run/user/1000/cc-socks/1.sock', name, fromMode: 'prompting', body },
+      message: { role: 'user', content: `Another Claude session sent a message:\n<cross-session-message from="uds:/run/user/1000/cc-socks/1.sock" from-name="${name}" from-mode="prompting">\n${body}\n</cross-session-message>` }
+    }) as unknown as SessionMessage
 }

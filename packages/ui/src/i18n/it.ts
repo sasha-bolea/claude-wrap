@@ -59,6 +59,8 @@ export const it: Record<MessageKey, string> = {
   toolFailed: 'errore',
   toolDone: 'fatto',
   compacted: 'Conversazione compattata',
+  peerFrom: 'Da @{name}',
+  peerFromSession: 'Da un’altra sessione',
 
   permissionRegion: 'Richiesta di permesso',
   permissionTitle: 'Consentire {tool}?',

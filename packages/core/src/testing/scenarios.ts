@@ -12,6 +12,7 @@ import { sdk, stored } from './messages.ts'
 //   slow       → streams a long answer, word by word, until interrupted
 //   markdown   → answers with a remote image and a link (rendering safety checks)
 //   tools      → runs three Bash commands in a row (ls, a long git log, npm test), then "Tools: done"
+//   peer       → answers, then another session's message arrives (op-ui, stored) and gets its own answer
 //   crash      → the process dies
 //   /command   → "Ran /command" as a synthetic assistant message, like the CLI's local commands
 //   anything else → streams "Echo: <text>" word by word (" [N images]" appended when images came along)
@@ -44,7 +45,8 @@ const imageCount = (message: SDKUserMessage) => (typeof message.message.content 
 
 // One fake turn in progress: knows whether it was interrupted, stores what it says like the CLI's JSONL, and reads
 // the messages sent meanwhile (fold: the text they add to the answer).
-type Turn = { session: FakeSession; interrupted: () => boolean; options: ScenarioOptions; store: (text: string) => void; fold: () => string }
+// peer: a message from another session arrives (stored, then the CLI starts its turn); returns its uuid.
+type Turn = { session: FakeSession; interrupted: () => boolean; options: ScenarioOptions; store: (text: string) => void; fold: () => string; peer: (name: string, body: string) => string }
 
 // Streams text word by word, reads what was sent meanwhile, then the final frame and a success result (or an aborted
 // result if interrupted).
@@ -125,6 +127,14 @@ async function respond(turn: Turn, text: string, images: number): Promise<void> 
     return stream(turn, 'Tools: done')
   }
   if (keyword === 'markdown') return stream(turn, 'Image: ![tracker](https://example.com/pixel.png) and a [link](https://example.com).')
+  if (keyword === 'peer') {
+    // After this answer, another session sends a message (SendMessage): the CLI starts a turn for it by itself.
+    await stream(turn, 'Peer: waiting for op-ui')
+    await sleep(turn.options.wordDelayMs * 5)
+    const id = turn.peer('op-ui', 'Tests pass on **op/ui**')
+    await stream(turn, 'Thanks op-ui, merging')
+    return void session.emit(sdk.lifecycle(id, 'completed'))
+  }
   if (keyword === 'limit') {
     // The account's usage limit, for an hour (as the CLI reports it before refusing).
     session.emit(sdk.rateLimit('rejected', Math.ceil(Date.now() / 1000) + 3600))
@@ -147,6 +157,12 @@ async function drive(fake: FakeSdk, session: FakeSession, options: ScenarioOptio
   session.onReceive((message) => lifecycle(message, 'queued'))
   const store = (text: string) => fake.record(sessionId, cwd, stored.assistant(randomUUID(), `msg_${randomUUID()}`, [{ type: 'text', text }]))
   const remember = (message: SDKUserMessage) => fake.record(sessionId, cwd, stored.user(message.uuid ?? randomUUID(), message.message.content))
+  const peer = (name: string, body: string) => {
+    const id = randomUUID()
+    fake.record(sessionId, cwd, stored.peer(id, name, body))
+    session.emit(sdk.lifecycle(id, 'started'))
+    return id
+  }
   while (!session.closed) {
     await session.waitForInput(next + 1)
     const message = session.received[next++]!
@@ -173,7 +189,7 @@ async function drive(fake: FakeSdk, session: FakeSession, options: ScenarioOptio
       }
       return added
     }
-    await respond({ session, interrupted: () => interrupted, options, store, fold }, textOf(message), imageCount(message))
+    await respond({ session, interrupted: () => interrupted, options, store, fold, peer }, textOf(message), imageCount(message))
     for (const done of turn) lifecycle(done, 'completed')
   }
 }

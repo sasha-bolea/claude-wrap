@@ -115,6 +115,19 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('.chat-screen .title-text > span').first().textContent()).toBe('op-ui')
   })
 
+  it('a message from another session shows in the chat with its sender, before the answer to it', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'peer')
+    const peer = page.locator('.msg-peer')
+    await peer.waitFor()
+    expect(await peer.locator('.from').textContent()).toBe('From @op-ui')
+    expect(await peer.locator('strong').textContent()).toBe('op/ui')
+    await expect.poll(() => lastAnswer(page).textContent()).toContain('Thanks op-ui, merging')
+    const order = await page.locator('.msg-peer, .msg-ai').evaluateAll((elements) => elements.map((element) => element.className))
+    expect(order.slice(-2)).toEqual(['msg-peer', 'msg-ai'])
+  })
+
   it('a wrong code is refused with a clear message', async () => {
     const page = await (await newPhone()).newPage()
     await page.goto(`${backend.url}/#pair=not-a-code`)

@@ -38,7 +38,9 @@ export const itemSchema = z.discriminatedUnion('kind', [
   z.object({ ...itemBase, kind: z.literal('compactBoundary') }),
   z.object({ ...itemBase, kind: z.literal('localCommandOutput'), text: z.string() }),
   // A `!` shell command run by core in the tab's folder; exitCode undefined while it runs.
-  z.object({ ...itemBase, kind: z.literal('shell'), command: z.string(), output: z.string(), exitCode: z.number().optional() })
+  z.object({ ...itemBase, kind: z.literal('shell'), command: z.string(), output: z.string(), exitCode: z.number().optional() }),
+  // A message another Claude session sent here (SendMessage): its sender's name and its text. It starts a turn.
+  z.object({ ...itemBase, kind: z.literal('peerMessage'), from: z.string(), text: z.string() })
 ])
 
 // ---- Requests from Claude that wait for an answer (permission, question, plan approval) ----

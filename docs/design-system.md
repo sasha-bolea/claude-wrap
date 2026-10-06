@@ -157,7 +157,7 @@ state words (draft, queued, "this one"); `.chip.changed`: new / changed by Claud
 pulsing while it waits for you (`Badge` component, with its meaning for screen readers).
 Examples: [ChatScreen.tsx:346](../packages/ui/src/touch/ChatScreen.tsx#L346), [FilesScreen.tsx:243](../packages/ui/src/touch/FilesScreen.tsx#L243), [parts.tsx:113](../packages/ui/src/touch/parts.tsx#L113).
 
-### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-user-row`, `.send-now`, `.msg-ai`, `.think`, `.tool`, `.working-line`, `.turn-end`
+### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-user-row`, `.send-now`, `.msg-ai`, `.msg-peer` (`.from`), `.think`, `.tool`, `.working-line`, `.turn-end`
 Your messages right in a bubble (a long press or right click opens their actions; "waiting" until Claude reads a
 message sent while it works, then "read" for a few seconds); Claude's text as markdown; reasoning and tool calls as
 `<details>`; the working line with seconds. A waiting message sits in a `.msg-user-row` with `.send-now` on its left:
@@ -166,7 +166,11 @@ send-now, not a Stop (the queue is not paused). At the bottom of the chat new te
 (each frame a share of the way left; at once from farther than a screen, with reduced motion; a finger on the chat
 stops it), so Claude's streaming never jerks the view. With the keyboard open, a quick drag on the chat (faster than
 0.6 px/ms) closes it; a slow one, to read, leaves it open.
-Examples: [Conversation.tsx:76](../packages/ui/src/touch/Conversation.tsx#L76), [Conversation.tsx:98](../packages/ui/src/touch/Conversation.tsx#L98), [Conversation.tsx:216](../packages/ui/src/touch/Conversation.tsx#L216), [Conversation.tsx:126](../packages/ui/src/touch/Conversation.tsx#L126), [Conversation.tsx:281](../packages/ui/src/touch/Conversation.tsx#L281).
+A message from another Claude session (`SendMessage`; it starts a turn here by itself) is a `.msg-peer`: on the left,
+on `--surface` framed by `--border` with a 3 px accent left edge, "Da @nome" on top in the accent with the chats icon
+("Da un'altra sessione" when the sender gave no name; a message without text shows nothing),
+its text as markdown like Claude's — never on the right, where your own messages are.
+Examples: [Conversation.tsx:77](../packages/ui/src/touch/Conversation.tsx#L77), [Conversation.tsx:99](../packages/ui/src/touch/Conversation.tsx#L99), [Conversation.tsx:217](../packages/ui/src/touch/Conversation.tsx#L217), [Conversation.tsx:127](../packages/ui/src/touch/Conversation.tsx#L127), [Conversation.tsx:299](../packages/ui/src/touch/Conversation.tsx#L299), [Conversation.tsx:236](../packages/ui/src/touch/Conversation.tsx#L236).
 
 ### Tool stack — `.tool-group`, `.tool-stack` (`.m1`–`.m3`), `.tool-card` (`.k0`–`.k3`), `.tool-count`, `.tool-collapse`
 Two or more tool calls in a row form a stack like the queue's: the last call in front (name, summary, state and the
@@ -174,7 +178,7 @@ count), up to three before it peeking out **above** it, 7 px each and a little n
 into their `.tool` cards one under the other, each sliding from its place in the stack (measured before and after,
 Web Animations; none with reduced motion); "Raggruppa i N comandi" (`.tool-collapse`, up arrow) stacks them again.
 A single call stays a plain `.tool` card.
-Examples: [Conversation.tsx:142](../packages/ui/src/touch/Conversation.tsx#L142), [Conversation.tsx:179](../packages/ui/src/touch/Conversation.tsx#L179).
+Examples: [Conversation.tsx:143](../packages/ui/src/touch/Conversation.tsx#L143), [Conversation.tsx:180](../packages/ui/src/touch/Conversation.tsx#L180).
 
 ### Request card — `.request` (`.preview`, `.grant-row`, `.reveal`)
 Claude's permission, question or plan inside the conversation (rule 3); `.reveal` holds the field and the button
@@ -184,8 +188,8 @@ one per header; current = accent outline with `aria-current="step"`, answered = 
 question; choosing an answer of a single-choice question moves on, "Avanti" otherwise; "Rispondi" on the last step
 sends them all. A single question shows no steps. Once answered (or skipped) the form stays in the chat as `.answered`
 ("Le tue risposte": each question with its header chip, `.answered-q`, and the answer given, `.answered-a`; `.none`
-= "Nessuna risposta"), never inside a stack of tool calls. Examples: [Conversation.tsx:469](../packages/ui/src/touch/Conversation.tsx#L469), [Conversation.tsx:129](../packages/ui/src/touch/Conversation.tsx#L129).
-Examples: [Conversation.tsx:336](../packages/ui/src/touch/Conversation.tsx#L336), [Conversation.tsx:346](../packages/ui/src/touch/Conversation.tsx#L346).
+= "Nessuna risposta"), never inside a stack of tool calls. Examples: [Conversation.tsx:487](../packages/ui/src/touch/Conversation.tsx#L487), [Conversation.tsx:130](../packages/ui/src/touch/Conversation.tsx#L130).
+Examples: [Conversation.tsx:354](../packages/ui/src/touch/Conversation.tsx#L354), [Conversation.tsx:364](../packages/ui/src/touch/Conversation.tsx#L364).
 
 ### Conversation scroll indicator — `.scroll-thumb` (`.on`)
 On touch screens (`pointer: coarse`) the native indicator of `.conversation` is hidden (iOS draws it down behind the
@@ -313,7 +317,7 @@ per other added account (never Claude Code's login), each taking the row's width
 conversation shows, once the account is free (after a switch, or when the limit resets), a `.card` with why it
 stopped (or how many sessions stopped) and `.card-actions`: a quiet "Continua" / "Continua in tutte (N)" and "Non
 ora" (`.link-btn`, takes the cards away) (sends "continua" to every stopped session; their queues go on after it).
-Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [accounts.tsx:80](../packages/ui/src/touch/accounts.tsx#L80), [accounts.tsx:137](../packages/ui/src/touch/accounts.tsx#L137), [accounts.tsx:170](../packages/ui/src/touch/accounts.tsx#L170), [accounts.tsx:209](../packages/ui/src/touch/accounts.tsx#L209), [Conversation.tsx:309](../packages/ui/src/touch/Conversation.tsx#L309), [ChatScreen.tsx:373](../packages/ui/src/touch/ChatScreen.tsx#L373), [Conversation.tsx:308](../packages/ui/src/touch/Conversation.tsx#L308).
+Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [accounts.tsx:80](../packages/ui/src/touch/accounts.tsx#L80), [accounts.tsx:137](../packages/ui/src/touch/accounts.tsx#L137), [accounts.tsx:170](../packages/ui/src/touch/accounts.tsx#L170), [accounts.tsx:209](../packages/ui/src/touch/accounts.tsx#L209), [Conversation.tsx:327](../packages/ui/src/touch/Conversation.tsx#L327), [ChatScreen.tsx:373](../packages/ui/src/touch/ChatScreen.tsx#L373), [Conversation.tsx:326](../packages/ui/src/touch/Conversation.tsx#L326).
 
 ### Launch and pairing — `.splash` (`.splash-main`, `.splash-state` `.bad`, `.dots`), `.hero-mark` (`.big`), `.hero-title`, `.steps`, `.error-text`, `.code-box`
 The launch screen until the server answers (same mark as the iOS splash). The pairing screen: install steps in iPhone

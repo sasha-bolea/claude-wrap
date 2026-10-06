@@ -224,6 +224,71 @@ describe('tabs and lazy start', () => {
     expect(renames(session)).toEqual([])
   })
 
+  // A message another session sends (SendMessage) starts a turn here by itself: the chat shows who sent it and what,
+  // before the answer, live and when the session is opened again.
+  it('a message from another session shows in the chat with its sender, before the answer, live and in the history', async () => {
+    const session = await startedTab()
+    session.emit(sdk.init('s-peer'))
+    session.emit(sdk.success())
+    fake.histories.set('s-peer', [stored.user('u1', 'hello'), stored.peer('p1', 'op-ui', 'Tests pass on op/ui')])
+    session.emit(sdk.lifecycle('p1', 'started'))
+    await client.waitFor(() => items(client).some((item) => item.kind === 'peerMessage'))
+    session.emit(sdk.assistant('msg-reply', [{ type: 'text', text: 'Thanks, merging' }]), sdk.success(), sdk.lifecycle('p1', 'completed'))
+    await client.waitFor(() => items(client).some((item) => item.kind === 'assistantText'))
+    const after = items(client).filter((item) => item.kind === 'peerMessage' || item.kind === 'assistantText')
+    expect(after).toMatchObject([{ kind: 'peerMessage', itemId: 'p1', from: 'op-ui', text: 'Tests pass on op/ui' }, { kind: 'assistantText', text: 'Thanks, merging' }])
+
+    fake.histories.set('s-peer-old', [stored.user('u2', 'start'), stored.peer('p2', 'capo-athome', 'Run the tests')])
+    await client.ok('tab.create', { tabId: 't2', cwd: CWD, resume: 's-peer-old' })
+    await client.ok('tab.subscribe', { tabId: 't2' })
+    const stored2 = items(client, tabStream('t2'))
+    expect(stored2.filter((item) => item.kind === 'peerMessage')).toMatchObject([{ itemId: 'p2', from: 'capo-athome', text: 'Run the tests' }])
+    expect(stored2.some((item) => item.kind === 'user' && item.text.includes('cross-session-message'))).toBe(false)
+  })
+
+  // The CLI writes its session file in batches: the message may be readable only a moment after its turn started.
+  it('a message from another session stored a moment late still shows before the answer to it', async () => {
+    const session = await startedTab()
+    session.emit(sdk.init('s-peer-slow'))
+    session.emit(sdk.success())
+    fake.histories.set('s-peer-slow', [stored.user('u1', 'hello')])
+    session.emit(sdk.lifecycle('p4', 'started'))
+    session.emit(sdk.messageStart('msg-slow'), sdk.blockStart(0, { type: 'text', text: '' }), sdk.textDelta(0, 'On it'))
+    setTimeout(() => fake.histories.set('s-peer-slow', [stored.user('u1', 'hello'), stored.peer('p4', 'op-ui', 'Late but first')]), 200)
+    await client.waitFor(() => items(client).some((item) => item.kind === 'assistantText'), 3000)
+    session.emit(sdk.assistant('msg-slow', [{ type: 'text', text: 'On it' }]), sdk.success())
+    await client.waitFor(() => items(client).filter((item) => item.kind === 'turnEnd').length === 2)
+    expect(items(client).slice(-3).map((item) => item.kind)).toEqual(['peerMessage', 'assistantText', 'turnEnd'])
+  })
+
+  it('a turn from another session that the history does not have takes its sender from the end of the turn, still before the answer', async () => {
+    const session = await startedTab()
+    session.emit(sdk.init('s-peer-late'))
+    session.emit(sdk.success())
+    session.emit(sdk.lifecycle('p3', 'started'))
+    session.emit(sdk.assistant('msg-late', [{ type: 'text', text: 'On it' }]))
+    session.emit(sdk.success({ origin: { kind: 'peer', from: 'uds:/x.sock', name: 'op-server', body: 'Deploy is green' } }))
+    await client.waitFor(() => items(client).filter((item) => item.kind === 'turnEnd').length === 2, 3000)
+    expect(items(client).filter((item) => item.kind === 'peerMessage')).toMatchObject([{ itemId: 'p3', from: 'op-server', text: 'Deploy is green' }])
+    expect(items(client).slice(-3).map((item) => item.kind)).toEqual(['peerMessage', 'assistantText', 'turnEnd'])
+  })
+
+  it('a malformed message from another session, or one without text, breaks nothing and shows no empty bubble', async () => {
+    const session = await startedTab()
+    session.emit(sdk.init('s-peer-bad'))
+    session.emit(sdk.success())
+    fake.histories.set('s-peer-bad', [stored.user('u1', 'hello'), { type: 'user', uuid: 'p5', parent_tool_use_id: null, origin: { kind: 'peer', name: 'x' } } as never])
+    session.emit(sdk.lifecycle('p5', 'started'))
+    session.emit(sdk.assistant('msg-bad', [{ type: 'text', text: 'Still here' }]), sdk.success({ origin: { kind: 'peer', from: 'uds:/y.sock' } }))
+    await client.waitFor(() => items(client).filter((item) => item.kind === 'turnEnd').length === 2, 3000)
+    expect(items(client).some((item) => item.kind === 'peerMessage')).toBe(false)
+    expect(meta(client)?.status).toBe('idle')
+    fake.histories.set('s-peer-bad-old', [stored.user('u2', 'start'), stored.peer('p6', '', '')])
+    await client.ok('tab.create', { tabId: 't2', cwd: CWD, resume: 's-peer-bad-old' })
+    await client.ok('tab.subscribe', { tabId: 't2' })
+    expect(items(client, tabStream('t2')).map((item) => item.kind)).toEqual(['user'])
+  })
+
   it('init sets the session id and the active model', async () => {
     const session = await startedTab()
     session.emit(sdk.init('s-new', { model: 'claude-haiku-4-5' }))

@@ -14,6 +14,7 @@ type LoadImage = (imageId: string) => Promise<Image>
 type ToolCall = Extract<Item, { kind: 'toolCall' }>
 type TurnEnd = Extract<Item, { kind: 'turnEnd' }>
 type UserItem = Extract<Item, { kind: 'user' }>
+type PeerItem = Extract<Item, { kind: 'peerMessage' }>
 type Question = { question: string; header: string; multiSelect: boolean; options: { label: string; description: string; preview?: string }[] }
 
 // Cards shown in a stack of tool calls: the last one in front, up to three behind it.
@@ -230,6 +231,21 @@ function entries(items: Item[]): Entry[] {
   return out
 }
 
+// A message another Claude session sent here: its sender on top ("Da un'altra sessione" when it gave no name), its
+// text as markdown like Claude's (never as HTML).
+function PeerMessage({ item }: { item: PeerItem }) {
+  const { capabilities } = useTouch()
+  return (
+    <div className="msg-peer">
+      <span className="from">
+        <Icon name="chats" />
+        {item.from ? t('peerFrom', { name: item.from }) : t('peerFromSession')}
+      </span>
+      <Markdown text={item.text} openExternal={capabilities.openExternal} />
+    </div>
+  )
+}
+
 // One transcript item, as the prototype shows it.
 function ItemView({ item, readAt, loadImage, onActions, onSendNow }: { item: Item; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown> }) {
   const { capabilities } = useTouch()
@@ -256,6 +272,8 @@ function ItemView({ item, readAt, loadImage, onActions, onSendNow }: { item: Ite
       return <div className={`turn-end${item.error ? ' bad' : ''}`}>{turnEndText(item)}</div>
     case 'notice':
       return item.level === 'info' ? <p className="notice-line">{item.text}</p> : <div className={`warn${item.level === 'error' ? ' bad' : ''}`}>{item.text}</div>
+    case 'peerMessage':
+      return <PeerMessage item={item} />
     case 'compactBoundary':
       return <p className="compacted">{t('compacted')}</p>
     case 'localCommandOutput':
