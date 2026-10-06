@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { COMMANDS } from './commands.ts'
-import { tabEventSchema, tabSnapshotSchema, terminalEventSchema, terminalSnapshotSchema, workspaceEventSchema, workspaceSnapshotSchema } from './model.ts'
+import { browserEventSchema, tabEventSchema, tabSnapshotSchema, terminalEventSchema, terminalSnapshotSchema, workspaceEventSchema, workspaceSnapshotSchema } from './model.ts'
 
 export * from './model.ts'
 export * from './commands.ts'
@@ -16,7 +16,9 @@ export const LIMITS = {
   images: 20,
   // File explorer: what a preview shows at most, and the largest file uploaded or downloaded.
   previewBytes: 2 * 1024 * 1024,
-  fileBytes: 20 * 1024 * 1024
+  fileBytes: 20 * 1024 * 1024,
+  // Browser: most tabs open at once in the server's one browser.
+  browserMaxTabs: 5
 } as const
 
 // Liveness: the client pings every PING_INTERVAL_MS; after PING_MISSES unanswered pings it reconnects.
@@ -88,7 +90,7 @@ export const evSchema = z.object({
   stream: z.string(),
   epoch: z.string(),
   seq: z.number().int(),
-  ev: z.union([workspaceEventSchema, tabEventSchema, terminalEventSchema])
+  ev: z.union([workspaceEventSchema, tabEventSchema, terminalEventSchema, browserEventSchema])
 })
 // Full state of a stream; may arrive at any time, also on a live stream.
 export const resetSchema = z.object({

@@ -7,6 +7,7 @@ import {
   coreFrameSchema,
   tabStream,
   terminalStream,
+  type BrowserEvent,
   type Channel,
   type CommandArgs,
   type CommandName,
@@ -221,13 +222,14 @@ export class Connection {
   }
 
   // Applies an event in sequence; a gap means something was lost → reconnect, and the core resets the stream.
-  private onEvent(channel: Channel, stream: string, epoch: string, seq: number, ev: WorkspaceEvent | TabEvent | TerminalEvent): void {
+  private onEvent(channel: Channel, stream: string, epoch: string, seq: number, ev: WorkspaceEvent | TabEvent | TerminalEvent | BrowserEvent): void {
     const position = this.positions.get(stream)
     if (!position) return
     if (position.epoch !== epoch || seq !== position.lastSeq + 1) return this.drop(channel)
     this.positions.set(stream, { epoch, lastSeq: seq })
     if (stream === WORKSPACE_STREAM) this.store.applyWorkspaceEvent(ev as WorkspaceEvent)
     else if (stream.startsWith(TERMINAL_PREFIX)) this.onTerminalEvent(terminalIdOf(stream), ev as TerminalEvent)
+    else if (stream === 'browser') return void 0 // Browser events: stub for now
     else this.store.applyTabEvent(tabIdOf(stream), ev as TabEvent)
   }
 

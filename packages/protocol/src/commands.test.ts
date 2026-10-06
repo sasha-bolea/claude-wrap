@@ -1,5 +1,99 @@
 import { describe, it, expect } from 'vitest'
 import { COMMANDS } from './commands.ts'
+import { browserEventSchema } from './model.ts'
+
+// Test browser command schemas and event parsing
+describe('browser commands', () => {
+  it('browser.navigate rejects invalid URLs', () => {
+    const schema = COMMANDS['browser.navigate']
+    const validUrl = { url: 'https://example.com' }
+    const validResult = schema.args.safeParse(validUrl)
+    expect(validResult.success).toBe(true)
+
+    // Reject file:// URLs
+    const fileUrl = { url: 'file:///etc/passwd' }
+    const fileResult = schema.args.safeParse(fileUrl)
+    expect(fileResult.success).toBe(false)
+
+    // Reject javascript: URLs
+    const jsUrl = { url: 'javascript:alert(1)' }
+    const jsResult = schema.args.safeParse(jsUrl)
+    expect(jsResult.success).toBe(false)
+
+    // Reject chrome: URLs
+    const chromeUrl = { url: 'chrome://settings' }
+    const chromeResult = schema.args.safeParse(chromeUrl)
+    expect(chromeResult.success).toBe(false)
+  })
+
+  it('browser.pointer enforces coordinate bounds', () => {
+    const schema = COMMANDS['browser.pointer']
+    const validPointer = { type: 'move' as const, x: 0.5, y: 0.5 }
+    const validResult = schema.args.safeParse(validPointer)
+    expect(validResult.success).toBe(true)
+
+    // Reject x > 1
+    const outOfBoundsX = { type: 'move' as const, x: 1.5, y: 0.5 }
+    const outOfBoundsXResult = schema.args.safeParse(outOfBoundsX)
+    expect(outOfBoundsXResult.success).toBe(false)
+
+    // Reject y < 0
+    const outOfBoundsY = { type: 'move' as const, x: 0.5, y: -0.1 }
+    const outOfBoundsYResult = schema.args.safeParse(outOfBoundsY)
+    expect(outOfBoundsYResult.success).toBe(false)
+  })
+
+  it('browser.text enforces max length', () => {
+    const schema = COMMANDS['browser.text']
+    const validText = { text: 'hello' }
+    const validResult = schema.args.safeParse(validText)
+    expect(validResult.success).toBe(true)
+
+    // Reject text over 20000 chars
+    const longText = { text: 'a'.repeat(20001) }
+    const longResult = schema.args.safeParse(longText)
+    expect(longResult.success).toBe(false)
+  })
+
+  it('browser.viewport enforces size bounds', () => {
+    const schema = COMMANDS['browser.viewport']
+    const validViewport = { width: 1024, height: 768, mobile: false }
+    const validResult = schema.args.safeParse(validViewport)
+    expect(validResult.success).toBe(true)
+
+    // Reject width < 200
+    const tooSmall = { width: 100, height: 768, mobile: false }
+    const tooSmallResult = schema.args.safeParse(tooSmall)
+    expect(tooSmallResult.success).toBe(false)
+  })
+
+  it('browser.key enforces max key length', () => {
+    const schema = COMMANDS['browser.key']
+    const validKey = { type: 'down' as const, key: 'Enter' }
+    const validResult = schema.args.safeParse(validKey)
+    expect(validResult.success).toBe(true)
+
+    // Reject key over 32 chars
+    const longKey = { type: 'down' as const, key: 'a'.repeat(33) }
+    const longResult = schema.args.safeParse(longKey)
+    expect(longResult.success).toBe(false)
+  })
+
+  it('browser.frame event parses correctly', () => {
+    const frameEvent = {
+      type: 'browser.frame' as const,
+      tabId: 'tab123',
+      data: 'base64data',
+      width: 1024,
+      height: 768,
+      viewportWidth: 800,
+      viewportHeight: 600,
+      seq: 42
+    }
+    const result = browserEventSchema.safeParse(frameEvent)
+    expect(result.success).toBe(true)
+  })
+})
 
 // Test that rewind commands exist and have correct schemas
 describe('rewind commands', () => {
