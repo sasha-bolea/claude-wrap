@@ -465,6 +465,12 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .question-step { min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: none; color: var(--text-muted); font: inherit; font-size: 13px; }
 .question-step.done { background: var(--surface-2); color: var(--text); }
 .question-step[aria-current="step"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+/* Claude's questions once answered: they stay in the chat, each with the answer given */
+.answered { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 14px; background: var(--surface); }
+.answered-title { font-size: 12px; color: var(--text-muted); }
+.answered-q { margin: 0; font-weight: 600; }
+.answered-a { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.answered-a.none { color: var(--text-muted); font-style: italic; }
 
 /* Composer: one box with the text on top and the controls below */
 /* No strip around it: the rounded bar floats on the dock's blurred gradient */

@@ -87,6 +87,20 @@ const QUESTIONS = {
 const WRITE_RULE = [{ type: 'addRules', rules: [{ toolName: 'Write' }], behavior: 'allow', destination: 'localSettings' }]
 const SLOW_TEXT = Array.from({ length: 400 }, (_, n) => `word${n}`).join(' ')
 
+// A form of two questions, as the CLI runs it: the AskUserQuestion call, the request, then the call's result in the
+// CLI's own words ("question"="answer" pairs), and an echo of the answers.
+async function questions(turn: Turn): Promise<void> {
+  const id = `toolu_${randomUUID()}`
+  turn.session.emit(sdk.assistant(`msg_${randomUUID()}`, [{ type: 'tool_use', id, name: 'AskUserQuestion', input: QUESTIONS }]))
+  const outcome = await ask(turn, 'AskUserQuestion', QUESTIONS)
+  if (outcome.startsWith('allow ')) {
+    const answers = JSON.parse(outcome.slice('allow '.length)) as Record<string, string>
+    const pairs = Object.entries(answers).map(([question, answer]) => `"${question}"="${answer}"`).join(', ')
+    turn.session.emit(sdk.toolResult(id, `Your questions have been answered: ${pairs}. You can now continue with these answers in mind.`))
+  } else turn.session.emit(sdk.toolResult(id, 'The user did not answer the questions.', true))
+  return stream(turn, `Questions: ${outcome}`)
+}
+
 // Answers one user message according to its keyword.
 async function respond(turn: Turn, text: string, images: number): Promise<void> {
   const { session } = turn
@@ -98,7 +112,7 @@ async function respond(turn: Turn, text: string, images: number): Promise<void> 
     return stream(turn, `Permission: ${outcome}`)
   }
   if (keyword === 'question') return stream(turn, `Question: ${await ask(turn, 'AskUserQuestion', QUESTION)}`)
-  if (keyword === 'questions') return stream(turn, `Questions: ${await ask(turn, 'AskUserQuestion', QUESTIONS)}`)
+  if (keyword === 'questions') return questions(turn)
   if (keyword === 'plan') return stream(turn, `Plan: ${await ask(turn, 'ExitPlanMode', { plan: '1. Do the thing\n2. Check it' })}`)
   if (keyword === 'slow') return stream(turn, SLOW_TEXT)
   if (keyword === 'tools') {

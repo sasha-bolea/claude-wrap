@@ -112,6 +112,9 @@ describe('desktop chat (fake SDK)', () => {
     await panel.getByRole('button', { name: 'Next' }).click()
     await panel.getByRole('button', { name: 'Answer' }).click()
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Questions: allow {"Which color?":"Blue","Which sizes?":"Small, Large"}')
+    const answered = page.getByRole('region', { name: 'Your answers' }).last()
+    await expect.poll(() => answered.locator('.answered-q').allTextContents()).toEqual(['Color Which color?', 'Size Which sizes?'])
+    expect(await answered.locator('.answered-a').allTextContents()).toEqual(['Blue', 'Small, Large'])
   })
 
   it('approving a plan with auto-accept switches the permission mode', async () => {

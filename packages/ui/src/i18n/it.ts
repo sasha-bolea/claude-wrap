@@ -71,6 +71,8 @@ export const it: Record<MessageKey, string> = {
   answer: 'Rispondi',
   skip: 'Salta',
   nextQuestion: 'Avanti',
+  yourAnswers: 'Le tue risposte',
+  notAnswered: 'Nessuna risposta',
   questionSteps: 'Domande',
   questionStep: '{header}, domanda {n} di {total}',
   planRegion: 'Approvazione del piano',

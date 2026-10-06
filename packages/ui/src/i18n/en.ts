@@ -69,6 +69,8 @@ export const en = {
   answer: 'Answer',
   skip: 'Skip',
   nextQuestion: 'Next',
+  yourAnswers: 'Your answers',
+  notAnswered: 'No answer',
   questionSteps: 'Questions',
   questionStep: '{header}, question {n} of {total}',
   planRegion: 'Plan approval',

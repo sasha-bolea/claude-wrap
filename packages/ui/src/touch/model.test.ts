@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FileEntry, TabMeta } from '@claude-wrap/protocol'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { durationLabel, filesChanged, folderSummary, freeName, htmlLines, inside, modelShortName, resetLabel, sessionState, spanNodes, tokenLabel } from './model.ts'
+import { answeredQuestions, durationLabel, filesChanged, folderSummary, freeName, htmlLines, inside, modelShortName, resetLabel, sessionState, spanNodes, tokenLabel } from './model.ts'
 
 const tab = (cwd: string, status: TabMeta['status']): TabMeta => ({ tabId: cwd + status, title: 't', cwd, status, mode: 'default', queue: [], pendingRequests: 0 })
 
@@ -68,5 +68,25 @@ describe('touch model', () => {
   it('highlighted spans become React nodes; the escaped text is never parsed as HTML', () => {
     const markup = renderToStaticMarkup(spanNodes('<span class="hljs-string">&quot;&lt;img src=x onerror=alert(1)&gt;&quot;</span> &amp; <b>'))
     expect(markup).toBe('<span class="hljs-string">&quot;&lt;img src=x onerror=alert(1)&gt;&quot;</span> &amp; &lt;b&gt;')
+  })
+
+  it('reads the answers of a question form from the CLI result, quotes and commas inside them included', () => {
+    const input = {
+      questions: [
+        { question: 'Which "color"?', header: 'Color', multiSelect: false, options: [] },
+        { question: 'Which sizes?', header: 'Size', multiSelect: true, options: [] },
+        { question: 'Skipped?', header: 'Other', multiSelect: false, options: [] }
+      ]
+    }
+    const result = 'Your questions have been answered: "Which "color"?"="Blue, "deep"", "Which sizes?"="Small, Large". You can now continue with these answers in mind.'
+    expect(answeredQuestions(input, result)).toEqual([
+      { header: 'Color', question: 'Which "color"?', answer: 'Blue, "deep"' },
+      { header: 'Size', question: 'Which sizes?', answer: 'Small, Large' },
+      { header: 'Other', question: 'Skipped?', answer: undefined }
+    ])
+    const careful = 'The user answered: "Which sizes?"="Large". Read the answers carefully — they may request clarification, changes, or that you not proceed — and follow what they actually say.'
+    expect(answeredQuestions(input, careful).map((entry) => entry.answer)).toEqual([undefined, 'Large', undefined])
+    expect(answeredQuestions(input, 'The user did not answer the questions.').every((entry) => entry.answer === undefined)).toBe(true)
+    expect(answeredQuestions({}, 'anything')).toEqual([])
   })
 })

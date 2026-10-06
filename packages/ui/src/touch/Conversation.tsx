@@ -8,7 +8,7 @@ import type { Answer } from '../chatHooks.ts'
 import { ContinueCard, LimitCard } from './accounts.tsx'
 import { useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
-import { durationLabel } from './model.ts'
+import { answeredQuestions, durationLabel } from './model.ts'
 
 type LoadImage = (imageId: string) => Promise<Image>
 type ToolCall = Extract<Item, { kind: 'toolCall' }>
@@ -20,6 +20,9 @@ type Question = { question: string; header: string; multiSelect: boolean; option
 const STACK_SHOWN = 4
 // Duration of the stack opening or closing (ms).
 const STACK_MS = 280
+
+// The tool through which Claude asks multiple-choice questions.
+const QUESTION_TOOL = 'AskUserQuestion'
 
 // How long "letto" stays under a message Claude has just read.
 const READ_NOTE_MS = 2500
@@ -121,6 +124,26 @@ function ToolLine({ item }: { item: ToolCall }) {
   )
 }
 
+// A form of questions Claude asked, once answered or skipped: each question with the answer given (the request
+// card held it while it waited). A call whose input has no questions stays a plain tool card.
+function AnsweredCard({ item }: { item: ToolCall }) {
+  const answered = answeredQuestions(item.input, item.result ?? '')
+  if (!answered.length) return <ToolCard item={item} />
+  return (
+    <section className="answered" aria-label={t('yourAnswers')}>
+      <span className="answered-title">{t('yourAnswers')}</span>
+      {answered.map((entry) => (
+        <div key={entry.question}>
+          <p className="answered-q">
+            <span className="chip">{entry.header}</span> {entry.question}
+          </p>
+          <p className={`answered-a${entry.answer ? '' : ' none'}`}>{entry.answer || t('notAnswered')}</p>
+        </div>
+      ))}
+    </section>
+  )
+}
+
 // A tool call: closed shows name, summary and state; open shows input and result.
 function ToolCard({ item }: { item: ToolCall }) {
   return (
@@ -193,13 +216,14 @@ function ToolStack({ items }: { items: ToolCall[] }) {
   )
 }
 
-// The transcript's items with tool calls in a row gathered: one item, or a run of two or more tool calls.
+// The transcript's items with tool calls in a row gathered: one item, or a run of two or more tool calls. Claude's
+// questions are not a command: they stay out of the runs.
 type Entry = { item: Item } | { tools: ToolCall[] }
 function entries(items: Item[]): Entry[] {
   const out: Entry[] = []
   for (const item of items) {
     const previous = out[out.length - 1]
-    if (item.kind !== 'toolCall') out.push({ item })
+    if (item.kind !== 'toolCall' || item.name === QUESTION_TOOL) out.push({ item })
     else if (previous && 'tools' in previous) previous.tools.push(item)
     else out.push({ tools: [item] })
   }
@@ -226,6 +250,7 @@ function ItemView({ item, readAt, loadImage, onActions, onSendNow }: { item: Ite
         </details>
       )
     case 'toolCall':
+      if (item.name === QUESTION_TOOL) return item.result === undefined ? null : <AnsweredCard item={item} />
       return <ToolCard item={item} />
     case 'turnEnd':
       return <div className={`turn-end${item.error ? ' bad' : ''}`}>{turnEndText(item)}</div>

@@ -135,3 +135,33 @@ export function spanNodes(html: string): ReactNode[] {
   }
   return root
 }
+
+// One question of a form Claude asked, with the answer given (undefined: not answered, or the form skipped).
+export type AnsweredQuestion = { header: string; question: string; answer?: string }
+
+// Endings the CLI puts after the "question"="answer" pairs of an AskUserQuestion result.
+const ANSWERS_END = ['. You can now continue with these answers in mind.', '. Read the answers carefully']
+
+// The questions of an AskUserQuestion call with the answers found in its result, which the CLI writes as
+// `"question"="answer"` pairs (live and in a resumed session alike: only the text survives in the transcript).
+// Params: the call's input and its result text. Returns the questions in order; [] when the input has none.
+export function answeredQuestions(input: unknown, result: string): AnsweredQuestion[] {
+  const raw = (input as { questions?: unknown } | undefined)?.questions
+  const questions = (Array.isArray(raw) ? raw : []).filter((entry): entry is { question: string; header?: string } => typeof entry?.question === 'string')
+  const end = Math.max(...ANSWERS_END.map((tail) => result.lastIndexOf(tail)))
+  const region = end >= 0 ? result.slice(0, end) : result
+  let cursor = 0
+  const found = questions.map((entry) => {
+    const at = region.indexOf(`"${entry.question}"="`, cursor)
+    if (at < 0) return undefined
+    cursor = at + entry.question.length + 4
+    return { at, start: cursor }
+  })
+  return questions.map((entry, index) => {
+    const own = found[index]
+    const next = found.slice(index + 1).find(Boolean)
+    const segment = own ? region.slice(own.start, next ? next.at : region.length) : ''
+    const close = segment.lastIndexOf('"')
+    return { header: entry.header ?? '', question: entry.question, answer: own && close >= 0 ? segment.slice(0, close) : undefined }
+  })
+}
