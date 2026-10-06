@@ -204,9 +204,11 @@ the field (before what was being written) and the rest of the queue waits for �
 screen (another screen, the app hidden, nobody connected) the queue goes at once, as before.
 Examples: [TouchComposer.tsx:38](../packages/ui/src/touch/TouchComposer.tsx#L38).
 
-### Queue — `.queue-tray`, `.q-stack`, `.q-card` (`.k0-3`, `.m0-3`), `.q-line`, `.q-play`, `.q-sheet-item`
+### Queue — `.queue-tray`, `.q-front`, `.q-remove`, `.q-stack`, `.q-card` (`.k0-3`, `.m0-3`), `.q-line`, `.q-play`, `.q-sheet-item`
 The deck under the composer: the first card shows the next message, the others peek out on the right; ▶/⏸ beside
-it. A tap opens the queue sheet (edit, send now, move, remove).
+it. A bin (`.q-remove`, muted, 44 px) on the front card's right end removes the next message at once with a toast; it is
+a sibling of the stack button inside `.q-front` (buttons do not nest), and the front card keeps 44 px free for it. A tap
+elsewhere opens the queue sheet (edit, send now, move, remove).
 Examples: [queue.tsx:28](../packages/ui/src/touch/queue.tsx#L28), [queue.tsx:29](../packages/ui/src/touch/queue.tsx#L29).
 
 ### Files — `.refresh-note`, `.file-meta`, `.code` (`.line`, `.ln`, `hljs-*`), `.md-view`, `.preview-img`, `.preview-empty`, `.sticky-actions.two`, `.at`

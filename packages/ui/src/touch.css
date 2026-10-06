@@ -281,6 +281,11 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .queue-tray { display: flex; align-items: center; gap: 4px; }
 .q-play { flex: none; color: var(--text-muted); }
 .q-stack { position: relative; display: block; flex: 1; min-width: 0; height: 44px; border: 0; padding: 0; background: none; text-align: left; }
+/* The front card's bin sits over its right end (a sibling of the stack button: buttons do not nest) */
+.q-front { --m: 0; position: relative; display: flex; flex: 1; min-width: 0; }
+.q-front.m1 { --m: 1; } .q-front.m2 { --m: 2; } .q-front.m3 { --m: 3; }
+.q-remove { position: absolute; top: 0; right: calc(var(--m) * 7px); z-index: 11; color: var(--text-muted); }
+.q-card.k0 { padding-right: 44px; }
 .q-card { --k: 0; --m: 0; position: absolute; top: 0; left: 0; z-index: calc(10 - var(--k)); width: calc(100% - var(--m) * 7px); transform: translateX(calc(var(--k) * 7px));
   display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); font-size: 14px; }
 .q-card + .q-card { background: var(--surface-2); }

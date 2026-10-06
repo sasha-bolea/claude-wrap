@@ -383,6 +383,8 @@ export const en = {
   moveUp: 'Move up',
   moveDown: 'Move down',
   removeFromQueue: 'Remove from the queue',
+  removeNextQueued: 'Remove the next message: {next}',
+  removedFromQueue: 'Removed from the queue',
   text: 'Text',
   files: 'Files',
   addFilesLabel: 'Add: upload files or a new folder',

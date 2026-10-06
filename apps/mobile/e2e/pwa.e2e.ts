@@ -237,6 +237,22 @@ describe('PWA (fake SDK)', () => {
     await page.locator('.queue-tray').waitFor({ state: 'detached' })
   })
 
+  it('the bin on the queue card removes the next queued message', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'slow')
+    await page.locator('.working-line').waitFor()
+    await composer(page).fill('first queued')
+    await button(page, /^Add to the queue/).click()
+    await composer(page).fill('second queued')
+    await button(page, /^Add to the queue/).click()
+    await page.getByRole('button', { name: /^Queue: 2 waiting\. Next: first queued/ }).waitFor()
+    await button(page, 'Remove the next message: first queued').click()
+    await page.getByRole('button', { name: /^Queue: 1 waiting\. Next: second queued/ }).waitFor()
+    await button(page, 'Remove the next message: second queued').click()
+    await page.locator('.queue-tray').waitFor({ state: 'detached' })
+  })
+
   it('the next queued message counts down in the composer while the chat is on screen; Stop brings it back into the field', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)

@@ -15,24 +15,33 @@ export function pauseWords(meta: TabMeta): string | undefined {
   return t('queuePaused')
 }
 
-// The queue under the composer: a stack of cards (only the first shows its text, one line) and play/pause beside it.
-// A tap on the stack opens the whole queue. Nothing shows while the queue is empty.
+// The queue under the composer: a stack of cards (only the first shows its text, one line, and a bin on its right that
+// removes it) and play/pause beside it. A tap on the stack opens the whole queue. Nothing shows while the queue is empty.
 export function QueueTray({ meta }: { meta: TabMeta }) {
   const { connection, openSheet, announce, fail } = useTouch()
   if (!meta.queue.length) return null
   const shown = meta.queue.slice(0, STACK)
   const paused = Boolean(meta.queuePause)
+  const next = meta.queue[0]!
+  const nextText = next.text || t('imagesOnly', { count: String(next.images ?? 0) })
+  const removeNext = () =>
+    connection.request('tab.unqueue', { tabId: meta.tabId, queueId: next.queueId }).then(() => announce(t('removedFromQueue')), fail)
   const toggle = () =>
     connection.request('tab.queuePause', { tabId: meta.tabId, paused: !paused }).then(() => announce(t(paused ? 'queueResumed' : 'queuePaused')), fail)
   return (
     <div className="queue-tray">
-      <button className="q-stack" aria-label={t('queueStackLabel', { count: String(meta.queue.length), next: meta.queue[0]!.text })} onClick={() => openSheet({ title: t('queue'), body: <QueueSheet tabId={meta.tabId} /> })}>
-        {shown.map((item, index) => (
-          <span key={item.queueId} className={`q-card k${index} m${shown.length - 1}`} aria-hidden="true">
-            {index === 0 && <span className="q-line">{item.text || t('imagesOnly', { count: String(item.images ?? 0) })}</span>}
-          </span>
-        ))}
-      </button>
+      <div className={`q-front m${shown.length - 1}`}>
+        <button className="q-stack" aria-label={t('queueStackLabel', { count: String(meta.queue.length), next: next.text })} onClick={() => openSheet({ title: t('queue'), body: <QueueSheet tabId={meta.tabId} /> })}>
+          {shown.map((item, index) => (
+            <span key={item.queueId} className={`q-card k${index} m${shown.length - 1}`} aria-hidden="true">
+              {index === 0 && <span className="q-line">{nextText}</span>}
+            </span>
+          ))}
+        </button>
+        <button className="icon-btn q-remove" aria-label={t('removeNextQueued', { next: nextText })} onClick={() => void removeNext()}>
+          <Icon name="trash" />
+        </button>
+      </div>
       <button className="icon-btn q-play" aria-label={paused ? `${pauseWords(meta)}: ${t('resume')}` : t('pauseQueue')} onClick={() => void toggle()}>
         <Icon name={paused ? 'play' : 'pause'} />
       </button>

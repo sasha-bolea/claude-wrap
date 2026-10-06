@@ -385,6 +385,8 @@ export const it: Record<MessageKey, string> = {
   moveUp: 'Sposta su',
   moveDown: 'Sposta giù',
   removeFromQueue: 'Togli dalla coda',
+  removeNextQueued: 'Togli il prossimo messaggio: {next}',
+  removedFromQueue: 'Tolto dalla coda',
   text: 'Testo',
   files: 'File',
   addFilesLabel: 'Aggiungi: carica file o nuova cartella',
