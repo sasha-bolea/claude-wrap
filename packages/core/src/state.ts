@@ -33,8 +33,9 @@ export type LivePid = { pid: number; startedAt: number }
 // projects: folders marked as projects (canonical paths). addedFolders: the Home of this PC (desktop); undefined until
 // the first start with a Home, which fills it with the folders of the saved tabs.
 // autoCompactWindow: Claude Code's auto-compact window set from the app for every session (absent: Claude Code's own).
+// defaultEffort, defaultMode: those of new sessions (absent: the model's effort, the 'default' mode).
 // planLimits: the plan windows last read per account ('' = the login), for the composer gauges after a restart.
-export type PersistedState = { version: 1; trustedFolders: string[]; tabs: PersistedTab[]; livePids: LivePid[]; projects: string[]; addedFolders?: string[]; autoCompactWindow?: number; planLimits?: Record<string, { limits?: PlanLimits; readAt: number }> }
+export type PersistedState = { version: 1; trustedFolders: string[]; tabs: PersistedTab[]; livePids: LivePid[]; projects: string[]; addedFolders?: string[]; autoCompactWindow?: number; defaultEffort?: Effort; defaultMode?: PermissionMode; planLimits?: Record<string, { limits?: PlanLimits; readAt: number }> }
 
 const EMPTY: PersistedState = { version: 1, trustedFolders: [], tabs: [], livePids: [], projects: [] }
 // Numbers temp files across every store of this process.

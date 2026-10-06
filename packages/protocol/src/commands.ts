@@ -129,6 +129,10 @@ export const COMMANDS = {
   // Claude Code's auto-compact window for every session (as /autocompact; tokens, clamped by the CLI to the model's
   // window): passed at spawn and applied to live sessions. undefined = Claude Code's own setting applies.
   'settings.setAutoCompactWindow': { args: z.object({ tokens: z.number().int().min(AUTO_COMPACT_WINDOW.min).max(AUTO_COMPACT_WINDOW.max).optional() }), result: empty },
+  // Effort and permission mode of the sessions created from now on (not forks: they keep their source's); a mode or
+  // effort given at creation wins. undefined = the model's effort, the 'default' mode.
+  'settings.setDefaultEffort': { args: z.object({ effort: effortSchema.optional() }), result: empty },
+  'settings.setDefaultMode': { args: z.object({ mode: permissionModeSchema.optional() }), result: empty },
   'tab.refreshGauges': { args: z.object({ tabId }), result: empty },
   // Stored sessions of a folder, or (no cwd) of every folder inside the backend's roots, newest first.
   // rename/delete are refused with session_busy while a tab references the session.

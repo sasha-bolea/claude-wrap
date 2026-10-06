@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import type { Effort, ModelInfo, TabMeta } from '@claude-wrap/protocol'
+import type { Effort, ModelInfo, PermissionMode, TabMeta } from '@claude-wrap/protocol'
 import { t } from '../i18n.ts'
 import type { MessageKey } from '../i18n/en.ts'
 import { MODES, modeLabel } from '../modes.ts'
@@ -16,7 +16,7 @@ const remember = (tabId: string, list: ModelInfo[]) => (models.set(tabId, list),
 export const useModels = (tabId: string) => useSyncExternalStore(subscribe, () => models.get(tabId))
 
 const EFFORT_LABEL: Record<Effort, MessageKey> = { low: 'effortLow', medium: 'effortMedium', high: 'effortHigh', xhigh: 'effortVeryHigh', max: 'effortMax' }
-const effortLabel = (effort: Effort) => t(EFFORT_LABEL[effort])
+export const effortLabel = (effort: Effort) => t(EFFORT_LABEL[effort])
 
 // What the composer's model button says: the model (with its version when known) and the effort, if it has one.
 export function modelLabel(meta: TabMeta, list?: ModelInfo[]): string {
@@ -82,15 +82,21 @@ export function ModeSheet({ tabId }: { tabId: string }) {
   const { state, connection, closeSheet, announce, fail } = useTouch()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
   if (!meta) return null
-  const pick = (mode: TabMeta['mode']) => {
+  const pick = (mode: PermissionMode) => {
     closeSheet()
     connection.request('tab.setMode', { tabId, mode }).then(() => announce(t('announceMode', { mode: t(modeLabel(mode)) })), fail)
   }
+  return <ModeMenu current={meta.mode} onPick={pick} />
+}
+
+// The modes of the CLI as a radio menu, each with its icon.
+// current: the checked mode; onPick: called with the mode tapped.
+export function ModeMenu({ current, onPick }: { current: PermissionMode; onPick: (mode: PermissionMode) => void }) {
   return (
     <ul className="menu" role="radiogroup" aria-label={t('modeTitle')}>
       {MODES.map((mode) => (
         <li key={mode.value}>
-          <button role="radio" aria-checked={mode.value === meta.mode} onClick={() => pick(mode.value)}>
+          <button role="radio" aria-checked={mode.value === current} onClick={() => onPick(mode.value)}>
             <Icon name={modeIcon(mode.value)} />
             {t(mode.label)}
           </button>

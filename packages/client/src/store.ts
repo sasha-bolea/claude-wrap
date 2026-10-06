@@ -1,4 +1,4 @@
-import type { Account, Home, Item, ProtocolError, Request, TabEvent, TabMeta, TabSnapshot, TerminalMeta, Welcome, WorkspaceEvent, WorkspaceSnapshot } from '@claude-wrap/protocol'
+import type { Account, Effort, Home, Item, PermissionMode, ProtocolError, Request, TabEvent, TabMeta, TabSnapshot, TerminalMeta, Welcome, WorkspaceEvent, WorkspaceSnapshot } from '@claude-wrap/protocol'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'offline' | 'incompatible' | 'unauthorized'
 
@@ -20,6 +20,9 @@ export type StoreState = {
   defaultAccount?: string
   // Claude Code's auto-compact window set from the app for every session; undefined = Claude Code's own setting.
   autoCompactWindow?: number
+  // Effort and permission mode of new sessions; undefined = the model's effort, the 'default' mode.
+  defaultEffort?: Effort
+  defaultMode?: PermissionMode
   // The backend's terminals (shared by every client).
   terminals: TerminalMeta[]
   // Transcripts of the subscribed tabs, by tabId.
@@ -47,7 +50,7 @@ export class Store {
   }
 
   applyWorkspaceReset(snapshot: WorkspaceSnapshot): void {
-    this.set({ ...this.state, tabs: snapshot.tabs, home: snapshot.home, projects: snapshot.projects, accounts: snapshot.accounts, defaultAccount: snapshot.defaultAccount, autoCompactWindow: snapshot.autoCompactWindow, terminals: snapshot.terminals })
+    this.set({ ...this.state, tabs: snapshot.tabs, home: snapshot.home, projects: snapshot.projects, accounts: snapshot.accounts, defaultAccount: snapshot.defaultAccount, autoCompactWindow: snapshot.autoCompactWindow, defaultEffort: snapshot.defaultEffort, defaultMode: snapshot.defaultMode, terminals: snapshot.terminals })
   }
 
   applyTabReset(tabId: string, snapshot: TabSnapshot): void {
@@ -71,7 +74,7 @@ export class Store {
     }
     if (ev.type === 'folders.updated') this.set({ ...this.state, home: ev.home, projects: ev.projects })
     if (ev.type === 'accounts.updated') this.set({ ...this.state, accounts: ev.accounts, defaultAccount: ev.defaultAccount })
-    if (ev.type === 'settings.updated') this.set({ ...this.state, autoCompactWindow: ev.autoCompactWindow })
+    if (ev.type === 'settings.updated') this.set({ ...this.state, autoCompactWindow: ev.autoCompactWindow, defaultEffort: ev.defaultEffort, defaultMode: ev.defaultMode })
     const { terminals } = this.state
     if (ev.type === 'terminal.added') this.set({ ...this.state, terminals: [...terminals.filter((one) => one.terminalId !== ev.terminal.terminalId), ev.terminal] })
     if (ev.type === 'terminal.updated') this.set({ ...this.state, terminals: terminals.map((one) => (one.terminalId === ev.terminal.terminalId ? ev.terminal : one)) })

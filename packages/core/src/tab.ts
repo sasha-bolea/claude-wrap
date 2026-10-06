@@ -476,7 +476,12 @@ export class Tab {
     this.model = model
     this.changed()
     if (this.session) await this.session.query.setModel(model).catch((error: unknown) => this.sdkFailure('Model change failed', error))
-    const levels = this.cachedModels?.find((info) => info.value === (model ?? 'default'))?.supportedEffortLevels
+    await this.keepEffortOffered()
+  }
+
+  // Moves the effort to the highest level the model offers below it, when the model (as cached) does not offer it.
+  private async keepEffortOffered(): Promise<void> {
+    const levels = this.cachedModels?.find((info) => info.value === (this.model ?? 'default'))?.supportedEffortLevels
     const effort = fitEffort(this.effort, levels)
     if (effort !== this.effort) await this.setEffort(effort)
   }
@@ -514,11 +519,13 @@ export class Tab {
     }
   }
 
-  // Models offered by the CLI (live session, else cache, else starts the process).
+  // Models offered by the CLI (live session, else cache, else starts the process). Read from the CLI, they fit the
+  // effort to the model (a default effort may be one it does not offer).
   async models(): Promise<ModelInfo[]> {
     if (!this.session && this.cachedModels) return this.cachedModels
     const session = await this.ensureSession()
     this.cachedModels = await session.query.supportedModels()
+    await this.keepEffortOffered()
     return this.cachedModels
   }
 

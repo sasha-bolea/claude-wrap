@@ -140,8 +140,9 @@ export const workspaceEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('notes.changed'), cwd: z.string() }),
   // The accounts or the default one changed (defaultAccount undefined = Claude Code's own login).
   z.object({ type: z.literal('accounts.updated'), accounts: z.array(accountSchema), defaultAccount: z.string().optional() }),
-  // Backend settings for every session changed (autoCompactWindow undefined = Claude Code's own setting).
-  z.object({ type: z.literal('settings.updated'), autoCompactWindow: z.number().int().optional() }),
+  // Backend settings changed, all of them as they now are (autoCompactWindow undefined = Claude Code's own setting;
+  // defaultEffort undefined = the model's; defaultMode undefined = 'default').
+  z.object({ type: z.literal('settings.updated'), autoCompactWindow: z.number().int().optional(), defaultEffort: effortSchema.optional(), defaultMode: permissionModeSchema.optional() }),
   z.object({ type: z.literal('terminal.added'), terminal: terminalMetaSchema }),
   z.object({ type: z.literal('terminal.updated'), terminal: terminalMetaSchema }),
   z.object({ type: z.literal('terminal.removed'), terminalId: z.string() })
@@ -172,6 +173,9 @@ export const workspaceSnapshotSchema = z.object({
   defaultAccount: z.string().optional(),
   // Claude Code's auto-compact window set for every session (tokens); undefined = Claude Code's own setting.
   autoCompactWindow: z.number().int().optional(),
+  // Effort and permission mode of new sessions; undefined = the model's effort, the 'default' mode.
+  defaultEffort: effortSchema.optional(),
+  defaultMode: permissionModeSchema.optional(),
   // Absent from an older backend: none.
   terminals: z.array(terminalMetaSchema).default([])
 })

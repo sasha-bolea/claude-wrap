@@ -127,11 +127,14 @@ describe('tab operations', () => {
     await client.ok('tab.create', { tabId: 't1', cwd, resume: 's1', title: 'Work' })
     await client.ok('tab.create', { tabId: 't9', cwd })
     await client.ok('tab.subscribe', { tabId: 't1' })
+    await client.ok('tab.setEffort', { tabId: 't1', effort: 'low' })
+    await client.ok('settings.setDefaultEffort', { effort: 'high' })
+    await client.ok('settings.setDefaultMode', { mode: 'plan' })
     const { tabId } = await client.ok('tab.fork', { tabId: 't1', newTabId: 't2', upToItemId: 'u2' })
     expect(tabId).toBe('t2')
     expect(tabs(client).map((tab) => tab.tabId)).toEqual(['t1', 't2', 't9'])
     const forked = meta(client, 't2')!
-    expect(forked).toMatchObject({ title: 'Work (fork)', status: 'dormant' })
+    expect(forked).toMatchObject({ title: 'Work (fork)', status: 'dormant', effort: 'low', mode: 'default' })
     expect(forked.sessionId).not.toBe('s1')
     expect(fake.histories.get(forked.sessionId!)!.map((message) => message.uuid)).toEqual(['u1', 'u2'])
 

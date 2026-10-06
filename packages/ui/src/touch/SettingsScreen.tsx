@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import type { Device } from '@claude-wrap/protocol'
+import { EFFORT_LEVELS, type Device, type Effort, type PermissionMode } from '@claude-wrap/protocol'
 import { t } from '../i18n.ts'
+import { modeLabel } from '../modes.ts'
 import { useAvailableUpdate } from '../appUpdate.ts'
 import { AccountsGroup } from './accounts.tsx'
 import { useTouch, type LaterKey, type Touch } from './context.tsx'
 import { Icon } from './icons.tsx'
 import { tokenLabel } from './model.ts'
+import { ModeMenu, effortLabel } from './modelSheets.tsx'
 import { IconButton, Title } from './parts.tsx'
 import { when } from './sessions.tsx'
 
@@ -84,6 +86,7 @@ export function SettingsScreen() {
         <div className="pad settings">
           <AppGroup />
           <AccountsGroup />
+          <NewSessionsGroup />
           <AutoCompactGroup />
           {capabilities.push && <NotificationsGroup />}
           <DevicesGroup />
@@ -179,6 +182,53 @@ function AppGroup() {
       </ul>
     </div>
   )
+}
+
+// Settings → Nuove sessioni: the effort (the model's own, or a level) and the permission mode the sessions started
+// from now on take; open ones keep theirs.
+function NewSessionsGroup() {
+  const { state, connection, openSheet, toast, fail } = useTouch()
+  const mode = state.defaultMode ?? 'default'
+  const pickEffort = (effort: Effort | undefined) =>
+    connection.request('settings.setDefaultEffort', effort ? { effort } : {}).then(() => toast(t('defaultEffortSet', { effort: effort ? effortLabel(effort) : t('defaultEffortModel') })), fail)
+  return (
+    <div className="group">
+      <p className="label">{t('newSessionsTitle')}</p>
+      <ul className="list">
+        <li className="row stacked">
+          <span className="row-title" id="default-effort-label">
+            {t('effort')}
+          </span>
+          <div className="segmented effort" role="radiogroup" aria-labelledby="default-effort-label">
+            {[undefined, ...EFFORT_LEVELS].map((effort) => (
+              <label key={effort ?? 'model'}>
+                <input type="radio" name="default-effort" checked={state.defaultEffort === effort} onChange={() => void pickEffort(effort)} />
+                <span>{effort ? effortLabel(effort) : t('defaultEffortModel')}</span>
+              </label>
+            ))}
+          </div>
+          <span className="row-sub wrap">{t('newSessionsHint')}</span>
+        </li>
+        <li className="row">
+          <button className="row-main" onClick={() => openSheet({ title: t('modeTitle'), body: <DefaultModeSheet /> })}>
+            <span className="row-title">{t('modeTitle')}</span>
+            <span className="row-sub">{t(modeLabel(mode))}</span>
+          </button>
+          <Icon name="chevron" className="chevron" />
+        </li>
+      </ul>
+    </div>
+  )
+}
+
+// The permission mode of new sessions; picking one closes the sheet.
+function DefaultModeSheet() {
+  const { state, connection, closeSheet, toast, fail } = useTouch()
+  const pick = (mode: PermissionMode) => {
+    closeSheet()
+    connection.request('settings.setDefaultMode', mode === 'default' ? {} : { mode }).then(() => toast(t('defaultModeSet', { mode: t(modeLabel(mode)) })), fail)
+  }
+  return <ModeMenu current={state.defaultMode ?? 'default'} onPick={pick} />
 }
 
 // Choices of the auto-compact window (tokens; undefined = Claude Code's own setting).

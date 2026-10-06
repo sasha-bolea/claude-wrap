@@ -33,7 +33,7 @@ async function fork(workspace: Workspace, { tabId, newTabId, upToItemId }: Comma
   const title = `${tab.title} (fork)`
   const upToMessageId = upToItemId ? tab.sourceUuidOf(upToItemId) : undefined
   const { sessionId } = await workspace.sdk.forkSession(tab.sessionId, { dir: tab.cwd, title, upToMessageId })
-  const created = workspace.create({ tabId: newTabId, cwd: tab.cwd, resume: sessionId, title, model: tab.model, mode: tab.mode })
+  const created = workspace.create({ tabId: newTabId, cwd: tab.cwd, resume: sessionId, title, model: tab.model, effort: tab.effort, mode: tab.mode })
   workspace.reorder(created, [...workspace.tabs.keys()].indexOf(tabId) + 1)
   return { tabId: created }
 }
@@ -88,7 +88,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
   // Notes are keyed by the canonical folder; every client hears about a change.
   const notesChanged = (cwd: string) => workspace.stream.emit({ type: 'notes.changed', cwd })
   return {
-    'tab.create': (init) => ({ tabId: workspace.create(init) }),
+    'tab.create': (init) => ({ tabId: workspace.create(workspace.withDefaults(init)) }),
     'tab.close': async ({ tabId }) => (await workspace.close(tabId), {}),
     'tab.rename': async ({ tabId, title }) => (await tabOf(tabId).rename(title), {}),
     'tab.reorder': ({ tabId, index }) => (workspace.reorder(tabId, index), {}),
@@ -147,6 +147,8 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'tab.context': ({ tabId }) => tabOf(tabId).contextUsage(),
     'tab.usage': ({ tabId }) => tabOf(tabId).usage(),
     'settings.setAutoCompactWindow': async ({ tokens }) => (await workspace.setAutoCompactWindow(tokens), {}),
+    'settings.setDefaultEffort': async ({ effort }) => (await workspace.setDefaultEffort(effort), {}),
+    'settings.setDefaultMode': async ({ mode }) => (await workspace.setDefaultMode(mode), {}),
     'tab.refreshGauges': async ({ tabId }) => (await workspace.refreshGauges(tabId), {}),
     'sessions.list': ({ cwd }) => listSessions(workspace, cwd),
     'sessions.rename': async ({ cwd, sessionId, title }) => {
