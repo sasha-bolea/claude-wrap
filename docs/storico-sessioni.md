@@ -2,6 +2,43 @@
 
 _Append-only archive of session entries that left [STATO.md](STATO.md), newest on top._
 
+## 2026-10-06 11:02 — Default effort and permission mode for new sessions (server dev clone)
+A short session in the server dev clone, from the phone. Sasha asked for a default effort and a default permission
+mode in the app's settings; the proposal (five questions with a recommended answer each) was approved as is, with
+every mode selectable and no warning for the risky ones. Tests first, then core, protocol, client and the Settings
+group; pushed over SSH as `cdca724` (deployed by the update timer).
+- **Behaviour:** the defaults apply to sessions created from then on (new and reopened from history); a mode given at
+  creation wins; forks keep their source's effort and mode (the fork used to drop the effort — bug-risolti); an effort
+  the model does not offer moves to its highest level below once the models are read.
+- **Verification:** core tests (2 new, the fork test extended), PWA e2e 40/40 (1 new), desktop e2e 32/32, typecheck.
+  `npm test` also picks up the untracked `.claude/worktrees/palettes` worktree of another session (2 failures there,
+  not in this change).
+- **Decisions archived from STATO (2026-10-04):**
+  | 2026-10-04 | Limits and plan windows belong to the account the process was started with (`processAccount`); a turn that ends in success without a rejection lifts its account's limit | A switch left the old process reporting "CREAaps"'s weekly limit as "personale"'s |
+  | 2026-10-04 | Titles from the CLI: its custom title, or its summary when ≤ 80 chars; a stored session is opened without a fixed title | The CLI's summary fell back to a whole prompt and became a fixed title |
+  | 2026-10-04 | Nothing leaves the screen and text wraps (design-system touch rule 8); `overflow: clip` for anything drawn past an edge | Sasha: "mai nessun elemento possa uscire dallo schermo, testi vanno sempre a capo" |
+  | 2026-10-04 | PWA e2e also on the home server with Playwright's Chromium (`CLAUDE_WRAP_E2E_CHROME`) | The server has no Chrome; screenshots there found a real layout bug |
+  | 2026-10-04 | While a chat is on screen (`client.watch` + visible), its next queued message waits a 5 s countdown in the composer (`TabMeta.queueCountdown`, timer in core) and can be stopped (`tab.queueHold`: back into the field, the rest of the queue paused); otherwise the queue goes at once | Sasha: "un messaggio in coda parte solo dopo 5 secondi di count down … dove io posso fermare" |
+  | 2026-10-04 | An empty queue is never paused (a Stop or ⏸ pause ends when the last message leaves it), except by a usage limit | Sasha: "la coda non può mai essere in pausa quando è vuota tranne quando i token sono finiti" |
+  | 2026-10-04 | Shared browser (a Chromium on the server driven by Claude, seen and touched in the app) designed after C2 and D | Sasha: "teniamo l'ordine" |
+  | 2026-10-04 | A second Claude session in the server dev clone pushes to `main` too; every session pulls before working | Sasha works on claude-wrap from the phone through it |
+  | 2026-10-04 | Accounts can be renamed (token kept) | Sasha: "posso dare un nome ai token?" |
+
+### Cambiamenti al codice
+- `packages/protocol/src/commands.ts`: `settings.setDefaultEffort {effort?}`, `settings.setDefaultMode {mode?}`.
+- `packages/protocol/src/model.ts`: `settings.updated` carries every backend setting (+ `defaultEffort`,
+  `defaultMode`); workspace snapshot `defaultEffort`, `defaultMode`.
+- `packages/core/src/state.ts`: `PersistedState.defaultEffort`, `defaultMode`.
+- `packages/core/src/workspace.ts`: `setDefaultEffort`, `setDefaultMode`, `withDefaults`, `announceSettings`
+  (also used by `setAutoCompactWindow`); snapshot fields.
+- `packages/core/src/commands.ts`: `tab.create` through `withDefaults`; fork passes `effort`; the two handlers.
+- `packages/core/src/tab.ts`: `keepEffortOffered` (from `setModel`), also run by `models()` after reading the CLI.
+- `packages/client/src/store.ts`: `defaultEffort`, `defaultMode` from snapshot and `settings.updated`.
+- `packages/ui/src/touch/SettingsScreen.tsx`: `NewSessionsGroup`, `DefaultModeSheet`;
+  `touch/modelSheets.tsx`: `ModeMenu` (shared with `ModeSheet`), `effortLabel` exported; i18n en + it.
+- Tests: `core.test.ts` (+2), `workspace.test.ts` (fork), `apps/mobile/e2e/pwa.e2e.ts` (+1).
+- Docs: `design-system.md` (Settings → new sessions), `architettura.md` (commands), `bug-risolti.md` (fork effort).
+
 ## 2026-10-05 19:03 — C2 done: the desktop on the touch app (phone session)
 Same phone session as the 2026-10-04 entry, in the server dev clone. After the buonanotte of 2026-10-04 it showed the
 palettes (screenshots: the session cannot make artifacts), took the terminal into the backlog after C2 (Sasha), saw

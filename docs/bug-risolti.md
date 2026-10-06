@@ -361,3 +361,11 @@ These were solved in the first attempt. Files refer to that repository. Each ent
 - **Fix:** `.segmented.backend-choices` (flex, options `flex: 1 1 0`).
 - **Files:** `packages/ui/src/touch.css`.
 - **Rule:** a variant of a shared element is written with both classes, so its order in the stylesheet does not matter.
+
+### 2026-10-06 — A forked session lost its effort
+- **Symptom:** "Fork" copied a session with its model and mode but the copy started at the model's default effort.
+- **Cause:** `fork` in `core/src/commands.ts` built the new tab with `model` and `mode` only; `effort` (added in
+  sub-phase B) was never added there.
+- **Fix:** the fork passes `effort: tab.effort` too; the workspace fork test now checks effort and mode.
+- **Files:** `packages/core/src/commands.ts`, `packages/core/src/workspace.test.ts`.
+- **Rule:** a new per-tab setting is checked in every place that creates a tab (`tab.create`, fork, restore).
