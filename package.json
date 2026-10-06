@@ -14,6 +14,7 @@
     "start:server": "npm run build -w @athome/mobile && node packages/server/src/main.ts",
     "start:desktop": "npm run start -w @athome/desktop",
     "probe": "node packages/core/scripts/probe.ts",
+    "probe:browser-mcp": "node packages/core/scripts/probe-browser-mcp.ts",
     "chat": "node packages/core/scripts/chat.ts",
     "smoke:composer": "node packages/core/scripts/smoke-composer.ts",
     "e2e": "npm run build -w @athome/desktop && vitest run --config apps/desktop/vitest.e2e.config.ts",

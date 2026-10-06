@@ -483,6 +483,7 @@ export class Workspace {
       planLimitsDue: (account) => this.planLimitsDue(account),
       setPlanLimits: (account, limits) => this.setPlanLimits(account, limits),
       accountToken: (account) => this.accounts.token(account),
+      browser: this.browser,
       processStarted: (pid, startedAt) => this.trackProcess(pid, startedAt),
       processExited: (pid) => this.trackProcess(pid)
     }

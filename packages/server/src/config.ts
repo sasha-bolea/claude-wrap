@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // Server settings from the environment (systemd EnvironmentFile on the home server, not in the repo):
@@ -25,7 +26,7 @@ export type ServerConfig = {
   staticDir: string
   fakeSdk: boolean
   // Absent when no Chromium is found: the browser is off.
-  browser?: { port: number; executable: string; profileDir: string }
+  browser?: { port: number; executable: string; profileDir: string; mcp?: { command: string; args: string[] } }
 }
 
 // Reads the configuration; throws with a readable message when the root is missing.
@@ -52,7 +53,22 @@ function browserConfig(env: NodeJS.ProcessEnv, stateDir: string): ServerConfig['
   if (!existsSync(executable)) return undefined
   const profileDir = join(stateDir, 'browser', 'profile')
   mkdirSync(profileDir, { recursive: true, mode: 0o700 })
-  return { port: Number(env.CLAUDE_WRAP_BROWSER_PORT ?? 3013), executable, profileDir }
+  const port = Number(env.CLAUDE_WRAP_BROWSER_PORT ?? 3013)
+  return { port, executable, profileDir, mcp: playwrightMcp(port) }
+}
+
+// The command that runs Playwright MCP attached to the shared Chromium over CDP (its default context, so Claude and
+// Sasha's live view share tabs and logins): this Node on the package's CLI. Undefined when the package is missing.
+export function playwrightMcp(port: number): { command: string; args: string[] } | undefined {
+  try {
+    const manifest = createRequire(import.meta.url).resolve('@playwright/mcp/package.json')
+    const bin = (JSON.parse(readFileSync(manifest, 'utf8')) as { bin?: string | Record<string, string> }).bin
+    const entry = typeof bin === 'string' ? bin : Object.values(bin ?? {})[0]
+    if (!entry) return undefined
+    return { command: process.execPath, args: [join(dirname(manifest), entry), '--headless', '--browser', 'chromium', '--cdp-endpoint', `http://127.0.0.1:${port}`] }
+  } catch {
+    return undefined
+  }
 }
 
 // Origins and Host values a request may carry: the public URL, the desktop app, and the local address.

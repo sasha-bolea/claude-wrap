@@ -16,6 +16,8 @@ export type BrowserSettings = {
   launch?: (args: string[]) => BrowserProcess
   connect?: (port: number) => Promise<CdpTransport>
   idleMs?: number
+  // The Playwright MCP command sessions run to drive this same Chromium (args end with --cdp-endpoint). Absent: none.
+  mcp?: { command: string; args: string[] }
 }
 export type BrowserProcess = { kill(): void; exited: Promise<void> }
 
@@ -84,6 +86,8 @@ export class BrowserHost {
   private frameSeq = 0
   private pressed?: string
   private acting: BrowserSnapshot['acting'] = []
+  // Calls in progress per chat (parallel and nested tool calls): the chat is acting while the count is above zero.
+  private readonly actingCalls = new Map<string, { title: string; calls: number }>()
   private idleTimer?: NodeJS.Timeout
 
   // settings: how to run Chromium (launch/connect are replaced in tests).
@@ -124,6 +128,33 @@ export class BrowserHost {
   setActing(sessions: BrowserSnapshot['acting']): void {
     this.acting = sessions
     this.stream.emit({ type: 'browser.acting', sessions })
+  }
+
+  // The MCP server command for sessions, if configured.
+  get mcp(): BrowserSettings['mcp'] {
+    return this.settings.mcp
+  }
+
+  // A tool call of this chat's Claude begins in the browser; calls overlap, so they are counted.
+  startActing(tabId: string, title: string): void {
+    const entry = this.actingCalls.get(tabId)
+    this.actingCalls.set(tabId, { title, calls: (entry?.calls ?? 0) + 1 })
+    this.publishActing()
+  }
+
+  // One tool call of the chat ended (or the chat ended: all = true clears every call of it).
+  stopActing(tabId: string, all = false): void {
+    const entry = this.actingCalls.get(tabId)
+    if (!entry) return
+    if (all || entry.calls <= 1) this.actingCalls.delete(tabId)
+    else entry.calls -= 1
+    this.publishActing()
+  }
+
+  // Emits the acting list when it changed.
+  private publishActing(): void {
+    const sessions = [...this.actingCalls].map(([tabId, { title }]) => ({ tabId, title }))
+    if (JSON.stringify(sessions) !== JSON.stringify(this.acting)) this.setActing(sessions)
   }
 
   // Core is shutting down: Chromium ends.
