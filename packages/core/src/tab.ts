@@ -230,6 +230,7 @@ export class Tab {
   private readonly requests: Requests
   private readonly env: TabEnvironment
   private session?: Session
+  private browserUnsub?: () => void
   private startPromise?: Promise<Session>
   private historyPromise?: Promise<void>
   private closePromise?: Promise<void>
@@ -501,6 +502,7 @@ export class Tab {
     if (!session) return
     this.endIncoming()
     this.session = undefined
+    this.unwatchBrowser()
     this.env.browser?.stopActing(this.tabId, true)
     this.turnRunning = false
     this.held.clear()
@@ -842,6 +844,7 @@ export class Tab {
       this.changed()
       this.requests.denyAll('Session closed')
       await this.startPromise?.catch(() => undefined)
+      this.unwatchBrowser()
       await this.session?.close(this.env.closeTimeoutMs)
       this.env.browser?.stopActing(this.tabId, true)
       this.transcript.dispose()
@@ -909,6 +912,7 @@ export class Tab {
         processExited: (pid) => this.env.processExited(pid)
       })
       this.session = session
+      this.watchBrowser(session)
       this.liveStarted = true
       void session.exited.then((error) => this.onExit(session, error))
       this.lifecycle = 'live'
@@ -969,6 +973,25 @@ export class Tab {
         PostToolUseFailure: [...(this.env.sdkOptions.hooks?.PostToolUseFailure ?? []), ...hooks(after)]
       }
     }
+  }
+
+  // While the session's process lives with the browser MCP attached: when the shared Chromium stops, the MCP server
+  // is reconnected (its old connection to Chromium is dead and would keep answering ECONNREFUSED). It connects again
+  // lazily on the next tool call, after the PreToolUse hook has started Chromium. Failures are only logged.
+  private watchBrowser(session: Session): void {
+    this.unwatchBrowser()
+    const browser = this.env.browser
+    if (!browser?.mcp) return
+    this.browserUnsub = browser.onStopped(() => {
+      const query = session.query as unknown as { reconnectMcpServer(name: string): Promise<void> }
+      void query.reconnectMcpServer(BROWSER_MCP_NAME).catch((error: unknown) => console.warn(`[tab ${this.tabId}] browser MCP reconnect failed: ${messageOf(error)}`))
+    })
+  }
+
+  // Stops watching the browser (the process ended or the tab closes).
+  private unwatchBrowser(): void {
+    this.browserUnsub?.()
+    this.browserUnsub = undefined
   }
 
   // Starts a turn with a message (starting the session if needed).
@@ -1208,6 +1231,7 @@ export class Tab {
     if (this.session !== session) return
     this.endIncoming()
     this.session = undefined
+    this.unwatchBrowser()
     this.env.browser?.stopActing(this.tabId, true)
     this.turnRunning = false
     this.held.clear()

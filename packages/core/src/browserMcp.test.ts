@@ -4,11 +4,11 @@
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { browserStream, type BrowserEvent } from '@athome/protocol'
 import type { HookCallback, HookInput } from '@anthropic-ai/claude-agent-sdk'
 import { createCore, type Core, type CoreConfig } from './core.ts'
-import { createFakeCdp } from './testing/fakeCdp.ts'
+import { createFakeCdp, type FakeCdp } from './testing/fakeCdp.ts'
 import { createFakeSdk, type FakeSdk } from './testing/fakeQuery.ts'
 import { RawClient } from './testing/rawClient.ts'
 
@@ -16,9 +16,10 @@ const MCP = { command: '/usr/bin/node', args: ['/x/cli.js', '--headless', '--cdp
 let core: Core | undefined
 let client: RawClient | undefined
 let launched = 0
+let cdps: FakeCdp[] = []
 
 // A core on the fake SDK with a tab 't1' ("Chat") and a trusted folder; mcp: the browser's MCP command.
-async function setup(withBrowser: boolean, withMcp = true) {
+async function setup(withBrowser: boolean, withMcp = true, idleMs?: number) {
   const sdk: FakeSdk = createFakeSdk()
   const cwd = join(mkdtempSync(join(tmpdir(), 'cw-bmcp-')), 'p')
   mkdirSync(cwd)
@@ -26,7 +27,12 @@ async function setup(withBrowser: boolean, withMcp = true) {
     ? {
         port: 3013, executable: '/fake/chrome', profileDir: '/fake/profile', ...(withMcp ? { mcp: MCP } : {}),
         launch: () => (launched++, { kill: () => {}, exited: new Promise<void>(() => {}) }),
-        connect: async () => createFakeCdp().transport
+        idleMs,
+        connect: async () => {
+          const cdp = createFakeCdp()
+          cdps.push(cdp)
+          return cdp.transport
+        }
       }
     : undefined
   core = createCore({ backendId: 'test', backendKind: 'remote', sdk, coalesceMs: 2, browser })
@@ -50,6 +56,7 @@ afterEach(async () => {
   await core?.closeAll()
   core = client = undefined
   launched = 0
+  cdps = []
 })
 
 describe('session options', () => {
@@ -105,5 +112,58 @@ describe('acting', () => {
     await client.ok('tab.close', { tabId: 't1' })
     await client.waitFor(() => acting(client).at(-1)?.length === 0)
     expect(acting(client)).toEqual([['Chat'], []])
+  })
+})
+
+describe('Chromium stops', () => {
+  const reconnects = (sdk: FakeSdk) => sdk.sessions[0]!.calls.filter((call) => call.method === 'reconnectMcpServer')
+
+  it('an idle close makes a live session reconnect its playwright MCP', async () => {
+    const { sdk } = await setup(true, true, 30)
+    await fire(sdk, 'PreToolUse')
+    await vi.waitFor(() => expect(reconnects(sdk)).toEqual([{ method: 'reconnectMcpServer', args: ['playwright'] }]))
+  })
+
+  it('an unexpected CDP close does too, once per stop', async () => {
+    const { sdk } = await setup(true)
+    await fire(sdk, 'PreToolUse')
+    cdps.at(-1)!.closeFromBrowser()
+    await vi.waitFor(() => expect(reconnects(sdk)).toHaveLength(1))
+    await fire(sdk, 'PreToolUse')
+    cdps.at(-1)!.closeFromBrowser()
+    await vi.waitFor(() => expect(reconnects(sdk)).toHaveLength(2))
+  })
+
+  it('a failing reconnect is only logged', async () => {
+    const { sdk } = await setup(true)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    sdk.sessions[0]!.rejectNext = new Error('boom')
+    await fire(sdk, 'PreToolUse')
+    cdps.at(-1)!.closeFromBrowser()
+    await vi.waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining('boom')))
+    warn.mockRestore()
+  })
+
+  it('a session without the browser MCP gets nothing', async () => {
+    const { sdk } = await setup(true, false)
+    expect(sdk.sessions[0]!.calls.some((call) => call.method === 'reconnectMcpServer')).toBe(false)
+    expect(launched).toBe(0)
+  })
+
+  it('a released or closed session gets nothing', async () => {
+    const { sdk, client } = await setup(true)
+    await fire(sdk, 'PreToolUse')
+    await client.ok('tab.close', { tabId: 't1' })
+    cdps.at(-1)!.closeFromBrowser()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(reconnects(sdk)).toHaveLength(0)
+  })
+
+  it('core shutdown does not reconnect anything', async () => {
+    const { sdk } = await setup(true)
+    await fire(sdk, 'PreToolUse')
+    await core!.closeAll()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(reconnects(sdk)).toHaveLength(0)
   })
 })

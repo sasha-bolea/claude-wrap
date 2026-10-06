@@ -21,7 +21,8 @@
     "e2e:mobile": "npm run build -w @athome/mobile && vitest run --config apps/mobile/vitest.e2e.config.ts",
     "smoke:accounts": "node packages/core/scripts/smoke-accounts.ts",
     "smoke:usage": "node packages/core/scripts/smoke-usage.ts",
-    "smoke:rewind": "node packages/core/scripts/smoke-rewind.ts"
+    "smoke:rewind": "node packages/core/scripts/smoke-rewind.ts",
+    "smoke:browser": "node packages/core/scripts/smoke-browser.ts"
   },
   "devDependencies": {
     "@types/node": "^24.19.1",

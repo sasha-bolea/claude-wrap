@@ -16,6 +16,8 @@ export type BrowserSettings = {
   launch?: (args: string[]) => BrowserProcess
   connect?: (port: number) => Promise<CdpTransport>
   idleMs?: number
+  // How often tab titles are re-read while someone watches (Chromium does not announce title changes). Default 1000.
+  pollMs?: number
   // The Playwright MCP command sessions run to drive this same Chromium (args end with --cdp-endpoint). Absent: none.
   mcp?: { command: string; args: string[] }
 }
@@ -29,6 +31,7 @@ const RING: RingLimits = { events: 8, bytes: 1024 * 1024 }
 const DEFAULT_SIZE = { width: 1280, height: 800 }
 const JPEG_QUALITY = 60
 const KILL_GRACE_MS = 3000
+const POLL_MS = 1000
 
 type Tab = BrowserSnapshot['tabs'][number]
 type Frame = Extract<BrowserEvent, { type: 'browser.frame' }>
@@ -89,6 +92,8 @@ export class BrowserHost {
   // Calls in progress per chat (parallel and nested tool calls): the chat is acting while the count is above zero.
   private readonly actingCalls = new Map<string, { title: string; calls: number }>()
   private idleTimer?: NodeJS.Timeout
+  private pollTimer?: NodeJS.Timeout
+  private readonly stoppedListeners = new Set<() => void>()
 
   // settings: how to run Chromium (launch/connect are replaced in tests).
   constructor(settings: BrowserSettings) {
@@ -111,6 +116,7 @@ export class BrowserHost {
   // and the screencast runs while anyone watches.
   async subscribe(send: Send, position?: StreamPosition): Promise<void> {
     await this.ensure()
+    await this.refreshTargets(true)
     this.subscribers.add(send)
     this.stream.attach(send, position)
     await this.sync()
@@ -128,6 +134,14 @@ export class BrowserHost {
   setActing(sessions: BrowserSnapshot['acting']): void {
     this.acting = sessions
     this.stream.emit({ type: 'browser.acting', sessions })
+  }
+
+  // Calls listener whenever Chromium stops on its own side (idle close, crash, lost connection), not at core shutdown.
+  // Sessions use it to reconnect their MCP server, which keeps a dead connection to the old Chromium. Returns the
+  // function that removes the listener.
+  onStopped(listener: () => void): () => void {
+    this.stoppedListeners.add(listener)
+    return () => void this.stoppedListeners.delete(listener)
   }
 
   // The MCP server command for sessions, if configured.
@@ -258,8 +272,20 @@ export class BrowserHost {
       throw new CoreError('internal', `the browser did not start: ${messageOf(error)}`)
     }
     this.running = true
+    this.pollTimer = setInterval(() => void this.refreshTargets(), this.settings.pollMs ?? POLL_MS)
+    this.pollTimer.unref()
     this.emitTabs()
     this.markUse()
+  }
+
+  // Re-reads the open pages: Chromium sends no targetInfoChanged for a title that changes after the load, so a view
+  // would keep the URL as the title. Only while someone watches (and once when a client subscribes); failures ignored.
+  private async refreshTargets(force = false): Promise<void> {
+    const client = this.cdp
+    if (!client || !this.running || (this.subscribers.size === 0 && !force)) return
+    const result = await client.send<{ targetInfos?: TargetInfo[] }>('Target.getTargets', {}).catch(() => undefined)
+    if (this.cdp !== client) return
+    for (const info of result?.targetInfos ?? []) if (this.targets.has(info.targetId)) this.addTarget(info)
   }
 
   // Listens for targets and frames, denies downloads, and learns the tabs already open.
@@ -282,6 +308,7 @@ export class BrowserHost {
   // Ends Chromium and forgets everything about it. notify: tell the clients (not at core shutdown).
   private shutdown(notify: boolean): void {
     clearTimeout(this.idleTimer)
+    clearInterval(this.pollTimer)
     clearTimeout(this.frameTimer)
     this.frameTimer = this.pendingFrame = this.lastFrame = undefined
     const client = this.cdp
@@ -293,7 +320,16 @@ export class BrowserHost {
     this.running = false
     client?.close()
     proc?.kill()
-    if (notify && wasRunning) this.emitTabs()
+    if (notify && wasRunning) {
+      this.emitTabs()
+      for (const listener of [...this.stoppedListeners]) {
+        try {
+          listener()
+        } catch {
+          /* a listener must not break the shutdown */
+        }
+      }
+    }
   }
 
   // Counts as use: the idle clock restarts, and runs only while nobody watches.
