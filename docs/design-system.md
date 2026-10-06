@@ -141,13 +141,15 @@ Examples: [parts.tsx:56](../packages/ui/src/touch/parts.tsx#L56), [FilesScreen.t
 ### Bottom sheet — `.scrim`, `.sheet` (`.instant`), `.sheet-head`, `.menu` (`.right`, `.danger`, `role="radio"`), `.two-buttons`
 `SheetHost` renders the stack of sheets (rule 2). `.menu`: 50 px rows, `.right` for the current value or a hint,
 `.danger` for closing/deleting actions, `role="radio"` + `aria-checked` for a choice. `.two-buttons`: Cancel and the
-action of a confirmation.
-Examples: [SheetHost.tsx:49](../packages/ui/src/touch/SheetHost.tsx#L49), [ChatScreen.tsx:350](../packages/ui/src/touch/ChatScreen.tsx#L350), [HomeScreen.tsx:277](../packages/ui/src/touch/HomeScreen.tsx#L277).
+action of a confirmation. A folder's menu starts a session in one tap ("Nuova sessione qui") or with a name ("Nuova
+sessione con nome…": a sheet with the name `.field` and Crea): the name is the tab's title and the session's name for
+the other sessions (e.g. `op-ui`), kept; without one the tab takes the title the CLI gives after the first prompt.
+Examples: [SheetHost.tsx:49](../packages/ui/src/touch/SheetHost.tsx#L49), [ChatScreen.tsx:350](../packages/ui/src/touch/ChatScreen.tsx#L350), [HomeScreen.tsx:298](../packages/ui/src/touch/HomeScreen.tsx#L298), [HomeScreen.tsx:252](../packages/ui/src/touch/HomeScreen.tsx#L252).
 
 ### Buttons and fields — `.button` (`.primary`, `.danger`, `.block`), `.link-btn`, `.field` (`.mono`), `.check-row`, `.segmented` (`.effort`, `.cols-N`), `.toggle-input`
 Same roles as on the desktop; `.link-btn`: the light text actions under a list ("Sessioni passate · + Nuova
 sessione"); `.segmented`: a radio group as one control (effort levels — `.cols-N` for N levels).
-Examples: [HomeScreen.tsx:166](../packages/ui/src/touch/HomeScreen.tsx#L166), [HomeScreen.tsx:314](../packages/ui/src/touch/HomeScreen.tsx#L314), [SettingsScreen.tsx:167](../packages/ui/src/touch/SettingsScreen.tsx#L167), [modelSheets.tsx:66](../packages/ui/src/touch/modelSheets.tsx#L66).
+Examples: [HomeScreen.tsx:166](../packages/ui/src/touch/HomeScreen.tsx#L166), [HomeScreen.tsx:335](../packages/ui/src/touch/HomeScreen.tsx#L335), [SettingsScreen.tsx:167](../packages/ui/src/touch/SettingsScreen.tsx#L167), [modelSheets.tsx:66](../packages/ui/src/touch/modelSheets.tsx#L66).
 
 ### Cards, chips, badges — `.card` (`.compact`, `.bad`), `.chip` (`.changed`), `.badge` (`.waiting`, `.working`, `.error`)
 `.card`: a framed block (session info in the menu, error and trust notices, the 🔜 placeholder). `.chip`: small

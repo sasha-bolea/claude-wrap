@@ -2,10 +2,11 @@
 // runs palette commands and reports what each one shows, sends an image and checks the model sees it, runs a `!`
 // command and checks it starts no turn but reaches the model, sends a message while a tool runs and checks it is read
 // in the same turn, presses "Invia ora" on a message waiting during a long tool and checks Claude reads it at once,
-// applies an effort level, and reopens the stored session to check its history.
+// applies an effort level, checks the session's name for the other sessions follows the tab's title (after the first
+// prompt, then a rename), and reopens the stored session to check its history.
 // Works in a temp folder and deletes the sessions after. Runs directly on Node 24 (type stripping).
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { crc32, deflateSync } from 'node:zlib'
 import { deleteSession } from '@anthropic-ai/claude-agent-sdk'
@@ -183,6 +184,40 @@ async function checkEffort(): Promise<void> {
   if (!added.some((item) => item.kind === 'assistantText')) problems.push('no answer after the effort change')
 }
 
+// The name the running CLI of a session registered for the other sessions (ListAgents), from <config>/sessions.
+function registeredName(sessionId: string): string | undefined {
+  const dir = join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'sessions')
+  for (const file of readdirSync(dir).filter((name) => name.endsWith('.json'))) {
+    try {
+      const entry = JSON.parse(readFileSync(join(dir, file), 'utf8')) as { sessionId?: string; name?: string }
+      if (entry.sessionId === sessionId) return entry.name
+    } catch {
+      // an entry being rewritten: read again at the next poll
+    }
+  }
+  return undefined
+}
+
+// Resolves true once condition holds (polled every 250 ms), false after timeoutMs.
+async function eventually(condition: () => boolean, timeoutMs = 15_000): Promise<boolean> {
+  for (const end = Date.now() + timeoutMs; Date.now() < end; await new Promise((resolve) => setTimeout(resolve, 250))) if (condition()) return true
+  return condition()
+}
+
+// The session's name for the other sessions is the tab's title: the one it took after the first prompt (the CLI
+// started with CLAUDE_CODE_SESSION_NAME, then rename_session), then the name the user gives.
+async function checkSessionName(): Promise<void> {
+  const sessionId = meta()?.sessionId
+  if (!sessionId) return void problems.push('no session id for the name check')
+  const followed = await eventually(() => registeredName(sessionId) === meta()?.title)
+  console.log(`> session name: "${registeredName(sessionId)}", tab title "${meta()?.title}"`)
+  if (!followed) problems.push('the session name is not the tab title')
+  await connection.request('tab.rename', { tabId: TAB_ID, title: 'smoke-renamed' })
+  const renamed = await eventually(() => registeredName(sessionId) === 'smoke-renamed')
+  console.log(`> after rename: "${registeredName(sessionId)}"`)
+  if (!renamed) problems.push('renaming the tab did not rename the live session')
+}
+
 // Sub-phase B: the stored session, opened again in a new core, shows the message read mid-turn once, in its place.
 async function checkHistory(sessionId: string): Promise<void> {
   const fresh = createCore({ backendId: 'smoke-history', backendKind: 'local' })
@@ -215,13 +250,14 @@ async function main(): Promise<void> {
   await checkMidTurn()
   await checkSendNow()
   await checkEffort()
+  await checkSessionName()
   const sessionId = meta()?.sessionId
   await core.closeAll()
   connection.close()
   if (sessionId) await checkHistory(sessionId)
   for (const id of sessions) await deleteSession(id, { dir: cwd }).catch(() => undefined)
   rmSync(cwd, { recursive: true, force: true })
-  console.log(problems.length ? `\nPROBLEMS:\n- ${problems.join('\n- ')}` : '\nOK: commands visible, image seen, shell without a turn and seen, mid-turn message read, effort applied, history right')
+  console.log(problems.length ? `\nPROBLEMS:\n- ${problems.join('\n- ')}` : '\nOK: commands visible, image seen, shell without a turn and seen, mid-turn message read, effort applied, session name follows the tab, history right')
   process.exitCode = problems.length ? 1 : 0
 }
 

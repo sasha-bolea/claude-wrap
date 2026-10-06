@@ -205,8 +205,23 @@ export function HomeScreen({ view: asked }: { view?: View }) {
   )
 }
 
-// Menu of a folder: open, a new session there, its saved sessions, project mark, delete (this PC: take it off the
-// list, files stay).
+// "Nuova sessione con nome…": the name other sessions find it by (e.g. op-ui for the capo's operai), kept on the tab.
+function NamedSessionSheet({ cwd }: { cwd: string }) {
+  const startSession = useStartSession()
+  const [name, setName] = useState('')
+  const create = () => name.trim() && startSession(cwd, name.trim())
+  return (
+    <>
+      <input className="field" aria-label={t('sessionName')} placeholder={t('sessionNamePlaceholder')} autoComplete="off" autoCapitalize="off" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && create()} />
+      <button className="button primary block" disabled={!name.trim()} onClick={create}>
+        {t('create')}
+      </button>
+    </>
+  )
+}
+
+// Menu of a folder: open, a new session there (also with a name), its saved sessions, project mark, delete (this
+// PC: take it off the list, files stay).
 function FolderMenu({ entry, onEnter, onChanged }: { entry: FolderEntry; onEnter: (path: string) => void; onChanged: () => void }) {
   const { state, connection, go, openSheet, closeSheets, toast, fail } = useTouch()
   const startSession = useStartSession()
@@ -231,6 +246,12 @@ function FolderMenu({ entry, onEnter, onChanged }: { entry: FolderEntry; onEnter
         <button onClick={() => void startSession(entry.path)}>
           <Icon name="plus" />
           {t('newSessionHere')}
+        </button>
+      </li>
+      <li>
+        <button onClick={() => openSheet({ title: t('newNamedSession'), field: true, body: <NamedSessionSheet cwd={entry.path} /> })}>
+          <Icon name="plus" />
+          {t('newNamedSession')}
         </button>
       </li>
       <li>

@@ -80,6 +80,17 @@ async function startedTab(args: object = {}) {
   return fake.last()
 }
 
+// The rename_session control requests a session received (the session's name for the other sessions).
+function renames(session: ReturnType<FakeSdk['last']>): object[] {
+  return session.calls.filter((call) => call.method === 'request').map((call) => call.args[0] as { subtype?: string }).filter((request) => request.subtype === 'rename_session')
+}
+
+// Waits until a condition holds (polled, 2 s at most).
+async function until(condition: () => boolean): Promise<void> {
+  for (let i = 0; i < 100 && !condition(); i++) await tick()
+  expect(condition()).toBe(true)
+}
+
 beforeEach(async () => {
   fake = createFakeSdk()
   core = makeCore()
@@ -146,40 +157,71 @@ describe('tabs and lazy start', () => {
     expect((client.lastReset(WORKSPACE_STREAM)!.snapshot as { tabs: TabMeta[] }).tabs.map((tab) => tab.tabId)).toEqual(['used'])
   })
 
-  it("the title follows the CLI's own title of the session, until the user gives the tab one", async () => {
+  // The session's name (what other sessions see) is the tab's title, like the Claude app: the title the CLI generates
+  // after the first prompt, or the name the user gives, which then stays.
+  it("the tab and its session take the CLI's generated title after the first prompt; a name the user gives stays, on the tab and on the live session", async () => {
     const session = await startedTab()
+    expect(session.options.env?.CLAUDE_CODE_SESSION_NAME).toBe('demo')
     session.emit(sdk.init('s-titled'))
-    fake.histories.set('s-titled', [stored.user('u1', 'Fix the login page')])
+    fake.histories.set('s-titled', [stored.user('u1', 'Please fix the login page of the app')])
+    fake.infos.set('s-titled', { lastModified: 1, aiTitle: 'Fix login page' })
     session.emit(sdk.success())
-    await client.waitFor(() => meta(client)?.title === 'Fix the login page')
-    await client.ok('tab.rename', { tabId: 't1', title: 'Mine' })
-    // The CLI's title changes afterwards (the custom title the rename stored is gone too): the tab keeps its name.
-    fake.histories.set('s-titled', [stored.user('u1', 'Something else')])
-    fake.infos.delete('s-titled')
+    await client.waitFor(() => meta(client)?.title === 'Fix login page')
+    await until(() => renames(session).length === 1)
+    expect(renames(session)).toEqual([{ subtype: 'rename_session', title: 'Fix login page', source: 'remote' }])
+    await client.ok('tab.rename', { tabId: 't1', title: 'op-ui' })
+    expect(renames(session).at(-1)).toEqual({ subtype: 'rename_session', title: 'op-ui', source: 'host' })
+    // The CLI's title changes afterwards: the tab keeps its name.
+    fake.infos.set('s-titled', { lastModified: 2, aiTitle: 'Something else' })
     await client.ok('tab.send', { tabId: 't1', text: 'again' }, cmd(2))
     await session.waitForInput(2)
     session.emit(sdk.success())
     await tick()
     await tick()
-    expect(meta(client)?.title).toBe('Mine')
+    expect(meta(client)?.title).toBe('op-ui')
+    expect(renames(session)).toHaveLength(2)
   })
 
-  it("a CLI summary longer than a title (a prompt it fell back to) is not adopted; a stored session opened from the list follows the CLI's title", async () => {
+  it("without a generated title the tab takes the first 3 words of the first prompt; a stored session opened from the list takes the CLI's title", async () => {
     const session = await startedTab()
     session.emit(sdk.init('s-long'))
-    fake.histories.set('s-long', [stored.user('u1', 'Short title')])
+    fake.histories.set('s-long', [stored.user('u1', 'Please   refactor the whole settings screen, '.repeat(4))])
     session.emit(sdk.success())
-    await client.waitFor(() => meta(client)?.title === 'Short title')
-    fake.histories.set('s-long', [stored.user('u1', 'A very long prompt that goes on '.repeat(5))])
-    await client.ok('tab.send', { tabId: 't1', text: 'again' }, cmd(2))
-    await session.waitForInput(2)
-    session.emit(sdk.success())
-    await tick()
-    await tick()
-    expect(meta(client)?.title).toBe('Short title')
+    await client.waitFor(() => meta(client)?.title === 'Please refactor the')
+    await until(() => renames(session).length === 1)
+    expect(renames(session)[0]).toMatchObject({ title: 'Please refactor the' })
     fake.histories.set('s-stored', [stored.user('u2', 'Stored one')])
+    fake.infos.set('s-stored', { lastModified: 1, aiTitle: 'Stored title' })
     await client.ok('tab.create', { tabId: 't2', cwd: CWD, resume: 's-stored' })
-    await client.waitFor(() => meta(client, 't2')?.title === 'Stored one')
+    await client.waitFor(() => meta(client, 't2')?.title === 'Stored title')
+  })
+
+  it('a session that refuses the rename keeps working: the automatic name stays quiet, a rename by the user reports it', async () => {
+    const session = await startedTab()
+    session.refusedRequests.add('rename_session')
+    session.emit(sdk.init('s-refused'))
+    fake.histories.set('s-refused', [stored.user('u1', 'Tidy the docs folder')])
+    session.emit(sdk.success())
+    await client.waitFor(() => meta(client)?.title === 'Tidy the docs')
+    await until(() => renames(session).length === 1)
+    await tick()
+    expect(items(client).filter((item) => item.kind === 'notice')).toEqual([])
+    expect(meta(client)?.status).toBe('idle')
+    expect(await client.fails('tab.rename', { tabId: 't1', title: 'op-docs' })).toMatchObject({ code: 'sdk_error' })
+    expect(meta(client)?.title).toBe('op-docs')
+  })
+
+  it('a tab created with a name starts its session with that name and keeps it', async () => {
+    const session = await startedTab({ title: 'capo-athome' })
+    expect(session.options.env?.CLAUDE_CODE_SESSION_NAME).toBe('capo-athome')
+    session.emit(sdk.init('s-named'))
+    fake.histories.set('s-named', [stored.user('u1', 'Plan the work')])
+    fake.infos.set('s-named', { lastModified: 1, aiTitle: 'Work plan' })
+    session.emit(sdk.success())
+    await tick()
+    await tick()
+    expect(meta(client)?.title).toBe('capo-athome')
+    expect(renames(session)).toEqual([])
   })
 
   it('init sets the session id and the active model', async () => {
@@ -1393,7 +1435,7 @@ describe('accounts', () => {
     await client.ok('tab.create', { tabId: 't2', cwd: CWD })
     await client.ok('tab.send', { tabId: 't2', text: 'hello' }, cmd(2))
     await client.waitFor(() => fake.sessions.length === 2)
-    expect(fake.last().options.env).toBeUndefined()
+    expect(fake.last().options.env?.CLAUDE_CODE_OAUTH_TOKEN).toBeUndefined()
   })
 
   it('switching the account keeps the conversation: the session restarts on the same stored session at the next message', async () => {

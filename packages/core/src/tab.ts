@@ -115,6 +115,16 @@ export function cliTitle(info: { customTitle?: string; summary?: string } | unde
   return info?.customTitle || (summary && summary.length <= MAX_AUTO_TITLE ? summary : undefined)
 }
 
+// Words of the first prompt a tab is named after when the CLI generated no title.
+const PROMPT_TITLE_WORDS = 3
+
+// The title a tab takes from its session, like the Claude app: the CLI's title (generated after the first prompt, or
+// a rename; getSessionInfo reports both as customTitle), else the first words of the first prompt.
+export function tabTitle(info: { customTitle?: string; firstPrompt?: string } | undefined): string | undefined {
+  const words = info?.firstPrompt?.trim().split(/\s+/).slice(0, PROMPT_TITLE_WORDS).join(' ').replace(/[\s,.;:!?]+$/, '')
+  return info?.customTitle?.trim() || words || undefined
+}
+
 // Lifecycle of the tab's process; the visible status adds the turn state on top of `live`.
 type Lifecycle = 'dormant' | 'starting' | 'live' | 'closing' | 'needs_trust' | 'error'
 
@@ -585,12 +595,25 @@ export class Tab {
     return this.transcript.history(beforeItemId, limit)
   }
 
-  // Renames the tab and, if it has one, its stored session.
+  // Renames the tab and its session: the live process (its name for the other sessions and its stored title), or the
+  // stored session when none runs.
   async rename(title: string): Promise<void> {
     this.title = title
     this.autoTitle = false
     this.changed()
-    if (this.sessionId) await this.env.sdk.renameSession(this.sessionId, title, { dir: this.cwd })
+    if (this.session) await this.nameSession(title, 'host')
+    else if (this.sessionId) await this.env.sdk.renameSession(this.sessionId, title, { dir: this.cwd })
+  }
+
+  // Gives the live session a title: the CLI stores it and takes it as its name for the other sessions. source: 'host'
+  // a name the user gave (a refusal reaches them), 'remote' the title the tab took from the CLI (a refusal is
+  // ignored: the session keeps its name until its next start, which gets the title). The SDK 0.3.287 types do not
+  // have the request: it goes through the Query's control request.
+  private async nameSession(title: string, source: 'host' | 'remote'): Promise<void> {
+    const query = this.session?.query as unknown as { request(request: object): Promise<unknown> } | undefined
+    await query?.request({ subtype: 'rename_session', title, source }).catch((error: unknown) => {
+      if (source === 'host') this.sdkFailure('Session rename failed', error)
+    })
   }
 
   // Restarts a tab whose process ended: the transcript is reloaded from the stored session (new epoch), then
@@ -703,7 +726,8 @@ export class Tab {
     return {
       ...BASE_OPTIONS,
       ...this.env.sdkOptions,
-      ...(token ? { env: { ...(this.env.sdkOptions.env ?? process.env), CLAUDE_CODE_OAUTH_TOKEN: token } } : {}),
+      // The session's name for the other sessions (ListAgents, SendMessage) is the tab's title.
+      env: { ...(this.env.sdkOptions.env ?? process.env), CLAUDE_CODE_SESSION_NAME: this.title, ...(token ? { CLAUDE_CODE_OAUTH_TOKEN: token } : {}) },
       cwd: this.cwd,
       resume: this.sessionId,
       model: this.model,
@@ -857,15 +881,16 @@ export class Tab {
     void this.followCliTitle()
   }
 
-  // The CLI's own title of the session (its generated title, a /rename, or at first a short first prompt), while the
-  // tab has no title given by the user. Also right after a stored session is opened.
+  // The session's own title (see tabTitle), while the tab has no title given by the user: after each turn, and right
+  // after a stored session is opened. A live session is given it too, so its name for the other sessions follows.
   async followCliTitle(): Promise<void> {
     if (!this.autoTitle || !this.sessionId) return
     const info = await this.env.sdk.getSessionInfo(this.sessionId, { dir: this.cwd }).catch(() => undefined)
-    const title = cliTitle(info)
+    const title = tabTitle(info)
     if (!title || title === this.title || !this.autoTitle) return
     this.title = title
     this.changed()
+    await this.nameSession(title, 'remote')
   }
 
   // /clear and friends: the session id moves, the title resets, the transcript starts empty with a new epoch.

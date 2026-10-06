@@ -29,13 +29,14 @@ export function useTrustPrompt() {
 export function useStartSession() {
   const { connection, closeSheets, go, fail } = useTouch()
   const askTrust = useTrustPrompt()
-  const open = async (cwd: string) => {
+  const open = async (cwd: string, title?: string) => {
     const tabId = crypto.randomUUID()
-    await connection.request('tab.create', { tabId, cwd })
+    await connection.request('tab.create', { tabId, cwd, ...(title ? { title } : {}) })
     closeSheets()
     go({ name: 'chat', tabId })
   }
-  return (cwd: string) => askTrust(cwd, () => void open(cwd).catch(fail))
+  // title: the session's name (absent: it takes the title the CLI gives it after the first prompt).
+  return (cwd: string, title?: string) => askTrust(cwd, () => void open(cwd, title).catch(fail))
 }
 
 // "Ti fidi di questa cartella?": never focused on the granting button (it is not first, and the sheet focuses its

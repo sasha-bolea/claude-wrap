@@ -101,6 +101,20 @@ describe('PWA (fake SDK)', () => {
     await safari.getByText('This code was used or has expired').waitFor()
   })
 
+  it('a new session with a name, from the folder menu: the chat opens with that name', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await button(page, 'Actions for the folder project').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'New session with a name…' }).click()
+    await page.getByLabel('Session name').fill('op-ui')
+    await page.getByRole('button', { name: 'Create' }).click()
+    // A new backend: the folder is not trusted yet, the trust question comes first.
+    const trust = page.getByRole('button', { name: 'Yes, I trust it' })
+    await trust.or(composer(page)).first().waitFor()
+    if (await trust.isVisible()) await trust.click()
+    await composer(page).waitFor()
+    expect(await page.locator('.chat-screen .title-text > span').first().textContent()).toBe('op-ui')
+  })
+
   it('a wrong code is refused with a clear message', async () => {
     const page = await (await newPhone()).newPage()
     await page.goto(`${backend.url}/#pair=not-a-code`)

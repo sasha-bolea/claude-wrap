@@ -60,6 +60,8 @@ const FAKE_USAGE = {
 export class FakeSession {
   readonly received: SDKUserMessage[] = []
   readonly calls: ControlCall[] = []
+  // Subtypes of raw control requests this session refuses (a CLI without them).
+  readonly refusedRequests = new Set<string>()
   closed = false
   // Set to make the next setPermissionMode / setModel call reject.
   rejectNext?: Error
@@ -159,6 +161,7 @@ export class FakeSession {
       // nothing to the background does), so the waiting messages run next.
       request: async (request: { subtype?: string; send_now?: boolean }) => {
         record('request', [request])
+        if (request.subtype && this.refusedRequests.has(request.subtype)) throw new Error(`unsupported control request: ${request.subtype}`)
         if (request.subtype === 'interrupt') this.interruptListeners.forEach((listener) => listener())
         return { response: request.send_now ? { send_now: 'interrupting' } : {} }
       },
@@ -197,7 +200,8 @@ export class FakeSession {
   }
 }
 
-type StoredInfo = { cwd?: string; customTitle?: string; lastModified: number }
+// aiTitle: the title the CLI generates after the first prompt (getSessionInfo reports it as customTitle).
+type StoredInfo = { cwd?: string; customTitle?: string; aiTitle?: string; lastModified: number }
 
 // Summary of a stored session like the CLI's: the first user text.
 function summaryOf(history: SessionMessage[]): string {
@@ -215,7 +219,8 @@ export function createFakeSdk() {
     const history = histories.get(sessionId)
     if (!history) return undefined
     const stored = infos.get(sessionId) ?? { lastModified: 0 }
-    return { sessionId, summary: summaryOf(history), lastModified: stored.lastModified, customTitle: stored.customTitle, cwd: stored.cwd }
+    const customTitle = stored.customTitle ?? stored.aiTitle
+    return { sessionId, summary: customTitle ?? summaryOf(history), lastModified: stored.lastModified, customTitle, firstPrompt: summaryOf(history), cwd: stored.cwd }
   }
   return {
     sessions,
