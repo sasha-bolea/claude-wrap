@@ -2,6 +2,39 @@
 
 _Append-only archive of session entries that left [STATO.md](STATO.md), newest on top._
 
+## 2026-10-06 11:16 — Queue button, queue bin, sheets closed from their content, 10 s countdown (phone session)
+A morning session in the server dev clone (09:30–11:15), Sasha on the iPhone: small composer, queue and sheet requests,
+each pushed over SSH and deployed by the update timer. Another Claude session worked in the same clone at the same time
+(default effort and mode, then one question at a time).
+- **Queue button:** a filled 38 px circle like Send and Stop, in the text colour (dark on light, light on dark), so the
+  three actions weigh the same and differ by colour. Its count is a small 14 px accent circle on the rim, centred on the
+  digit's cap height (`text-box: trim-both cap alphabetic`). The font's line box had set the digit about 1.25 px high
+  (measured from pixels in Chromium; with the trim it is 0.25 px off).
+- **Queue bin:** a muted bin on the right end of the queue card removes the next queued message at once, with the toast
+  "Tolto dalla coda" (no confirmation, no undo). It is a sibling of the stack button in `.q-front`, because buttons
+  do not nest.
+- **Sheets:** a downward drag on a sheet's content closes it once the content is at its top, as the head did already. A
+  drag that scrolls the content back to the top goes on pulling. Sideways drags and fields never pull. The listeners
+  are native and non-passive, so a pull cancels the native scroll and bounce.
+- **Queue countdown:** 10 s instead of 5 (Sasha). Asked whether a bigger countdown was wanted beside the existing
+  "parte tra N s" and ring: "va bene così".
+- **Incident:** the 10 s commit (`f1c09e3`) used `git add -A` and swept in half of the other session's
+  default-effort work, so `main` did not typecheck until that session pushed the rest (`cdca724`). It was the second
+  time (bug-risolti). A fix commit, prepared in a separate worktree, was no longer needed.
+- **Verification:** PWA e2e 37 → 40/40 (bin, sheet drag with real CDP touches, which fails without the change);
+  unit + contract tests and typecheck green at every push. Nothing checked on a real iPhone.
+
+### Cambiamenti al codice
+- Queue button: `packages/ui/src/touch/TouchComposer.tsx` (`send queue-btn` instead of `icon-btn queue-btn`);
+  `touch.css` (`.send.queue-btn`, its `.count`).
+- Queue bin: `packages/ui/src/touch/queue.tsx` (`QueueTray`: `.q-front`, `.q-remove`, `removeNext` via `tab.unqueue`);
+  `touch.css` (`.q-front`, `.q-remove`, `.q-card.k0` right padding); i18n `removeNextQueued`, `removedFromQueue`.
+- Sheets: `packages/ui/src/touch/SheetHost.tsx` (`canPull`, `dragToClose` with native listeners; React touch
+  handlers removed).
+- Countdown: `packages/core/src/workspace.ts` (`queueCountdownMs` default 10 000), `config.ts` comment.
+- Tests: `apps/mobile/e2e/pwa.e2e.ts` (+2: queue bin, sheet drag; countdown regex `\d+`).
+- Docs: `design-system.md` (composer, queue, sheets rule 2), `architettura.md` (10 s).
+
 ## 2026-10-06 11:12 — Terminal in the app, one notification, keyboard and bounce fixes (phone session, server dev clone)
 The phone session in the server dev clone, from 2026-10-05 20:30 to 2026-10-06 02:21, Sasha on the iPhone. Small
 fixes first, then the terminal (backlog 1) in three steps plus four follow-ups, all pushed over SSH and deployed by the

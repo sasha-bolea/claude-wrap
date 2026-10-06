@@ -431,3 +431,14 @@ These were solved in the first attempt. Files refer to that repository. Each ent
 - **Cause:** both sessions work in the same dev clone `/srv/progetti/claude-wrap`, and the commit used `git add -A`.
 - **Fix:** commit only the paths you touched (`git add <files>`), check `git status` first (rule in CLAUDE.md
   "Conventions"). The swept changes had been through the full e2e run, so nothing broke.
+
+### 2026-10-06 — The same sweep again, and this time `main` did not typecheck
+- **Symptom:** `f1c09e3` (queue countdown 10 s) also contained the other session's unfinished default-effort work
+  (`workspace.ts`, its e2e test and docs) without its protocol and state parts: `tsc` failed on `main`.
+- **Cause:** `git add -A` again, in the clone both sessions use. The tests had passed in that tree because they
+  ran on everyone's uncommitted files.
+- **Fix:** the other session pushed its complete change on top (`cdca724`); a corrective commit made in a separate
+  worktree was then unnecessary. Commit by path only, as the CLAUDE.md rule says. To check what a commit alone does,
+  use a separate worktree with its own `node_modules/@claude-wrap` links: the root `node_modules` links are relative
+  and point back to the shared clone.
+- **Files:** none (process); `CLAUDE.md` "Conventions" already holds the rule.

@@ -1,6 +1,6 @@
 # STATO — claude-wrap
 
-_Last updated: 2026-10-06 11:13 CEST_
+_Last updated: 2026-10-06 11:16 CEST_
 
 ## Current state
 **Phases 0–3 and sub-phases A, B, C1 and C2 of the realigned plan are done** ([piano.md](piano.md) §4): the remote
@@ -16,7 +16,9 @@ and installed on the PC by the PC session. Details per session: [storico-session
   **one notification** with the counts of chats waiting / finished, keyboard-space and end-of-chat bounce fixes,
   vivid reds, working time in minutes, model under the chat's title, + first, a queue button that queues directly
   (no queue mode) — the phone session, 2026-10-06 11:12 entry; plus the "New sessions" defaults and other composer,
-  queue and sheet changes of the other session (11:02 entry). Details in [storico-sessioni.md](storico-sessioni.md).
+  queue and sheet changes (11:02 entry); then the queue button as a filled circle with a small round count, a bin
+  on the queue card, sheets that close when their content is dragged down from the top, and a 10 s queue countdown
+  (11:16 entry). Details in [storico-sessioni.md](storico-sessioni.md).
 - **Repo:** public on GitHub (`main` only). Two Claude sessions push to `main` (the PC one and the phone one in the
   server dev clone `/srv/progetti/claude-wrap`, which pushes over SSH): pull before working and before committing.
 - **Tests (2026-10-06, home server):** 443 unit + contract (+4 skipped); PWA e2e 40/40 (Playwright's Chromium);
@@ -79,6 +81,10 @@ and installed on the PC by the PC session. Details per session: [storico-session
 | 2026-10-06 | CSP `style-src 'unsafe-inline'` for xterm.js rather than its WebGL renderer | Smallest change; scripts, images, fonts and connections stay locked; WebGL is lost by iOS in the background |
 | 2026-10-06 | A command running in a terminal counts as work for the automatic update | Sasha picked it first: an update must not kill a running command |
 | 2026-10-06 | Leaving a terminal asks "Chiudere il terminale?" every time; "Chiudi tutti i terminali" in the Home; never closed on leaving the app | Sasha: "1b" + "2"; iOS leaves the app on every app switch |
+| 2026-10-06 | The next queued message counts down 10 s (was 5) while its chat is on screen | Sasha |
+| 2026-10-06 | The bin on the queue card removes the next message at once, no confirmation (toast only) | Sasha asked for a quick bin; an undo is in the backlog |
+| 2026-10-06 | A sheet closes when its content is dragged down from the top, not only by the head | Sasha: "voglio che anche scrollando il contenuto si chiuda" |
+| 2026-10-06 | The queue button is a filled circle like Send and Stop, in the text colour | Sasha: "alla pari di invio o stop" |
 | 2026-10-06 | The queue button queues what is written at once; no queue mode; Send always sends | Sasha: "deve direttamente mandare in coda il contenuto della input bar" |
 | 2026-10-06 | The model and effort sit under the chat's title; + is the first composer button | Sasha |
 | 2026-10-05 | One phone notification for every chat, with the counts of chats waiting and finished; tap → that chat or the open sessions | Sasha: "sempre solo una notifica con il numero di chat" |
@@ -97,3 +103,4 @@ and installed on the PC by the PC session. Details per session: [storico-session
 6. Restrict the server's GitHub key (read-only deploy key, or push only from a dev clone Sasha accepts).
 7. Phase 4+ — data panels (tasks, todo, diff, MCP, hooks, status; context and usage done in the PWA), config pages, advanced editor.
 8. Move the desktop/packaged real-CLI smoke scripts into the repo.
+9. Undo for the queue card's bin (toast with "Annulla"); split `dragToClose` in `SheetHost.tsx` (~40 lines).
