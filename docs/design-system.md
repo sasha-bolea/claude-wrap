@@ -255,22 +255,6 @@ for every device). Links in the output open outside the app (`openExternal`, els
 under the Home's list, "Chiudi tutti i terminali" (`.link-btn`) asks first, then ends them all.
 Examples: [TerminalScreen.tsx:58](../packages/ui/src/touch/TerminalScreen.tsx#L58), [TerminalScreen.tsx:138](../packages/ui/src/touch/TerminalScreen.tsx#L138), [TerminalScreen.tsx:171](../packages/ui/src/touch/TerminalScreen.tsx#L171), [TouchApp.tsx:498](../packages/ui/src/touch/TouchApp.tsx#L498).
 
-### Shared browser — `.browser-screen`, `.browser-bar`, `.browser-stage`, `.browser-canvas`, `.browser-status`, `.browser-acting`, `.browser-keys`
-The server's one Chromium (only with `CLAUDE_WRAP_BROWSER=1`; `welcome.browser`), shown live and shared with Claude. A screen
-(`{ name: 'browser' }`, a right-panel root when wide, a "Browser" tab of the panel) opened from the Home's top bar (`browser` icon),
-the chat's ⋯ menu ("Browser") and, in the chat's top bar, the `browser` icon button recoloured `.accent` while this chat's Claude
-has a browser tool call running (it opens the screen). Top bar: back, title with the page's site, `keyboard` icon button (focuses
-`.browser-keys`, a 1 px hidden field: typed text is sent as text; a hint says Enter, Backspace and arrows do not work yet) and
-`tabs` icon button with the tab count (opens a sheet: `.list` of `.row` — `.row.current` for the shown tab, a `.row-main` to
-select, an `.icon-btn` × to close — and a `.button.block` "Nuova scheda"). Under it `.browser-bar`: page back, forward, reload
-(`.icon-btn`) and the address `.field.mono` (Enter or the Vai button — shown while editing — navigates; no scheme → `https://`;
-a refused address is `.error-text`). Acting: a `.update-bar.browser-acting` button per chat ("Claude sta usando il browser — title")
-opens that chat. Body `.browser-stage`: a `<canvas>` letterboxed on `--background` (`touch-action: none`: a finger drag, a tap or
-the wheel go to the page as pointer and wheel commands) and, until the browser runs, `.browser-status` ("Il browser si avvia…").
-No browser on the backend (or it did not start): a `.card.bad`. The page size follows the canvas (`browser.viewport`; a phone gets
-a mobile page at the screen's pixel ratio, at most 2).
-Examples: [BrowserScreen.tsx:66](../packages/ui/src/touch/BrowserScreen.tsx#L66), [BrowserScreen.tsx:106](../packages/ui/src/touch/BrowserScreen.tsx#L106), [BrowserScreen.tsx:187](../packages/ui/src/touch/BrowserScreen.tsx#L187), [BrowserCanvas.tsx:165](../packages/ui/src/touch/BrowserCanvas.tsx#L165), [HomeScreen.tsx:130](../packages/ui/src/touch/HomeScreen.tsx#L130), [ChatScreen.tsx:342](../packages/ui/src/touch/ChatScreen.tsx#L342).
-
 ### Bars and notices — `.update-bar`, `.banner`, `.toast`, `.snack`, `.viewer`, `.empty-line`
 `.update-bar`: "New version available · Update · ×" under the top bar of Home and chat. `.banner`: the server cannot
 be reached. `.toast` / `.snack`: rule 7. `.viewer`: a photo full screen.

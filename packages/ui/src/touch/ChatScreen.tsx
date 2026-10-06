@@ -7,7 +7,6 @@ import type { Answer } from '../chatHooks.ts'
 import { useScreen, useTouch, type LaterKey } from './context.tsx'
 import { AccountPickSheet, accountName } from './accounts.tsx'
 import { Conversation, WorkingMini } from './Conversation.tsx'
-import { actingInBrowser } from './browserView.ts'
 import { Icon } from './icons.tsx'
 import { baseName, sessionState } from './model.ts'
 import { ModeSheet, ModelSheet, currentEffort, modelLabel, useModels } from './modelSheets.tsx'
@@ -339,7 +338,6 @@ export function ChatScreen({ tabId }: { tabId: string }) {
               <IconButton icon="note" className={touch.panel?.name === 'notes' ? 'on' : undefined} label={t('folderNotes')} expanded={touch.panel?.name === 'notes'} onClick={() => touch.togglePanel({ name: 'notes', tabId })} />
             </>
           )}
-          {state.welcome.browser && actingInBrowser(view?.items ?? []) && <IconButton icon="browser" className="accent" label={t('browserActingHere')} onClick={() => go({ name: 'browser' })} />}
           <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'rewind', tabId }))} />
           <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />
         </div>
@@ -424,11 +422,6 @@ function SessionMenu({ tabId }: { tabId: string }) {
         <li>
           <button onClick={() => openTerminal({ tabId })}>{t('terminal')}</button>
         </li>
-        {state.welcome.browser && (
-          <li>
-            <button onClick={() => go({ name: 'browser' })}>{t('browser')}</button>
-          </li>
-        )}
         <li>
           <button disabled={busy} onClick={() => go({ name: 'rewind', tabId })}>
             {t('rewindLabel')}

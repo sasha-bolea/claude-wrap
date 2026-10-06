@@ -47,7 +47,7 @@ export function createCore(config: CoreConfig): Core {
   const watching = (tabId: string) => [...greeted].some((connection) => connection.visible && connection.watching === tabId)
   const runtime = start({ ...config, watching, notifier: notifier && ((notice) => notifier({ ...notice, visibleDevices: visibleDevices() })) })
   const replies = new ReplyCache()
-  const welcome: Welcome = { t: 'welcome', protocolVersion: PROTOCOL_VERSION, backendId: config.backendId, backendKind: config.backendKind, ...readVersions(), browser: config.browser !== undefined, limits: LIMITS }
+  const welcome: Welcome = { t: 'welcome', protocolVersion: PROTOCOL_VERSION, backendId: config.backendId, backendKind: config.backendKind, ...readVersions(), limits: LIMITS }
 
   // Runs a command once per (clientId, id): a retried id gets the first reply.
   function runCommand({ handlers }: Runtime, cmd: Cmd, connection: Connection): void {

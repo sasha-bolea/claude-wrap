@@ -646,26 +646,7 @@ export const en = {
   closeAll: 'Close all',
   copyAll: 'Copy all',
   paste: 'Paste',
-  copiedOutput: 'Output copied',
-  browser: 'Browser',
-  browserPage: 'Browser page',
-  browserAddress: 'Address',
-  browserGo: 'Go',
-  browserBack: 'Page back',
-  browserForward: 'Page forward',
-  browserReload: 'Reload',
-  browserTabs: 'Tabs',
-  browserTabsTitle: 'Browser tabs',
-  browserNewTab: 'New tab',
-  browserCloseTab: 'Close tab {title}',
-  browserKeyboard: 'Keyboard',
-  browserTyping: 'Type into the page',
-  browserKeysHint: 'Text only for now: Enter, Backspace and the arrow keys do not work yet.',
-  browserStarting: 'The browser is starting…',
-  browserActing: 'Claude is using the browser — {title}',
-  browserActingHere: 'Claude is using the browser',
-  browserUnavailable: 'This backend has no browser: it is only on the server.',
-  browserBadUrl: 'Not a valid web address.'
+  copiedOutput: 'Output copied'
 }
 
 export type MessageKey = keyof typeof en

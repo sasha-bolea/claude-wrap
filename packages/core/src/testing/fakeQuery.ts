@@ -189,7 +189,6 @@ export class FakeSession {
         if (request.subtype === 'cancel_async_message') return { response: { cancelled: this.cancelUnread(request.message_uuid) } }
         return { response: request.send_now ? { send_now: 'interrupting' } : {} }
       },
-      reconnectMcpServer: async (name: string) => (record('reconnectMcpServer', [name]), maybeReject()),
       setModel: async (model?: string) => (record('setModel', [model]), maybeReject()),
       setPermissionMode: async (mode: string) => (record('setPermissionMode', [mode]), maybeReject()),
       applyFlagSettings: async (settings: object) => (record('applyFlagSettings', [settings]), maybeReject()),

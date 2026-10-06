@@ -149,37 +149,6 @@ describe('Connection', () => {
     expect(core.links).toHaveLength(1)
   })
 
-  it('a browser view gets the snapshot and the events, subscribes again after a drop with its position, and unsubscribes on dispose', async () => {
-    const { core, connection } = await connected()
-    const seen: string[] = []
-    const stop = connection.subscribeBrowser({ snapshot: (snapshot) => seen.push(`snapshot ${snapshot.tabs.length}`), event: (event) => seen.push(event.type) })
-    await tick()
-    expect(core.last().received[1]).toMatchObject({ t: 'cmd', name: 'browser.subscribe' })
-    core.last().core.send({ t: 'reset', stream: 'browser', epoch: 'b1', seq: 0, snapshot: { kind: 'browser', tabs: [], running: true, acting: [] } })
-    core.last().core.send({ t: 'ev', stream: 'browser', epoch: 'b1', seq: 1, ev: { type: 'browser.acting', sessions: [] } })
-    await tick()
-    expect(seen).toEqual(['snapshot 0', 'browser.acting'])
-    core.last().core.close()
-    await new Promise((resolve) => setTimeout(resolve, 10))
-    expect(core.last().received[0]).toMatchObject({ t: 'hello', resume: { browser: { epoch: 'b1', lastSeq: 1 } } })
-    stop()
-    core.last().core.send(WELCOME)
-    await tick()
-    expect(core.last().received.some((frame) => frame.name === 'browser.unsubscribe')).toBe(true)
-  })
-
-  it('a browser view that never got its snapshot subscribes again after a drop', async () => {
-    const { core, connection } = await connected()
-    connection.subscribeBrowser({ snapshot: () => undefined, event: () => undefined })
-    await tick()
-    core.last().core.send({ t: 'reply', id: (core.last().received[1] as { id: string }).id, ok: true, result: {} })
-    core.last().core.close()
-    await new Promise((resolve) => setTimeout(resolve, 10))
-    core.last().core.send(WELCOME)
-    await tick()
-    expect(core.last().received.filter((frame) => frame.name === 'browser.subscribe')).toHaveLength(1)
-  })
-
   it('a stream that is gone drops the tab view', async () => {
     const { core, connection } = await connected()
     connection.subscribeTab('t1').catch(() => undefined)

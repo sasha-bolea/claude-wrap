@@ -17,13 +17,12 @@ let cdps: FakeCdp[] = []
 let processes: FakeProcess[] = []
 
 // A core whose browser runs on fake launch/connect. Returns it with a connected client.
-async function setup(extra: { idleMs?: number; pollMs?: number } = {}): Promise<RawClient> {
+async function setup(extra: { idleMs?: number } = {}): Promise<RawClient> {
   const browser: NonNullable<CoreConfig['browser']> = {
     port: 3013,
     executable: '/fake/chrome',
     profileDir: '/fake/profile',
     idleMs: extra.idleMs,
-    pollMs: extra.pollMs,
     launch: (args) => {
       const proc: FakeProcess = { args, killed: false }
       processes.push(proc)
@@ -93,15 +92,6 @@ describe('start and subscribe', () => {
       expect(error.code).toBe('not_found')
       expect(error.message).toContain('only on the server')
     }
-  })
-})
-
-describe('tab titles', () => {
-  it('a title that changes after the load (no event from Chromium) reaches a watching client', async () => {
-    const a = await setup({ pollMs: 30 })
-    await a.ok('browser.subscribe', {})
-    cdp().answer('Target.getTargets', () => ({ targetInfos: [{ targetId: 'page-1', type: 'page', title: 'Hello', url: 'about:blank' }] }))
-    await a.waitFor(() => lastTabs(a)?.tabs[0]?.title === 'Hello')
   })
 })
 

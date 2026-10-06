@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright-core'
 import { createCore, type Core } from '@athome/core'
-import { createScriptedSdk, type FakeBrowser } from '@athome/core/testing'
+import { createScriptedSdk } from '@athome/core/testing'
 import { DeviceStore, createPairingCode, deviceCommands, loadStaticFiles, startServer, type RunningServer, type StaticFiles } from '@athome/server'
 
 // PWA end-to-end harness: the real server on an ephemeral port with the scripted fake SDK, serving the built PWA
@@ -15,8 +15,8 @@ const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
 // files: what the server serves (a test may swap one, e.g. a newer /version.json).
 export type Backend = { url: string; root: string; stateDir: string; core: Core; server: RunningServer; devices: DeviceStore; files: StaticFiles; stop(): Promise<void> }
 
-// Starts core + server; the session root holds a `project` folder. browser: the server has the shared browser, on this fake.
-export async function startBackend(options: { browser?: FakeBrowser } = {}): Promise<Backend> {
+// Starts core + server; the session root holds a `project` folder.
+export async function startBackend(): Promise<Backend> {
   const root = mkdtempSync(join(tmpdir(), 'cw-pwa-root-'))
   mkdirSync(join(root, 'project'))
   const stateDir = mkdtempSync(join(tmpdir(), 'cw-pwa-state-'))
@@ -28,7 +28,6 @@ export async function startBackend(options: { browser?: FakeBrowser } = {}): Pro
     sdk: createScriptedSdk({ wordDelayMs: 20 }),
     stateDir,
     allowedRoots: [root],
-    browser: options.browser?.settings,
     hostCommands: deviceCommands(devices, (ids) => server?.disconnect(ids), 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U')
   })
   const hosts: string[] = []
