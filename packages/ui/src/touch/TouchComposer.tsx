@@ -346,7 +346,7 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField }: Comp
               <button className="send stop" aria-label={t('stopClaude')} onClick={stop} {...keepFocus}>
                 <Icon name="stop" />
               </button>
-              <button className="icon-btn queue-btn" aria-label={queueLabel} disabled={!hasContent || shellMode} onClick={() => void send(true)} {...keepFocus}>
+              <button className="send queue-btn" aria-label={queueLabel} disabled={!hasContent || shellMode} onClick={() => void send(true)} {...keepFocus}>
                 <Icon name="queue" />
                 {(queueCount || meta.queuePause) && (
                   <span className="count" aria-hidden="true">
