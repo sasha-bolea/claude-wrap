@@ -78,6 +78,8 @@ export const welcomeSchema = z.object({
   sdkVersion: z.string(),
   cliVersion: z.string(),
   backendKind: z.enum(['local', 'remote']),
+  // True when this backend has the shared browser (absent: no).
+  browser: z.boolean().optional(),
   limits: z.object({ sendTotalBytes: z.number(), imageBytes: z.number(), images: z.number(), previewBytes: z.number(), fileBytes: z.number() })
 })
 

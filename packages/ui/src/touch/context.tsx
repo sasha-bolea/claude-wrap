@@ -18,6 +18,8 @@ export type Screen =
   | { name: 'file'; tabId?: string; folder?: string; path: string; modified?: number }
   | { name: 'notes'; tabId?: string; folder?: string }
   | { name: 'terminal'; terminalId: string }
+  // The server's shared browser (its live page).
+  | { name: 'browser' }
   | { name: 'note'; tabId?: string; folder?: string; noteId?: string }
   | { name: 'settings' }
   | { name: 'palettes' }

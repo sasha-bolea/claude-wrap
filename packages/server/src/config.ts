@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url'
 //   CLAUDE_WRAP_CHROME          Chromium executable (default ~/.cache/ms-playwright/chromium-1247/chrome-linux64/chrome;
 //                               not found -> the browser is off)
 //   CLAUDE_WRAP_FAKE_SDK=1      scripted fake SDK (tests, zero quota)
+//   CLAUDE_WRAP_FAKE_BROWSER=1  the shared browser on a fake DevTools endpoint, no Chromium (tests)
 
 export type ServerConfig = {
   root: string
@@ -26,6 +27,7 @@ export type ServerConfig = {
   tailscaleLogin?: string
   staticDir: string
   fakeSdk: boolean
+  fakeBrowser: boolean
   // Absent when no Chromium is found: the browser is off.
   browser?: { port: number; executable: string; profileDir: string; mcp?: { command: string; args: string[] } }
 }
@@ -44,6 +46,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     tailscaleLogin: env.CLAUDE_WRAP_TAILSCALE_LOGIN || undefined,
     staticDir: env.CLAUDE_WRAP_STATIC_DIR ?? fileURLToPath(new URL('../../../apps/mobile/dist', import.meta.url)),
     fakeSdk: env.CLAUDE_WRAP_FAKE_SDK === '1',
+    fakeBrowser: env.CLAUDE_WRAP_FAKE_BROWSER === '1',
     browser: browserConfig(env, stateDir)
   }
 }

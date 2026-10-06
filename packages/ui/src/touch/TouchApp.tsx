@@ -5,11 +5,12 @@ import { t } from '../i18n.ts'
 import { applyPalette, followPalettes, readActivePalette } from '../palette.ts'
 import { readDraft } from '../viewState.ts'
 import { ChatScreen } from './ChatScreen.tsx'
-import { ScreenContext, TouchContext, type BackHandler, type ComposerInsert, type LiveState, type Screen, type SheetSpec, type Touch } from './context.tsx'
+import { ScreenContext, TouchContext, type BackHandler, type ComposerInsert, type LiveState, type Screen, type SheetSpec, type Touch, useTouch } from './context.tsx'
 import { FilesScreen, FileScreen } from './FilesScreen.tsx'
 import { FolderSessionsScreen, HomeScreen } from './HomeScreen.tsx'
 import { Icon } from './icons.tsx'
 import { useKeyboard } from './keyboard.ts'
+import { BrowserScreen } from './BrowserScreen.tsx'
 import { TerminalScreen, useOpenTerminal } from './TerminalScreen.tsx'
 import { LaterScreen } from './LaterScreen.tsx'
 import { RewindScreen } from './RewindScreen.tsx'
@@ -42,7 +43,7 @@ function regionOf(screen: Screen): Region {
   }
 }
 // The right panel's first screens (opened from the chat's top bar or its menu); the others go on top of one.
-const PANEL_ROOTS = new Set<Screen['name']>(['files', 'notes', 'terminal', 'later', 'context', 'usage', 'rewind'])
+const PANEL_ROOTS = new Set<Screen['name']>(['files', 'notes', 'terminal', 'browser', 'later', 'context', 'usage', 'rewind'])
 // Width from which the wide arrangement is used.
 const WIDE_QUERY = '(min-width: 1024px)'
 
@@ -85,6 +86,8 @@ function ScreenView({ screen }: { screen: Screen }): ReactNode {
       return <NotesScreen tabId={screen.tabId} folder={screen.folder} />
     case 'terminal':
       return <TerminalScreen terminalId={screen.terminalId} />
+    case 'browser':
+      return <BrowserScreen />
     case 'note':
       return <NoteScreen tabId={screen.tabId} folder={screen.folder} noteId={screen.noteId} />
     case 'settings':
@@ -498,6 +501,7 @@ function NoChat() {
 // × closes. Terminal opens the session's live terminal, or a new one in its folder.
 function PanelTabs({ root, chatTabId, onToggle, onClose }: { root: Screen; chatTabId?: string; onToggle: (screen: Screen) => void; onClose: () => void }) {
   const openTerminal = useOpenTerminal()
+  const { state } = useTouch()
   return (
     <div className="panel-tabs">
       {chatTabId && (
@@ -511,6 +515,11 @@ function PanelTabs({ root, chatTabId, onToggle, onClose }: { root: Screen; chatT
           <button className="panel-tab" aria-pressed={root.name === 'terminal'} onClick={() => root.name !== 'terminal' && openTerminal({ tabId: chatTabId }, onToggle)}>
             {t('terminal')}
           </button>
+          {state.welcome.browser && (
+            <button className="panel-tab" aria-pressed={root.name === 'browser'} onClick={() => root.name !== 'browser' && onToggle({ name: 'browser' })}>
+              {t('browser')}
+            </button>
+          )}
         </>
       )}
       <IconButtonClose onClose={onClose} />

@@ -23,7 +23,7 @@ async function main(): Promise<void> {
     stateDir: config.stateDir,
     activityFile: join(config.stateDir, 'activity.json'),
     allowedRoots: [config.root],
-    browser: config.browser,
+    browser: config.fakeBrowser ? (await import('@athome/core/testing')).createFakeBrowser().settings : config.browser,
     hostCommands: deviceCommands(devices, (deviceIds) => server?.disconnect(deviceIds), push.publicKey),
     notifier: (notice) => void push.notify(notice).catch((error: unknown) => console.log(`push failed: ${String(error)}`))
   })

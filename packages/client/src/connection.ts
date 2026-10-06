@@ -4,6 +4,7 @@ import {
   PING_MISSES,
   PROTOCOL_VERSION,
   WORKSPACE_STREAM,
+  browserStream,
   coreFrameSchema,
   tabStream,
   terminalStream,
@@ -47,6 +48,11 @@ export interface ConnectionOptions {
 
 type PendingCommand = { frame: { t: 'cmd'; id: string; name: CommandName; args: unknown }; resolve: (result: unknown) => void; reject: (error: Error) => void }
 
+// Where the shared browser's stream goes (straight to the screen on view, not through the store): the full state on a
+// subscription or a reset, then its events (frames, tabs, who is acting).
+// failed: the subscription was refused (this backend has no browser, or it did not start).
+export type BrowserSink = { snapshot(snapshot: BrowserSnapshot): void; event(event: BrowserEvent): void; failed?(error: unknown): void }
+
 const TAB_PREFIX = 'tab:'
 const TERMINAL_PREFIX = 'terminal:'
 
@@ -64,6 +70,7 @@ export class Connection {
   private readonly positions = new Map<string, StreamPosition>()
   private readonly wantedTabs = new Set<string>()
   private readonly terminalSinks = new Map<string, TerminalSink>()
+  private readonly browserSinks = new Set<BrowserSink>()
   private readonly pending = new Map<string, PendingCommand>()
   private pingTimer?: ReturnType<typeof setInterval>
   private missedPings = 0
@@ -116,6 +123,19 @@ export class Connection {
       this.terminalSinks.delete(terminalId)
       this.positions.delete(terminalStream(terminalId))
       this.request('terminal.unsubscribe', { terminalId }).catch(() => undefined)
+    }
+  }
+
+  // Follows the shared browser into sink until the returned function is called; the last one to leave unsubscribes.
+  // Several views may follow at once (each new one gets the full state again). After a reconnection the subscription
+  // is made again.
+  subscribeBrowser(sink: BrowserSink): () => void {
+    this.browserSinks.add(sink)
+    this.request('browser.subscribe', {}).catch((error: unknown) => sink.failed?.(error))
+    return () => {
+      if (!this.browserSinks.delete(sink) || this.browserSinks.size > 0) return
+      this.positions.delete(browserStream())
+      this.request('browser.unsubscribe', {}).catch(() => undefined)
     }
   }
 
@@ -190,6 +210,9 @@ export class Connection {
     this.store.setConnection('connected', { welcome })
     this.startPing(channel)
     for (const { frame } of this.pending.values()) channel.send(frame)
+    // A browser view whose stream has no position (never answered, or the stream is gone) subscribes again.
+    const asked = [...this.pending.values()].some(({ frame }) => frame.name === 'browser.subscribe')
+    if (this.browserSinks.size > 0 && !asked && !this.positions.has(browserStream())) this.request('browser.subscribe', {}).catch(() => undefined)
   }
 
   // Refused by core: version mismatch and bad credentials stop the connection, anything else retries.
@@ -213,8 +236,10 @@ export class Connection {
 
   private onReset(stream: string, epoch: string, seq: number, snapshot: WorkspaceSnapshot | TabSnapshot | TerminalSnapshot | BrowserSnapshot): void {
     if (snapshot.kind === 'workspace') this.store.applyWorkspaceReset(snapshot)
-    else if (snapshot.kind === 'browser') return // the browser view is not built yet
-    else if (snapshot.kind === 'terminal') {
+    else if (snapshot.kind === 'browser') {
+      if (!this.browserSinks.size) return
+      for (const sink of this.browserSinks) sink.snapshot(snapshot)
+    } else if (snapshot.kind === 'terminal') {
       const sink = this.terminalSinks.get(terminalIdOf(stream))
       if (!sink) return
       sink.reset(snapshot)
@@ -231,8 +256,12 @@ export class Connection {
     this.positions.set(stream, { epoch, lastSeq: seq })
     if (stream === WORKSPACE_STREAM) this.store.applyWorkspaceEvent(ev as WorkspaceEvent)
     else if (stream.startsWith(TERMINAL_PREFIX)) this.onTerminalEvent(terminalIdOf(stream), ev as TerminalEvent)
-    else if (stream === 'browser') return void 0 // Browser events: stub for now
+    else if (stream === browserStream()) this.onBrowserEvent(ev as BrowserEvent)
     else this.store.applyTabEvent(tabIdOf(stream), ev as TabEvent)
+  }
+
+  private onBrowserEvent(ev: BrowserEvent): void {
+    for (const sink of this.browserSinks) sink.event(ev)
   }
 
   private onTerminalEvent(terminalId: string, ev: TerminalEvent): void {
@@ -244,6 +273,7 @@ export class Connection {
   private onGone(stream: string): void {
     this.positions.delete(stream)
     if (stream.startsWith(TERMINAL_PREFIX)) return void this.terminalSinks.delete(terminalIdOf(stream))
+    if (stream === browserStream()) return
     if (!stream.startsWith(TAB_PREFIX)) return
     this.wantedTabs.delete(tabIdOf(stream))
     this.store.dropTab(tabIdOf(stream))

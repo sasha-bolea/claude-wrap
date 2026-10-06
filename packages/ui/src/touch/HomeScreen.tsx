@@ -127,6 +127,7 @@ export function HomeScreen({ view: asked }: { view?: View }) {
           dot={view === 'projects' && waitingAnywhere}
           onClick={() => setView(view === 'sessions' ? 'projects' : 'sessions')}
         />
+        {state.welcome.browser && <IconButton icon="browser" label={t('browser')} onClick={() => go({ name: 'browser' })} />}
         <IconButton icon="gear" label={t('settings')} onClick={() => go({ name: 'settings' })} />
       </header>
       <UpdateBar />
