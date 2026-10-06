@@ -11,6 +11,8 @@ import { sdk, stored } from './messages.ts'
 //   plan       → asks to approve a plan, then reports the decision
 //   slow       → streams a long answer, word by word, until interrupted
 //   markdown   → answers with a remote image and a link (rendering safety checks)
+//   edit       → writes src/app.ts and src/util.ts (Write tool calls), then "Edited: done"; rewindFiles reports the files
+//                written by the turns from a message on (3 lines inserted per write), the dry run included
 //   tools      → runs three Bash commands in a row (ls, a long git log, npm test), then "Tools: done"
 //   peer       → answers, then another session's message arrives (stored) and gets its own answer
 //   crash      → the process dies
@@ -46,7 +48,7 @@ const imageCount = (message: SDKUserMessage) => (typeof message.message.content 
 // One fake turn in progress: knows whether it was interrupted, stores what it says like the CLI's JSONL, and reads
 // the messages sent meanwhile (fold: the text they add to the answer).
 // peer: a message from another session arrives (stored, then the CLI starts its turn); returns its uuid.
-type Turn = { session: FakeSession; interrupted: () => boolean; options: ScenarioOptions; store: (text: string) => void; fold: () => string; peer: (name: string, body: string) => string }
+type Turn = { session: FakeSession; interrupted: () => boolean; options: ScenarioOptions; store: (text: string) => void; fold: () => string; peer: (name: string, body: string) => string; edited: (file: string, lines: number) => void }
 
 // Streams text word by word, reads what was sent meanwhile, then the final frame and a success result (or an aborted
 // result if interrupted).
@@ -117,6 +119,17 @@ async function respond(turn: Turn, text: string, images: number): Promise<void> 
   if (keyword === 'questions') return questions(turn)
   if (keyword === 'plan') return stream(turn, `Plan: ${await ask(turn, 'ExitPlanMode', { plan: '1. Do the thing\n2. Check it' })}`)
   if (keyword === 'slow') return stream(turn, SLOW_TEXT)
+  if (keyword === 'edit') {
+    for (const file of ['src/app.ts', 'src/util.ts']) {
+      const id = `toolu_${randomUUID()}`
+      const content = 'a\nb\nc'
+      session.emit(sdk.assistant(`msg_${randomUUID()}`, [{ type: 'tool_use', id, name: 'Write', input: { file_path: file, content } }]))
+      await sleep(turn.options.wordDelayMs * 2)
+      session.emit(sdk.toolResult(id, `wrote ${file}`))
+      turn.edited(file, 3)
+    }
+    return stream(turn, 'Edited: done')
+  }
   if (keyword === 'tools') {
     for (const command of ['ls', 'git log --oneline --decorate --graph --all --since=2026-01-01 -- packages/ui/src/touch packages/core/src', 'npm test']) {
       const id = `toolu_${randomUUID()}`
@@ -163,6 +176,16 @@ async function drive(fake: FakeSdk, session: FakeSession, options: ScenarioOptio
     session.emit(sdk.lifecycle(id, 'started'))
     return id
   }
+  // Files written per turn, in order: the answers of rewindFiles (the files of the turns from a message on).
+  const turns: { uuid: string; files: Map<string, number> }[] = []
+  const publishRewinds = () => {
+    turns.forEach(({ uuid }, index) => {
+      const files = new Map<string, number>()
+      for (const later of turns.slice(index)) for (const [file, lines] of later.files) files.set(file, (files.get(file) ?? 0) + lines)
+      const filesChanged = [...files.keys()]
+      session.rewindResults.set(uuid, { canRewind: true, filesChanged, insertions: [...files.values()].reduce((sum, n) => sum + n, 0), deletions: 0 })
+    })
+  }
   while (!session.closed) {
     await session.waitForInput(next + 1)
     const message = session.received[next++]!
@@ -177,6 +200,9 @@ async function drive(fake: FakeSdk, session: FakeSession, options: ScenarioOptio
     interrupted = false
     lifecycle(message, 'started')
     const turn = [message]
+    const written = new Map<string, number>()
+    turns.push({ uuid: message.uuid ?? randomUUID(), files: written })
+    const edited = (file: string, lines: number) => written.set(file, (written.get(file) ?? 0) + lines)
     // Messages sent with priority 'next' while this turn streams: read now, answered in the same turn.
     const fold = () => {
       let added = ''
@@ -189,7 +215,8 @@ async function drive(fake: FakeSdk, session: FakeSession, options: ScenarioOptio
       }
       return added
     }
-    await respond({ session, interrupted: () => interrupted, options, store, fold, peer }, textOf(message), imageCount(message))
+    await respond({ session, interrupted: () => interrupted, options, store, fold, peer, edited }, textOf(message), imageCount(message))
+    publishRewinds()
     for (const done of turn) lifecycle(done, 'completed')
   }
 }
