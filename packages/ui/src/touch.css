@@ -525,8 +525,8 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .countdown-stop svg.i { width: 18px; height: 18px; }
 /* Queue: a filled circle like Send and Stop, in the text colour so it reads as a third action; the count sits on its rim */
 .send.queue-btn { margin: 3px 9px; background: var(--text); color: var(--surface); }
-.send.queue-btn .count { position: absolute; top: -6px; right: -8px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; border: 2px solid var(--surface); background: var(--accent); color: var(--accent-text); font-size: 11px; font-weight: 700; line-height: 14px; text-align: center; box-sizing: content-box; }
-.send.queue-btn .count svg.i { width: 11px; height: 11px; stroke-width: 3.2; vertical-align: -1px; }
+.send.queue-btn .count { position: absolute; top: -3px; right: -3px; min-width: 14px; height: 14px; padding: 0; border-radius: 50%; border: 1.5px solid var(--surface); background: var(--accent); color: var(--accent-text); font-size: 9px; font-weight: 700; line-height: 14px; text-align: center; box-sizing: content-box; }
+.send.queue-btn .count svg.i { width: 8px; height: 8px; stroke-width: 3.5; vertical-align: 0; }
 /* A message waiting to be read with "Invia ora" beside it (32 px circle, 44 px to the touch) */
 .msg-user-row { align-self: stretch; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
 .send-now { position: relative; flex: none; width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--accent); background: var(--surface); color: var(--accent); }
