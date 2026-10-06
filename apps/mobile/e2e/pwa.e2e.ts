@@ -378,6 +378,23 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('TEXTAREA')
   })
 
+  it('a drag on a short message in the field is blocked, unless text is selected (the selection handles move)', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await composer(page).fill('short text')
+    // A cancelable touchmove on the field, as iOS sends for a selection handle: was it blocked?
+    const blocked = () =>
+      composer(page).evaluate((field) => {
+        const touch = new Touch({ identifier: 1, target: field, clientX: 20, clientY: 20 })
+        const event = new TouchEvent('touchmove', { touches: [touch], bubbles: true, cancelable: true })
+        field.dispatchEvent(event)
+        return event.defaultPrevented
+      })
+    expect(await blocked()).toBe(true)
+    await composer(page).evaluate((field: HTMLTextAreaElement) => (field.focus(), field.setSelectionRange(0, 5)))
+    expect(await blocked()).toBe(false)
+  })
+
   it('commands in a row stack up like the queue; a tap spreads them into their cards, "Stack" gathers them again', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)

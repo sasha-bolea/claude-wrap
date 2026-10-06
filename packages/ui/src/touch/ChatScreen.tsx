@@ -227,11 +227,14 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
-  // A drag on the dock never scrolls the page (only the text inside the field, when it overflows).
+  // A drag on the dock never scrolls the page (only the text inside the field, when it overflows). With text selected
+  // in the field nothing is blocked: the drag may be a selection handle (iOS draws them past the field's edges too).
   useEffect(() => {
     const element = dock.current
     if (!element) return
     const block = (event: globalThis.TouchEvent) => {
+      const focused = document.activeElement
+      if (focused instanceof HTMLTextAreaElement && element.contains(focused) && focused.selectionStart !== focused.selectionEnd) return
       const field = (event.target as Element).closest('textarea')
       if (!field || field.scrollHeight <= field.clientHeight) event.preventDefault()
     }
