@@ -89,7 +89,7 @@ beforeEach(async () => {
 afterEach(() => core.closeAll())
 
 describe('rewind points', () => {
-  it('lists the prompts of the user, oldest first, without messages of other sessions or `!` commands', async () => {
+  it('lists the prompts and `!` commands of the user, oldest first, without messages of other sessions (as the CLI)', async () => {
     fake.histories.set('s1', [
       stored.user('u1', 'first'),
       stored.assistant('a1', 'm1', [{ type: 'text', text: 'one' }]),
@@ -100,7 +100,20 @@ describe('rewind points', () => {
     ])
     await openHistory()
     const { points } = await client.ok('tab.rewindPoints', { tabId: 't1' })
-    expect(points).toEqual([{ itemId: 'u1', text: 'first' }, { itemId: 'u2', text: 'with a picture', images: 1 }])
+    expect(points).toEqual([{ itemId: 'u1', text: 'first' }, { itemId: 'sh1', text: '!ls' }, { itemId: 'u2', text: 'with a picture', images: 1 }])
+  })
+
+  it('a conversation rewind to a `!` command gives the command back for the composer', async () => {
+    fake.histories.set('s1', [
+      stored.user('u1', 'first'),
+      stored.assistant('a1', 'm1', [{ type: 'text', text: 'one' }]),
+      stored.user('sh1', '<bash-input>ls</bash-input>'),
+      stored.user('sh2', '<bash-stdout>x</bash-stdout><bash-stderr></bash-stderr>')
+    ])
+    await openHistory()
+    const result = await client.ok('tab.rewind', { tabId: 't1', itemId: 'sh1', mode: 'conversation' })
+    expect(result.text).toBe('!ls')
+    expect(items(client).map((item) => item.itemId)).toEqual(['u1', 'm1:0'])
   })
 
   it('leaves out queued (pending) messages and everything before a compact boundary', async () => {

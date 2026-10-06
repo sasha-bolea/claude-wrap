@@ -87,6 +87,18 @@ export type RewindOutcome = { text?: string; images?: Image[]; filesChanged?: st
 export type RewindPoint = { itemId: string; text: string; images?: number }
 // Longest text of a rewind point (chars).
 const REWIND_TEXT = 200
+// An item the chat can be rewound to: a prompt of the user or a `!` command.
+type RewindableItem = Extract<Item, { kind: 'user' | 'shell' }>
+
+// Whether the chat can be rewound to item: a prompt already read by the CLI, or a `!` command (the CLI lists both).
+function isRewindable(item: Item): item is RewindableItem {
+  return (item.kind === 'user' && !item.pending) || item.kind === 'shell'
+}
+
+// The text a rewind point shows and gives back to the composer: the prompt, or the command with its `!`.
+function promptOf(item: RewindableItem): string {
+  return item.kind === 'shell' ? `!${item.command}` : item.text
+}
 
 // A user message on its way: queueId is the cmd id (SDK message uuid); pastes are long pasted texts inside text.
 export type Outgoing = { queueId: string; text: string; from: string; images?: Image[]; pastes?: string[] }
@@ -533,14 +545,15 @@ export class Tab {
     }
   }
 
-  // The messages of the user the chat can be rewound to, oldest first: real prompts (not waiting to be read, not from
-  // another session, not `!` commands) after the last compaction, which the CLI cannot rewind across.
+  // The messages of the user the chat can be rewound to, oldest first, as the CLI lists them: prompts (slash commands
+  // included) and `!` commands, not waiting to be read, not from another session, after the last compaction, which the
+  // CLI cannot rewind across.
   rewindPoints(): RewindPoint[] {
     const items = this.transcript.all()
     const boundary = items.findLastIndex((item) => item.kind === 'compactBoundary')
     return items.slice(boundary + 1).flatMap((item) => {
-      if (item.kind !== 'user' || item.pending) return []
-      return [{ itemId: item.itemId, text: item.text.slice(0, REWIND_TEXT), ...(item.images?.length ? { images: item.images.length } : {}) }]
+      if (!isRewindable(item)) return []
+      return [{ itemId: item.itemId, text: promptOf(item).slice(0, REWIND_TEXT), ...(item.kind === 'user' && item.images?.length ? { images: item.images.length } : {}) }]
     })
   }
 
@@ -574,10 +587,10 @@ export class Tab {
   }
 
   // The user item to rewind to and its stored message uuid; not_found / invalid_args otherwise.
-  private rewindTarget(itemId: string): { item: Extract<Item, { kind: 'user' }>; uuid: string } {
+  private rewindTarget(itemId: string): { item: RewindableItem; uuid: string } {
     const item = this.transcript.get(itemId)
     if (!item) throw new CoreError('not_found', 'message not found')
-    if (item.kind !== 'user' || item.pending) throw new CoreError('invalid_args', 'not a message of the user to rewind to')
+    if (!isRewindable(item)) throw new CoreError('invalid_args', 'not a message of the user to rewind to')
     return { item, uuid: item.sourceUuid ?? item.itemId }
   }
 
@@ -596,11 +609,11 @@ export class Tab {
 
   // Cuts the conversation before the target (see rewind). Another session's message may have started a turn since the
   // check: it is checked again once the stored session was read.
-  private async rewindConversation({ item, uuid }: { item: Extract<Item, { kind: 'user' }>; uuid: string }): Promise<RewindOutcome> {
+  private async rewindConversation({ item, uuid }: { item: RewindableItem; uuid: string }): Promise<RewindOutcome> {
     const before = await this.messageBefore(uuid)
     this.assertIdle()
-    const images = (item.images ?? []).flatMap((ref) => this.transcript.blob(ref.imageId) ?? [])
-    const prompt = { text: item.text, ...(images.length ? { images } : {}) }
+    const images = item.kind === 'user' ? (item.images ?? []).flatMap((ref) => this.transcript.blob(ref.imageId) ?? []) : []
+    const prompt = { text: promptOf(item), ...(images.length ? { images } : {}) }
     if (!before) return { ...prompt, startOver: true }
     this.resumeAt = before
     await this.releaseProcess()
