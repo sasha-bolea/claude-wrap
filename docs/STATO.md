@@ -1,6 +1,6 @@
 # STATO — AtHome
 
-_Last updated: 2026-10-06 15:32 CEST_
+_Last updated: 2026-10-06 15:41 CEST_
 
 ## Current state
 **Phases 0–3 and sub-phases A, B, C1 and C2 of the realigned plan are done** ([piano.md](piano.md) §4): the remote
@@ -15,12 +15,13 @@ a phone, three columns from 1024 px. C2 was closed by Sasha on 2026-10-05 ("c2 o
   one and no more light/dark theme; the **app icon** in the palette's accent; **"Aggiungi dispositivo" with two links**
   (use it in the browser, or install the app with a palette); **session names** = tab titles; **messages between
   sessions** shown as "Da @nome"; open sessions ordered by last use (other session, `353cebc`); answered questions kept
-  in the chat (`9d9bf10`). The team-mode plan (capo/operai inside AtHome) was **cancelled**: AtHome shows only native
+  in the chat (`9d9bf10`). At 15:41 the **"working for" timer** is kept by core (`6c3dfd1`): it survives reopening the app and
+  stops while Claude waits for an answer (bug-risolti). The team-mode plan (capo/operai inside AtHome) was **cancelled**: AtHome shows only native
   Claude Code features. Details in the 15:32 entry of [storico-sessioni.md](storico-sessioni.md).
 - **Repo:** public on GitHub (`main` only). Several Claude sessions push to `main` (the PC one and the ones in the
   server dev clone `/srv/progetti/claude-wrap`, which push over SSH): pull before working and before committing, and
   commit only your own paths.
-- **Tests (2026-10-06 15:20, home server):** `npm test` 253 passed (+2 skipped), including `sdkContract.test.ts` (the
+- **Tests (2026-10-06 15:20, home server):** `npm test` 255 passed (+2 skipped, 15:32), including `sdkContract.test.ts` (the
   real `getSessionMessages` on a sample session file); PWA e2e 46/46 (Playwright's Chromium); desktop e2e 33/33
   (Electron under `xvfb-run`). `smoke:composer` has not run since: the server's default login hit its weekly limit.
 - **Touch app:** the chat, queue with countdown, gauge, context/usage panels, accounts, terminal, wide arrangement,

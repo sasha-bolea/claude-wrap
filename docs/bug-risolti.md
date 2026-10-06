@@ -462,3 +462,14 @@ These were solved in the first attempt. Files refer to that repository. Each ent
 - **Fix:** `e33ec15` — opened with `?accent=`, Safari shows only the install steps and a note; the toast says to pair
   in the app. Then `f41181f`: the install link carries the code in the app's start address, so the app pairs itself.
 - **Files:** `packages/ui/src/PairScreen.tsx`, `apps/mobile/src/main.tsx`, `packages/ui/src/i18n/{en,it}.ts`.
+
+### 2026-10-06 — The "working for" timer started again from zero after reopening the app
+- **Symptom:** closing and reopening the app (or switching device, or Claude going from "starting" to "working")
+  while Claude worked showed "Claude sta lavorando… 0 s" again.
+- **Cause:** the working line counted from its own mount (`useRef(Date.now())`) and was remounted on every status
+  change (`key={meta.status}`); core never said when the turn started.
+- **Fix:** `6c3dfd1` — core keeps the turn's work time in `TabMeta.workingSince` (`Tab.updateWorkClock`): set when
+  Claude starts working, stopped while a request waits for an answer (Sasha's choice: the wait does not count),
+  cleared when the turn ends. The UI shows `now - workingSince`. Test in `core.test.ts` ("the work time of a turn").
+- **Files:** `packages/protocol/src/model.ts`, `packages/core/src/tab.ts`, `packages/core/src/core.test.ts`,
+  `packages/ui/src/touch/Conversation.tsx`.

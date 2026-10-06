@@ -2,6 +2,17 @@
 
 _Append-only archive of session entries that left [STATO.md](STATO.md), newest on top._
 
+## 2026-10-06 15:41 — The "working for" timer kept by core (phone session, server dev clone)
+Sasha on the iPhone: the timer of how long Claude is working started again from zero after reopening the app. Waited
+for the other session to commit its files, then fixed; Sasha chose that the timer stops while Claude waits for an
+answer. Tests: `npm test` 255 passed, typecheck clean, PWA e2e 46/46. Pushed over SSH (`6c3dfd1`).
+
+### Cambiamenti al codice
+- `packages/protocol/src/model.ts`: `TabMeta.workingSince` (ms, moved forward by the time spent waiting for answers).
+- `packages/core/src/tab.ts`: `updateWorkClock()` called by `changed()` and `meta()`; fields `workingSince`, `workedMs`.
+- `packages/ui/src/touch/Conversation.tsx`: `WorkingLine` takes `since` from the meta, no remount on status change.
+- `packages/core/src/core.test.ts`: test "the work time of a turn is kept by core and stops while Claude waits".
+
 ## 2026-10-06 15:32 — Deploy unblocked, palette icon and presets, pairing links, session names, messages between sessions; team plan cancelled (phone session, server dev clone)
 Sasha on the iPhone, 11:30–15:30, in the server dev clone; other sessions worked in the same clone (AtHome rename,
 palettes, last-used order). Every change pushed over SSH and deployed by the update timer.
