@@ -369,3 +369,65 @@ These were solved in the first attempt. Files refer to that repository. Each ent
 - **Fix:** the fork passes `effort: tab.effort` too; the workspace fork test now checks effort and mode.
 - **Files:** `packages/core/src/commands.ts`, `packages/core/src/workspace.test.ts`.
 - **Rule:** a new per-tab setting is checked in every place that creates a tab (`tab.create`, fork, restore).
+
+### 2026-10-05 — Opening the app showed the space of a keyboard that was not there
+- **Symptom:** sometimes, opening the PWA on the iPhone, the app was shrunk with an empty dark band at the bottom, as
+  if the keyboard were open.
+- **Cause:** back from the background, iOS kept reporting the visual viewport without the keyboard, and
+  `keyboard.ts` copied that height into `--app-h`. A first fix (blur the field and measure again on
+  `visibilitychange`/`pageshow`) measured right then and took the same stale value again.
+- **Fix:** with no field focused there is no keyboard: `--app-h` is dropped and the CSS height fills the screen; the
+  viewport height is followed only while typing. The focused field is still let go when the app is hidden.
+- **Files:** `packages/ui/src/touch/keyboard.ts`, `apps/mobile/e2e/pwa.e2e.ts`.
+
+### 2026-10-05 — Several notifications at once instead of one
+- **Symptom:** one notification per chat; then, with a single tag, still several stacked on the iPhone.
+- **Cause:** the service worker used one tag per session; and iOS does not replace a notification that has the same
+  tag (WebKit bug 258922), it adds a new one.
+- **Fix:** one notification with the counts of chats waiting and finished (core keeps them); every notification is
+  closed (`getNotifications()` + `close()`) before showing the new one; the app clears them when on screen.
+- **Files:** `apps/mobile/public/notice.js`, `apps/mobile/public/sw.js`, `apps/mobile/src/main.tsx`,
+  `packages/core/src/workspace.ts`, `packages/server/src/push.ts`.
+
+### 2026-10-05 — Reaching the end of the chat stopped dead, without the bounce
+- **Symptom:** scrolling down to the end of a chat stopped abruptly instead of bouncing.
+- **Causes:** (1) reaching the bottom set `follow`, which recreated the dock's `ResizeObserver`; its first callback
+  set `scrollTop`, and a programmatic scroll on iOS cuts the momentum and the bounce. (2) While the glide to new text
+  ran, a scroll by the user was taken for one of its steps and ignored, so the glide kept pulling.
+- **Fix:** the observer lives as long as the chat and moves it only when the dock's height really changes; the glide
+  remembers the position it set and stops at any other move. The e2e counts `scrollTop` writes while the wheel
+  scrolls to the end (must be 0).
+- **Files:** `packages/ui/src/touch/ChatScreen.tsx`, `apps/mobile/e2e/pwa.e2e.ts`.
+
+### 2026-10-05 — "Claude sta lavorando · 567 s"
+- **Symptom:** the working time beside "Claude sta lavorando" counted only seconds.
+- **Fix:** it uses `durationLabel` ("9 min 27 s", "1 h 12 min"), like the usage panel.
+- **Files:** `packages/ui/src/touch/Conversation.tsx`, i18n en + it.
+
+### 2026-10-05 — The reds of the dark theme looked pink
+- **Cause:** `--danger` was `#f2b8b5` (a pale red) in the dark theme.
+- **Fix:** `#ff6b5e` dark, `#c62828` light, both ≥ 4.5:1 on every background; rule written in design-system.md.
+- **Files:** `packages/ui/src/touch.css`, `docs/design-system.md`.
+
+### 2026-10-06 — The terminal lost its colours and measures under the CSP
+- **Symptom:** 20 "Applying inline style violates … style-src 'self'" errors when a terminal opened; colours and row
+  measures of xterm.js missing.
+- **Cause:** xterm.js writes its theme and dimensions in `<style>` elements (and `style` attributes), blocked by the
+  strict CSP of the server and the desktop.
+- **Fix:** `style-src 'self' 'unsafe-inline'` (scripts stay `'self'`; images, fonts and connections stay on the
+  backend). Alternative left open: xterm's WebGL renderer. The terminal e2e asserts no CSP refusal.
+- **Files:** `packages/server/src/server.ts`, `apps/desktop/src/main/index.ts`, `apps/mobile/e2e/pwa.e2e.ts`.
+
+### 2026-10-06 — Packaging the desktop tried to compile node-pty
+- **Symptom:** `electron-builder --win --dir` stopped with "node-gyp does not support cross-compiling native modules".
+- **Cause:** electron-builder rebuilds native dependencies by default (on the PC it would need Visual Studio tools).
+- **Fix:** `"npmRebuild": false` — node-pty's N-API prebuilds work in Electron as they are; `node_modules/node-pty/**`
+  unpacked from asar.
+- **Files:** `apps/desktop/package.json`, `docs/procedure.md`.
+
+### 2026-10-06 — A commit swept in another session's unfinished work
+- **Symptom:** `78c1191` (terminal Copy all/Paste/links) also contained chat and composer changes of the other Claude
+  session, which committed only their design-system entry afterwards (`4928714`).
+- **Cause:** both sessions work in the same dev clone `/srv/progetti/claude-wrap`, and the commit used `git add -A`.
+- **Fix:** commit only the paths you touched (`git add <files>`), check `git status` first (rule in CLAUDE.md
+  "Conventions"). The swept changes had been through the full e2e run, so nothing broke.

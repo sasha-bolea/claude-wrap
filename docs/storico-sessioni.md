@@ -2,6 +2,72 @@
 
 _Append-only archive of session entries that left [STATO.md](STATO.md), newest on top._
 
+## 2026-10-06 11:12 — Terminal in the app, one notification, keyboard and bounce fixes (phone session, server dev clone)
+The phone session in the server dev clone, from 2026-10-05 20:30 to 2026-10-06 02:21, Sasha on the iPhone. Small
+fixes first, then the terminal (backlog 1) in three steps plus four follow-ups, all pushed over SSH and deployed by the
+update timer (which waited while this session worked: Sasha saw old builds for a while).
+- **Keyboard space at opening:** first fix (blur + measure again on return) was not enough; the real cause was iOS
+  still reporting the visual viewport without the keyboard after the return. With no field focused the app now fills
+  the screen (CSS height) whatever the viewport says (bug-risolti).
+- **One notification:** core counts chats waiting for an answer and chats finished while nobody looked; the push
+  carries the counts; the service worker keeps one notification ("2 chat aspettano te · 1 chat ha finito"; one chat →
+  its title, tap opens it; more → tap opens the open sessions); the app clears it when on screen. iOS does not
+  replace a notification with the same tag (WebKit bug 258922): every one is closed before the new one — confirmed
+  working by Sasha ("1").
+- **Small UI:** "Claude sta lavorando · 9 min 27 s" (minutes and hours via `durationLabel`); the native bounce at the
+  end of the chat was cut by a programmatic scroll (bug-risolti); vivid reds (`--danger` #ff6b5e dark, #c62828 light).
+- **Terminal:** node-pty 1.2 beta (N-API prebuilds: no compiler on the server, same binary in Electron); shells in core
+  shared through the protocol (`terminal:<id>` streams with replay, list on the workspace stream, max 5); xterm.js
+  screen on the phone (key bar Ctrl/Esc/Tab/arrows/|/~//) and in the desktop's right panel; opened from the session
+  menu, a folder's menu ("Terminale qui"), the panel tab; listed in the Home. Follow-ups asked by Sasha: a command
+  running in a terminal holds the automatic update; leaving a terminal asks "Chiudere il terminale?" (1b) and the
+  Home has "Chiudi tutti i terminali" (2); Copia tutto / Incolla; clickable links. CSP `style-src` now allows inline
+  styles (xterm writes `<style>`); electron-builder no longer rebuilds native modules (`npmRebuild: false`).
+- **Chat and composer:** the model and effort on a second line under the chat's title; + first in the composer; the
+  queue button (beside Stop while Claude responds) puts what is written straight into the queue — queue mode is gone.
+- **Two sessions, one folder:** the other Claude session works in the same clone; one commit of this session
+  (`78c1191`) swept in its unfinished chat changes (`git add -A`). Rule since then: commit only the files you touched.
+  For a while GitHub refused the server's SSH key; it worked again later without changes here.
+- **Verification:** unit + contract tests green at every push (221 here, before the other session's additions); PWA e2e
+  37/37; desktop e2e 32/32 under xvfb (two desktop tests and one PWA test failed once each and passed when rerun:
+  flaky, see STATO). The Windows packaged build was only cross-built from Linux (checks node-pty's win32 prebuilds and
+  ConPTY unpacked; unusable without the Windows CLI binary): the real check is for the PC session.
+- **Decisions archived from STATO (2026-10-05):**
+  | 2026-10-05 | Menus opened from a button are popovers by it; typing sheets and confirmations opened from a sheet are centred dialogs; Settings is a window | NOTE-CONSEGNA §5 |
+  | 2026-10-05 | Desktop e2e run on the home server under `xvfb-run` (GTK installed by Sasha); the PC runs them too | The phone session can verify the desktop itself |
+
+### Cambiamenti al codice
+- Keyboard: `packages/ui/src/touch/keyboard.ts` (blur on `visibilitychange`/`pageshow`/start; no `--app-h` while no
+  field is focused).
+- Notifications: `packages/core/src/config.ts` (`Notice.waiting/finished`), `workspace.ts` (`finished` set, `notify`,
+  `seen`), `commands.ts` (`client.watch`/`client.visibility` mark seen); `packages/server/src/push.ts` (counts in the
+  payload); `apps/mobile/public/notice.js` (new: `noticeView`, `showOnly`), `public/sw.js` (one tag, `/#sessions`);
+  `apps/mobile/src/main.tsx` (`onShowSessions`, `clearNotifications`); `packages/ui/src/App.tsx`
+  (`Capabilities.onShowSessions`), `touch/context.tsx` (`home.view`), `TouchApp.tsx`, `HomeScreen.tsx`;
+  `apps/desktop/src/main/remoteNotices.ts` (`DesktopNotice`).
+- Working time: `touch/Conversation.tsx` (`workingFor` + `durationLabel`). Bounce: `touch/ChatScreen.tsx` (dock
+  observer lives with the chat, moves it only on a real height change; the glide gives way to moves it did not make).
+  Reds: `touch.css` tokens.
+- Terminal core: `packages/core/src/terminals.ts` (new), `workspace.ts` (`terminals`, `countActivity`, activity poll),
+  `commands.ts` (`terminal.*`), `core.ts` (resume/detach), `stream.ts` (types), `config.ts` (`terminalShell`,
+  `activityPollMs`); `packages/protocol/src/model.ts` (`terminalMetaSchema`, events, snapshot, `terminalStream`),
+  `commands.ts` (`terminal.open/subscribe/unsubscribe/input/resize/close`), `index.ts`; `packages/client/src/connection.ts`
+  (`subscribeTerminal`, `TerminalSink`), `store.ts` (`terminals`); `node-pty` in `packages/core` and `apps/desktop`.
+- Terminal UI: `packages/ui/src/touch/TerminalScreen.tsx` (new: screen, key bar, `useOpenTerminal`, `OpenTerminals`,
+  `ConfirmClose`, `withCtrl`, copy/paste, links), `TouchApp.tsx` (route, panel tab), `ChatScreen.tsx` (session menu
+  item), `HomeScreen.tsx` (folder menu, list), `icons.tsx` (`terminal`), `touch.css`, i18n en + it; `@xterm/xterm`,
+  `@xterm/addon-fit`, `@xterm/addon-web-links` in `packages/ui`.
+- CSP: `packages/server/src/server.ts`, `apps/desktop/src/main/index.ts` (`style-src 'self' 'unsafe-inline'`).
+  Packaging: `apps/desktop/package.json` (`npmRebuild: false`, `node_modules/node-pty/**` unpacked),
+  `electron.vite.config.ts` (comment).
+- Chat/composer: `ChatScreen.tsx` (`.title-stack`, no queue mode), `TouchComposer.tsx` (+ first, `send(toQueue)`,
+  queue button label), `touch.css`.
+- Tests: `packages/core/src/terminals.test.ts` (new, 5), `core.test.ts` (notice counts), `server/src/push.test.ts`,
+  `server/src/contract.test.ts` (terminal over both transports), `apps/mobile/src/notice.test.ts` (new),
+  `packages/ui/src/touch/terminal.test.ts` (new), `touch/model.test.ts`, `apps/mobile/e2e/pwa.e2e.ts` (keyboard, bounce,
+  notification tap, terminal ×3, layout, queue), `apps/desktop/e2e/chat.e2e.ts` (terminal tab).
+- Docs: `architettura.md` §9.8, `procedure.md` (packaged build), `design-system.md` (terminal, top bar, composer, danger).
+
 ## 2026-10-06 11:02 — Default effort and permission mode for new sessions (server dev clone)
 A short session in the server dev clone, from the phone. Sasha asked for a default effort and a default permission
 mode in the app's settings; the proposal (five questions with a recommended answer each) was approved as is, with
