@@ -1,4 +1,4 @@
-import type { ErrorCode } from '@claude-wrap/protocol'
+import type { ErrorCode } from '@athome/protocol'
 
 // Error with a protocol code: command handlers throw it and the reply carries {code, message}.
 export class CoreError extends Error {

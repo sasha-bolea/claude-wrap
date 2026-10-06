@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright-core'
-import { createCore, type Core } from '@claude-wrap/core'
-import { createScriptedSdk } from '@claude-wrap/core/testing'
-import { DeviceStore, createPairingCode, deviceCommands, loadStaticFiles, startServer, type RunningServer, type StaticFiles } from '@claude-wrap/server'
+import { createCore, type Core } from '@athome/core'
+import { createScriptedSdk } from '@athome/core/testing'
+import { DeviceStore, createPairingCode, deviceCommands, loadStaticFiles, startServer, type RunningServer, type StaticFiles } from '@athome/server'
 
 // PWA end-to-end harness: the real server on an ephemeral port with the scripted fake SDK, serving the built PWA
 // (apps/mobile/dist), and the system Chrome (playwright channel 'chrome', no browser download) at phone size.

@@ -13,7 +13,7 @@ import {
   type Reply,
   type ResetFrame,
   type StreamPosition
-} from '@claude-wrap/protocol'
+} from '@athome/protocol'
 import type { Core } from '../core.ts'
 
 // Protocol-level test client: speaks raw frames to a core and records everything it receives.

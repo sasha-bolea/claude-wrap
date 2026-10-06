@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { TabView } from '@claude-wrap/client'
-import type { Image, ImageRef, Item, Request, TabMeta } from '@claude-wrap/protocol'
+import type { TabView } from '@athome/client'
+import type { Image, ImageRef, Item, Request, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { dataUrl } from '../images.ts'
 import { Markdown } from '../Markdown.tsx'

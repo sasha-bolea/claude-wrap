@@ -25,9 +25,9 @@ self.noticeView = (data, language) => {
   const text = NOTICE_TEXT[language] || NOTICE_TEXT.en
   const waiting = data.waiting || 0
   const finished = data.finished || 0
-  if (waiting + finished <= 1) return { title: data.title || 'claude-wrap', body: text[data.kind] || '', tabId: data.tabId }
+  if (waiting + finished <= 1) return { title: data.title || 'AtHome', body: text[data.kind] || '', tabId: data.tabId }
   const parts = [waiting ? text.waiting(waiting) : '', finished ? text.finished(finished) : ''].filter(Boolean)
-  return { title: 'claude-wrap', body: parts.join(' · ') }
+  return { title: 'AtHome', body: parts.join(' · ') }
 }
 
 // Shows the notification as the only one: every notification on screen is closed first, since iOS does not replace

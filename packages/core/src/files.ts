@@ -1,6 +1,6 @@
 import { lstat, mkdir, open, readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'node:path'
-import { LIMITS, type CommandResult, type FileEntry } from '@claude-wrap/protocol'
+import { LIMITS, type CommandResult, type FileEntry } from '@athome/protocol'
 import { CoreError } from './errors.ts'
 import { move } from './trash.ts'
 import { findGitRoot } from './trust.ts'

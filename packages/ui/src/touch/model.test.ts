@@ -2,7 +2,7 @@
 // state among them, the short name of a model; free names for uploads, what a turn changed in a folder, highlighted
 // code split into lines.
 import { describe, expect, it } from 'vitest'
-import type { FileEntry, TabMeta } from '@claude-wrap/protocol'
+import type { FileEntry, TabMeta } from '@athome/protocol'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { answeredQuestions, durationLabel, filesChanged, folderSummary, freeName, htmlLines, inside, modelShortName, resetLabel, sessionState, spanNodes, tokenLabel } from './model.ts'
 

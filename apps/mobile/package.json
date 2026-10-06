@@ -1,5 +1,5 @@
 {
-  "name": "@claude-wrap/mobile",
+  "name": "@athome/mobile",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -7,11 +7,11 @@
     "build": "vite build"
   },
   "devDependencies": {
-    "@claude-wrap/client": "*",
-    "@claude-wrap/core": "*",
-    "@claude-wrap/protocol": "*",
-    "@claude-wrap/server": "*",
-    "@claude-wrap/ui": "*",
+    "@athome/client": "*",
+    "@athome/core": "*",
+    "@athome/protocol": "*",
+    "@athome/server": "*",
+    "@athome/ui": "*",
     "@vitejs/plugin-react": "^5.2.0",
     "vite": "^7.3.6"
   }

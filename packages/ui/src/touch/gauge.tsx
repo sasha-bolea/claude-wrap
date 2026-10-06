@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { LimitWindow, TabMeta } from '@claude-wrap/protocol'
+import type { LimitWindow, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useTouch } from './context.tsx'
 import { resetLabel, tokenLabel } from './model.ts'

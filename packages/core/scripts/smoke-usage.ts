@@ -6,13 +6,13 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createChannelPair } from '@claude-wrap/protocol'
-import { Connection } from '@claude-wrap/client'
+import { createChannelPair } from '@athome/protocol'
+import { Connection } from '@athome/client'
 import { createCore } from '../src/index.ts'
 
 const TAB_ID = 'usage'
 
-const cwd = mkdtempSync(join(tmpdir(), 'claude-wrap-usage-'))
+const cwd = mkdtempSync(join(tmpdir(), 'athome-usage-'))
 const core = createCore({ backendId: 'smoke-usage', backendKind: 'local' })
 const connection = new Connection({
   openChannel: async () => {

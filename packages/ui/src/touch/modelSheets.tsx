@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import type { Effort, ModelInfo, PermissionMode, TabMeta } from '@claude-wrap/protocol'
+import type { Effort, ModelInfo, PermissionMode, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import type { MessageKey } from '../i18n/en.ts'
 import { MODES, modeLabel } from '../modes.ts'

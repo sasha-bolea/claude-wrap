@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DependencyList, type ReactNode } from 'react'
-import type { TabMeta } from '@claude-wrap/protocol'
+import type { TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useAvailableUpdate } from '../appUpdate.ts'
 import { useTouch } from './context.tsx'

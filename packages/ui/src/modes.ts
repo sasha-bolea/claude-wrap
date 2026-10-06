@@ -1,4 +1,4 @@
-import type { PermissionMode } from '@claude-wrap/protocol'
+import type { PermissionMode } from '@athome/protocol'
 import type { MessageKey } from './i18n/en.ts'
 
 // Selectable permission modes, as in the CLI. bypassPermissions is left out: it only works when the session

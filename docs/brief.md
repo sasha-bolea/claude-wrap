@@ -1,4 +1,4 @@
-# Brief — claude-wrap
+# Brief — AtHome
 
 ## What
 A graphical app for Claude Code (chat, panels, buttons) with **every** feature of the terminal CLI: slash commands, shortcuts, permission modes, rewind, subagents, MCP, hooks, sessions. Later, new features invented by Sasha that the CLI does not have.
@@ -30,6 +30,13 @@ The interface is native and the engine is the **Claude Agent SDK**: structured e
 - Invented features: they come after CLI parity.
 - Running sessions in the background after the desktop window closes (tray): later.
 - Showing local and remote tabs side by side in one window: later (the core already allows it).
+
+## Name
+**AtHome**, mark **`@~`** (chosen 2026-10-06, replacing the working name claude-wrap). `@` is the remote host of
+`ssh user@host`, `~` is home: read together, "at home" — the sessions live on the home server and every device
+connects to them. A developer symbol on purpose; "Claude" stays out of the name because of Anthropic's trademark.
+Only what is shown and the code identifiers changed; the infrastructure keeps `claude-wrap` (list and reason in
+[CLAUDE.md](../CLAUDE.md#1-project--purpose)) until a planned migration.
 
 ## Previous attempt
 The first attempt lives in `personale/claude wrap` (with a space) and is kept as read-only reference. Why it was restarted and what was learned: `personale/claude wrap/docs/handoff-ripartenza.md`.

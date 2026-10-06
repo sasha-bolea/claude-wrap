@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
-import type { Connection } from '@claude-wrap/client'
+import type { Connection } from '@athome/client'
 import type { Capabilities } from '../App.tsx'
 import { t } from '../i18n.ts'
 import { readDraft } from '../viewState.ts'

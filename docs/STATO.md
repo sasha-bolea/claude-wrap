@@ -1,4 +1,4 @@
-# STATO — claude-wrap
+# STATO — AtHome
 
 _Last updated: 2026-10-06 11:16 CEST_
 

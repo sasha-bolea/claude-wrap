@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react'
-import { LIMITS, type CommandResult, type FileEntry } from '@claude-wrap/protocol'
+import { LIMITS, type CommandResult, type FileEntry } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { readBase64 } from '../images.ts'
 import { Markdown } from '../Markdown.tsx'

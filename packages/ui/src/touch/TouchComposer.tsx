@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type TouchEvent } from 'react'
-import { ClientError } from '@claude-wrap/client'
-import { LIMITS, type TabMeta } from '@claude-wrap/protocol'
+import { ClientError } from '@athome/client'
+import { LIMITS, type TabMeta } from '@athome/protocol'
 import { useComposerPopup, useDraft, usePromptHistory } from '../composerHooks.ts'
 import { applySuggestion, caretOnEdgeLine, expandPastes, isLongPaste, pastePlaceholder } from '../composerText.ts'
 import { t } from '../i18n.ts'

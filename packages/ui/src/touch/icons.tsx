@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { PermissionMode } from '@claude-wrap/protocol'
+import type { PermissionMode } from '@athome/protocol'
 
 // Line icons of the touch layout (the prototype's set), drawn with the text colour. An icon-only button always has
 // an aria-label: the icon itself is hidden from screen readers.

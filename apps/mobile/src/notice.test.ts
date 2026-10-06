@@ -21,10 +21,10 @@ describe('the single notification', () => {
   })
 
   it('more chats: the counts, singular and plural, and no tab', () => {
-    expect(view({ kind: 'turnFinished', title: 'x', tabId: 't2', waiting: 2, finished: 1 })).toEqual({ title: 'claude-wrap', body: '2 chat aspettano te · 1 chat ha finito' })
-    expect(view({ kind: 'request', title: 'x', tabId: 't2', waiting: 1, finished: 3 })).toEqual({ title: 'claude-wrap', body: '1 chat aspetta te · 3 chat hanno finito' })
-    expect(view({ kind: 'error', title: 'x', tabId: 't2', waiting: 0, finished: 2 }, 'en')).toEqual({ title: 'claude-wrap', body: '2 chats finished' })
-    expect(view({ kind: 'request', title: 'x', tabId: 't2', waiting: 2, finished: 0 }, 'en')).toEqual({ title: 'claude-wrap', body: '2 chats are waiting for you' })
+    expect(view({ kind: 'turnFinished', title: 'x', tabId: 't2', waiting: 2, finished: 1 })).toEqual({ title: 'AtHome', body: '2 chat aspettano te · 1 chat ha finito' })
+    expect(view({ kind: 'request', title: 'x', tabId: 't2', waiting: 1, finished: 3 })).toEqual({ title: 'AtHome', body: '1 chat aspetta te · 3 chat hanno finito' })
+    expect(view({ kind: 'error', title: 'x', tabId: 't2', waiting: 0, finished: 2 }, 'en')).toEqual({ title: 'AtHome', body: '2 chats finished' })
+    expect(view({ kind: 'request', title: 'x', tabId: 't2', waiting: 2, finished: 0 }, 'en')).toEqual({ title: 'AtHome', body: '2 chats are waiting for you' })
   })
 
   it('a payload without counts (older server) still names its chat', () => {
@@ -37,7 +37,7 @@ describe('the single notification', () => {
       getNotifications: async () => ['a', 'b'].map((name) => ({ close: () => void log.push(`close ${name}`) })),
       showNotification: async (title) => void log.push(`show ${title}`)
     }
-    await scope.showOnly!(registration, 'claude-wrap', { tag: 'claude-wrap', body: '2 chat aspettano te' })
-    expect(log).toEqual(['close a', 'close b', 'show claude-wrap'])
+    await scope.showOnly!(registration, 'AtHome', { tag: 'claude-wrap', body: '2 chat aspettano te' })
+    expect(log).toEqual(['close a', 'close b', 'show AtHome'])
   })
 })

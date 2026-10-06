@@ -1,4 +1,4 @@
-import type { Notice } from '@claude-wrap/core'
+import type { Notice } from '@athome/core'
 
 // Notices of a remote backend, read from the workspace stream passing through the desktop's socket bridge (the
 // server's own notices go to Web Push, which the desktop does not use). Same kinds as the local core's: a tab that

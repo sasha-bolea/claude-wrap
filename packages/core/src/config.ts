@@ -1,5 +1,5 @@
 import type { Options, SDKSessionInfo, SessionMessage, query } from '@anthropic-ai/claude-agent-sdk'
-import type { BackendKind } from '@claude-wrap/protocol'
+import type { BackendKind } from '@athome/protocol'
 import type { HostCommands } from './commands.ts'
 import type { RingLimits } from './stream.ts'
 import type { ShellCommand } from './terminals.ts'

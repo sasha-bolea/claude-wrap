@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { FolderEntry, TabMeta } from '@claude-wrap/protocol'
+import type { FolderEntry, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useBackHandler, useScreen, useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'

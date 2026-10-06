@@ -1,7 +1,7 @@
 import { mkdir, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import type { CommandResult } from '@claude-wrap/protocol'
+import type { CommandResult } from '@athome/protocol'
 import { CoreError } from './errors.ts'
 import { canonicalFolder, checkRoots, withinRoots } from './trustGate.ts'
 

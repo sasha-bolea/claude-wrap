@@ -1,4 +1,4 @@
-import type { Reply } from '@claude-wrap/protocol'
+import type { Reply } from '@athome/protocol'
 
 const MAX_PER_CLIENT = 256
 const MAX_AGE_MS = 5 * 60 * 1000

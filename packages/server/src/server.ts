@@ -1,8 +1,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type RawData, type WebSocket } from 'ws'
-import type { Identity } from '@claude-wrap/core'
-import type { Channel } from '@claude-wrap/protocol'
+import type { Identity } from '@athome/core'
+import type { Channel } from '@athome/protocol'
 import type { DeviceStore } from './devices.ts'
 import { findStatic, type StaticFiles } from './staticFiles.ts'
 

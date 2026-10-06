@@ -1,6 +1,6 @@
 import type { MessagePortMain } from 'electron'
-import { createCore, type Core } from '@claude-wrap/core'
-import type { Channel } from '@claude-wrap/protocol'
+import { createCore, type Core } from '@athome/core'
+import type { Channel } from '@athome/protocol'
 
 // Entry of the utilityProcess that hosts the local core. Main sends one MessagePort per client connection,
 // {type:'quit'} when the app quits (the core closes every session before this process exits), and {type:'trashed'}
@@ -18,7 +18,7 @@ function trashItem(path: string): Promise<void> {
 }
 
 async function startCore(): Promise<Core> {
-  const sdk = process.env.CLAUDE_WRAP_FAKE_SDK ? (await import('@claude-wrap/core/testing')).createScriptedSdk() : undefined
+  const sdk = process.env.CLAUDE_WRAP_FAKE_SDK ? (await import('@athome/core/testing')).createScriptedSdk() : undefined
   const claudePath = process.env.CLAUDE_WRAP_CLAUDE_PATH
   return createCore({
     backendId: 'local',

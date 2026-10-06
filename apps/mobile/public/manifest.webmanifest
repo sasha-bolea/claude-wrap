@@ -1,6 +1,6 @@
 {
-  "name": "claude-wrap",
-  "short_name": "claude-wrap",
+  "name": "AtHome",
+  "short_name": "AtHome",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

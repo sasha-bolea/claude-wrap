@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
-import { terminalStream, type TerminalMeta, type WorkspaceEvent } from '@claude-wrap/protocol'
+import { terminalStream, type TerminalMeta, type WorkspaceEvent } from '@athome/protocol'
 import type { IPty } from 'node-pty'
 import { CoreError } from './errors.ts'
 import { Stream, type RingLimits, type Send } from './stream.ts'

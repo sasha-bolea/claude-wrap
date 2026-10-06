@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { TrashItem } from '@claude-wrap/protocol'
+import type { TrashItem } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useScreen, useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'

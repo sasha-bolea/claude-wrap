@@ -1,7 +1,7 @@
 import { readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import webPush from 'web-push'
-import type { Notice } from '@claude-wrap/core'
+import type { Notice } from '@athome/core'
 import type { DeviceStore, PushTarget } from './devices.ts'
 
 // Web Push to paired devices (iOS: only to the installed PWA, 16.4+). The VAPID keypair is created at the first

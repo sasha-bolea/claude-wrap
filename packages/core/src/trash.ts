@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { TrashItem } from '@claude-wrap/protocol'
+import type { TrashItem } from '@athome/protocol'
 import { CoreError } from './errors.ts'
 import { withinRoots } from './trustGate.ts'
 

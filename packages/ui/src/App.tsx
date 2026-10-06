@@ -1,4 +1,4 @@
-import type { Connection } from '@claude-wrap/client'
+import type { Connection } from '@athome/client'
 import { TouchApp } from './touch/TouchApp.tsx'
 import type { BackendsCapability } from './touch/backends.tsx'
 import type { PushCapability } from './touch/SettingsScreen.tsx'

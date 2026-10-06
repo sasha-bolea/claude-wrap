@@ -1,5 +1,5 @@
 import type { Query, SDKControlGetContextUsageResponse, SDKControlGetUsageResponse, SDKRateLimitInfo } from '@anthropic-ai/claude-agent-sdk'
-import type { ContextGauge, ContextUsage, PlanLimits, Usage } from '@claude-wrap/protocol'
+import type { ContextGauge, ContextUsage, PlanLimits, Usage } from '@athome/protocol'
 
 // /context and /usage data from the CLI, reduced to what the panels show.
 

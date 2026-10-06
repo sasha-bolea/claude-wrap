@@ -1,4 +1,4 @@
-import type { Account, Effort, Home, Item, PermissionMode, ProtocolError, Request, TabEvent, TabMeta, TabSnapshot, TerminalMeta, Welcome, WorkspaceEvent, WorkspaceSnapshot } from '@claude-wrap/protocol'
+import type { Account, Effort, Home, Item, PermissionMode, ProtocolError, Request, TabEvent, TabMeta, TabSnapshot, TerminalMeta, Welcome, WorkspaceEvent, WorkspaceSnapshot } from '@athome/protocol'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'offline' | 'incompatible' | 'unauthorized'
 

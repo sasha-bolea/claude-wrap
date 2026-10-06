@@ -1,4 +1,4 @@
-import type { SlashCommand } from '@claude-wrap/protocol'
+import type { SlashCommand } from '@athome/protocol'
 
 // Pure text logic of the composer: suggestion triggers (`/` commands, `@` files) and long-paste placeholders.
 

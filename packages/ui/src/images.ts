@@ -1,4 +1,4 @@
-import { IMAGE_TYPES, LIMITS, type Image, type ImageType } from '@claude-wrap/protocol'
+import { IMAGE_TYPES, LIMITS, type Image, type ImageType } from '@athome/protocol'
 import { t } from './i18n.ts'
 
 // Images attached to a message: read from pasted, dropped or picked files, checked against the protocol limits.

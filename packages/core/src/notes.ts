@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { Note } from '@claude-wrap/protocol'
+import type { Note } from '@athome/protocol'
 import { CoreError } from './errors.ts'
 import { JsonFile } from './jsonFile.ts'
 

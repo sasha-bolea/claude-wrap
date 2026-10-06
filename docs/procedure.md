@@ -1,4 +1,4 @@
-# Procedures — claude-wrap
+# Procedures — AtHome
 
 _Runbook of multi-step or rare procedures. One-liners used often live in CLAUDE.md §5._
 
@@ -33,7 +33,7 @@ _Runbook of multi-step or rare procedures. One-liners used often live in CLAUDE.
 
 ## Packaged build (personal use only)
 **When:** checking the packaged app, or before giving Sasha an exe to try.
-1. `npm run dist -w @claude-wrap/desktop` → `apps/desktop/dist/win-unpacked/claude-wrap.exe` (`electron-builder --win --dir`, no installer).
+1. `npm run dist -w @athome/desktop` → `apps/desktop/dist/win-unpacked/AtHome.exe` (`electron-builder --win --dir`, no installer).
 2. Check the CLI binary is unpacked: `apps/desktop/dist/win-unpacked/resources/app.asar.unpacked/node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe`.
 3. Check its signature is still Anthropic's (electron-builder logs "signing" it):
    `Get-AuthenticodeSignature <that claude.exe>` → `Valid`, `CN="Anthropic, PBC"`.
@@ -60,7 +60,7 @@ source (Visual Studio tools on Windows; impossible when cross-building), while i
    opens a session in the root's `project` folder (trusting it). Fake SDK keywords as for the desktop (`slow` streams
    400 words ≈ 8 s).
 3. A test that only needs the build again: `npx vitest run --config apps/mobile/vitest.e2e.config.ts -t "<name>"`
-   after `npm run build -w @claude-wrap/mobile`.
+   after `npm run build -w @athome/mobile`.
 
 **Warnings:** names come from `packages/ui/src/i18n/en.ts`; `getByRole` names are substrings unless `exact` (a tab
 title can contain "fork"); hidden screens of the stack are in the DOM: scope locators (`.chat-screen .topbar`).

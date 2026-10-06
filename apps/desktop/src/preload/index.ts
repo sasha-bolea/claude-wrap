@@ -39,7 +39,7 @@ function listen<T extends unknown[]>(channel: string, listener: (...args: T) => 
   return () => ipcRenderer.removeListener(channel, handler)
 }
 
-contextBridge.exposeInMainWorld('claudeWrap', {
+contextBridge.exposeInMainWorld('athome', {
   connect,
   // Native folder picker (desktop only). Resolves to the path, or undefined if cancelled.
   chooseFolder: (): Promise<string | undefined> => ipcRenderer.invoke('choose-folder'),

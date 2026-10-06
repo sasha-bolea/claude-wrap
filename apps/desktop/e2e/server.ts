@@ -2,10 +2,10 @@ import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { WebSocket } from 'ws'
-import { Connection, openWebSocket } from '@claude-wrap/client'
-import { createCore, type Core } from '@claude-wrap/core'
-import { createScriptedSdk } from '@claude-wrap/core/testing'
-import { DeviceStore, createPairingCode, deviceCommands, startServer, type RunningServer } from '@claude-wrap/server'
+import { Connection, openWebSocket } from '@athome/client'
+import { createCore, type Core } from '@athome/core'
+import { createScriptedSdk } from '@athome/core/testing'
+import { DeviceStore, createPairingCode, deviceCommands, startServer, type RunningServer } from '@athome/server'
 
 // A remote backend for desktop e2e: the real server in the test process (scripted fake SDK), accepting the
 // desktop's Origin. root holds a `project` folder.

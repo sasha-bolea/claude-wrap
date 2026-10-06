@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react'
-import type { Connection, StoreState } from '@claude-wrap/client'
-import type { Home, TabMeta, Welcome } from '@claude-wrap/protocol'
+import type { Connection, StoreState } from '@athome/client'
+import type { Home, TabMeta, Welcome } from '@athome/protocol'
 import type { Capabilities } from '../App.tsx'
 
 // The 🔜 panels and settings pages (a placeholder that says what they will show and the / command to use meanwhile).

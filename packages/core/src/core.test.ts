@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { PermissionUpdate } from '@anthropic-ai/claude-agent-sdk'
-import { LIMITS, PROTOCOL_VERSION, WORKSPACE_STREAM, createChannelPair, tabStream, type Item, type TabMeta, type TabSnapshot, type WorkspaceEvent, type WorkspaceSnapshot } from '@claude-wrap/protocol'
+import { LIMITS, PROTOCOL_VERSION, WORKSPACE_STREAM, createChannelPair, tabStream, type Item, type TabMeta, type TabSnapshot, type WorkspaceEvent, type WorkspaceSnapshot } from '@athome/protocol'
 import { createCore, type Core, type CoreConfig, type Notice } from './core.ts'
 import { createFakeSdk, type FakeSdk } from './testing/fakeQuery.ts'
 import { RawClient } from './testing/rawClient.ts'

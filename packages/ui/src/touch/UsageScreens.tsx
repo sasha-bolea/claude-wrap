@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { ContextUsage, Usage } from '@claude-wrap/protocol'
+import type { ContextUsage, Usage } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { accountName } from './accounts.tsx'
 import { useScreen, useTouch } from './context.tsx'

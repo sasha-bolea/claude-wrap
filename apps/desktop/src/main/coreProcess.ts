@@ -1,7 +1,7 @@
 import { app, shell, utilityProcess, type MessagePortMain, type UtilityProcess } from 'electron'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import type { Notice } from '@claude-wrap/core'
+import type { Notice } from '@athome/core'
 
 // Crash policy: restart with backoff, at most MAX_RESTARTS within RESTART_WINDOW_MS, then give up.
 const MAX_RESTARTS = 3
@@ -39,7 +39,7 @@ export class CoreProcess {
 
   start(): void {
     const env = { ...process.env, CLAUDE_WRAP_STATE_DIR: app.getPath('userData'), CLAUDE_WRAP_CLAUDE_PATH: packagedClaudePath() ?? '' }
-    const child = utilityProcess.fork(join(import.meta.dirname, 'coreHost.js'), [], { serviceName: 'claude-wrap core', env })
+    const child = utilityProcess.fork(join(import.meta.dirname, 'coreHost.js'), [], { serviceName: 'AtHome core', env })
     this.child = child
     child.on('spawn', () => {
       this.alive = true

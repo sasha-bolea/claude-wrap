@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Terminal as Xterm } from '@xterm/xterm'
-import type { TerminalMeta } from '@claude-wrap/protocol'
+import type { TerminalMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useBackHandler, useScreen, useTouch, type Screen } from './context.tsx'
 import { Icon } from './icons.tsx'

@@ -1,4 +1,4 @@
-# claude-wrap
+# AtHome
 
 ## 0. Language (project override)
 - **Code identifiers, code comments and all docs are in English.** This overrides the global rule "comments in Italian". The docs keep the standard Italian **filenames** (`STATO.md`, `architettura.md`, `bug-risolti.md`, …); only their content is English.
@@ -8,6 +8,8 @@
 
 ## 1. Project & purpose
 A graphical app with every feature of the Claude Code CLI, built on the Claude Agent SDK, in three applications around one backend `core`: desktop (Electron, local or remote backend), remote server on the Debian home server, mobile PWA. The same session can be open on PC and phone at the same time. Details: [docs/brief.md](docs/brief.md).
+
+**Name:** the product is **AtHome** (mark `@~`, "at home": the session lives on the home server); code identifiers use `athome` (`@athome/*` packages, `window.athome`). The infrastructure keeps the old name **claude-wrap** on purpose — repo and folders, systemd units, `/srv/apps/claude-wrap`, `~/.config` and `~/.local/state` folders, `%APPDATA%\claude-wrap`, `CLAUDE_WRAP_*` env vars, the `claude-wrap pair` command, `app://claude-wrap`, `dev.claude-wrap`, localStorage keys and the push tag: renaming them unpairs devices, loses saved state and breaks the automatic deploy, so it needs its own migration ([brief](docs/brief.md#name)).
 
 ## 2. Team & roles
 - sasha — sole developer and owner.
@@ -19,28 +21,7 @@ A graphical app with every feature of the Claude Code CLI, built on the Claude A
 - Server: `node:http` + `ws`, systemd user service on Debian 13 with an update timer ([docs/deploy.md](docs/deploy.md)).
 - PWA: vite 7 build of the same UI (`apps/mobile`), touch layout with its own `touch.css`; highlight.js loaded on demand.
 - zod 4 (protocol), vitest 5 (unit + e2e runner), playwright-core (`_electron` for desktop e2e, system Chrome for PWA e2e).
-- Environment quirks: Windows 11 is the main dev machine; the server is reachable only through Tailscale. npm 11 may skip Electron's postinstall ([procedure](docs/procedure.md#electron-binary-missing-after-npm-install)). Workspace packages export their `.ts` sources (relative imports carry the `.ts` extension). The working tree has CRLF line endings (`core.autocrlf`); scripts that edit files must keep them. The Bash tool's heredocs mangle backslashes and backticks: write scripts with the Write tool and run them. `wsl` from Git Bash expands `# claude-wrap
-
-## 0. Language (project override)
-- **Code identifiers, code comments and all docs are in English.** This overrides the global rule "comments in Italian". The docs keep the standard Italian **filenames** (`STATO.md`, `architettura.md`, `bug-risolti.md`, …); only their content is English.
-- The UI ships in **English and Italian** (`t()` + typed dictionaries, both always complete).
-- Claude still **replies to Sasha in Italian**.
-- Comment style otherwise as the global rules: above each function (what / parameters / return), inline only on dense lines.
-
-## 1. Project & purpose
-A graphical app with every feature of the Claude Code CLI, built on the Claude Agent SDK, in three applications around one backend `core`: desktop (Electron, local or remote backend), remote server on the Debian home server, mobile PWA. The same session can be open on PC and phone at the same time. Details: [docs/brief.md](docs/brief.md).
-
-## 2. Team & roles
-- sasha — sole developer and owner.
-
-## 3. Stack
-- TypeScript 5.9 everywhere (`erasableSyntaxOnly`: no enums, no parameter properties — scripts run directly on Node 24 type stripping), npm workspaces, Node 24.
-- `@anthropic-ai/claude-agent-sdk` **0.3.287** (pinned exact in `packages/core` and `apps/desktop`; bundles CLI 2.1.287). Authoritative API: `node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts`.
-- Desktop: Electron 44, electron-vite 5 (requires **vite ≤ 7**), React 19 + react-markdown 10, preload must be **CJS** with `sandbox: true`, electron-builder 26 (`--dir`, personal use only).
-- Server: `node:http` + `ws`, systemd user service on Debian 13 with an update timer ([docs/deploy.md](docs/deploy.md)).
-- PWA: vite 7 build of the same UI (`apps/mobile`), touch layout with its own `touch.css`; highlight.js loaded on demand.
-- zod 4 (protocol), vitest 5 (unit + e2e runner), playwright-core (`_electron` for desktop e2e, system Chrome for PWA e2e).
-- Environment quirks: Windows 11 is the main dev machine; the server is reachable only through Tailscale. npm 11 may skip Electron's postinstall ([procedure](docs/procedure.md#electron-binary-missing-after-npm-install)). : run it from PowerShell.
+- Environment quirks: Windows 11 is the main dev machine; the server is reachable only through Tailscale. npm 11 may skip Electron's postinstall ([procedure](docs/procedure.md#electron-binary-missing-after-npm-install)). Workspace packages export their `.ts` sources (relative imports carry the `.ts` extension). The working tree has CRLF line endings (`core.autocrlf`); scripts that edit files must keep them. The Bash tool's heredocs mangle backslashes and backticks: write scripts with the Write tool and run them. `wsl` from Git Bash rewrites `$` variables and paths in its arguments: run it from PowerShell.
 
 ## 4. Key structure
 ```
@@ -75,7 +56,7 @@ deploy/             install.sh (--when-idle), rollback.sh, systemd units (servic
 - `node apps/mobile/scripts/icons.ts` — PWA icons and iPhone splash screens.
 - `npm run probe` — SDK probe, zero tokens; exit 1 on unclassified risky settings.
 - `npm run chat` — headless real-CLI chat through core + client (`/model haiku`, few tokens).
-- `npm run dist -w @claude-wrap/desktop` — packaged app in `apps/desktop/dist/win-unpacked/`.
+- `npm run dist -w @athome/desktop` — packaged app in `apps/desktop/dist/win-unpacked/`.
 - Fake SDK by hand: `$env:CLAUDE_WRAP_FAKE_SDK='1'; $env:CLAUDE_WRAP_STATE_DIR="$env:TEMP\cw-try"; npm run start:desktop`.
 - Multi-step procedures (SDK update/probe, Electron binary, desktop and PWA e2e, Linux tests via WSL, packaged build, real-CLI smokes, following an automatic deploy): [docs/procedure.md](docs/procedure.md).
 - Ports: renderer dev server **5199**, server dev **3012** (registered in `~/.claude/porte.md`; on the home server 3012 is registered in `personale/linux stup/docs/architettura.md`).

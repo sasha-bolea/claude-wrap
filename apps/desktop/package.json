@@ -1,5 +1,5 @@
 {
-  "name": "@claude-wrap/desktop",
+  "name": "@athome/desktop",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -16,22 +16,22 @@
     "ws": "^8.22.0"
   },
   "devDependencies": {
-    "@claude-wrap/client": "*",
-    "@claude-wrap/core": "*",
-    "@claude-wrap/protocol": "*",
-    "@claude-wrap/server": "*",
-    "@claude-wrap/ui": "*",
+    "@athome/client": "*",
+    "@athome/core": "*",
+    "@athome/protocol": "*",
+    "@athome/server": "*",
+    "@athome/ui": "*",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "44.5.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "vite": "^7.3.6"
   },
-  "productName": "claude-wrap",
+  "productName": "AtHome",
   "build": {
     "appId": "dev.claude-wrap",
     "npmRebuild": false,
-    "productName": "claude-wrap",
+    "productName": "AtHome",
     "directories": {
       "output": "dist"
     },

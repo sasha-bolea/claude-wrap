@@ -1,7 +1,7 @@
-# systemd user unit of the claude-wrap server (installed by deploy/install.sh into ~/.config/systemd/user/).
+# systemd user unit of the AtHome server (installed by deploy/install.sh into ~/.config/systemd/user/).
 # Needs linger (the service runs without a login) — see docs/deploy.md.
 [Unit]
-Description=claude-wrap server (core + WebSocket + PWA)
+Description=AtHome server (core + WebSocket + PWA)
 After=network-online.target
 
 [Service]

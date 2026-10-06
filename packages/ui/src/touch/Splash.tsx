@@ -1,4 +1,4 @@
-import type { Connection, StoreState } from '@claude-wrap/client'
+import type { Connection, StoreState } from '@athome/client'
 import { t } from '../i18n.ts'
 import type { AppCapability } from '../appUpdate.ts'
 
@@ -13,9 +13,9 @@ export function Splash({ connection, state, app }: { connection: Connection; sta
     <section className="screen splash" aria-label={t('splashLabel')}>
       <div className="splash-main">
         <div className="hero-mark big" aria-hidden="true">
-          cw
+          @~
         </div>
-        <strong className="splash-name">claude-wrap</strong>
+        <strong className="splash-name">AtHome</strong>
         <p className={`splash-state${bad ? ' bad' : ''}`} role="status">
           {!bad && (
             <span className="dots" aria-hidden="true">

@@ -1,4 +1,4 @@
-# Solved bugs — claude-wrap
+# Solved bugs — AtHome
 
 _Append-only registry: date / symptom / cause / fix / files. Grep it before debugging: bugs come back in similar shapes._
 

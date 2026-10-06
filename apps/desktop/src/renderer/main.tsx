@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Connection } from '@claude-wrap/client'
-import { DesktopShell, type BackendEntry, type Capabilities } from '@claude-wrap/ui'
-import '@claude-wrap/ui/touch.css'
+import { Connection } from '@athome/client'
+import { DesktopShell, type BackendEntry, type Capabilities } from '@athome/ui'
+import '@athome/ui/touch.css'
 import type { BridgedChannel } from '../preload/index.ts'
 
 type BackendInfo = { id: string; name: string; kind: 'local' | 'remote' }
 
 declare global {
   interface Window {
-    claudeWrap: {
+    athome: {
       connect(backendId: string): Promise<BridgedChannel>
       chooseFolder(): Promise<string | undefined>
       openExternal(url: string): void
@@ -32,7 +32,7 @@ function getClientId(): string {
   return created
 }
 
-const bridge = window.claudeWrap
+const bridge = window.athome
 // The local core runs on this computer: native folder picker, dropped file paths, core crash screen. A server
 // has none of these (its folders are browsed through the protocol, files will be uploaded).
 const LOCAL: Capabilities = { chooseFolder: bridge.chooseFolder, openExternal: bridge.openExternal, pathForFile: bridge.pathForFile, onCoreFailed: bridge.onCoreFailed }

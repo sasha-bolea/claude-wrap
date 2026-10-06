@@ -1,5 +1,5 @@
 import { createElement, type ReactNode } from 'react'
-import type { FileEntry, TabMeta } from '@claude-wrap/protocol'
+import type { FileEntry, TabMeta } from '@athome/protocol'
 
 // Pure helpers of the touch layout (tested in model.test.ts).
 

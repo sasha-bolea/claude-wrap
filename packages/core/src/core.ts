@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { LIMITS, PROTOCOL_VERSION, WORKSPACE_STREAM, clientFrameSchema, type Channel, type Cmd, type CoreFrame, type ErrorCode, type Hello, type Welcome } from '@claude-wrap/protocol'
+import { LIMITS, PROTOCOL_VERSION, WORKSPACE_STREAM, clientFrameSchema, type Channel, type Cmd, type CoreFrame, type ErrorCode, type Hello, type Welcome } from '@athome/protocol'
 import { createHandlers, execute, type Connection, type Handlers } from './commands.ts'
 import type { CoreConfig } from './config.ts'
 import { sweepOrphans } from './process.ts'

@@ -1,4 +1,4 @@
-import { COMMANDS, LIMITS, type Cmd, type CommandArgs, type CommandName, type CommandResult, type ErrorCode, type Image, type Reply } from '@claude-wrap/protocol'
+import { COMMANDS, LIMITS, type Cmd, type CommandArgs, type CommandName, type CommandResult, type ErrorCode, type Image, type Reply } from '@athome/protocol'
 import { CoreError, messageOf } from './errors.ts'
 import { deletable, listFiles, makeDir, moveFile, readFileFor, writeFileFor } from './files.ts'
 import { createFolder, listFolders } from './folders.ts'

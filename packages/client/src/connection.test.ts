@@ -1,6 +1,6 @@
 // Connection against a scripted core (raw frames), so client behaviour is tested without the real core.
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PING_INTERVAL_MS, PROTOCOL_VERSION, createChannelPair, type Channel, type TabMeta } from '@claude-wrap/protocol'
+import { PING_INTERVAL_MS, PROTOCOL_VERSION, createChannelPair, type Channel, type TabMeta } from '@athome/protocol'
 import { ClientError, Connection } from './index.ts'
 
 const WELCOME = {

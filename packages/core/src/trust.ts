@@ -4,7 +4,7 @@
 import { access, readdir, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join, parse, resolve } from 'node:path'
-import type { ProjectConfig } from '@claude-wrap/protocol'
+import type { ProjectConfig } from '@athome/protocol'
 
 export type CliProjects = Record<string, { hasTrustDialogAccepted?: boolean }>
 

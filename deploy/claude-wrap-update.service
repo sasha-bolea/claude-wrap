@@ -2,7 +2,7 @@
 # on main is built and tested as a release and goes live only while no session is working.
 # Output: journalctl --user -u claude-wrap-update
 [Unit]
-Description=claude-wrap automatic update
+Description=AtHome automatic update
 
 [Service]
 Type=oneshot

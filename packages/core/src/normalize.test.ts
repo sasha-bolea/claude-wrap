@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Item } from '@claude-wrap/protocol'
+import type { Item } from '@athome/protocol'
 import { Normalizer, type TranscriptWriter } from './normalize.ts'
 import { sdk, stored } from './testing/messages.ts'
 

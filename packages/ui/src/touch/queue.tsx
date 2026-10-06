@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { QueuedMessage, TabMeta } from '@claude-wrap/protocol'
+import type { QueuedMessage, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'

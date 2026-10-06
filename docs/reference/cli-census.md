@@ -2,7 +2,7 @@
 
 _Translated from the Italian original (personale/claude wrap/docs/censimento-cli.md, 2026-10-02). Content otherwise unchanged._
 
-_Created: 2026-09-30. Parity specification for claude-wrap: every terminal feature the app must replicate._
+_Created: 2026-09-30. Parity specification for AtHome: every terminal feature the app must replicate._
 
 Collected from official documentation (code.claude.com/docs), the changelog, and the local CLI (`claude --help`).
 Each entry indicates its source; ⚠️ / "Uncertain" = to be manually verified on the CLI before replicating it.

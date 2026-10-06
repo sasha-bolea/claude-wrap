@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { EFFORT_LEVELS, type Device, type Effort, type PermissionMode } from '@claude-wrap/protocol'
+import { EFFORT_LEVELS, type Device, type Effort, type PermissionMode } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { modeLabel } from '../modes.ts'
 import { useAvailableUpdate } from '../appUpdate.ts'

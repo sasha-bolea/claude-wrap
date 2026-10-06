@@ -1,5 +1,5 @@
 import type { CanUseTool, PermissionResult, PermissionUpdate } from '@anthropic-ai/claude-agent-sdk'
-import type { CommandArgs, PermissionMode, Request } from '@claude-wrap/protocol'
+import type { CommandArgs, PermissionMode, Request } from '@athome/protocol'
 import { CoreError } from './errors.ts'
 
 export type Answer = Omit<CommandArgs<'request.answer'>, 'tabId' | 'requestId'>

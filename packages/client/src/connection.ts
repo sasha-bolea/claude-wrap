@@ -20,7 +20,7 @@ import {
   type TerminalSnapshot,
   type WorkspaceEvent,
   type WorkspaceSnapshot
-} from '@claude-wrap/protocol'
+} from '@athome/protocol'
 import { Store } from './store.ts'
 
 export class ClientError extends Error {

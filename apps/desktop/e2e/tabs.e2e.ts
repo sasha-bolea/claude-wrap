@@ -188,7 +188,7 @@ describe('desktop several sessions (fake SDK)', () => {
     await send(page, 'before the crash')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: before the crash')
     const killed = await app.evaluate(({ app: electronApp }) => {
-      const core = electronApp.getAppMetrics().find((metric) => metric.type === 'Utility' && metric.name === 'claude-wrap core')
+      const core = electronApp.getAppMetrics().find((metric) => metric.type === 'Utility' && metric.name === 'AtHome core')
       if (core) process.kill(core.pid)
       return Boolean(core)
     })

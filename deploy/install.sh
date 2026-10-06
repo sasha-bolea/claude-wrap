@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs or updates claude-wrap on the home server, as the service user (no sudo).
+# Installs or updates AtHome on the home server, as the service user (no sudo).
 # Each version is a release under /srv/apps/claude-wrap/releases/<commit>; `current` points at the running one and
 # `previous` at the one before (deploy/rollback.sh switches back). A release goes live only if its tests pass; after a
 # switch only current, previous and the newest failed release are kept.
@@ -50,7 +50,7 @@ if [ ! -f "$RELEASE/.ready" ]; then
   # PWA build (shown in its settings). Server and core tests run on this machine (Linux process groups, shell,
   # WebSocket) before going live.
   if ! (cd "$RELEASE" && ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --no-audit --no-fund &&
-    CLAUDE_WRAP_BUILD="$SHA" npm run build -w @claude-wrap/mobile && npx vitest run packages/core packages/server); then
+    CLAUDE_WRAP_BUILD="$SHA" npm run build -w @athome/mobile && npx vitest run packages/core packages/server); then
     touch "$RELEASE/.failed"
     echo "Release $SHA failed to build or pass its tests: $(basename "$(readlink "$APP/current" 2>/dev/null || echo none)") stays live."
     exit 1
@@ -92,4 +92,4 @@ systemctl --user enable --now --quiet claude-wrap-update.timer
 systemctl --user restart claude-wrap
 sleep 2
 systemctl --user --no-pager --lines=5 status claude-wrap
-echo "claude-wrap $SHA is live."
+echo "AtHome $SHA is live."

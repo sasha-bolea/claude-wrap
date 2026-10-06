@@ -1,4 +1,4 @@
-# Deploy — claude-wrap server on the home server
+# Deploy — AtHome server on the home server
 
 _The remote backend (core + WebSocket + PWA) as a systemd **user** service on the Debian 13 home server, reached only
 through Tailscale Serve. Host changes (packages, linger, Tailscale Serve) are made by the `linux stup` session on

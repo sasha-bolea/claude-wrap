@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type TouchEvent } from 'react'
-import type { Item } from '@claude-wrap/protocol'
+import type { Item } from '@athome/protocol'
 import { useTabSubscription } from '../chatHooks.ts'
 import { t } from '../i18n.ts'
 import { modeLabel } from '../modes.ts'

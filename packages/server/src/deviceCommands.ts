@@ -1,4 +1,4 @@
-import { CoreError, type Connection, type HostCommands } from '@claude-wrap/core'
+import { CoreError, type Connection, type HostCommands } from '@athome/core'
 import type { DeviceStore } from './devices.ts'
 
 // The device behind a connection (every server connection is authenticated, so it has one).

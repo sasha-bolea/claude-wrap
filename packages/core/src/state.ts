@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import type { ContextGauge, Effort, ModelInfo, PlanLimits, PermissionMode, QueuePause, SlashCommand } from '@claude-wrap/protocol'
+import type { ContextGauge, Effort, ModelInfo, PlanLimits, PermissionMode, QueuePause, SlashCommand } from '@athome/protocol'
 import type { Outgoing } from './tab.ts'
 
 // What a tab keeps across restarts (it comes back dormant). Transcripts are not here: the CLI JSONL is the truth.

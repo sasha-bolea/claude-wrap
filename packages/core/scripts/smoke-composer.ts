@@ -9,15 +9,15 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { crc32, deflateSync } from 'node:zlib'
 import { deleteSession } from '@anthropic-ai/claude-agent-sdk'
-import { createChannelPair, type Item, type TabMeta } from '@claude-wrap/protocol'
-import { Connection, type StoreState } from '@claude-wrap/client'
+import { createChannelPair, type Item, type TabMeta } from '@athome/protocol'
+import { Connection, type StoreState } from '@athome/client'
 import { createCore } from '../src/index.ts'
 
 const TAB_ID = 'smoke'
 // Cheap commands of the palette (✓b rows of the parity map) and what they should show.
 const COMMANDS = ['/model haiku', '/context', '/cost', '/effort low', '/compact', '/clear']
 
-const cwd = mkdtempSync(join(tmpdir(), 'claude-wrap-smoke-'))
+const cwd = mkdtempSync(join(tmpdir(), 'athome-smoke-'))
 const core = createCore({ backendId: 'smoke-script', backendKind: 'local' })
 const connection = new Connection({
   openChannel: async () => {

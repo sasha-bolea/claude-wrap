@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { CoreFrame, EvFrame, ResetFrame, StreamPosition, TabEvent, TabSnapshot, TerminalEvent, TerminalSnapshot, WorkspaceEvent, WorkspaceSnapshot } from '@claude-wrap/protocol'
+import type { CoreFrame, EvFrame, ResetFrame, StreamPosition, TabEvent, TabSnapshot, TerminalEvent, TerminalSnapshot, WorkspaceEvent, WorkspaceSnapshot } from '@athome/protocol'
 
 export type Send = (frame: CoreFrame) => void
 export type StreamEvent = TabEvent | WorkspaceEvent | TerminalEvent

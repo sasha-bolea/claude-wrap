@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CoreFrame, TabEvent, TabSnapshot } from '@claude-wrap/protocol'
+import type { CoreFrame, TabEvent, TabSnapshot } from '@athome/protocol'
 import { Stream } from './stream.ts'
 
 const event = (n: number): TabEvent => ({ type: 'item.text', itemId: 'x', append: String(n) })

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Account, TabMeta } from '@claude-wrap/protocol'
+import type { Account, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useTouch, type LiveState } from './context.tsx'
 import { IconButton } from './parts.tsx'

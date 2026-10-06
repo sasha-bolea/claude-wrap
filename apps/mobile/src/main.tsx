@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client'
-import { Connection, openWebSocket } from '@claude-wrap/client'
-import { App, PairScreen, t, type AppCapability, type PushCapability } from '@claude-wrap/ui'
-import '@claude-wrap/ui/touch.css'
+import { Connection, openWebSocket } from '@athome/client'
+import { App, PairScreen, t, type AppCapability, type PushCapability } from '@athome/ui'
+import '@athome/ui/touch.css'
 
 // The PWA host: pairing (one-time code → device token), the WebSocket connection to the server it was loaded
 // from, page visibility (push goes only to devices that are not looking), Web Push through the service worker,

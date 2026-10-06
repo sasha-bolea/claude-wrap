@@ -183,7 +183,7 @@ export const en = {
   pairInstallBody: 'On iPhone, notifications and the server work only from the app installed on the Home screen.',
   pairStepShare: 'Tap Share at the bottom of Safari.',
   pairStepAdd: 'Choose Add to Home Screen.',
-  pairStepOpen: 'Open claude-wrap from the Home screen and paste the link or code there.',
+  pairStepOpen: 'Open AtHome from the Home screen and paste the link or code there.',
   pairSafariNote: 'A link opened here in Safari does not pair the app: Safari and the app keep separate storage.',
   pairInBrowser: 'Continue in the browser',
   pairTitle: 'Pair this device',
@@ -207,7 +207,7 @@ export const en = {
   addServerNoEncryption: 'This computer cannot store the key safely: pairing refused.',
 
   // Touch layout (the PWA, prototype screens)
-  splashLabel: 'claude-wrap starting',
+  splashLabel: 'AtHome starting',
   connectingServer: 'Connecting to the server…',
   serverUnreachable: 'Server unreachable',
   unreachableHint: 'The app connects by itself when the line is back.',

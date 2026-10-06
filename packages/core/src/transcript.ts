@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { Image, Item, Request, TabEvent, TabSnapshot } from '@claude-wrap/protocol'
+import type { Image, Item, Request, TabEvent, TabSnapshot } from '@athome/protocol'
 import type { TranscriptWriter } from './normalize.ts'
 import { Stream, type RingLimits } from './stream.ts'
 

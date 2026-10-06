@@ -7,14 +7,14 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { deleteSession } from '@anthropic-ai/claude-agent-sdk'
-import { createChannelPair, type Item, type TabMeta } from '@claude-wrap/protocol'
-import { Connection, type StoreState } from '@claude-wrap/client'
+import { createChannelPair, type Item, type TabMeta } from '@athome/protocol'
+import { Connection, type StoreState } from '@athome/client'
 import { createCore } from '../src/index.ts'
 
 const TAB_ID = 'accounts'
 const BAD_TOKEN = `sk-ant-oat01-${'x'.repeat(60)}`
 
-const cwd = mkdtempSync(join(tmpdir(), 'claude-wrap-accounts-'))
+const cwd = mkdtempSync(join(tmpdir(), 'athome-accounts-'))
 const core = createCore({ backendId: 'smoke-accounts', backendKind: 'local' })
 const connection = new Connection({
   openChannel: async () => {

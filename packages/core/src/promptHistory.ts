@@ -1,6 +1,6 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import type { Prompt } from '@claude-wrap/protocol'
+import type { Prompt } from '@athome/protocol'
 
 // Prompts offered by Up/Down and Ctrl+R: the app's own (its history.jsonl in the state folder) and the terminal
 // CLI's (~/.claude/history.jsonl, read only: SDK sessions do not write it). Both use the CLI's line format.

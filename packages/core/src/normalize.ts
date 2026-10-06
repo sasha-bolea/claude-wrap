@@ -1,5 +1,5 @@
 import type { SDKMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
-import { IMAGE_TYPES, type Image, type ImageRef, type ImageType, type Item } from '@claude-wrap/protocol'
+import { IMAGE_TYPES, type Image, type ImageRef, type ImageType, type Item } from '@athome/protocol'
 
 // Turns SDK messages (live) and stored JSONL messages (history) into transcript items.
 // Port of the first attempt's chat/stato.ts reducer, moved into core.

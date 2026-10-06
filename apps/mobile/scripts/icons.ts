@@ -1,6 +1,7 @@
 // Generates the PWA images and writes their <link> tags into index.html. Run after changing the design:
 // `node apps/mobile/scripts/icons.ts`.
-// - Icons public/icon-180.png, -192, -512: "cw" in a blocky face on the accent colour (iOS rounds the corners).
+// - Icons public/icon-180.png, -192, -512: the "@~" mark ("at home") in a blocky face on the accent colour (iOS
+//   rounds the corners).
 // - iPhone splash screens public/splash/<w>x<h>-<theme>.png, light and dark: the mark (88 points, radius 24, as on
 //   the app's start screen) on the background colour. iOS shows one only when its size matches the screen exactly.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -24,11 +25,16 @@ const IPHONES = [
 const MARK = 88
 const MARK_RADIUS = 24
 const MARK_ABOVE_CENTRE = 93.5
-// 5×7 glyphs, '#' = ink.
-const GLYPHS: Record<'c' | 'w', string[]> = {
-  c: ['.....', '.....', '.####', '#....', '#....', '#....', '.####'],
-  w: ['.....', '.....', '#...#', '#...#', '#.#.#', '#.#.#', '.#.#.']
-}
+// The mark's bitmap, '#' = ink: a 7×7 "@", one blank column, a 5-wide "~".
+const MARK_ROWS = [
+  '.#####.......',
+  '#.....#......',
+  '#..##.#......',
+  '#.#.#.#..##.#',
+  '#..###..#.##.',
+  '#............',
+  '.#####.......'
+]
 const PUBLIC = new URL('../public/', import.meta.url)
 const INDEX = new URL('../index.html', import.meta.url)
 
@@ -42,12 +48,10 @@ function canvas(width: number, height: number, colour: Rgb): Image {
   return { width, height, data }
 }
 
-// True where the glyph pixel (x, y), counted from the glyphs' top-left corner, is inked.
+// True where the mark pixel (x, y), counted from the bitmap's top-left corner, is inked.
 function inked(x: number, y: number, cell: number): boolean {
-  const column = Math.floor(x / cell)
-  const row = Math.floor(y / cell)
-  if (x < 0 || y < 0 || row > 6 || column > 10 || column === 5) return false
-  return (column < 5 ? GLYPHS.c : GLYPHS.w)[row]![column < 5 ? column : column - 6] === '#'
+  if (x < 0 || y < 0) return false
+  return MARK_ROWS[Math.floor(y / cell)]?.[Math.floor(x / cell)] === '#'
 }
 
 // True when pixel (x, y) of a size×size square lies inside its rounded corners.
@@ -57,11 +61,11 @@ function insideCorners(x: number, y: number, size: number, radius: number): bool
   return dx * dx + dy * dy <= radius * radius
 }
 
-// Paints the "cw" mark: a size×size accent square at (left, top) with the glyphs in white, centred.
+// Paints the "@~" mark: a size×size accent square at (left, top) with the glyphs in white, centred.
 function drawMark(image: Image, left: number, top: number, size: number, radius: number, accent: Rgb): void {
   const cell = Math.floor(size / 16)
-  const glyphLeft = Math.floor((size - 11 * cell) / 2)
-  const glyphTop = Math.floor((size - 7 * cell) / 2) - cell
+  const glyphLeft = Math.floor((size - MARK_ROWS[0]!.length * cell) / 2)
+  const glyphTop = Math.floor((size - MARK_ROWS.length * cell) / 2)
   const stride = 1 + image.width * 3
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {

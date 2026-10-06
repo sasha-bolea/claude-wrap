@@ -1,7 +1,7 @@
 import { realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { relative, isAbsolute } from 'node:path'
-import type { CommandResult } from '@claude-wrap/protocol'
+import type { CommandResult } from '@athome/protocol'
 import { CoreError } from './errors.ts'
 import type { StateStore } from './state.ts'
 import { analyzeProject, findGitRoot, isTrusted, readCliProjects, tooBroad, trustScope } from './trust.ts'

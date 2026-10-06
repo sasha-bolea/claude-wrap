@@ -18,7 +18,7 @@ import {
   type TabMeta,
   type TabStatus,
   type Usage
-} from '@claude-wrap/protocol'
+} from '@athome/protocol'
 import type { Notice, SdkApi } from './config.ts'
 import { CoreError, messageOf } from './errors.ts'
 import { suggestFiles } from './fileSuggestions.ts'

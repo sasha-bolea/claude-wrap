@@ -1,4 +1,4 @@
-import type { Channel } from '@claude-wrap/protocol'
+import type { Channel } from '@athome/protocol'
 
 // What the WebSocket transport needs from a socket: the browser WebSocket, Node's, or the `ws` package's.
 export interface WebSocketLike {

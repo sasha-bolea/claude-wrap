@@ -1,7 +1,7 @@
 import { homedir } from 'node:os'
 import { basename, join, relative } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
-import { WORKSPACE_STREAM, tabStream, type Effort, type Home, type PermissionMode, type PlanLimits } from '@claude-wrap/protocol'
+import { WORKSPACE_STREAM, tabStream, type Effort, type Home, type PermissionMode, type PlanLimits } from '@athome/protocol'
 import { AccountStore } from './accounts.ts'
 import { ActivityFile } from './activity.ts'
 import type { CoreConfig, Notice, SdkApi } from './config.ts'

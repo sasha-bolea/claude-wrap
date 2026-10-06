@@ -1,4 +1,4 @@
-# Plan — claude-wrap
+# Plan — AtHome
 
 _Project addition to the standard docs set (registered in CLAUDE.md §7). Approved by Sasha on 2026-10-02. Architecture, protocol, data model, processes, security and test plan: [architettura.md](architettura.md). Current progress: [STATO.md](STATO.md)._
 

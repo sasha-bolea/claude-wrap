@@ -1,4 +1,4 @@
-# Parity map — CLI census 2.1.280 → claude-wrap
+# Parity map — CLI census 2.1.280 → AtHome
 
 _Translated from the Italian original (personale/claude wrap/docs/mappa-parita.md, 2026-10-02). Content otherwise unchanged._
 _Category legend:_

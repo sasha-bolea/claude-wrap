@@ -39,7 +39,7 @@ export function PairScreen({ installed, initialCode, notice, onPair }: PairScree
         <div className="scroll">
           <div className="pad">
             <div className="hero-mark" aria-hidden="true">
-              cw
+              @~
             </div>
             {safari ? (
               <>

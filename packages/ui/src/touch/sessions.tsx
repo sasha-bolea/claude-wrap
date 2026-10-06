@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { CommandResult, SessionInfo, TabMeta } from '@claude-wrap/protocol'
+import type { CommandResult, SessionInfo, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { readDraft } from '../viewState.ts'
 import { useTouch } from './context.tsx'

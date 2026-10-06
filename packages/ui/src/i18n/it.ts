@@ -185,7 +185,7 @@ export const it: Record<MessageKey, string> = {
   pairInstallBody: "Su iPhone le notifiche e il server funzionano solo dall'app installata sulla schermata Home.",
   pairStepShare: 'Tocca Condividi in basso in Safari.',
   pairStepAdd: 'Scegli Aggiungi alla schermata Home.',
-  pairStepOpen: 'Apri claude-wrap dalla Home e incolla lì il link o il codice.',
+  pairStepOpen: 'Apri AtHome dalla Home e incolla lì il link o il codice.',
   pairSafariNote: "Il link aperto qui in Safari non abbina l'app: Safari e l'app hanno memorie separate.",
   pairInBrowser: 'Continua nel browser',
   pairTitle: 'Abbina questo dispositivo',
@@ -209,7 +209,7 @@ export const it: Record<MessageKey, string> = {
   addServerNoEncryption: 'Questo computer non può conservare la chiave in modo sicuro: abbinamento rifiutato.',
 
   // Touch layout (the PWA, prototype screens)
-  splashLabel: 'Avvio di claude-wrap',
+  splashLabel: 'Avvio di AtHome',
   connectingServer: 'Connessione al server…',
   serverUnreachable: 'Server non raggiungibile',
   unreachableHint: 'L’app si ricollega da sola quando torna la linea.',

@@ -6,14 +6,14 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { deleteSession, getSessionMessages } from '@anthropic-ai/claude-agent-sdk'
-import { createChannelPair, type Item } from '@claude-wrap/protocol'
-import { Connection, type StoreState } from '@claude-wrap/client'
+import { createChannelPair, type Item } from '@athome/protocol'
+import { Connection, type StoreState } from '@athome/client'
 import { createCore } from '../src/index.ts'
 
 const TAB_ID = 'chat'
 const PROMPT = 'Reply with exactly five words about the sea.'
 
-const cwd = mkdtempSync(join(tmpdir(), 'claude-wrap-chat-'))
+const cwd = mkdtempSync(join(tmpdir(), 'athome-chat-'))
 const core = createCore({ backendId: 'chat-script', backendKind: 'local' })
 const connection = new Connection({
   openChannel: async () => {

@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { createCore, type CoreConfig } from '@claude-wrap/core'
+import { createCore, type CoreConfig } from '@athome/core'
 import { allowedPeers, readConfig } from './config.ts'
 import { deviceCommands } from './deviceCommands.ts'
 import { DeviceStore } from './devices.ts'
@@ -15,7 +15,7 @@ async function main(): Promise<void> {
   const devices = await DeviceStore.load(config.stateDir)
   const push = await PushService.load(config.stateDir, config.publicUrl.origin, devices)
   let server: RunningServer | undefined
-  const sdk: CoreConfig['sdk'] = config.fakeSdk ? (await import('@claude-wrap/core/testing')).createScriptedSdk() : undefined
+  const sdk: CoreConfig['sdk'] = config.fakeSdk ? (await import('@athome/core/testing')).createScriptedSdk() : undefined
   const core = createCore({
     backendId: 'server',
     backendKind: 'remote',
@@ -39,7 +39,7 @@ async function main(): Promise<void> {
     files: await loadStaticFiles(config.staticDir),
     socketOrigin: `wss://${config.publicUrl.host}`
   })
-  console.log(`claude-wrap server on ${config.host}:${server.port}, root ${config.root}, ${devices.list().length} paired devices`)
+  console.log(`AtHome server on ${config.host}:${server.port}, root ${config.root}, ${devices.list().length} paired devices`)
 
   const stop = async () => {
     await core.closeAll()

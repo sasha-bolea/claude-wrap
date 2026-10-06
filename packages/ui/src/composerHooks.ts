@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
-import type { Connection } from '@claude-wrap/client'
-import type { Image, Prompt } from '@claude-wrap/protocol'
+import type { Connection } from '@athome/client'
+import type { Image, Prompt } from '@athome/protocol'
 import { matchCommands, mention, triggerAt, type Trigger } from './composerText.ts'
 import type { Option } from './Suggestions.tsx'
 import { readDraft, readPastes, writeDraft, writePastes } from './viewState.ts'

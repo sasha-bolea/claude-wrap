@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Connection } from '@claude-wrap/client'
+import type { Connection } from '@athome/client'
 import { App, type Capabilities } from './App.tsx'
 
 // One backend of the desktop: the local core or a paired server, each with its own connection and host abilities.

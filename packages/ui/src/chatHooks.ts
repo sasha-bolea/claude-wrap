@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import type { Connection } from '@claude-wrap/client'
-import type { CommandArgs } from '@claude-wrap/protocol'
+import type { Connection } from '@athome/client'
+import type { CommandArgs } from '@athome/protocol'
 
 // An answer to a request of Claude (permission, question, plan), as request.answer takes it.
 export type Answer = Omit<CommandArgs<'request.answer'>, 'tabId' | 'requestId'>

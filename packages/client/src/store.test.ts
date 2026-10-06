@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { TabMeta } from '@claude-wrap/protocol'
+import type { TabMeta } from '@athome/protocol'
 import { Store } from './store.ts'
 
 const tab = (tabId: string): TabMeta => ({ tabId, title: tabId, cwd: 'C:/x', status: 'dormant', mode: 'default', queue: [], pendingRequests: 0 })
