@@ -10,18 +10,21 @@ import { deleteSession, getSessionMessages } from '@anthropic-ai/claude-agent-sd
 import { createChannelPair, type Item, type TabMeta } from '@athome/protocol'
 import { Connection, type StoreState } from '@athome/client'
 import { createCore, type Core } from '../src/index.ts'
+import { appAccounts } from './smokeAccounts.ts'
 
 const TAB_ID = 'smoke'
 const cwd = mkdtempSync(join(tmpdir(), 'athome-smoke-rewind-'))
 const file = join(cwd, 'a.txt')
 const sessions = new Set<string>()
+// Sessions run on the launching session's account (see appAccounts).
+const accounts = appAccounts()
 const problems: string[] = []
 const cores: Core[] = []
 const connections: Connection[] = []
 
 // A core with a connected client.
 function open(name: string): { core: Core; connection: Connection } {
-  const core = createCore({ backendId: name, backendKind: 'local' })
+  const core = createCore({ backendId: name, backendKind: 'local', ...accounts.config })
   const connection = new Connection({
     openChannel: async () => {
       const [clientEnd, coreEnd] = createChannelPair()
@@ -101,6 +104,7 @@ async function main(): Promise<void> {
   connection.start()
   await connection.request('trust.grant', { cwd })
   await connection.request('tab.create', { tabId: TAB_ID, cwd })
+  await accounts.useAccount(connection, TAB_ID)
   await connection.subscribeTab(TAB_ID)
   await connection.request('tab.send', { tabId: TAB_ID, text: '/model haiku' })
   await until(() => meta()?.status === 'idle', 30_000)
@@ -157,6 +161,7 @@ async function main(): Promise<void> {
   connection.start()
   await connection.request('trust.grant', { cwd })
   await connection.request('tab.create', { tabId: 'again', cwd, resume: finalSession })
+  await accounts.useAccount(connection, 'again')
   await connection.subscribeTab('again')
   console.log(`reopened: ${items('again').map((i) => i.kind).join(', ')}`)
   const again = items('again').find((item): item is Extract<Item, { kind: 'user' }> => item.kind === 'user' && item.text === T1)
@@ -165,9 +170,12 @@ async function main(): Promise<void> {
     const code = await connection.request('tab.rewind', { tabId: 'again', itemId: again.itemId, mode: 'code' }).catch((error: unknown) => ({ error: String(error) }))
     console.log(`code rewind: ${show(code)}; a.txt = "${read()}"`)
     if ('error' in code) problems.push(`step 8: ${code.error}`)
+    else if (!code.filesChanged?.includes('a.txt')) problems.push('step 8: the restored files do not list a.txt')
 
+    // The first message of the session is the `/model haiku` sent before turn 1.
     console.log('\n== 9. conversation rewind to the first message')
-    const first = await connection.request('tab.rewind', { tabId: 'again', itemId: again.itemId, mode: 'conversation' }).catch((error: unknown) => ({ error: String(error) }))
+    const [opening] = (await connection.request('tab.rewindPoints', { tabId: 'again' })).points
+    const first = await connection.request('tab.rewind', { tabId: 'again', itemId: opening?.itemId ?? again.itemId, mode: 'conversation' }).catch((error: unknown) => ({ error: String(error) }))
     console.log(show(first))
     if ('error' in first) problems.push(`step 9: ${first.error}`)
     else {

@@ -9,11 +9,14 @@ import { join } from 'node:path'
 import { createChannelPair } from '@athome/protocol'
 import { Connection } from '@athome/client'
 import { createCore } from '../src/index.ts'
+import { appAccounts } from './smokeAccounts.ts'
 
 const TAB_ID = 'usage'
 
 const cwd = mkdtempSync(join(tmpdir(), 'athome-usage-'))
-const core = createCore({ backendId: 'smoke-usage', backendKind: 'local' })
+// Sessions run on the launching session's account (see appAccounts).
+const accounts = appAccounts()
+const core = createCore({ backendId: 'smoke-usage', backendKind: 'local', ...accounts.config })
 const connection = new Connection({
   openChannel: async () => {
     const [clientEnd, coreEnd] = createChannelPair()
@@ -28,6 +31,7 @@ async function main(): Promise<void> {
   connection.start()
   await connection.request('trust.grant', { cwd })
   await connection.request('tab.create', { tabId: TAB_ID, cwd, model: 'haiku' })
+  await accounts.useAccount(connection, TAB_ID)
   const context = await connection.request('tab.context', { tabId: TAB_ID }).catch((error: unknown) => void problems.push(`tab.context failed: ${String(error)}`))
   if (context) {
     console.log(`context: ${context.model} ${context.totalTokens} / ${context.maxTokens} tokens (${context.percentage}%), autocompact ${context.autoCompact ? context.autoCompactThreshold ?? 'on' : 'off'}`)

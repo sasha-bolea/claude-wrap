@@ -183,9 +183,11 @@ export class FakeSession {
         if (!this.usage) throw new Error('usage unavailable')
         return this.usage
       },
+      // Like the real CLI (smoke:rewind), only the dry run lists the files: the applied rewind reports none.
       rewindFiles: async (userMessageId: string, options?: { dryRun?: boolean }) => {
         this.rewindCalls.push({ userMessageId, dryRun: options?.dryRun })
-        return this.rewindResults.get(userMessageId) ?? { canRewind: false, error: 'No file checkpoint found for this message.' }
+        const result = this.rewindResults.get(userMessageId) ?? { canRewind: false, error: 'No file checkpoint found for this message.' }
+        return options?.dryRun || !result.canRewind ? result : { ...result, filesChanged: [], insertions: 0, deletions: 0 }
       },
       close: () => {
         record('close', [])

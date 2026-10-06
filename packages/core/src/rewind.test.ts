@@ -163,7 +163,7 @@ describe('rewinding', () => {
     fake.rewindResults.set('u2', { canRewind: true, filesChanged: [join(CWD, 'a.txt')], skippedLinks: 2 })
     const result = await client.ok('tab.rewind', { tabId: 't1', itemId: 'u2', mode: 'both' })
     expect(result).toEqual({ text: 'second', filesChanged: ['a.txt'], skippedLinks: 2 })
-    expect(fake.sessions[0]!.rewindCalls).toEqual([{ userMessageId: 'u2', dryRun: undefined }])
+    expect(fake.sessions[0]!.rewindCalls).toEqual([{ userMessageId: 'u2', dryRun: true }, { userMessageId: 'u2', dryRun: undefined }])
     expect(fake.sessions[0]!.closed).toBe(true)
     for (const [index, of] of [client, other].entries()) {
       expect(of.lastReset(TAB)?.epoch).not.toBe(epochs[index])
@@ -218,7 +218,7 @@ describe('rewinding', () => {
     const result = await client.ok('tab.rewind', { tabId: 't1', itemId: 'u1', mode: 'both' })
     expect(result).toMatchObject({ text: 'first', filesChanged: [] })
     expect(result.newTabId).toBeTruthy()
-    expect(fake.sessions[0]!.rewindCalls).toHaveLength(1)
+    expect(fake.sessions[0]!.rewindCalls).toHaveLength(2)
     expect(ids(client)).toHaveLength(6)
     expect(meta(client)).toMatchObject({ sessionId: 's1' })
     await client.waitFor(() => meta(client, result.newTabId)?.cwd === CWD)

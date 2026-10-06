@@ -13,13 +13,16 @@ import { deleteSession } from '@anthropic-ai/claude-agent-sdk'
 import { createChannelPair, type Item, type TabMeta } from '@athome/protocol'
 import { Connection, type StoreState } from '@athome/client'
 import { createCore } from '../src/index.ts'
+import { appAccounts } from './smokeAccounts.ts'
 
 const TAB_ID = 'smoke'
 // Cheap commands of the palette (✓b rows of the parity map) and what they should show.
 const COMMANDS = ['/model haiku', '/context', '/cost', '/effort low', '/compact', '/clear']
 
+// Sessions run on the launching session's account (see appAccounts).
+const accounts = appAccounts()
 const cwd = mkdtempSync(join(tmpdir(), 'athome-smoke-'))
-const core = createCore({ backendId: 'smoke-script', backendKind: 'local' })
+const core = createCore({ backendId: 'smoke-script', backendKind: 'local', ...accounts.config })
 const connection = new Connection({
   openChannel: async () => {
     const [clientEnd, coreEnd] = createChannelPair()
@@ -220,7 +223,7 @@ async function checkSessionName(): Promise<void> {
 
 // Sub-phase B: the stored session, opened again in a new core, shows the message read mid-turn once, in its place.
 async function checkHistory(sessionId: string): Promise<void> {
-  const fresh = createCore({ backendId: 'smoke-history', backendKind: 'local' })
+  const fresh = createCore({ backendId: 'smoke-history', backendKind: 'local', ...accounts.config })
   const reader = new Connection({
     openChannel: async () => {
       const [clientEnd, coreEnd] = createChannelPair()
@@ -231,6 +234,7 @@ async function checkHistory(sessionId: string): Promise<void> {
   })
   reader.start()
   await reader.request('tab.create', { tabId: 'history', cwd, resume: sessionId })
+  await accounts.useAccount(reader, 'history')
   await reader.subscribeTab('history')
   const users = (reader.store.getSnapshot().transcripts['history']?.items ?? []).filter((item) => item.kind === 'user')
   console.log(`> history: ${users.length} user items, the late one ${users.filter((item) => item.kind === 'user' && item.text === LATE).length} time(s)`)
@@ -243,6 +247,7 @@ async function main(): Promise<void> {
   connection.start()
   await connection.request('trust.grant', { cwd })
   await connection.request('tab.create', { tabId: TAB_ID, cwd })
+  await accounts.useAccount(connection, TAB_ID)
   await connection.subscribeTab(TAB_ID)
   await checkCommands()
   await checkImage()

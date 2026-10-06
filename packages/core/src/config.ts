@@ -33,6 +33,9 @@ export interface CoreConfig {
   sdkOptions?: Options
   // Folder of state.json and the app's prompt history; absent → nothing is persisted (tests).
   stateDir?: string
+  // Another backend's accounts.json, read instead of <stateDir>/accounts.json and never written (changes stay in
+  // memory): the real-CLI smokes run on the app's accounts.
+  accountsFile?: string
   // The CLI's config folder, for its prompt history (default: CLAUDE_CONFIG_DIR, else ~/.claude).
   claudeConfigDir?: string
   // Folders sessions may run in ('any' on the desktop; the server confines to its root in Phase 3).

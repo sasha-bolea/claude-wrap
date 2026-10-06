@@ -599,12 +599,16 @@ export class Tab {
     if (this.turnRunning || this.held.size || this.requests.size || this.shellAbort || this.lifecycle === 'starting') throw new CoreError('session_busy', 'wait for Claude to finish before rewinding')
   }
 
-  // Restores the files to their state at the message.
+  // Restores the files to their state at the message. The CLI lists the files only in a dry run (the applied rewind
+  // reports none, smoke:rewind), so the list comes from a dry run just before.
   private async rewindCode(uuid: string): Promise<RewindOutcome> {
     const session = await this.ensureSession()
-    const result = await session.query.rewindFiles(uuid).catch((error: unknown) => this.sdkFailure('Rewind failed', error))
+    const rewind = (dryRun?: boolean) => session.query.rewindFiles(uuid, dryRun ? { dryRun } : undefined).catch((error: unknown) => this.sdkFailure('Rewind failed', error))
+    const preview = await rewind(true)
+    const result = preview.canRewind ? await rewind() : preview
     if (!result.canRewind) throw new CoreError('sdk_error', result.error ?? 'the files cannot be rewound to this message')
-    return { filesChanged: (result.filesChanged ?? []).map((path) => this.relativePath(path)), skippedLinks: result.skippedLinks ?? 0 }
+    const files = result.filesChanged?.length ? result.filesChanged : (preview.filesChanged ?? [])
+    return { filesChanged: files.map((path) => this.relativePath(path)), skippedLinks: result.skippedLinks ?? 0 }
   }
 
   // Cuts the conversation before the target (see rewind). Another session's message may have started a turn since the

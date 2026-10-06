@@ -1547,6 +1547,28 @@ describe('accounts', () => {
     await client.waitFor(() => accounts(client).accounts?.length === 0)
   })
 
+  it("a core given another backend's accounts file (the smokes) runs sessions on its accounts and never writes it", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'cw-accounts-'))
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
+    await client.ok('accounts.setDefault', { accountId })
+    await core.closeAll()
+    const file = join(stateDir, 'accounts.json')
+    const before = readFileSync(file, 'utf8')
+    core = makeCore({ accountsFile: file })
+    client = await connect(core)
+    await client.waitFor(() => accounts(client).defaultAccount === accountId)
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD })
+    await client.ok('tab.send', { tabId: 't1', text: 'hello' }, cmd(1))
+    await fake.last().waitForInput(1)
+    expect(fake.last().options.env?.CLAUDE_CODE_OAUTH_TOKEN).toBe(TOKEN_B)
+    await client.ok('accounts.rename', { accountId, name: 'X' })
+    await client.ok('tab.setAccount', { tabId: 't1', accountId: undefined })
+    await client.waitFor(() => accounts(client).defaultAccount === undefined)
+    expect(readFileSync(file, 'utf8')).toBe(before)
+  })
+
   it("a session runs with its account's token, and with Claude Code's own login without one", async () => {
     const { accountId } = await client.ok('accounts.add', { name: 'Second', token: TOKEN_B })
     await client.ok('tab.create', { tabId: 't1', cwd: CWD })

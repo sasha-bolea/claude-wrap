@@ -18,11 +18,14 @@ export class AccountStore {
   private data: AccountsData = { accounts: [] }
   private readonly file?: JsonFile<AccountsData>
   private readonly changed: () => void
+  private readonly readOnly: boolean
 
-  // file: where they are saved; changed: called after every change (and once loaded) to tell the clients.
-  constructor(file: string | undefined, changed: () => void) {
+  // file: where they are saved; changed: called after every change (and once loaded) to tell the clients; readOnly:
+  // the file belongs to another backend (the smokes): it is only read, changes stay in memory.
+  constructor(file: string | undefined, changed: () => void, readOnly = false) {
     this.file = file ? new JsonFile<AccountsData>(file, 0o600) : undefined
     this.changed = changed
+    this.readOnly = readOnly
     this.loaded = (this.file?.read() ?? Promise.resolve(undefined)).then((saved) => {
       if (!saved) return
       this.data = saved
@@ -86,6 +89,6 @@ export class AccountStore {
 
   private async save(): Promise<void> {
     this.changed()
-    await this.file?.save(this.data)
+    if (!this.readOnly) await this.file?.save(this.data)
   }
 }

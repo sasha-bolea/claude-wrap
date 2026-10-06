@@ -88,8 +88,10 @@ export class Workspace {
       }),
       config.ring ?? DEFAULT_RING
     )
-    this.accounts = new AccountStore(config.stateDir && join(config.stateDir, 'accounts.json'), () =>
-      this.stream.emit({ type: 'accounts.updated', accounts: this.accounts.list(), defaultAccount: this.accounts.defaultAccount })
+    this.accounts = new AccountStore(
+      config.accountsFile ?? (config.stateDir && join(config.stateDir, 'accounts.json')),
+      () => this.stream.emit({ type: 'accounts.updated', accounts: this.accounts.list(), defaultAccount: this.accounts.defaultAccount }),
+      Boolean(config.accountsFile)
     )
     this.palettes = new PaletteStore(config.stateDir && join(config.stateDir, 'palettes.json'), () => this.stream.emit({ type: 'palettes.updated', palettes: this.palettes.list() }))
     this.terminals = new Terminals((ev) => this.stream.emit(ev), config.terminalShell)

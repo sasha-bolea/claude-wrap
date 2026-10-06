@@ -9,12 +9,15 @@ import { deleteSession, getSessionMessages } from '@anthropic-ai/claude-agent-sd
 import { createChannelPair, type Item } from '@athome/protocol'
 import { Connection, type StoreState } from '@athome/client'
 import { createCore } from '../src/index.ts'
+import { appAccounts } from './smokeAccounts.ts'
 
 const TAB_ID = 'chat'
 const PROMPT = 'Reply with exactly five words about the sea.'
 
 const cwd = mkdtempSync(join(tmpdir(), 'athome-chat-'))
-const core = createCore({ backendId: 'chat-script', backendKind: 'local' })
+// Sessions run on the launching session's account (see appAccounts).
+const accounts = appAccounts()
+const core = createCore({ backendId: 'chat-script', backendKind: 'local', ...accounts.config })
 const connection = new Connection({
   openChannel: async () => {
     const [clientEnd, coreEnd] = createChannelPair()
@@ -73,6 +76,7 @@ async function verify(sessionId: string): Promise<string[]> {
 async function main(): Promise<void> {
   connection.start()
   await connection.request('tab.create', { tabId: TAB_ID, cwd })
+  await accounts.useAccount(connection, TAB_ID)
   await connection.subscribeTab(TAB_ID)
   await chat('/model haiku')
   await chat(PROMPT)

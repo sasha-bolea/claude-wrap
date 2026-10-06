@@ -43,7 +43,7 @@ describe('FakeSession', () => {
       const configured = { canRewind: true, filesChanged: ['file.ts'], insertions: 10, deletions: 5 }
       session.rewindResults.set('msg-123', configured)
 
-      const result = await query.rewindFiles('msg-123')
+      const result = await query.rewindFiles('msg-123', { dryRun: true })
       expect(result).toEqual(configured)
     })
 
