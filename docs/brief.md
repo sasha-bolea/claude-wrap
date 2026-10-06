@@ -1,7 +1,7 @@
 # Brief — AtHome
 
 ## What
-A graphical app for Claude Code (chat, panels, buttons) with **every** feature of the terminal CLI: slash commands, shortcuts, permission modes, rewind, subagents, MCP, hooks, sessions. Later, new features invented by Sasha that the CLI does not have.
+A graphical app for Claude Code (chat, panels, buttons) with **every** feature of the terminal CLI: slash commands, shortcuts, permission modes, rewind, subagents, MCP, hooks, sessions. Nothing Claude Code does not have: only native features, plus shortcuts that just simulate a native action at a chosen moment (e.g. the queued message, which sends an ordinary message later). Decision of 2026-10-06, see STATO.md.
 
 It is made of **three applications** around one backend:
 1. **Desktop app** (Electron): front and back separated in one package. It can switch between its own **local backend** and the **remote backend**; each backend has its own tabs.
