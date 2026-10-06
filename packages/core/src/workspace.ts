@@ -7,6 +7,7 @@ import { ActivityFile } from './activity.ts'
 import type { CoreConfig, Notice, SdkApi } from './config.ts'
 import { CoreError } from './errors.ts'
 import { NoteStore } from './notes.ts'
+import { PaletteStore } from './palettes.ts'
 import { waitForCleanups } from './process.ts'
 import { PromptHistory } from './promptHistory.ts'
 import type { PersistedState, StateStore } from './state.ts'
@@ -44,6 +45,7 @@ export class Workspace {
   readonly prompts: PromptHistory
   readonly notes: NoteStore
   readonly accounts: AccountStore
+  readonly palettes: PaletteStore
   readonly terminals: Terminals
   readonly allowedRoots: 'any' | string[]
   // The app's trash (remote server); the desktop moves things to the system trash instead.
@@ -83,13 +85,15 @@ export class Workspace {
         autoCompactWindow: this.store.data.autoCompactWindow,
         defaultEffort: this.store.data.defaultEffort,
         defaultMode: this.store.data.defaultMode,
-        terminals: this.terminals.list()
+        terminals: this.terminals.list(),
+        palettes: this.palettes.list()
       }),
       config.ring ?? DEFAULT_RING
     )
     this.accounts = new AccountStore(config.stateDir && join(config.stateDir, 'accounts.json'), () =>
       this.stream.emit({ type: 'accounts.updated', accounts: this.accounts.list(), defaultAccount: this.accounts.defaultAccount })
     )
+    this.palettes = new PaletteStore(config.stateDir && join(config.stateDir, 'palettes.json'), () => this.stream.emit({ type: 'palettes.updated', palettes: this.palettes.list() }))
     this.terminals = new Terminals((ev) => this.stream.emit(ev), config.terminalShell)
     this.env = this.environment(config)
     // A tab where nothing was ever sent (no stored session, nothing queued) does not come back.

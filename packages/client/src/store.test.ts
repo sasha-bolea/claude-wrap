@@ -29,4 +29,13 @@ describe('Store', () => {
     store.applyWorkspaceEvent({ type: 'accounts.updated', accounts: [{ accountId: 'a1', name: 'Second', addedAt: 1 }], defaultAccount: 'a1' })
     expect(store.getSnapshot()).toMatchObject({ accounts: [{ accountId: 'a1', name: 'Second' }], defaultAccount: 'a1' })
   })
+
+  it('keeps the colour palettes of the backend (none from an older backend)', () => {
+    const store = new Store()
+    store.applyWorkspaceReset({ kind: 'workspace', tabs: [], home: { kind: 'root', path: '/srv' }, projects: [], accounts: [], terminals: [] })
+    expect(store.getSnapshot().palettes).toEqual([])
+    const colors = { background: '#000000', surface: '#111111', text: '#ffffff', accent: '#ff0000', danger: '#ff3333', success: '#00ff00' }
+    store.applyWorkspaceEvent({ type: 'palettes.updated', palettes: [{ paletteId: 'p1', name: 'Mine', colors, updatedAt: 1 }] })
+    expect(store.getSnapshot().palettes).toMatchObject([{ paletteId: 'p1', name: 'Mine' }])
+  })
 })

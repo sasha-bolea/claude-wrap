@@ -15,7 +15,7 @@ _Living catalogue: updated at the same moment a UI element is added or changed. 
 10. **Untrusted content** (assistant markdown, tool output, MCP resources): no raw HTML, no `dangerouslySetInnerHTML`; remote images render as links.
 
 ## Tokens
-Defined in [packages/ui/src/touch.css](../packages/ui/src/touch.css) (the old `style.css` of the first desktop UI is gone since C2.5); every colour token has a light and a dark value.
+Defined in [packages/ui/src/touch.css](../packages/ui/src/touch.css) (the old `style.css` of the first desktop UI is gone since C2.5); every colour token has a light and a dark value. A colour palette (Settings → Palette colori, [palette.ts](../packages/ui/src/palette.ts)) overrides the 12 colour tokens inline on `<html>` from 6 chosen colours (background, surface, text, accent, danger, success); the others are mixed from them, so **a new colour token must also be derived in `paletteTokens`**.
 
 | Token | Use |
 |---|---|
@@ -259,6 +259,14 @@ Examples: [SettingsScreen.tsx:190](../packages/ui/src/touch/SettingsScreen.tsx#L
 wrapping hint, and a row "Modalità permessi" showing the chosen mode, which opens the same radio menu as the composer's
 mode sheet (`ModeMenu`). Both apply to sessions created from then on (forks keep their source's); open ones keep theirs.
 Examples: [SettingsScreen.tsx:189](../packages/ui/src/touch/SettingsScreen.tsx#L189), [modelSheets.tsx:94](../packages/ui/src/touch/modelSheets.tsx#L94).
+
+### Settings → colour palettes — `.swatches`, `.swatch`, `.color-row`, `.color-hex`, `.color-pick` (existing `.list`, `.row.current`, `.sticky-actions`, `.two-buttons`)
+A row "Palette colori" in the App group (subtitle: the palette on this device) opens the list: "Colori del tema"
+first, then the backend's palettes as radio rows (`.row.current` + `aria-checked`) with their 6 `.swatch` circles and a
+`⋯` to edit; "Nuova palette" in the sticky bar. The editor: name field, one `.color-row` per colour (label, mono
+`.color-hex` field typed by hand, 44 px round native `.color-pick`), the whole app previews the draft; Salva saves and
+turns it on here, leaving without saving restores; the bin in the top bar deletes after a confirmation sheet.
+Examples: [SettingsScreen.tsx:186](../packages/ui/src/touch/SettingsScreen.tsx#L186), [PalettesScreen.tsx:49](../packages/ui/src/touch/PalettesScreen.tsx#L49), [PalettesScreen.tsx:78](../packages/ui/src/touch/PalettesScreen.tsx#L78).
 
 ### Composer gauge — `.gauge-btn` (`.high`), `.gauge-ring` (`.gauge-track`, `.gauge-fill`), `.gauge-bar`
 Right of the model in the composer: a 20 px ring filled to the **highest** of three shares — context window (after the

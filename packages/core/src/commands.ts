@@ -191,6 +191,8 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
       notesChanged(folder)
       return {}
     },
+    'palettes.save': async ({ paletteId, name, colors }) => ({ palette: await workspace.palettes.save(paletteId, name, colors) }),
+    'palettes.delete': async ({ paletteId }) => workspace.palettes.delete(paletteId).then(() => ({})),
     'devices.list': notHere,
     'devices.pairStart': notHere,
     'devices.revoke': notHere,

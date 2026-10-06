@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import type { Connection } from '@athome/client'
 import type { Capabilities } from '../App.tsx'
 import { t } from '../i18n.ts'
+import { applyPalette, followPalettes, readActivePalette } from '../palette.ts'
 import { readDraft } from '../viewState.ts'
 import { ChatScreen } from './ChatScreen.tsx'
 import { ScreenContext, TouchContext, type BackHandler, type ComposerInsert, type LiveState, type Screen, type SheetSpec, type Touch } from './context.tsx'
@@ -13,6 +14,7 @@ import { TerminalScreen, useOpenTerminal } from './TerminalScreen.tsx'
 import { LaterScreen } from './LaterScreen.tsx'
 import { ContextScreen, UsageScreen } from './UsageScreens.tsx'
 import { NoteScreen, NotesScreen } from './NotesScreen.tsx'
+import { PaletteScreen, PalettesScreen } from './PalettesScreen.tsx'
 import { applyStoredTheme, EnablePushSheet, SettingsScreen } from './SettingsScreen.tsx'
 import { SheetHost, type SheetEntry } from './SheetHost.tsx'
 import { Splash } from './Splash.tsx'
@@ -31,6 +33,8 @@ function regionOf(screen: Screen): Region {
     case 'chat':
       return 'center'
     case 'settings':
+    case 'palettes':
+    case 'palette':
       return 'window'
     default:
       return 'right'
@@ -84,6 +88,10 @@ function ScreenView({ screen }: { screen: Screen }): ReactNode {
       return <NoteScreen tabId={screen.tabId} noteId={screen.noteId} />
     case 'settings':
       return <SettingsScreen />
+    case 'palettes':
+      return <PalettesScreen />
+    case 'palette':
+      return <PaletteScreen paletteId={screen.paletteId} />
     case 'later':
       return <LaterScreen which={screen.key} tabId={screen.tabId} />
     case 'context':
@@ -101,7 +109,12 @@ const tabOf = (screen: Screen) => ('tabId' in screen ? screen.tabId : undefined)
 export function TouchApp({ connection, capabilities }: { connection: Connection; capabilities: Capabilities }) {
   const state = useSyncExternalStore(connection.store.subscribe, connection.store.getSnapshot)
   useEffect(() => connection.start(), [connection])
-  useLayoutEffect(() => applyStoredTheme(), [])
+  useLayoutEffect(() => {
+    applyStoredTheme()
+    applyPalette(readActivePalette()?.colors)
+  }, [])
+  // The palette on here follows its changes made on another device.
+  useEffect(() => followPalettes(state.palettes), [state.palettes])
   const device = useRef<HTMLDivElement>(null)
   useKeyboard(device)
   const wide = useWide()

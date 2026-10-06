@@ -104,6 +104,13 @@ export const tabMetaSchema = z.object({
 // A Claude account of the backend added with a token made by `claude setup-token` (the token never leaves core).
 export const accountSchema = z.object({ accountId: z.string(), name: z.string(), addedAt: z.number() })
 
+// A colour palette of the app, saved on the backend (which one is on is each device's choice): the 6 main colours,
+// the app makes the others from them.
+export const PALETTE_COLORS = ['background', 'surface', 'text', 'accent', 'danger', 'success'] as const
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/)
+export const paletteColorsSchema = z.object({ background: hexColor, surface: hexColor, text: hexColor, accent: hexColor, danger: hexColor, success: hexColor })
+export const paletteSchema = z.object({ paletteId: z.string(), name: z.string(), colors: paletteColorsSchema, updatedAt: z.number() })
+
 // Home of the backend: the folder sessions live under (remote server), or the folders added on this PC.
 export const homeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('root'), path: z.string() }),
@@ -139,6 +146,8 @@ export const workspaceEventSchema = z.discriminatedUnion('type', [
   // The notes of a folder changed: clients showing them read them again.
   z.object({ type: z.literal('notes.changed'), cwd: z.string() }),
   // The accounts or the default one changed (defaultAccount undefined = Claude Code's own login).
+  // The saved colour palettes changed (all of them as they now are).
+  z.object({ type: z.literal('palettes.updated'), palettes: z.array(paletteSchema) }),
   z.object({ type: z.literal('accounts.updated'), accounts: z.array(accountSchema), defaultAccount: z.string().optional() }),
   // Backend settings changed, all of them as they now are (autoCompactWindow undefined = Claude Code's own setting;
   // defaultEffort undefined = the model's; defaultMode undefined = 'default').
@@ -177,7 +186,9 @@ export const workspaceSnapshotSchema = z.object({
   defaultEffort: effortSchema.optional(),
   defaultMode: permissionModeSchema.optional(),
   // Absent from an older backend: none.
-  terminals: z.array(terminalMetaSchema).default([])
+  terminals: z.array(terminalMetaSchema).default([]),
+  // The saved colour palettes; absent from an older backend: none.
+  palettes: z.array(paletteSchema).optional()
 })
 // screen: the recent output (bounded), written again into the client's terminal from a clean line.
 export const terminalSnapshotSchema = z.object({ kind: z.literal('terminal'), terminal: terminalMetaSchema, screen: z.string() })
@@ -262,6 +273,8 @@ export type Effort = z.infer<typeof effortSchema>
 export type Home = z.infer<typeof homeSchema>
 export type TabMeta = z.infer<typeof tabMetaSchema>
 export type Account = z.infer<typeof accountSchema>
+export type Palette = z.infer<typeof paletteSchema>
+export type PaletteColors = z.infer<typeof paletteColorsSchema>
 export type WorkspaceEvent = z.infer<typeof workspaceEventSchema>
 export type TabEvent = z.infer<typeof tabEventSchema>
 export type WorkspaceSnapshot = z.infer<typeof workspaceSnapshotSchema>

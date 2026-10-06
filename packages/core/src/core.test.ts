@@ -1579,3 +1579,37 @@ describe('model and effort', () => {
     expect(session.calls.at(-1)).toEqual({ method: 'applyFlagSettings', args: [{ effortLevel: 'high' }] })
   })
 })
+
+// Colour palettes of the app: saved on the backend so every device can pick them (which one is on is the device's).
+describe('palettes', () => {
+  const COLORS = { background: '#101418', surface: '#1a2027', text: '#e6edf3', accent: '#2f81f7', danger: '#f85149', success: '#3fb950' }
+
+  it('saved, edited, deleted, announced to every client, kept across restarts', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'cw-palettes-'))
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    const other = await connect(core, 'client-b')
+    const { palette } = await client.ok('palettes.save', { name: 'Night', colors: COLORS })
+    expect(palette).toMatchObject({ name: 'Night', colors: COLORS })
+    await client.ok('palettes.save', { paletteId: palette.paletteId, name: 'Night blue', colors: { ...COLORS, accent: '#58a6ff' } })
+    const { palette: second } = await client.ok('palettes.save', { name: 'Spare', colors: COLORS })
+    await client.ok('palettes.delete', { paletteId: second.paletteId })
+    await other.waitFor(() => other.events(WORKSPACE_STREAM).filter((ev) => ev.type === 'palettes.updated').length === 4)
+    expect(other.events(WORKSPACE_STREAM).at(-1)).toMatchObject({ type: 'palettes.updated', palettes: [{ paletteId: palette.paletteId, name: 'Night blue', colors: { accent: '#58a6ff' } }] })
+    await core.closeAll()
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    await tick()
+    const snapshot = client.lastReset(WORKSPACE_STREAM)?.snapshot as WorkspaceSnapshot
+    const announced = client.events(WORKSPACE_STREAM).filter((ev) => ev.type === 'palettes.updated').at(-1)
+    expect(announced?.type === 'palettes.updated' ? announced.palettes : snapshot.palettes).toMatchObject([{ paletteId: palette.paletteId, name: 'Night blue' }])
+  })
+
+  it('refuses a colour that is not #rrggbb and an unknown palette', async () => {
+    core = makeCore()
+    client = await connect(core)
+    expect(await client.fails('palettes.save', { name: 'Bad', colors: { ...COLORS, text: 'red' } })).toMatchObject({ code: 'invalid_args' })
+    expect(await client.fails('palettes.save', { paletteId: 'missing', name: 'Gone', colors: COLORS })).toMatchObject({ code: 'not_found' })
+    expect(await client.fails('palettes.delete', { paletteId: 'missing' })).toMatchObject({ code: 'not_found' })
+  })
+})

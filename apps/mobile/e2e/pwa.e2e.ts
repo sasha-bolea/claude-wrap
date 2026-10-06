@@ -644,6 +644,34 @@ describe('PWA (fake SDK)', () => {
     expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark')
   })
 
+  it('a colour palette made in Settings colours the app while I edit it, stays on after a reload, is offered to another device and is turned off again', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    const background = () => page.evaluate(() => document.documentElement.style.getPropertyValue('--background'))
+    await button(page, 'Settings').click()
+    await page.getByRole('button', { name: /^Colour palette/ }).click()
+    await page.getByRole('button', { name: 'New palette' }).click()
+    await page.getByLabel('Palette name').fill('Night')
+    await page.getByLabel('Background, hex code').fill('#101418')
+    expect(await background()).toBe('#101418')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('radio', { name: /^Night/ }).waitFor()
+    expect(await page.getByRole('radio', { name: /^Night/ }).getAttribute('aria-checked')).toBe('true')
+    await page.reload()
+    await home(page).waitFor()
+    expect(await background()).toBe('#101418')
+
+    const other = await pairedPage(await newPhone(), backend)
+    await button(other, 'Settings').click()
+    await other.getByRole('button', { name: /^Colour palette/ }).click()
+    await other.getByRole('radio', { name: /^Night/ }).waitFor()
+    expect(await other.evaluate(() => document.documentElement.style.getPropertyValue('--background'))).toBe('')
+
+    await button(page, 'Settings').click()
+    await page.getByRole('button', { name: /^Colour palette/ }).click()
+    await page.getByRole('radio', { name: /^Theme colours/ }).click()
+    expect(await background()).toBe('')
+  })
+
   // Sub-phase A: no zoom (pinch, double tap, focus on a small field), a splash screen for every iPhone size, and an
   // installed app that offers the newer build after a server update.
   it('zoom is locked: viewport, double tap, 16 px fields on the pairing screen too', async () => {

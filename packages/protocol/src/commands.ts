@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AUTO_COMPACT_WINDOW, EFFORT_LEVELS, IMAGE_TYPES, contextUsageSchema, effortSchema, itemSchema, permissionModeSchema, projectConfigSchema, sessionInfoSchema, usageSchema } from './model.ts'
+import { AUTO_COMPACT_WINDOW, EFFORT_LEVELS, IMAGE_TYPES, contextUsageSchema, effortSchema, itemSchema, paletteColorsSchema, paletteSchema, permissionModeSchema, projectConfigSchema, sessionInfoSchema, usageSchema } from './model.ts'
 
 // Commands a client can send (`{t:'cmd', id, name, args}`), with the schema of their args and result.
 
@@ -188,6 +188,9 @@ export const COMMANDS = {
   // noteId absent: a new note.
   'notes.save': { args: z.object({ cwd: z.string().min(1), noteId: z.string().optional(), text: z.string().trim().min(1) }), result: z.object({ note: noteSchema }) },
   'notes.delete': { args: z.object({ cwd: z.string().min(1), noteId: z.string() }), result: empty },
+  // Colour palettes of the app, shared by every device. paletteId absent: a new palette.
+  'palettes.save': { args: z.object({ paletteId: z.string().optional(), name: z.string().trim().min(1).max(40), colors: paletteColorsSchema }), result: z.object({ palette: paletteSchema }) },
+  'palettes.delete': { args: z.object({ paletteId: z.string() }), result: empty },
   // Claude accounts of the backend besides Claude Code's own login: a name and a token made with
   // `claude setup-token` (sk-ant-oat…), kept owner-only in core and never sent back. Removing one sends its sessions
   // back to the login. setDefault: the account of new sessions (undefined = the login).

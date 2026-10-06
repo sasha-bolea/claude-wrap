@@ -20,6 +20,8 @@ export type Screen =
   | { name: 'terminal'; terminalId: string }
   | { name: 'note'; tabId: string; noteId?: string }
   | { name: 'settings' }
+  | { name: 'palettes' }
+  | { name: 'palette'; paletteId?: string }
   | { name: 'later'; key: LaterKey; tabId?: string }
   | { name: 'context'; tabId: string }
   | { name: 'usage'; tabId: string }

@@ -338,6 +338,17 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .toggle-input { width: 24px; height: 24px; accent-color: var(--accent); flex: none; }
 .row.stacked { display: grid; gap: 8px; padding: 10px 14px; }
 .row-sub.wrap { white-space: normal; }
+/* Settings → colour palettes: a palette's swatches in its row; the editor's colour rows (hex field, round picker) */
+.swatches { display: flex; gap: 4px; margin-top: 4px; }
+.swatch { width: 16px; height: 16px; flex: none; }
+.swatch circle { stroke: var(--border); stroke-width: 1; }
+.color-row { padding-right: 10px; }
+.color-row .row-title { flex: 1; }
+.color-hex { width: 108px; flex: none; }
+.color-pick { width: 44px; height: 44px; flex: none; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: none; overflow: hidden; cursor: pointer; }
+.color-pick::-webkit-color-swatch-wrapper { padding: 0; }
+.color-pick::-webkit-color-swatch { border: 0; border-radius: 50%; }
+.color-pick::-moz-color-swatch { border: 0; border-radius: 50%; }
 .empty-line { padding: 8px 4px; }
 .mono-line { font: 13px var(--font-mono); overflow-wrap: anywhere; }
 

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { EFFORT_LEVELS, type Device, type Effort, type PermissionMode } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { modeLabel } from '../modes.ts'
 import { useAvailableUpdate } from '../appUpdate.ts'
+import { activePaletteId, subscribeActivePalette } from '../palette.ts'
 import { AccountsGroup } from './accounts.tsx'
 import { useTouch, type LaterKey, type Touch } from './context.tsx'
 import { Icon } from './icons.tsx'
@@ -123,9 +124,12 @@ export function SettingsScreen() {
   )
 }
 
-// The installed app (its version, the newer one on the server: Aggiorna; a plain reload) and the theme.
+// The installed app (its version, the newer one on the server: Aggiorna; a plain reload), the theme and the colour
+// palette on this device.
 function AppGroup() {
-  const { capabilities } = useTouch()
+  const { state, capabilities, go } = useTouch()
+  const activeId = useSyncExternalStore(subscribeActivePalette, activePaletteId)
+  const palette = activeId ? (state.palettes.find((one) => one.paletteId === activeId)?.name ?? '') : t('paletteTheme')
   const app = capabilities.app
   const update = useAvailableUpdate(app)
   const [theme, setTheme] = useState(readTheme)
@@ -178,6 +182,13 @@ function AppGroup() {
               </label>
             ))}
           </div>
+        </li>
+        <li className="row">
+          <button className="row-main" onClick={() => go({ name: 'palettes' })}>
+            <span className="row-title">{t('palettesRow')}</span>
+            {palette && <span className="row-sub">{palette}</span>}
+          </button>
+          <Icon name="chevron" className="chevron" />
         </li>
       </ul>
     </div>
