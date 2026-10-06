@@ -180,6 +180,9 @@ export class Tab {
   private confirmedMode: PermissionMode
   private lifecycle: Lifecycle = 'dormant'
   private turnRunning = false
+  // Work time of the turn (see TabMeta.workingSince): kept by updateWorkClock; workedMs while Claude waits.
+  private workingSince?: number
+  private workedMs = 0
   private error?: string
   private queue: Outgoing[]
   private queuePause?: QueuePause
@@ -271,13 +274,14 @@ export class Tab {
   }
 
   meta(): TabMeta {
-    const { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queuePause, account, interrupted, lastUsedAt } = this
+    this.updateWorkClock()
+    const { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queuePause, account, interrupted, lastUsedAt, workingSince } = this
     const limitedUntil = this.env.limitedUntil(account)
     const planLimits = this.env.planLimits(account)
     const context = this.contextGauge
     const queueCountdown = this.countdown && { queueId: this.countdown.queueId, until: this.countdown.until }
     const queue = this.queue.map(({ queueId, text, from, images }) => ({ queueId, text, from, images: images?.length }))
-    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}), ...(interrupted ? { interrupted } : {}), ...(context ? { context } : {}), ...(planLimits ? { planLimits } : {}), ...(queueCountdown ? { queueCountdown } : {}), ...(lastUsedAt ? { lastUsedAt } : {}), ...(this.unseenFinish ? { unseen: true as const } : {}) }
+    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}), ...(interrupted ? { interrupted } : {}), ...(context ? { context } : {}), ...(planLimits ? { planLimits } : {}), ...(queueCountdown ? { queueCountdown } : {}), ...(lastUsedAt ? { lastUsedAt } : {}), ...(workingSince ? { workingSince } : {}), ...(this.unseenFinish ? { unseen: true as const } : {}) }
   }
 
   // Subscribes a connection to the transcript (loading a resumed session's history first, without a process).
@@ -1066,7 +1070,22 @@ export class Tab {
     this.lastUsedAt = Date.now()
   }
 
+  // Follows the status for the work time: it runs while Claude works, stops (keeping the time worked) while a request
+  // waits for an answer, and goes back to zero once the turn is over.
+  private updateWorkClock(): void {
+    const status = this.status
+    if (status === 'running') this.workingSince ??= Date.now() - this.workedMs
+    else if (status === 'requires_action') {
+      if (this.workingSince !== undefined) this.workedMs = Date.now() - this.workingSince
+      this.workingSince = undefined
+    } else {
+      this.workingSince = undefined
+      this.workedMs = 0
+    }
+  }
+
   private changed(): void {
+    this.updateWorkClock()
     if (!this.queue.length && this.queuePause && this.queuePause.reason !== 'limit') this.queuePause = undefined
     // A countdown ends when its message is no longer next, the queue waits, or Claude started working.
     if (this.countdown && (this.queue[0]?.queueId !== this.countdown.queueId || this.queuePause || this.turnRunning)) this.stopCountdown()

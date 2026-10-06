@@ -5,7 +5,7 @@
 // 4. I queue messages while Claude works and can take them back;
 // 5. I reopen a past session and read it without starting anything;
 // 6. reloads, dropped connections and retries never lose or duplicate anything.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -601,6 +601,34 @@ describe('requests', () => {
     await tick()
     expect(client.events(TAB).at(-1)).toEqual({ type: 'request.resolved', requestId, by: 'client-a', outcome: 'allow' })
     expect(meta(client)).toMatchObject({ status: 'running', pendingRequests: 0 })
+  })
+
+  it('the work time of a turn is kept by core and stops while Claude waits for an answer', async () => {
+    let now = 1_000_000
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now)
+    try {
+      const session = await startedTab()
+      session.emit(sdk.init('s-clock'))
+      await until(() => meta(client)?.workingSince !== undefined)
+      const start = meta(client)!.workingSince!
+      now += 5_000
+      const { requestId } = session.askPermission('Write', { file_path: 'a.txt' })
+      await until(() => meta(client)?.status === 'requires_action')
+      expect(meta(client)?.workingSince).toBeUndefined()
+      now += 60_000
+      await client.ok('request.answer', { tabId: 't1', requestId, decision: 'allow' })
+      await until(() => meta(client)?.status === 'running')
+      // Resumed: 5 s worked before the request, the minute of waiting does not count.
+      expect(meta(client)?.workingSince).toBe(start + 60_000)
+      // Another client (a reopened app) reads the same start.
+      const other = await connect(core, 'client-b')
+      expect(meta(other)?.workingSince).toBe(start + 60_000)
+      session.emit(sdk.success())
+      await until(() => meta(client)?.status === 'idle')
+      expect(meta(client)?.workingSince).toBeUndefined()
+    } finally {
+      clock.mockRestore()
+    }
   })
 
   it('"always" passes the CLI suggestions; deny carries the reason or a default', async () => {

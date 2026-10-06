@@ -313,9 +313,9 @@ function useReadTimes(items: Item[]): Record<string, number> {
   return readAt
 }
 
-// "Claude sta lavorando… 12 s", counted from when the turn started.
-function WorkingLine({ starting }: { starting: boolean }) {
-  const since = useRef(Date.now())
+// "Claude sta lavorando… 12 s": the turn's work time, from core's workingSince (it survives reopening the app and
+// leaves out the time Claude waited for an answer). since: TabMeta.workingSince, undefined while Claude starts.
+function WorkingLine({ since }: { since?: number }) {
   const [, tick] = useState(0)
   useEffect(() => {
     const timer = setInterval(() => tick((n) => n + 1), 1000)
@@ -324,7 +324,7 @@ function WorkingLine({ starting }: { starting: boolean }) {
   return (
     <div className="working-line">
       <span className="badge working" />
-      <span>{starting ? t('startingClaude') : t('workingFor', { time: durationLabel(Date.now() - since.current) })}</span>
+      <span>{since === undefined ? t('startingClaude') : t('workingFor', { time: durationLabel(Math.max(0, Date.now() - since)) })}</span>
     </div>
   )
 }
@@ -348,7 +348,7 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
           <ToolStack key={entry.tools[0]!.itemId} items={entry.tools} />
         )
       )}
-      {(meta.status === 'running' || meta.status === 'starting') && <WorkingLine key={meta.status} starting={meta.status === 'starting'} />}
+      {(meta.status === 'running' || meta.status === 'starting') && <WorkingLine since={meta.status === 'running' ? meta.workingSince : undefined} />}
       <LimitCard meta={meta} />
       <ContinueCard meta={meta} />
       {request && <RequestCard key={request.requestId} request={request} onAnswer={(answer) => onAnswer(request.requestId, answer)} />}
