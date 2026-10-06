@@ -2,6 +2,23 @@
 
 _Append-only archive of session entries that left [STATO.md](STATO.md), newest on top._
 
+## 2026-10-06 15:46 — Finished chats not looked at yet get an accent badge (phone session, server dev clone)
+Sasha on the iPhone first asked for an extra dot on unseen finished chats and their folders, then changed it: the
+existing state badge takes the "waiting" colour (accent), the words stay the same, grey again once the chat is
+opened. Core already kept "finished while nobody looked" for the notification count, in memory: it moved onto the tab,
+shared by every device and saved with the tab. Tests: `npm test` 254 passed, typecheck clean, PWA e2e 46/46. Pushed
+over SSH (`465e27c`).
+
+### Cambiamenti al codice
+- `packages/protocol/src/model.ts`: `TabMeta.unseen` (`true` or absent).
+- `packages/core/src/tab.ts`, `state.ts`: `unseenFinish` field, `unseen` getter, `setUnseen()`; persisted with the tab.
+- `packages/core/src/workspace.ts`: the in-memory `finished` set removed; `notify`, `seen`, `changed` use the tab's
+  mark (the notification count is the number of unseen tabs).
+- `packages/ui/src/touch/model.ts`: `folderSummary` returns `unseen`; `badgeClass()`; `parts.tsx` `Badge unseen`;
+  `sessions.tsx` and `HomeScreen.tsx` pass it; `touch.css` `.badge.unseen`.
+- Tests: core "a chat finished while nobody looked is unseen until someone looks at it, also after a restart"; ui
+  `folderSummary` unseen case. `design-system.md`: `.badge.unseen`.
+
 ## 2026-10-06 15:41 — The "working for" timer kept by core (phone session, server dev clone)
 Sasha on the iPhone: the timer of how long Claude is working started again from zero after reopening the app. Waited
 for the other session to commit its files, then fixed; Sasha chose that the timer stops while Claude waits for an

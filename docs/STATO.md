@@ -1,6 +1,6 @@
 # STATO — AtHome
 
-_Last updated: 2026-10-06 15:41 CEST_
+_Last updated: 2026-10-06 15:46 CEST_
 
 ## Current state
 **Phases 0–3 and sub-phases A, B, C1 and C2 of the realigned plan are done** ([piano.md](piano.md) §4): the remote
@@ -16,7 +16,8 @@ a phone, three columns from 1024 px. C2 was closed by Sasha on 2026-10-05 ("c2 o
   (use it in the browser, or install the app with a palette); **session names** = tab titles; **messages between
   sessions** shown as "Da @nome"; open sessions ordered by last use (other session, `353cebc`); answered questions kept
   in the chat (`9d9bf10`). At 15:41 the **"working for" timer** is kept by core (`6c3dfd1`): it survives reopening the app and
-  stops while Claude waits for an answer (bug-risolti). The team-mode plan (capo/operai inside AtHome) was **cancelled**: AtHome shows only native
+  stops while Claude waits for an answer (bug-risolti). At 15:46 a chat **finished but not looked at yet** has its badge in the
+  accent colour (not pulsing), its folder too (`465e27c`). The team-mode plan (capo/operai inside AtHome) was **cancelled**: AtHome shows only native
   Claude Code features. Details in the 15:32 entry of [storico-sessioni.md](storico-sessioni.md).
 - **Repo:** public on GitHub (`main` only). Several Claude sessions push to `main` (the PC one and the ones in the
   server dev clone `/srv/progetti/claude-wrap`, which push over SSH): pull before working and before committing, and
@@ -72,6 +73,7 @@ a phone, three columns from 1024 px. C2 was closed by Sasha on 2026-10-05 ("c2 o
 ## Recent decisions
 | Date | Decision | Reason |
 |------|----------|--------|
+| 2026-10-06 | A chat finished (or stopped with an error) while nobody looked: its idle badge takes the accent colour, not pulsing, words unchanged; same on its folder; grey again once opened on any device. The mark is `TabMeta.unseen`, kept and saved by core | Sasha: same colour as "waiting", no extra dot; shared state belongs to core |
 | 2026-10-06 | AtHome shows only native Claude Code features: the team-mode plan (capo/operai inside the app, AtHome tools for sessions, agent cards, team view) is cancelled; the code stays at `192c5c2` plus `214f10f`, which only removes the capo/operai names | Sasha: "non voglio aggiungere funzionalità che non native di claude"; subagents stay as Claude makes them |
 | 2026-10-06 | Kept, as not team-specific: automatic session name from the first prompt, "Nuova sessione con nome…", messages between sessions across folders ("Da @nome") | Sasha, multiple-choice answers |
 | 2026-10-06 | A session's name for the other sessions is its tab's title: the CLI's title after the first prompt (else its first 3 words), a name given at creation, or a rename, which stays | Sasha: "come l'app di Claude" |
