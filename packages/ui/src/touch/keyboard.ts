@@ -1,4 +1,23 @@
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useState, type RefObject } from 'react'
+
+// Shake to Undo (iOS): picking the phone up counts as a shake, and while a text field still has typing history the
+// "Undo Typing" alert pops up when the app opens. No web API clears WebKit's undo stack; the editable element owns it,
+// so the fields get this number as their `key`: it grows when the app goes to the background, the element is replaced
+// and its history is gone (the value is React state, so the text stays). Returns the current number.
+export function useUndoReset(): number {
+  const [generation, setGeneration] = useState(0)
+  useEffect(() => {
+    const reset = () => setGeneration((value) => value + 1)
+    const hidden = () => document.visibilityState === 'hidden' && reset()
+    document.addEventListener('visibilitychange', hidden)
+    window.addEventListener('pagehide', reset)
+    return () => {
+      document.removeEventListener('visibilitychange', hidden)
+      window.removeEventListener('pagehide', reset)
+    }
+  }, [])
+  return generation
+}
 
 // Keyboard of the installed iPhone app (NOTE-CONSEGNA §4): iOS does not shrink the page when the keyboard opens, it
 // scrolls it. The app follows the visual viewport instead (--app-h on the device), so the composer and a sheet being

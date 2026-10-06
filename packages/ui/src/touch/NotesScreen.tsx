@@ -4,6 +4,7 @@ import { t } from '../i18n.ts'
 import { useTouch } from './context.tsx'
 import { baseName } from './model.ts'
 import { IconButton, noteTitle, Title, useQuery } from './parts.tsx'
+import { useUndoReset } from './keyboard.ts'
 import { when } from './sessions.tsx'
 
 // Saved this long after the last keystroke (and when leaving the note or the app).
@@ -89,6 +90,7 @@ export function NoteScreen({ tabId, folder, noteId: opened }: { tabId?: string; 
   // An opened note counts only once loaded (leaving before that must not save or delete anything).
   const loaded = useRef(!opened)
   const toMessage = useNoteInMessage(tabId)
+  const undoReset = useUndoReset()
 
   // Saves one after the other (a new note gets its id from the first save).
   const save = () => {
@@ -153,7 +155,7 @@ export function NoteScreen({ tabId, folder, noteId: opened }: { tabId?: string; 
         {tabId && <IconButton icon="to-chat" className="accent" label={t('useInMessage')} disabled={!text?.trim()} onClick={use} />}
         <IconButton icon="trash" label={t('deleteNote')} onClick={remove} />
       </header>
-      <textarea className="note-editor" aria-label={t('noteText')} placeholder={t('writeNote')} value={text ?? ''} disabled={text === undefined} onChange={(event) => change(event.target.value)} />
+      <textarea key={undoReset} className="note-editor" aria-label={t('noteText')} placeholder={t('writeNote')} value={text ?? ''} disabled={text === undefined} onChange={(event) => change(event.target.value)} />
     </section>
   )
 }

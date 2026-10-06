@@ -15,6 +15,7 @@ import { Icon, modeIcon } from './icons.tsx'
 import { sizeLabel } from './model.ts'
 import { ModeSheet } from './modelSheets.tsx'
 import { IconButton, noteTitle } from './parts.tsx'
+import { useUndoReset } from './keyboard.ts'
 import { pauseWords, QueueTray } from './queue.tsx'
 import { useTrustPrompt } from './sessions.tsx'
 
@@ -76,6 +77,7 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField }: Comp
   const tabId = meta.tabId
   const input = useRef<HTMLTextAreaElement>(null)
   const picker = useRef<HTMLInputElement>(null)
+  const undoReset = useUndoReset()
   const draft = useDraft(backendId, tabId, input)
   const { text, images } = draft
   const [docs, setDocs] = useState<File[]>([])
@@ -111,7 +113,7 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField }: Comp
     if (!field) return
     field.style.height = 'auto'
     field.style.height = `${Math.min(field.scrollHeight, MAX_FIELD)}px`
-  }, [text])
+  }, [text, undoReset])
   // Text sent here from File (Menziona in chat) or Note (Usa nel messaggio).
   const insert = inserts[tabId]
   useEffect(() => {
@@ -337,6 +339,7 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField }: Comp
       <div className="input-box">
         {waiting && countdown && <QueuedCountdown text={waiting.text} images={waiting.images} until={countdown.until} onStop={hold} />}
         <textarea
+          key={undoReset}
           hidden={Boolean(waiting)}
           ref={input}
           rows={1}
