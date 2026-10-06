@@ -6,7 +6,7 @@ _Living catalogue: updated at the same moment a UI element is added or changed. 
 1. **Colours and spacing only from tokens** (`var(--…)`): never hex values or "magic" px in components.
 2. **No inline `style={{…}}`**: a new layout gets a class here and in the stylesheet.
 3. **Reuse before creating**: button = `.button`, field = `.field`, button row = `.actions`, screen container = `.screen`. Class names are English.
-4. **Automatic light/dark theme** (`prefers-color-scheme`): every new token is defined in both.
+4. **Palettes only, no light/dark theme**: every colour comes from the palette on the device; a new colour token is derived from the 6 palette colours in `paletteTokens` and must read well on the light and the dark presets.
 5. **Accessibility**: every dialog is a `<section>` with `aria-label`; every `select` has `aria-label`; the visible focus (`:focus-visible`) is never removed; animations respect `prefers-reduced-motion`.
 6. **Focus is never stolen and never lands on a button that grants something.** A panel that appears by itself (a request from Claude, the trust dialog of a restored tab) does not use `autoFocus`: it has `tabIndex={-1}` and takes focus on the **container**, and only if focus is free (`isFocusFree()`). So Enter or Space can never approve by mistake. Focus moves on tab change skip a user who is typing (`isTyping()`). `autoFocus` is allowed only on elements opened by a user action (rename field, delete confirmation). A handled key that moves focus calls `preventDefault`. **Multi-client**: when a request is answered from another device and its panel disappears, focus moves to the tab panel, never to `body`.
 7. **Important state changes are announced** to screen readers with `.sr-only` + `aria-live`, one region per message type (read only when its text changes): request and mode of the active tab, requests in inactive tabs; errors with `role="alert"`, waits with `role="status"`. Exactly one announcement per request.
@@ -15,7 +15,7 @@ _Living catalogue: updated at the same moment a UI element is added or changed. 
 10. **Untrusted content** (assistant markdown, tool output, MCP resources): no raw HTML, no `dangerouslySetInnerHTML`; remote images render as links.
 
 ## Tokens
-Defined in [packages/ui/src/touch.css](../packages/ui/src/touch.css) (the old `style.css` of the first desktop UI is gone since C2.5); every colour token has a light and a dark value. A colour palette (Settings → Palette colori, [palette.ts](../packages/ui/src/palette.ts)) overrides the 12 colour tokens inline on `<html>` from 6 chosen colours (background, surface, text, accent, danger, success); the others are mixed from them, so **a new colour token must also be derived in `paletteTokens`**.
+Defined in [packages/ui/src/touch.css](../packages/ui/src/touch.css) (the old `style.css` of the first desktop UI is gone since C2.5); its `:root` holds the default palette's colours (shown until the app knows the device's palette). A colour palette (Settings → Palette colori, [palette.ts](../packages/ui/src/palette.ts)) overrides the 12 colour tokens inline on `<html>` from 6 chosen colours (background, surface, text, accent, danger, success); the others are mixed from them, so **a new colour token must also be derived in `paletteTokens`**.
 
 | Token | Use |
 |---|---|
@@ -36,12 +36,12 @@ Every host (PWA, desktop) renders [`TouchApp`](../packages/ui/src/touch/TouchApp
 Wide arrangement). Components live in `packages/ui/src/touch/`; the first desktop UI (tab bar, start screen, old chat
 and composer, `style.css`) was removed in C2.5.
 
-**Touch tokens** (same names as the prototype; light on `:root`, dark under `prefers-color-scheme` and again under
-`:root[data-theme="dark"]` so the theme chosen in Settings wins both ways, `data-theme="light"` likewise):
+**Touch tokens** (same names as the prototype; on `:root` the default palette's values, overridden inline by the palette on
+the device):
 `--background`, `--surface`, `--surface-2`, `--border`, `--text`, `--text-muted`, `--accent`, `--accent-text`,
 `--danger`, `--success`, `--frame` (around the device box on a wide screen), `--scrim`, `--radius`, `--space`, `--font`,
 `--font-mono`.
-`--danger` is a vivid red (`#c62828` light, `#ff6b5e` dark), never a pale one that reads as pink, with at least
+`--danger` is a vivid red (`#c62828` on light presets, `#ff6b5e` on dark ones), never a pale one that reads as pink, with at least
 4.5:1 contrast on `--background`, `--surface` and `--surface-2` and for `--surface` text on it ([touch.css](../packages/ui/src/touch.css)).
 
 **Touch rules** (binding, on top of the general ones):
@@ -76,8 +76,8 @@ and composer, `style.css`) was removed in C2.5.
    tool stack) and the command line of a tool card keep one line, their full text one tap away; previews with a line clamp (ghost, note cards) stay
    clamped; top bar titles (screen and chat) wrap to two lines at most. A grid of one column uses `minmax(0, 1fr)`. The PWA e2e checks no element ends outside the screen.
 
-**Splash screens** of the installed app: the accent "@~" mark on `--background`, light and dark, one PNG per iPhone
-screen size, generated from the token colours by [apps/mobile/scripts/icons.ts](../apps/mobile/scripts/icons.ts).
+**Splash screens** of the installed app: the accent "@~" mark on `--background`, one PNG per iPhone screen size, in
+the default palette's colours, generated by [apps/mobile/scripts/icons.ts](../apps/mobile/scripts/icons.ts).
 
 ### Backend switch (desktop) — `.backend-switch`, `.backend-choices`, `.switch-dot`, `.core-failed`
 On top of the Home when the host offers several backends (the desktop: `capabilities.backends` from `DesktopShell`):
@@ -129,10 +129,10 @@ Examples: [parts.tsx:31](../packages/ui/src/touch/parts.tsx#L31), [ChatScreen.ts
 ### Row list — `.list`, `.row` (`.end-pad`, `.stacked`, `.uploading`), `.row-main`, `.row-title` (`.plain`), `.row-sub`, `.ficon` (`.dir`), `.chevron`
 Rounded list of 56 px rows: an icon or badge, a full-width `.row-main` button (title, muted subtitle), then a chip,
 a `⋯` icon button or an action button (`.end-pad`). Folders (`.ficon.dir` = project, accent), files, sessions,
-devices, trash items. `.stacked`: a row holding a control under its title (theme). A folder of the Home ends with a
+devices, trash items. `.stacked`: a row holding a control under its title. A folder of the Home ends with a
 plain row for the files right inside it ("12 file di cui 3 nascosti", never shown with 0 files) that opens the file
 explorer on that folder.
-Examples: [HomeScreen.tsx:47](../packages/ui/src/touch/HomeScreen.tsx#L47), [HomeScreen.tsx:146](../packages/ui/src/touch/HomeScreen.tsx#L146), [sessions.tsx:211](../packages/ui/src/touch/sessions.tsx#L211), [FilesScreen.tsx:238](../packages/ui/src/touch/FilesScreen.tsx#L238), [SettingsScreen.tsx:166](../packages/ui/src/touch/SettingsScreen.tsx#L166).
+Examples: [HomeScreen.tsx:47](../packages/ui/src/touch/HomeScreen.tsx#L47), [HomeScreen.tsx:146](../packages/ui/src/touch/HomeScreen.tsx#L146), [sessions.tsx:211](../packages/ui/src/touch/sessions.tsx#L211), [FilesScreen.tsx:238](../packages/ui/src/touch/FilesScreen.tsx#L238), [SettingsScreen.tsx:119](../packages/ui/src/touch/SettingsScreen.tsx#L119).
 
 ### Path — `.crumbs.path-bar` (`.sep`, `[aria-current]`)
 The path from the root as mono buttons, scrolled to its end; a part jumps there (`Crumbs` component).
@@ -146,8 +146,8 @@ Examples: [SheetHost.tsx:49](../packages/ui/src/touch/SheetHost.tsx#L49), [ChatS
 
 ### Buttons and fields — `.button` (`.primary`, `.danger`, `.block`), `.link-btn`, `.field` (`.mono`), `.check-row`, `.segmented` (`.effort`, `.cols-N`), `.toggle-input`
 Same roles as on the desktop; `.link-btn`: the light text actions under a list ("Sessioni passate · + Nuova
-sessione"); `.segmented`: a radio group as one control (theme, effort levels — `.cols-N` for N levels).
-Examples: [HomeScreen.tsx:166](../packages/ui/src/touch/HomeScreen.tsx#L166), [HomeScreen.tsx:314](../packages/ui/src/touch/HomeScreen.tsx#L314), [SettingsScreen.tsx:170](../packages/ui/src/touch/SettingsScreen.tsx#L170), [modelSheets.tsx:66](../packages/ui/src/touch/modelSheets.tsx#L66).
+sessione"); `.segmented`: a radio group as one control (effort levels — `.cols-N` for N levels).
+Examples: [HomeScreen.tsx:166](../packages/ui/src/touch/HomeScreen.tsx#L166), [HomeScreen.tsx:314](../packages/ui/src/touch/HomeScreen.tsx#L314), [SettingsScreen.tsx:167](../packages/ui/src/touch/SettingsScreen.tsx#L167), [modelSheets.tsx:66](../packages/ui/src/touch/modelSheets.tsx#L66).
 
 ### Cards, chips, badges — `.card` (`.compact`, `.bad`), `.chip` (`.changed`), `.badge` (`.waiting`, `.working`, `.error`)
 `.card`: a framed block (session info in the menu, error and trust notices, the 🔜 placeholder). `.chip`: small
@@ -252,24 +252,25 @@ Examples: [parts.tsx:88](../packages/ui/src/touch/parts.tsx#L88), [parts.tsx:103
 A row "Compatta quando la conversazione arriva a" with five segments: Standard (Claude Code's own setting), 100k,
 200k, 500k, 1M — Claude Code's `autoCompactWindow` (as /autocompact) for every session — and a wrapping hint under
 it. A change restarts the live processes (idle now, working at the end of their turn) with the conversations kept.
-Examples: [SettingsScreen.tsx:190](../packages/ui/src/touch/SettingsScreen.tsx#L190).
+Examples: [SettingsScreen.tsx:215](../packages/ui/src/touch/SettingsScreen.tsx#L215).
 
 ### Settings → new sessions (existing `.list`, `.row.stacked`, `.segmented.effort`, `.menu` via `ModeMenu`)
 "Nuove sessioni": a row "Sforzo" with six segments in two rows of three (Del modello, then the five levels) and a
 wrapping hint, and a row "Modalità permessi" showing the chosen mode, which opens the same radio menu as the composer's
 mode sheet (`ModeMenu`). Both apply to sessions created from then on (forks keep their source's); open ones keep theirs.
-Examples: [SettingsScreen.tsx:189](../packages/ui/src/touch/SettingsScreen.tsx#L189), [modelSheets.tsx:94](../packages/ui/src/touch/modelSheets.tsx#L94).
+Examples: [SettingsScreen.tsx:167](../packages/ui/src/touch/SettingsScreen.tsx#L167), [modelSheets.tsx:94](../packages/ui/src/touch/modelSheets.tsx#L94).
 
 ### Settings → colour palettes — `.swatches`, `.swatch`, `.color-row`, `.color-hex`, `.color-pick` (existing `.list`, `.row.current`, `.sticky-actions`, `.two-buttons`)
-A row "Palette colori" in the App group (subtitle: the palette on this device) opens the list: "Colori del tema"
-first, then the backend's palettes as radio rows (`.row.current` + `aria-checked`) with their 6 `.swatch` circles and a
+A row "Palette colori" in the App group (subtitle: the palette on this device) opens the list: the backend's palettes
+as radio rows (the 17 presets of [presets.ts](../packages/protocol/src/presets.ts) are added once by the core, then
+edited and deleted like the others; a device that never picked one gets the default) (`.row.current` + `aria-checked`) with their 6 `.swatch` circles and a
 `⋯` to edit; "Nuova palette" in the sticky bar. The editor: name field, one `.color-row` per colour (label, mono
 `.color-hex` field typed by hand, 44 px round native `.color-pick`), the whole app previews the draft; Salva saves and
 turns it on here, leaving without saving restores; the bin in the top bar deletes after a confirmation sheet.
 With a palette on, the page's icon and manifest links point at their version in its accent (`?accent=`, drawn by the
 server), and the PWA shows a `.link-btn` "Icona con questo colore" under the list: it copies a link that opens the app
 with that icon, for adding it again to the Home screen (iOS keeps the icon it took when the app was added).
-Examples: [SettingsScreen.tsx:186](../packages/ui/src/touch/SettingsScreen.tsx#L186), [PalettesScreen.tsx:52](../packages/ui/src/touch/PalettesScreen.tsx#L52), [PalettesScreen.tsx:60](../packages/ui/src/touch/PalettesScreen.tsx#L60), [PalettesScreen.tsx:87](../packages/ui/src/touch/PalettesScreen.tsx#L87).
+Examples: [SettingsScreen.tsx:141](../packages/ui/src/touch/SettingsScreen.tsx#L141), [PalettesScreen.tsx:46](../packages/ui/src/touch/PalettesScreen.tsx#L46), [PalettesScreen.tsx:54](../packages/ui/src/touch/PalettesScreen.tsx#L54), [PalettesScreen.tsx:81](../packages/ui/src/touch/PalettesScreen.tsx#L81).
 
 ### Composer gauge — `.gauge-btn` (`.high`), `.gauge-ring` (`.gauge-track`, `.gauge-fill`), `.gauge-bar`
 Right of the model in the composer: a 20 px ring filled to the **highest** of three shares — context window (after the
@@ -318,4 +319,4 @@ Safari (opened from "Icona con questo colore": only those, no "Continua nel brow
 waste the one-time code), the link-or-code field in the installed app; right after pairing a sheet offers the
 notifications once.
 `.code-box`: a one-time pairing code (Settings → Add device).
-Examples: [Splash.tsx:13](../packages/ui/src/touch/Splash.tsx#L13), [PairScreen.tsx:43](../packages/ui/src/PairScreen.tsx#L43), [SettingsScreen.tsx:319](../packages/ui/src/touch/SettingsScreen.tsx#L319).
+Examples: [Splash.tsx:13](../packages/ui/src/touch/Splash.tsx#L13), [PairScreen.tsx:43](../packages/ui/src/PairScreen.tsx#L43), [SettingsScreen.tsx:273](../packages/ui/src/touch/SettingsScreen.tsx#L273).

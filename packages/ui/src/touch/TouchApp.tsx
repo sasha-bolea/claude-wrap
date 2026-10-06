@@ -15,7 +15,7 @@ import { LaterScreen } from './LaterScreen.tsx'
 import { ContextScreen, UsageScreen } from './UsageScreens.tsx'
 import { NoteScreen, NotesScreen } from './NotesScreen.tsx'
 import { PaletteScreen, PalettesScreen } from './PalettesScreen.tsx'
-import { applyStoredTheme, EnablePushSheet, SettingsScreen } from './SettingsScreen.tsx'
+import { EnablePushSheet, SettingsScreen } from './SettingsScreen.tsx'
 import { SheetHost, type SheetEntry } from './SheetHost.tsx'
 import { Splash } from './Splash.tsx'
 import { TrashScreen } from './TrashScreen.tsx'
@@ -109,11 +109,8 @@ const tabOf = (screen: Screen) => ('tabId' in screen ? screen.tabId : undefined)
 export function TouchApp({ connection, capabilities }: { connection: Connection; capabilities: Capabilities }) {
   const state = useSyncExternalStore(connection.store.subscribe, connection.store.getSnapshot)
   useEffect(() => connection.start(), [connection])
-  useLayoutEffect(() => {
-    applyStoredTheme()
-    applyPalette(readActivePalette()?.colors)
-  }, [])
-  // The palette on here follows its changes made on another device.
+  useLayoutEffect(() => applyPalette(readActivePalette()?.colors), [])
+  // The palette on here: the default one at the first opening, then its changes made on another device.
   useEffect(() => followPalettes(state.palettes), [state.palettes])
   const device = useRef<HTMLDivElement>(null)
   useKeyboard(device)

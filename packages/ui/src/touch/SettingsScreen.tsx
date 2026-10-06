@@ -20,30 +20,8 @@ export type PushCapability = {
   unsubscribe(): Promise<void>
 }
 
-type Theme = '' | 'light' | 'dark'
-const THEME_KEY = 'claude-wrap:theme'
-const THEMES: { value: Theme; label: 'themeSystem' | 'themeLight' | 'themeDark' }[] = [
-  { value: '', label: 'themeSystem' },
-  { value: 'light', label: 'themeLight' },
-  { value: 'dark', label: 'themeDark' }
-]
 // The settings pages of Claude Code to come (🔜), in the prototype's order.
 const CONFIG_LATER: LaterKey[] = ['mcp', 'hooks', 'config', 'permissions', 'memory', 'skills', 'agents', 'styles', 'plugins']
-
-function readTheme(): Theme {
-  try {
-    const theme = localStorage.getItem(THEME_KEY)
-    return theme === 'light' || theme === 'dark' ? theme : ''
-  } catch {
-    return ''
-  }
-}
-
-// The theme chosen on this device (none: the system's), applied to the page.
-export function applyStoredTheme(theme: Theme = readTheme()): void {
-  if (theme) document.documentElement.dataset.theme = theme
-  else delete document.documentElement.dataset.theme
-}
 
 // Subscribes this device to the server's push notifications (from a tap: iOS asks the permission then).
 async function subscribePush(connection: Touch['connection'], push: PushCapability): Promise<void> {
@@ -72,7 +50,7 @@ export function EnablePushSheet() {
   )
 }
 
-// Settings: the app (version, reload, theme), Claude accounts, notifications, paired devices, the server, the pages to come, unpair.
+// Settings: the app (version, reload, palette), Claude accounts, notifications, paired devices, the server, the pages to come, unpair.
 export function SettingsScreen() {
   const { state, capabilities, back, go, openSheet } = useTouch()
   const welcome = state.welcome
@@ -124,25 +102,14 @@ export function SettingsScreen() {
   )
 }
 
-// The installed app (its version, the newer one on the server: Aggiorna; a plain reload), the theme and the colour
-// palette on this device.
+// The installed app (its version, the newer one on the server: Aggiorna; a plain reload) and the colour palette on
+// this device.
 function AppGroup() {
   const { state, capabilities, go } = useTouch()
   const activeId = useSyncExternalStore(subscribeActivePalette, activePaletteId)
-  const palette = activeId ? (state.palettes.find((one) => one.paletteId === activeId)?.name ?? '') : t('paletteTheme')
+  const palette = state.palettes.find((one) => one.paletteId === activeId)?.name
   const app = capabilities.app
   const update = useAvailableUpdate(app)
-  const [theme, setTheme] = useState(readTheme)
-  const pick = (next: Theme) => {
-    setTheme(next)
-    applyStoredTheme(next)
-    try {
-      if (next) localStorage.setItem(THEME_KEY, next)
-      else localStorage.removeItem(THEME_KEY)
-    } catch {
-      // storage unavailable: the theme holds until the app reloads
-    }
-  }
   return (
     <div className="group">
       <p className="label">{t('appTitle')}</p>
@@ -170,19 +137,6 @@ function AppGroup() {
             </li>
           </>
         )}
-        <li className="row stacked">
-          <span className="row-title" id="theme-label">
-            {t('theme')}
-          </span>
-          <div className="segmented" role="radiogroup" aria-labelledby="theme-label">
-            {THEMES.map((option) => (
-              <label key={option.value}>
-                <input type="radio" name="app-theme" checked={theme === option.value} onChange={() => pick(option.value)} />
-                <span>{t(option.label)}</span>
-              </label>
-            ))}
-          </div>
-        </li>
         <li className="row">
           <button className="row-main" onClick={() => go({ name: 'palettes' })}>
             <span className="row-title">{t('palettesRow')}</span>

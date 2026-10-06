@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { PermissionUpdate } from '@anthropic-ai/claude-agent-sdk'
-import { LIMITS, PROTOCOL_VERSION, WORKSPACE_STREAM, createChannelPair, tabStream, type Item, type TabMeta, type TabSnapshot, type WorkspaceEvent, type WorkspaceSnapshot } from '@athome/protocol'
+import { DEFAULT_PALETTE_ID, LIMITS, PRESET_PALETTES, PROTOCOL_VERSION, WORKSPACE_STREAM, createChannelPair, tabStream, type Item, type Palette, type TabMeta, type TabSnapshot, type WorkspaceEvent, type WorkspaceSnapshot } from '@athome/protocol'
 import { createCore, type Core, type CoreConfig, type Notice } from './core.ts'
 import { createFakeSdk, type FakeSdk } from './testing/fakeQuery.ts'
 import { RawClient } from './testing/rawClient.ts'
@@ -1580,6 +1580,13 @@ describe('model and effort', () => {
   })
 })
 
+// The palettes a client knows now: the last palettes.updated, else its workspace snapshot's.
+function palettesOf(from: RawClient): Palette[] {
+  const announced = from.events(WORKSPACE_STREAM).filter((ev) => ev.type === 'palettes.updated').at(-1)
+  if (announced?.type === 'palettes.updated') return announced.palettes
+  return (from.lastReset(WORKSPACE_STREAM)?.snapshot as WorkspaceSnapshot).palettes ?? []
+}
+
 // Colour palettes of the app: saved on the backend so every device can pick them (which one is on is the device's).
 describe('palettes', () => {
   const COLORS = { background: '#101418', surface: '#1a2027', text: '#e6edf3', accent: '#2f81f7', danger: '#f85149', success: '#3fb950' }
@@ -1594,15 +1601,50 @@ describe('palettes', () => {
     await client.ok('palettes.save', { paletteId: palette.paletteId, name: 'Night blue', colors: { ...COLORS, accent: '#58a6ff' } })
     const { palette: second } = await client.ok('palettes.save', { name: 'Spare', colors: COLORS })
     await client.ok('palettes.delete', { paletteId: second.paletteId })
-    await other.waitFor(() => other.events(WORKSPACE_STREAM).filter((ev) => ev.type === 'palettes.updated').length === 4)
-    expect(other.events(WORKSPACE_STREAM).at(-1)).toMatchObject({ type: 'palettes.updated', palettes: [{ paletteId: palette.paletteId, name: 'Night blue', colors: { accent: '#58a6ff' } }] })
+    const mine = (palettes: { paletteId: string }[]) => palettes.filter((one) => !one.paletteId.startsWith('preset-'))
+    const lastAnnounced = (from: typeof other) => from.events(WORKSPACE_STREAM).filter((ev) => ev.type === 'palettes.updated').at(-1)
+    await other.waitFor(() => {
+      const last = lastAnnounced(other)
+      return last?.type === 'palettes.updated' && mine(last.palettes).length === 1 && last.palettes.some((one) => one.name === 'Night blue')
+    })
+    const last = lastAnnounced(other)
+    expect(last?.type === 'palettes.updated' && mine(last.palettes)).toMatchObject([{ paletteId: palette.paletteId, name: 'Night blue', colors: { accent: '#58a6ff' } }])
     await core.closeAll()
     core = makeCore({ stateDir })
     client = await connect(core)
     await tick()
     const snapshot = client.lastReset(WORKSPACE_STREAM)?.snapshot as WorkspaceSnapshot
     const announced = client.events(WORKSPACE_STREAM).filter((ev) => ev.type === 'palettes.updated').at(-1)
-    expect(announced?.type === 'palettes.updated' ? announced.palettes : snapshot.palettes).toMatchObject([{ paletteId: palette.paletteId, name: 'Night blue' }])
+    expect(mine(announced?.type === 'palettes.updated' ? announced.palettes : snapshot.palettes!)).toMatchObject([{ paletteId: palette.paletteId, name: 'Night blue' }])
+  })
+
+  it('a new backend starts with the preset palettes, once: a deleted one stays deleted after a restart', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'cw-palettes-'))
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    await tick()
+    expect(palettesOf(client).map((one) => one.paletteId)).toEqual(PRESET_PALETTES.map((preset) => preset.paletteId))
+    await client.ok('palettes.save', { paletteId: DEFAULT_PALETTE_ID, name: 'Mine now', colors: COLORS })
+    await client.ok('palettes.delete', { paletteId: PRESET_PALETTES[1]!.paletteId })
+    await core.closeAll()
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    await tick()
+    const after = palettesOf(client)
+    expect(after.map((one) => one.paletteId)).toEqual(PRESET_PALETTES.filter((_, i) => i !== 1).map((preset) => preset.paletteId))
+    expect(after.find((one) => one.paletteId === DEFAULT_PALETTE_ID)).toMatchObject({ name: 'Mine now', colors: COLORS })
+  })
+
+  it('a backend that already had palettes gets the presets after them, its own kept', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'cw-palettes-'))
+    const own = { paletteId: 'own-1', name: 'azzurro', colors: COLORS, updatedAt: 1 }
+    writeFileSync(join(stateDir, 'palettes.json'), JSON.stringify([own]))
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    await tick()
+    const list = palettesOf(client)
+    expect(list.map((one) => one.paletteId)).toEqual(['own-1', ...PRESET_PALETTES.map((preset) => preset.paletteId)])
+    expect(list[0]).toEqual(own)
   })
 
   it('refuses a colour that is not #rrggbb and an unknown palette', async () => {

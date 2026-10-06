@@ -639,17 +639,23 @@ describe('PWA (fake SDK)', () => {
     await page.locator('.doc-chip').getByText('readme.txt').waitFor()
   })
 
-  it('the theme chosen in Settings applies and stays after a reload', async () => {
+  it('a new device starts with the default palette; the presets, light and dark, replace the theme switch; the one picked stays after a reload', async () => {
     const page = await pairedPage(await newPhone(), backend)
+    const background = () => page.evaluate(() => document.documentElement.style.getPropertyValue('--background'))
+    await expect.poll(background).toBe('#faf9f7')
     await button(page, 'Settings').click()
-    await page.getByRole('radio', { name: 'Dark' }).check()
-    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark')
+    expect(await page.getByRole('radio', { name: 'Dark' }).count()).toBe(0)
+    await page.getByRole('button', { name: /^Colour palette/ }).filter({ hasText: 'AtHome chiaro' }).click()
+    expect(await page.getByRole('radio', { name: /^AtHome chiaro/ }).getAttribute('aria-checked')).toBe('true')
+    expect(await page.getByRole('radio').count()).toBeGreaterThanOrEqual(15)
+    await page.getByRole('radio', { name: /^Notte/ }).click()
+    expect(await background()).toBe('#0f1419')
     await page.reload()
     await home(page).waitFor()
-    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark')
+    expect(await background()).toBe('#0f1419')
   })
 
-  it('a colour palette made in Settings colours the app while I edit it, stays on after a reload, is offered to another device and is turned off again', async () => {
+  it('a colour palette made in Settings colours the app while I edit it, stays on after a reload, is offered to another device and is changed again', async () => {
     const page = await pairedPage(await newPhone(), backend)
     const background = () => page.evaluate(() => document.documentElement.style.getPropertyValue('--background'))
     await button(page, 'Settings').click()
@@ -669,12 +675,12 @@ describe('PWA (fake SDK)', () => {
     await button(other, 'Settings').click()
     await other.getByRole('button', { name: /^Colour palette/ }).click()
     await other.getByRole('radio', { name: /^Night/ }).waitFor()
-    expect(await other.evaluate(() => document.documentElement.style.getPropertyValue('--background'))).toBe('')
+    expect(await other.evaluate(() => document.documentElement.style.getPropertyValue('--background'))).toBe('#faf9f7')
 
     await button(page, 'Settings').click()
     await page.getByRole('button', { name: /^Colour palette/ }).click()
-    await page.getByRole('radio', { name: /^Theme colours/ }).click()
-    expect(await background()).toBe('')
+    await page.getByRole('radio', { name: /^AtHome chiaro/ }).click()
+    expect(await background()).toBe('#faf9f7')
   })
 
   it('with a palette on, the Home screen icon and the manifest take its accent; "Icon in this colour" copies a link that gives them to a browser not paired', async () => {
@@ -682,7 +688,7 @@ describe('PWA (fake SDK)', () => {
     const page = await pairedPage(context, backend)
     await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: backend.url })
     const href = (target: typeof page, rel: string) => target.locator(`link[rel="${rel}"]`).getAttribute('href')
-    expect(await href(page, 'apple-touch-icon')).toBe('/icon-180.png')
+    await expect.poll(() => href(page, 'apple-touch-icon')).toBe('/icon-180.png?accent=c96442')
     await button(page, 'Settings').click()
     await page.getByRole('button', { name: /^Colour palette/ }).click()
     await page.getByRole('button', { name: 'New palette' }).click()
@@ -704,9 +710,8 @@ describe('PWA (fake SDK)', () => {
     const manifest = await (await browser.request.get(`${backend.url}/manifest.webmanifest?accent=0f766e`)).json()
     expect(manifest.theme_color).toBe('#0f766e')
 
-    await page.getByRole('radio', { name: /^Theme colours/ }).click()
-    expect(await href(page, 'apple-touch-icon')).toBe('/icon-180.png')
-    expect(await page.getByRole('button', { name: 'Icon in this colour' }).count()).toBe(0)
+    await page.getByRole('radio', { name: /^AtHome chiaro/ }).click()
+    expect(await href(page, 'apple-touch-icon')).toBe('/icon-180.png?accent=c96442')
   })
 
   // Sub-phase A: no zoom (pinch, double tap, focus on a small field), a splash screen for every iPhone size, and an
@@ -874,12 +879,12 @@ describe('PWA (fake SDK)', () => {
     expect(await sideways.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('-webkit-text-size-adjust'))).toBe('100%')
   })
 
-  it('every splash screen link points to a PNG the server serves, light and dark', async () => {
+  it('every splash screen link points to a PNG the server serves, one per iPhone size (no light/dark)', async () => {
     const page = await (await newPhone()).newPage()
     await page.goto(backend.url)
     const links = await page.locator('link[rel=apple-touch-startup-image]').evaluateAll((elements) => elements.map((element) => ({ href: (element as HTMLLinkElement).href, media: (element as HTMLLinkElement).media })))
-    expect(links.length).toBeGreaterThanOrEqual(20)
-    expect(links.filter((link) => link.media.includes('dark')).length).toBe(links.length / 2)
+    expect(links.length).toBeGreaterThanOrEqual(12)
+    expect(links.filter((link) => link.media.includes('prefers-color-scheme')).length).toBe(0)
     for (const link of links) {
       const response = await page.request.get(link.href)
       expect(response.status(), link.href).toBe(200)

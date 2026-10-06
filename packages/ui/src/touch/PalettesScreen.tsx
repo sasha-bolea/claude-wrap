@@ -21,12 +21,12 @@ function Swatches({ colors }: { colors: PaletteColors }) {
   )
 }
 
-// Settings → Palette: the theme's colours or one of the backend's saved palettes, on this device; each palette opens
-// in the editor; Nuova palette starts from the colours on screen now.
+// Settings → Palette: one of the backend's palettes (the presets among them) on this device; each palette opens in
+// the editor; Nuova palette starts from the colours on screen now.
 export function PalettesScreen() {
   const { state, capabilities, back, go, toast, fail } = useTouch()
   const active = useSyncExternalStore(subscribeActivePalette, activePaletteId)
-  const pick = (palette?: Palette) => setActivePalette(palette && { paletteId: palette.paletteId, colors: palette.colors })
+  const pick = (palette: Palette) => setActivePalette({ paletteId: palette.paletteId, colors: palette.colors })
   const accent = active && readActivePalette()?.colors.accent
   // The link that gives the Home screen icon this accent: iOS takes the icon only when the app is added again.
   const copyIconLink = () => navigator.clipboard.writeText(capabilities.iconLink!(accent!)).then(() => toast(t('iconLinkCopied')), fail)
@@ -39,12 +39,6 @@ export function PalettesScreen() {
       <div className="scroll">
         <div className="pad">
           <ul className="list" role="radiogroup" aria-label={t('palettes')}>
-            <li className={`row end-pad${active ? '' : ' current'}`}>
-              <button className="row-main" role="radio" aria-checked={!active} onClick={() => pick()}>
-                <span className="row-title">{t('paletteTheme')}</span>
-                <span className="row-sub">{t('paletteThemeHint')}</span>
-              </button>
-            </li>
             {state.palettes.map((palette) => (
               <li key={palette.paletteId} className={`row${active === palette.paletteId ? ' current' : ''}`}>
                 <button className="row-main" role="radio" aria-checked={active === palette.paletteId} onClick={() => pick(palette)}>

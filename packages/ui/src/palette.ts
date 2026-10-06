@@ -1,4 +1,4 @@
-import type { Palette, PaletteColors } from '@athome/protocol'
+import { DEFAULT_PALETTE_ID, type Palette, type PaletteColors } from '@athome/protocol'
 
 // The palette on this device: its id and its colours, kept so the app starts with them before it connects.
 export type ActivePalette = { paletteId: string; colors: PaletteColors }
@@ -7,7 +7,7 @@ const ACTIVE_KEY = 'claude-wrap:palette'
 // Screens showing which palette is on (useSyncExternalStore).
 const listeners = new Set<() => void>()
 const HEX = /^#[0-9a-f]{6}$/i
-// The tokens a palette sets on the page (touch.css :root), removed again to go back to the theme.
+// The tokens a palette sets on the page (touch.css :root), removed again to go back to the base colours.
 const TOKENS = ['--background', '--surface', '--surface-2', '--border', '--text', '--text-muted', '--accent', '--accent-text', '--danger', '--success', '--frame', '--scrim'] as const
 
 // Red, green, blue (0-255) of a #rrggbb colour.
@@ -82,7 +82,7 @@ export function pointIcons(accent?: string): void {
   }
 }
 
-// Puts a palette's colours on the page; none: back to the theme's (touch.css).
+// Puts a palette's colours on the page; none: back to touch.css's base colours (the default palette's).
 export function applyPalette(colors?: PaletteColors): void {
   const style = document.documentElement.style
   const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
@@ -100,7 +100,7 @@ export function applyPalette(colors?: PaletteColors): void {
   if (meta) meta.content = colors.accent
 }
 
-// The palette on this device; undefined: the theme's colours (or storage unavailable).
+// The palette on this device; undefined: none picked yet (or storage unavailable).
 export function readActivePalette(): ActivePalette | undefined {
   try {
     const saved = JSON.parse(localStorage.getItem(ACTIVE_KEY) ?? 'null') as ActivePalette | null
@@ -110,7 +110,7 @@ export function readActivePalette(): ActivePalette | undefined {
   }
 }
 
-// Turns a palette on for this device (none: the theme's colours), remembered and applied.
+// Turns a palette on for this device (none: the base colours until the default is picked), remembered and applied.
 export function setActivePalette(active?: ActivePalette): void {
   try {
     if (active) localStorage.setItem(ACTIVE_KEY, JSON.stringify(active))
@@ -128,15 +128,25 @@ export function subscribeActivePalette(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
-// The id of the palette on here (undefined: the theme's colours), as a snapshot for useSyncExternalStore.
+// The id of the palette on here (undefined: none yet), as a snapshot for useSyncExternalStore.
 export const activePaletteId = (): string | undefined => readActivePalette()?.paletteId
 
-// Follows the backend's palettes: the one on here changed elsewhere → its new colours. One that is gone keeps its
-// last colours (another backend may not have it) until another is picked.
+// The palette this device should turn on, given the one on now and the backend's palettes; undefined: no change.
+// None on yet (first opening): the default one, else the first. The one on changed elsewhere: its new colours. One
+// that is gone keeps its last colours (another backend may not have it) until another is picked.
+export function nextActive(active: ActivePalette | undefined, palettes: Palette[]): ActivePalette | undefined {
+  if (!active) {
+    const first = palettes.find((palette) => palette.paletteId === DEFAULT_PALETTE_ID) ?? palettes[0]
+    return first && { paletteId: first.paletteId, colors: first.colors }
+  }
+  const saved = palettes.find((palette) => palette.paletteId === active.paletteId)
+  return saved && JSON.stringify(saved.colors) !== JSON.stringify(active.colors) ? { paletteId: saved.paletteId, colors: saved.colors } : undefined
+}
+
+// Follows the backend's palettes (see nextActive).
 export function followPalettes(palettes: Palette[]): void {
-  const active = readActivePalette()
-  const saved = active && palettes.find((palette) => palette.paletteId === active.paletteId)
-  if (saved && JSON.stringify(saved.colors) !== JSON.stringify(active.colors)) setActivePalette({ paletteId: saved.paletteId, colors: saved.colors })
+  const next = nextActive(readActivePalette(), palettes)
+  if (next) setActivePalette(next)
 }
 
 // The 6 main colours shown on the page right now (a new palette starts from them).

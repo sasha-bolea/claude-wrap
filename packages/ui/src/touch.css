@@ -7,6 +7,8 @@ html, body { margin: 0; }
 /* No zoom (Sasha's choice for the PWA): no double-tap zoom; pinch is blocked by the PWA host. */
 /* iOS enlarges text in landscape (and keeps it after turning back) unless told not to */
 html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* Base colours: the default palette's (DEFAULT_PALETTE_ID in packages/protocol/src/presets.ts), shown until the app
+   knows the palette on this device; a palette sets these tokens inline on <html> (palette.ts). No light/dark theme. */
 :root {
   --background: #faf9f7; --surface: #ffffff; --surface-2: #f1efeb; --border: #e2ded7;
   --text: #1f1e1c; --text-muted: #6b6862; --accent: #c96442; --accent-text: #ffffff;
@@ -15,18 +17,6 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
   --font: -apple-system, system-ui, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
   color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --background: #1e1d1b; --surface: #262523; --surface-2: #302f2c; --border: #3d3b37;
-    --text: #ecebe8; --text-muted: #a19e97; --accent: #d97757; --danger: #ff6b5e; --success: #81c784;
-    --frame: #121110; --scrim: rgba(0, 0, 0, .55); color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --background: #1e1d1b; --surface: #262523; --surface-2: #302f2c; --border: #3d3b37;
-  --text: #ecebe8; --text-muted: #a19e97; --accent: #d97757; --danger: #ff6b5e; --success: #81c784;
-  --frame: #121110; --scrim: rgba(0, 0, 0, .55); color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
