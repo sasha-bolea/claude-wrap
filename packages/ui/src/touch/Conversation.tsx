@@ -330,9 +330,9 @@ function useWorkingText(since?: number) {
   return { time, text: since === undefined ? t('startingClaude') : t('workingFor', { time }) }
 }
 
-// "Claude sta lavorando… 12 s", drawn by the chat over the conversation (not inside its scroll content), above the dock.
-// Parameters: since (see useWorkingText), the element's ref (the chat moves it with the text when scrolled up).
-export function WorkingLine({ since, lineRef }: { since?: number; lineRef: React.Ref<HTMLDivElement> }) {
+// "Claude is working · 12 s", at the end of the text (it scrolls with it).
+// Parameters: since (see useWorkingText), the element's ref (the chat watches whether it is in view).
+function WorkingLine({ since, lineRef }: { since?: number; lineRef?: React.Ref<HTMLDivElement> }) {
   const { text } = useWorkingText(since)
   return (
     <div className="working-line" ref={lineRef}>
@@ -353,11 +353,11 @@ export function WorkingMini({ since }: { since?: number }) {
   )
 }
 
-type ConversationProps = { meta: TabMeta; view?: TabView; loadImage: LoadImage; onAnswer: (requestId: string, answer: Answer) => void; onRestart: () => void; onTrust: () => void; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown>; onUnsend: (item: UserItem) => Promise<unknown> }
+type ConversationProps = { meta: TabMeta; view?: TabView; loadImage: LoadImage; onAnswer: (requestId: string, answer: Answer) => void; onRestart: () => void; onTrust: () => void; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown>; onUnsend: (item: UserItem) => Promise<unknown>; workingRef?: React.Ref<HTMLDivElement> }
 
-// The conversation: items, then Claude's request (part of the chat, it scrolls with it), the cards of a stopped process or
-// an untrusted folder, and last the room left for the working line (drawn by the chat, it must end the content).
-export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTrust, onActions, onSendNow, onUnsend }: ConversationProps) {
+// The conversation: items, the working line, then Claude's request (part of the chat, it scrolls with it) and the cards of
+// a stopped process or an untrusted folder.
+export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTrust, onActions, onSendNow, onUnsend, workingRef }: ConversationProps) {
   const items = view?.items ?? []
   const readAt = useReadTimes(items)
   const request = view?.requests[0]
@@ -372,6 +372,7 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
           <ToolStack key={entry.tools[0]!.itemId} items={entry.tools} />
         )
       )}
+      {(meta.status === 'running' || meta.status === 'starting') && <WorkingLine since={meta.status === 'running' ? meta.workingSince : undefined} lineRef={workingRef} />}
       <LimitCard meta={meta} />
       <ContinueCard meta={meta} />
       {request && <RequestCard key={request.requestId} request={request} onAnswer={(answer) => onAnswer(request.requestId, answer)} />}
@@ -391,7 +392,6 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
           </button>
         </div>
       )}
-      {(meta.status === 'running' || meta.status === 'starting') && <div className="working-room" aria-hidden="true" />}
     </>
   )
 }

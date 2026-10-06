@@ -301,44 +301,24 @@ describe('PWA (fake SDK)', () => {
     await ghost.waitFor({ state: 'detached' })
   })
 
-  it('the working line stays still above the dock while the chat follows, moves with the text once I scroll up, and a mini label (dot and time) takes over when it is out of view', async () => {
+  it('the working line ends the text and scrolls with it; once scrolled out of view a mini label (dot and time) shows on the left of the jump button, and goes when the line is back or the turn ends', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
     await send(page, 'slow')
     const conversation = page.locator('.conversation')
-    const line = page.locator('.working-line')
+    const line = conversation.locator('.working-line')
     const mini = page.locator('.working-mini')
     await line.waitFor()
     await expect.poll(() => conversation.evaluate((box) => box.scrollHeight - box.clientHeight), { timeout: 20_000 }).toBeGreaterThan(450)
-    // Following: the top of the line is the same on every frame while the text streams (and the scroll glides).
-    const lineTop = () => line.evaluate((element) => element.getBoundingClientRect().top)
-    const rest = await lineTop()
-    const samples = await page.evaluate(() => new Promise<{ tops: number[]; scrolls: number }>((resolve) => {
-      const element = document.querySelector('.working-line')!
-      const box = document.querySelector('.conversation')!
-      const tops: number[] = []
-      const start = box.scrollTop
-      let frames = 0
-      const frame = () => {
-        tops.push(element.getBoundingClientRect().top)
-        if (++frames < 40) requestAnimationFrame(frame)
-        else resolve({ tops, scrolls: Math.round(box.scrollTop - start) })
-      }
-      requestAnimationFrame(frame)
-    }))
-    expect(samples.scrolls).toBeGreaterThan(10)
-    expect(Math.max(...samples.tops) - Math.min(...samples.tops)).toBeLessThan(0.5)
-    expect(Math.abs(samples.tops[0]! - rest)).toBeLessThan(0.5)
+    // Following: the line is the last thing in the text, in view, and there is no label.
+    expect(await conversation.evaluate((box) => box.lastElementChild!.classList.contains('working-line'))).toBe(true)
     expect(await mini.count()).toBe(0)
-    // Scrolling up by hand: the line moves down by the distance to the bottom, attached to the end of the text.
+    // Scrolling up by hand: the line goes with the text, below the visible area, and the label takes over.
     const area = (await conversation.boundingBox())!
     await page.mouse.move(area.x + area.width / 2, area.y + 100)
     await page.mouse.wheel(0, -300)
-    await expect.poll(async () => {
-      const distance = await conversation.evaluate((box) => box.scrollHeight - box.scrollTop - box.clientHeight)
-      return distance > 250 ? Math.abs((await lineTop()) - rest - distance) < 3 : false
-    }).toBe(true)
     await mini.waitFor()
+    expect((await line.boundingBox())!.y).toBeGreaterThan(area.y + area.height - 90)
     expect(await mini.getAttribute('aria-label')).toContain('Claude is working')
     expect(await mini.textContent()).toMatch(/^\s*\d+ (s|min|h)/)
     const label = (await mini.boundingBox())!
@@ -347,7 +327,6 @@ describe('PWA (fake SDK)', () => {
     // Back at the bottom: the line is in view again and the label goes.
     await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight))
     await mini.waitFor({ state: 'detached' })
-    await expect.poll(async () => Math.abs((await lineTop()) - rest) < 1).toBe(true)
     // The turn ends: both are gone.
     await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight - box.clientHeight - 600))
     await mini.waitFor()

@@ -157,7 +157,7 @@ state words (draft, queued, "this one"); `.chip.changed`: new / changed by Claud
 pulsing while it waits for you (`Badge` component, with its meaning for screen readers); `.unseen`: an idle dot in the accent colour, not pulsing, while Claude finished and nobody looked at the chat yet (core's `TabMeta.unseen`; the words stay "idle"). Folder rows take it too when one of their chats is unseen (`badgeClass` in [model.ts](../packages/ui/src/touch/model.ts)).
 Examples: [ChatScreen.tsx:346](../packages/ui/src/touch/ChatScreen.tsx#L346), [FilesScreen.tsx:243](../packages/ui/src/touch/FilesScreen.tsx#L243), [parts.tsx:113](../packages/ui/src/touch/parts.tsx#L113).
 
-### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-user-row`, `.send-now`, `.unsend`, `.msg-ai`, `.msg-peer` (`.from`), `.think`, `.tool`, `.working-line`, `.working-room`, `.working-mini`, `.turn-end`
+### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-user-row`, `.send-now`, `.unsend`, `.msg-ai`, `.msg-peer` (`.from`), `.think`, `.tool`, `.working-line`, `.working-mini`, `.turn-end`
 Your messages right in a bubble (a long press or right click opens their actions; "waiting" until Claude reads a
 message sent while it works, then "read" for a few seconds); Claude's text as markdown; reasoning and tool calls as
 `<details>`; the working line with seconds (see below). A waiting message sits in a `.msg-user-row` with `.send-now` on its left:
@@ -166,14 +166,15 @@ send-now, not a Stop (the queue is not paused). Next to it, `.unsend` (same circ
 (each frame a share of the way left; at once from farther than a screen, with reduced motion; a finger on the chat
 stops it), so Claude's streaming never jerks the view. With the keyboard open, a quick drag on the chat (faster than
 0.6 px/ms) closes it; a slow one, to read, leaves it open.
-The working line (`.working-line`, dot + "Claude is working · 1 min 20 s") is not scroll content: it is drawn by the chat
-([ChatScreen.tsx:354](../packages/ui/src/touch/ChatScreen.tsx#L354)) left-aligned just above the dock, perfectly still while the chat follows
-new text; the conversation ends with an empty `.working-room` (20 px) so the last text never hides under it. Scrolled
-up by hand, `placeWorking` sets `--working-y` (the distance left to the bottom) on it from the scroll handler and when
-text arrives, so it stays attached to the end of the text (a transform, no layout, no scrollTop). Once it has gone
-behind the dock, `.working-mini` shows above the input bar on the left (the jump button is on the right): dot and time
-only, the full text as its accessible label, not interactive; it leaves when the line is back in view or the turn ends.
-Both read the same timer and text (`useWorkingText` in [Conversation.tsx:323](../packages/ui/src/touch/Conversation.tsx#L323)).
+The working line (`.working-line`, dot + "Claude is working · 1 min 20 s") is plain scroll content: the last element of the
+conversation's text, before the cards ([Conversation.tsx:375](../packages/ui/src/touch/Conversation.tsx#L375)), so it moves with the text.
+Once it is out of view (scrolled below the visible area, or hidden behind the floating dock), `.working-mini` shows over
+the chat on the left, above the input bar (the jump button is on the right): dot and time only, the full text as its
+accessible label, not interactive ([ChatScreen.tsx:348](../packages/ui/src/touch/ChatScreen.tsx#L348)); it leaves when the line is back in view or
+the turn ends. The chat finds out with an `IntersectionObserver` rooted on `.conversation` whose bottom edge is pulled
+up by the dock's height, re-created when the line appears or the dock changes height
+([ChatScreen.tsx:224](../packages/ui/src/touch/ChatScreen.tsx#L224)); it never writes `scrollTop`. Both read the same timer and text
+(`useWorkingText` in [Conversation.tsx:323](../packages/ui/src/touch/Conversation.tsx#L323)).
 A message from another Claude session (`SendMessage`; it starts a turn here by itself) is a `.msg-peer`: on the left,
 on `--surface` framed by `--border` with a 3 px accent left edge, "Da @nome" on top in the accent with the chats icon
 ("Da un'altra sessione" when the sender gave no name; a message without text shows nothing),
