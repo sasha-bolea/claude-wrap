@@ -157,12 +157,12 @@ state words (draft, queued, "this one"); `.chip.changed`: new / changed by Claud
 pulsing while it waits for you (`Badge` component, with its meaning for screen readers); `.unseen`: an idle dot in the accent colour, not pulsing, while Claude finished and nobody looked at the chat yet (core's `TabMeta.unseen`; the words stay "idle"). Folder rows take it too when one of their chats is unseen (`badgeClass` in [model.ts](../packages/ui/src/touch/model.ts)).
 Examples: [ChatScreen.tsx:346](../packages/ui/src/touch/ChatScreen.tsx#L346), [FilesScreen.tsx:243](../packages/ui/src/touch/FilesScreen.tsx#L243), [parts.tsx:113](../packages/ui/src/touch/parts.tsx#L113).
 
-### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-user-row`, `.send-now`, `.msg-ai`, `.msg-peer` (`.from`), `.think`, `.tool`, `.working-line`, `.turn-end`
+### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-user-row`, `.send-now`, `.unsend`, `.msg-ai`, `.msg-peer` (`.from`), `.think`, `.tool`, `.working-line`, `.turn-end`
 Your messages right in a bubble (a long press or right click opens their actions; "waiting" until Claude reads a
 message sent while it works, then "read" for a few seconds); Claude's text as markdown; reasoning and tool calls as
 `<details>`; the working line with seconds. A waiting message sits in a `.msg-user-row` with `.send-now` on its left:
 a 32 px accent-outlined circle with the send arrow (44 px to the touch) that asks the CLI to read it now — its own
-send-now, not a Stop (the queue is not paused). At the bottom of the chat new text is followed with an ease-out glide
+send-now, not a Stop (the queue is not paused). Next to it, `.unsend` (same circle, the `unsend` icon, to the left of send-now): "Cancel send" withdraws the message before Claude reads it — it leaves the chat and its text and images go back into the composer after the draft (`useUnsend` in ChatScreen.tsx; the same action is in the long-press sheet of a waiting message). If Claude read it meanwhile, a toast says so. At the bottom of the chat new text is followed with an ease-out glide
 (each frame a share of the way left; at once from farther than a screen, with reduced motion; a finger on the chat
 stops it), so Claude's streaming never jerks the view. With the keyboard open, a quick drag on the chat (faster than
 0.6 px/ms) closes it; a slow one, to read, leaves it open.

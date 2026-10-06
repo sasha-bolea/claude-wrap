@@ -514,6 +514,25 @@ export class Tab {
     })
   }
 
+  // "Cancel send" on a message the CLI has not read yet: the CLI's own withdrawal (control request cancel_async_message,
+  // runtime cancelAsyncMessage(uuid), outside the SDK 0.3.287 types; answer `cancelled`: false when the message was
+  // already dequeued). On success the item leaves the transcript and its text and images go back to the composer.
+  // itemId: the pending user item. Returns the text and images; invalid_args when it is not waiting or already read.
+  async unsendPending(itemId: string): Promise<{ text: string; images?: Image[] }> {
+    const item = this.transcript.get(itemId)
+    if (item?.kind !== 'user' || !item.pending || !this.session) throw new CoreError('invalid_args', 'not a message waiting to be read')
+    const query = this.session.query as unknown as { request(request: object): Promise<{ response?: { cancelled?: boolean } }> }
+    const answer = await query.request({ subtype: 'cancel_async_message', message_uuid: itemId }).catch((error: unknown) => {
+      throw new CoreError('sdk_error', messageOf(error))
+    })
+    if (!answer?.response?.cancelled) throw new CoreError('invalid_args', 'Claude has already read this message')
+    const images = (item.images ?? []).flatMap((ref) => this.transcript.blob(ref.imageId) ?? [])
+    this.held.delete(itemId)
+    this.transcript.remove(itemId)
+    this.changed()
+    return { text: item.text, ...(images.length ? { images } : {}) }
+  }
+
   // Runs a `!` command in the folder (trust gate first, through the session start). The output becomes a shell item
   // and, as in the CLI's bash mode, two transcript-only messages (no turn) that Claude reads with the next prompt.
   // uuid: the cmd id (item id and stored message uuid).

@@ -62,7 +62,7 @@ function Thumb({ image, n, loadImage }: { image: ImageRef; n: number; loadImage:
 
 // Your message: photos, text, and while Claude has not read it "in attesa" (then "letto" for a moment) with "Invia
 // ora" beside it (the CLI's own send-now: Claude reads it now). Long press (or right click) opens its actions.
-function UserMessage({ item, readAt, loadImage, onActions, onSendNow }: { item: UserItem; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown> }) {
+function UserMessage({ item, readAt, loadImage, onActions, onSendNow, onUnsend }: { item: UserItem; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown>; onUnsend: (item: UserItem) => Promise<unknown> }) {
   const press = useRef<ReturnType<typeof setTimeout>>(undefined)
   const [pressed, setPressed] = useState(false)
   const [sending, setSending] = useState(false)
@@ -101,6 +101,9 @@ function UserMessage({ item, readAt, loadImage, onActions, onSendNow }: { item: 
   if (!item.pending) return bubble
   return (
     <div className="msg-user-row">
+      <button className="unsend" aria-label={t('unsendPending')} title={t('unsendPending')} disabled={sending} onClick={() => (setSending(true), void onUnsend(item).finally(() => setSending(false)))}>
+        <Icon name="unsend" />
+      </button>
       <button className="send-now" aria-label={t('sendPendingNow')} title={t('sendPendingNow')} disabled={sending} onClick={() => (setSending(true), void onSendNow(item).finally(() => setSending(false)))}>
         <Icon name="send" />
       </button>
@@ -247,11 +250,11 @@ function PeerMessage({ item }: { item: PeerItem }) {
 }
 
 // One transcript item, as the prototype shows it.
-function ItemView({ item, readAt, loadImage, onActions, onSendNow }: { item: Item; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown> }) {
+function ItemView({ item, readAt, loadImage, onActions, onSendNow, onUnsend }: { item: Item; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown>; onUnsend: (item: UserItem) => Promise<unknown> }) {
   const { capabilities } = useTouch()
   switch (item.kind) {
     case 'user':
-      return <UserMessage item={item} readAt={readAt} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} />
+      return <UserMessage item={item} readAt={readAt} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} onUnsend={onUnsend} />
     case 'assistantText':
       return (
         <div className="msg-ai">
@@ -329,11 +332,11 @@ function WorkingLine({ since }: { since?: number }) {
   )
 }
 
-type ConversationProps = { meta: TabMeta; view?: TabView; loadImage: LoadImage; onAnswer: (requestId: string, answer: Answer) => void; onRestart: () => void; onTrust: () => void; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown> }
+type ConversationProps = { meta: TabMeta; view?: TabView; loadImage: LoadImage; onAnswer: (requestId: string, answer: Answer) => void; onRestart: () => void; onTrust: () => void; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown>; onUnsend: (item: UserItem) => Promise<unknown> }
 
 // The conversation: items, then Claude's request (part of the chat, it scrolls with it), the working line and the
 // cards of a stopped process or an untrusted folder.
-export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTrust, onActions, onSendNow }: ConversationProps) {
+export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTrust, onActions, onSendNow, onUnsend }: ConversationProps) {
   const items = view?.items ?? []
   const readAt = useReadTimes(items)
   const request = view?.requests[0]
@@ -341,7 +344,7 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
     <>
       {entries(items).map((entry) =>
         'item' in entry ? (
-          <ItemView key={entry.item.itemId} item={entry.item} readAt={readAt[entry.item.itemId]} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} />
+          <ItemView key={entry.item.itemId} item={entry.item} readAt={readAt[entry.item.itemId]} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} onUnsend={onUnsend} />
         ) : entry.tools.length === 1 ? (
           <ToolCard key={entry.tools[0]!.itemId} item={entry.tools[0]!} />
         ) : (

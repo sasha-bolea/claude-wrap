@@ -109,6 +109,9 @@ export const COMMANDS = {
   // "Send now" on a message sent while Claude works and not read yet (its user item is pending): the CLI's own
   // send-now, so that Claude reads it now instead of at its next step. Not a Stop: the queue is not paused.
   'tab.sendPendingNow': { args: z.object({ tabId, itemId: z.string().min(1) }), result: empty },
+  // Withdraws a message the CLI has not read yet: it leaves the chat and its text (and images) come back for the composer.
+  // Fails (invalid_args) when the message is not waiting or the CLI read it meanwhile.
+  'tab.unsendPending': { args: z.object({ tabId, itemId: z.string().min(1) }), result: z.object({ text: z.string(), images: z.array(imageSchema).optional() }) },
   // The Claude account, picked in a session (undefined = Claude Code's own login): one for every session and the new
   // ones. Conversations stay: an idle process restarts at the next message on the same stored session; one at work
   // is stopped now and marked `interrupted: 'switch'` (see tabs.continue).

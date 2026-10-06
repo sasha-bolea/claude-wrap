@@ -594,6 +594,8 @@ export const it: Record<MessageKey, string> = {
   filesHidden: ' di cui {hidden} nascosti',
   filesHiddenOne: ' di cui 1 nascosto',
   sendPendingNow: 'Invia ora: Claude lo legge subito',
+  unsendPending: 'Annulla invio',
+  alreadyRead: 'Claude lo ha già letto',
   claudeAccounts: 'Account Claude',
   cliLogin: 'Login di Claude Code',
   cliLoginSub: 'Il login di Claude Code di questo backend, come nel terminale',

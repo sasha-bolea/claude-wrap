@@ -134,6 +134,20 @@ export class Transcript implements TranscriptWriter {
     })
   }
 
+  // Drops one item (a withdrawn message): new epoch, so clients and replays never see it; the other items' images stay.
+  remove(itemId: string): void {
+    if (!this.index.has(itemId)) return
+    this.flush()
+    const kept = this.items.filter((item) => item.itemId !== itemId)
+    const blobs = new Map(this.blobs)
+    this.rebuildFrom(() => {
+      for (const item of kept) {
+        this.add(item)
+        if (item.kind === 'user') for (const { imageId } of item.images ?? []) this.blobs.set(imageId, blobs.get(imageId)!)
+      }
+    })
+  }
+
   // Empties the transcript (conversation_reset, restart): new epoch, empty snapshot pushed.
   clear(): void {
     this.rebuildFrom(() => undefined)

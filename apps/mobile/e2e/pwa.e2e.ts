@@ -268,6 +268,21 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 5_000 }).toBe('Echo: right now')
   })
 
+  it('"Cancel send" beside a waiting message: the bubble goes and its text comes back into the composer, after the draft', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'slow')
+    await page.locator('.working-line').waitFor()
+    await send(page, 'oops wrong chat')
+    await page.locator('.msg-user', { hasText: 'oops wrong chat' }).waitFor()
+    await composer(page).fill('draft')
+    await page.getByRole('button', { name: 'Cancel send', exact: true }).click()
+    await page.locator('.msg-user', { hasText: 'oops wrong chat' }).waitFor({ state: 'detached' })
+    await expect.poll(() => composer(page).inputValue()).toBe('draft oops wrong chat')
+    // Nothing was read: the slow turn goes on alone and ends without an echo of the withdrawn message.
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).not.toContain('oops')
+  })
+
   it('the ghost of my message: hidden at the bottom of the chat, shown as soon as I scroll up, hidden back at the bottom', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)

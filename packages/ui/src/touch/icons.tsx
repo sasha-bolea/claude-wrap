@@ -54,6 +54,7 @@ const SHAPES = {
   chats: <path d="M4 5h12v9H9l-4 3v-3H4zM16 9h4v8h-1v3l-3-3h-5v-3" />,
   queue: <path d="M4 6h11M4 11h11M4 16h7M18 12v8M15 17l3 3 3-3" />,
   rewind: <path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H10" />,
+  unsend: <path d="M10 6L5 11l5 5M5 11h9a5 5 0 0 1 0 10h-4" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,
   'mode-default': <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6zM10 10a2 2 0 1 1 2.7 1.9c-.5.2-.7.6-.7 1.1M12 16h.01" />,
   'mode-acceptEdits': <path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" />,

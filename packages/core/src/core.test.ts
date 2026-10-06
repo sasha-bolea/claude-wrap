@@ -417,6 +417,34 @@ describe('messages sent while Claude works', () => {
     expect(await client.fails('tab.sendPendingNow', { tabId: 't1', itemId: cmd(1) })).toMatchObject({ code: 'invalid_args' })
   })
 
+  it('Cancel send withdraws a waiting message: it leaves the chat and its text and images come back', async () => {
+    const session = await startedTab()
+    await client.ok('tab.subscribe', { tabId: 't1' })
+    session.emit(sdk.lifecycle(cmd(1), 'queued'), sdk.lifecycle(cmd(1), 'started'))
+    const image = { mediaType: 'image/png' as const, data: 'AAAA' }
+    await client.ok('tab.send', { tabId: 't1', text: 'oops', images: [image] }, cmd(2))
+    session.emit(sdk.lifecycle(cmd(2), 'queued'))
+    await tick()
+    expect(await client.ok('tab.unsendPending', { tabId: 't1', itemId: cmd(2) })).toEqual({ text: 'oops', images: [image] })
+    expect(session.calls.at(-1)).toEqual({ method: 'request', args: [{ subtype: 'cancel_async_message', message_uuid: cmd(2) }] })
+    expect(items(client).map((item) => item.itemId)).not.toContain(cmd(2))
+  })
+
+  it('Cancel send fails when the CLI read the message meanwhile, or the message is not waiting', async () => {
+    const session = await startedTab()
+    session.emit(sdk.lifecycle(cmd(1), 'queued'), sdk.lifecycle(cmd(1), 'started'))
+    await client.ok('tab.send', { tabId: 't1', text: 'late' }, cmd(2))
+    session.emit(sdk.lifecycle(cmd(2), 'queued'), sdk.lifecycle(cmd(2), 'started'))
+    // Read by the CLI but core has not heard yet: the CLI answers cancelled: false.
+    expect(await client.fails('tab.unsendPending', { tabId: 't1', itemId: cmd(2) })).toMatchObject({ code: 'invalid_args' })
+    // Heard: no longer pending, nothing is asked of the CLI.
+    await tick()
+    const calls = session.calls.length
+    expect(await client.fails('tab.unsendPending', { tabId: 't1', itemId: cmd(2) })).toMatchObject({ code: 'invalid_args' })
+    expect(await client.fails('tab.unsendPending', { tabId: 't1', itemId: cmd(1) })).toMatchObject({ code: 'invalid_args' })
+    expect(session.calls).toHaveLength(calls)
+  })
+
   it('a send already in the transcript (retry after a core restart) is not dispatched again', async () => {
     fake.histories.set('s1', [stored.user(cmd(9), 'hi')])
     await client.ok('tab.create', { tabId: 't1', cwd: CWD, resume: 's1' })

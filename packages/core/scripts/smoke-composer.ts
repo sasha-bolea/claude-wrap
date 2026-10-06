@@ -178,6 +178,39 @@ async function checkSendNow(): Promise<void> {
   await until(() => meta()?.status === 'idle', 60_000)
 }
 
+// "Annulla invio" on a message waiting during a long tool: the CLI's cancel_async_message withdraws it, the text comes
+// back, and Claude never answers it. Then the same call on a message the CLI already read fails.
+async function checkUnsend(): Promise<void> {
+  const requests = () => connection.store.getSnapshot().transcripts[TAB_ID]?.requests ?? []
+  const toolRunning = () => items().some((item) => item.kind === 'toolCall' && item.name === 'Bash' && item.result === undefined)
+  await connection.request('tab.send', { tabId: TAB_ID, text: 'Run exactly this Bash command: sleep 12 && echo unsend-done. Then reply with one short sentence.' })
+  await until(() => toolRunning() || requests().length > 0, 60_000)
+  const [request] = requests()
+  if (request) await connection.request('request.answer', { tabId: TAB_ID, requestId: request.requestId, decision: 'allow' })
+  await until(toolRunning, 30_000)
+  await sleep(1500)
+  const word = 'GUAVA'
+  await connection.request('tab.send', { tabId: TAB_ID, text: `Reply with the word ${word} and nothing else.` })
+  const late = () => items().find((item) => item.kind === 'user' && item.text.includes(word))
+  const waiting = () => {
+    const item = late()
+    return item?.kind === 'user' && item.pending === true
+  }
+  if (!(await until(waiting, 10_000))) return void problems.push('unsend: the message never showed as waiting')
+  const result = await connection.request('tab.unsendPending', { tabId: TAB_ID, itemId: late()!.itemId }).catch((error: unknown) => (problems.push(`unsend failed: ${String(error)}`), undefined))
+  console.log(`> unsend: returned ${JSON.stringify(result)}; message still in chat: ${Boolean(late())}`)
+  if (result && !result.text.includes(word)) problems.push('unsend: the text did not come back')
+  if (late()) problems.push('unsend: the message stayed in the chat')
+  await until(() => meta()?.status === 'idle', 60_000)
+  await sleep(1500)
+  if (items().some((item) => item.kind === 'assistantText' && item.text.includes(word))) problems.push('unsend: Claude answered the withdrawn message')
+  if (late()) problems.push('unsend: the withdrawn message came back after the turn')
+  // A message read already cannot be withdrawn (the CLI answers cancelled: false).
+  const read = items().findLast((item) => item.kind === 'user')
+  const failed = read ? await connection.request('tab.unsendPending', { tabId: TAB_ID, itemId: read.itemId }).then(() => false, () => true) : false
+  if (!failed) problems.push('unsend: a message already read could be withdrawn')
+}
+
 // Sub-phase B: models with their effort levels; the effort applied to the live session like /effort.
 async function checkEffort(): Promise<void> {
   const { models } = await connection.request('tab.models', { tabId: TAB_ID })
@@ -254,6 +287,7 @@ async function main(): Promise<void> {
   await checkShell()
   await checkMidTurn()
   await checkSendNow()
+  await checkUnsend()
   await checkEffort()
   await checkSessionName()
   const sessionId = meta()?.sessionId

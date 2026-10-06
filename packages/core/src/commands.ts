@@ -134,6 +134,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     },
     'tab.interrupt': async ({ tabId }) => (await tabOf(tabId).interrupt(), {}),
     'tab.sendPendingNow': async ({ tabId, itemId }) => (await tabOf(tabId).sendPendingNow(itemId), {}),
+    'tab.unsendPending': ({ tabId, itemId }) => tabOf(tabId).unsendPending(itemId),
     'tab.setAccount': async ({ tabId, accountId }) => {
       await workspace.accounts.loaded
       if (accountId && !workspace.accounts.has(accountId)) throw new CoreError('not_found', `no account ${accountId}`)

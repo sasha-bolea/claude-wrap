@@ -271,6 +271,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   }
   const answer = (requestId: string, choice: Answer) => connection.request('request.answer', { tabId, requestId, ...choice }).catch(fail)
   const openMenu = () => openSheet({ title: meta.title, body: <SessionMenu tabId={tabId} /> })
+  const unsend = useUnsend(tabId)
   const sendNow = (item: UserItem) => connection.request('tab.sendPendingNow', { tabId, itemId: item.itemId }).catch(fail)
   const openActions = (item: UserItem) => openSheet({ title: t('yourMessage'), body: <MessageActions item={item} tabId={tabId} /> })
 
@@ -326,7 +327,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
       <ConnectionBanner />
       <div className="chat-body">
         <div className="conversation" ref={conversation} onScroll={onScroll} onTouchStart={() => ((touching.current = true), (closeKeyboard.current = false), (lastMove.current = undefined), stopGlide())} onTouchMove={onChatTouchMove} onTouchEnd={() => onChatTouchEnd(true)} onTouchCancel={() => onChatTouchEnd(false)} onWheel={stopGlide} aria-live="off">
-          <Conversation meta={meta} view={view} loadImage={loadImage} onAnswer={answer} onRestart={() => void connection.request('tab.restart', { tabId }).catch(fail)} onTrust={() => askTrust(meta.cwd, () => undefined)} onActions={openActions} onSendNow={sendNow} />
+          <Conversation meta={meta} view={view} loadImage={loadImage} onAnswer={answer} onRestart={() => void connection.request('tab.restart', { tabId }).catch(fail)} onTrust={() => askTrust(meta.cwd, () => undefined)} onActions={openActions} onSendNow={sendNow} onUnsend={unsend} />
         </div>
         <div className="scroll-thumb" ref={thumb} aria-hidden="true" />
         {shownGhost && (
@@ -469,9 +470,21 @@ function SessionMenu({ tabId }: { tabId: string }) {
   )
 }
 
+// "Cancel send" of a message Claude has not read: it leaves the chat and its text and images go back into the composer
+// (after what is already written there). Claude having read it meanwhile is a notice, not an error.
+function useUnsend(tabId: string): (item: UserItem) => Promise<unknown> {
+  const { connection, insertInComposer, toast, fail } = useTouch()
+  return (item) =>
+    connection.request('tab.unsendPending', { tabId, itemId: item.itemId }).then(
+      ({ text, images }) => insertInComposer(tabId, { text, ...(images?.length ? { images } : {}) }),
+      (error: unknown) => ((error as { code?: string }).code === 'invalid_args' ? toast(t('alreadyRead')) : fail(error))
+    )
+}
+
 // Long press on one of your messages: copy its text (going back to before it comes with Torna indietro).
 function MessageActions({ item, tabId }: { item: UserItem; tabId: string }) {
   const { state, go, closeSheets, toast } = useTouch()
+  const unsend = useUnsend(tabId)
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
   const busy = meta ? meta.status === 'running' || meta.status === 'starting' || meta.status === 'requires_action' : true
   const copy = () => {
@@ -487,6 +500,11 @@ function MessageActions({ item, tabId }: { item: UserItem; tabId: string }) {
         <li>
           <button onClick={copy}>{t('copyText')}</button>
         </li>
+        {item.pending && (
+          <li>
+            <button onClick={() => (closeSheets(), void unsend(item))}>{t('unsendPending')}</button>
+          </li>
+        )}
         <li>
           <button disabled={busy} onClick={() => go({ name: 'rewind', tabId, itemId: item.itemId })}>
             {t('rewindToBefore')}

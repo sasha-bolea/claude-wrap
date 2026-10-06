@@ -592,6 +592,8 @@ export const en = {
   filesHidden: ', {hidden} hidden',
   filesHiddenOne: ', 1 hidden',
   sendPendingNow: 'Send now: Claude reads it right away',
+  unsendPending: 'Cancel send',
+  alreadyRead: 'Claude has already read it',
   claudeAccounts: 'Claude accounts',
   cliLogin: 'Claude Code login',
   cliLoginSub: 'The login of Claude Code on this backend, as in the terminal',

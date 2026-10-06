@@ -189,6 +189,7 @@ async function drive(fake: FakeSdk, session: FakeSession, options: ScenarioOptio
   while (!session.closed) {
     await session.waitForInput(next + 1)
     const message = session.received[next++]!
+    if (message.uuid && session.cancelled.has(message.uuid)) continue
     remember(message)
     if (message.shouldQuery === false) {
       session.emit(sdk.success({ num_turns: 0 }))
@@ -206,7 +207,11 @@ async function drive(fake: FakeSdk, session: FakeSession, options: ScenarioOptio
     // Messages sent with priority 'next' while this turn streams: read now, answered in the same turn.
     const fold = () => {
       let added = ''
-      while (session.received[next]?.priority === 'next') {
+      while (session.received[next] && (session.received[next]!.priority === 'next' || session.cancelled.has(session.received[next]!.uuid ?? ''))) {
+        if (session.cancelled.has(session.received[next]!.uuid ?? '')) {
+          next++
+          continue
+        }
         const read = session.received[next++]!
         remember(read)
         lifecycle(read, 'started')

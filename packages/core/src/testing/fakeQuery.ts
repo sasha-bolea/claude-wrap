@@ -81,6 +81,10 @@ export class FakeSession {
   rewindResults = new Map<string, RewindFilesResult>()
   // The resumeSessionAt option received when this session was created.
   resumeSessionAt?: string
+  // Uuids of messages withdrawn with cancel_async_message (scenarios skip them), and of those already read
+  // (a command_lifecycle 'started' was emitted for them: too late to withdraw).
+  readonly cancelled = new Set<string>()
+  private readonly read = new Set<string>()
   private pending: SDKMessage[] = []
   private wake?: () => void
   private finished = false
@@ -103,6 +107,14 @@ export class FakeSession {
     })()
   }
 
+  // The CLI's cancel_async_message: withdraws a message it received and has not read; false when it was read (or is unknown).
+  private cancelUnread(uuid?: string): boolean {
+    if (!uuid || this.read.has(uuid) || this.cancelled.has(uuid) || !this.received.some((message) => message.uuid === uuid)) return false
+    this.cancelled.add(uuid)
+    this.emit({ type: 'command_lifecycle', command_uuid: uuid, state: 'cancelled', uuid: randomUUID(), session_id: 's' } as unknown as SDKMessage)
+    return true
+  }
+
   // Runs hook on every user message as it arrives (scenarios answer like the CLI: queued at once).
   onReceive(hook: (message: SDKUserMessage) => void): void {
     this.receiveHooks.push(hook)
@@ -110,6 +122,10 @@ export class FakeSession {
 
   // Queues SDK messages for core's read loop.
   emit(...messages: SDKMessage[]): void {
+    for (const message of messages) {
+      const { type, state, command_uuid: uuid } = message as unknown as { type: string; state?: string; command_uuid?: string }
+      if (type === 'command_lifecycle' && state === 'started' && uuid) this.read.add(uuid)
+    }
     this.pending.push(...messages)
     this.wakeUp()
   }
@@ -166,10 +182,11 @@ export class FakeSession {
       },
       // The Query's raw control request: an interrupt with send_now ends the running turn here (as a CLI that moves
       // nothing to the background does), so the waiting messages run next.
-      request: async (request: { subtype?: string; send_now?: boolean }) => {
+      request: async (request: { subtype?: string; send_now?: boolean; message_uuid?: string }) => {
         record('request', [request])
         if (request.subtype && this.refusedRequests.has(request.subtype)) throw new Error(`unsupported control request: ${request.subtype}`)
         if (request.subtype === 'interrupt') this.interruptListeners.forEach((listener) => listener())
+        if (request.subtype === 'cancel_async_message') return { response: { cancelled: this.cancelUnread(request.message_uuid) } }
         return { response: request.send_now ? { send_now: 'interrupting' } : {} }
       },
       setModel: async (model?: string) => (record('setModel', [model]), maybeReject()),
