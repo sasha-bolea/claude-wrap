@@ -9,7 +9,7 @@ import { AccountPickSheet, accountName } from './accounts.tsx'
 import { Conversation } from './Conversation.tsx'
 import { Icon } from './icons.tsx'
 import { baseName, sessionState } from './model.ts'
-import { ModelSheet, modelLabel, useModels } from './modelSheets.tsx'
+import { ModeSheet, ModelSheet, currentEffort, modelLabel, useModels } from './modelSheets.tsx'
 import { Badge, ConnectionBanner, IconButton, UpdateBar, useQuery } from './parts.tsx'
 import { CloseButton, RenameSheet, useTrustPrompt } from './sessions.tsx'
 import { useOpenTerminal } from './TerminalScreen.tsx'
@@ -96,7 +96,7 @@ function useScrollThumb(conversation: React.RefObject<HTMLDivElement | null>, do
   return { thumb, place }
 }
 
-// The chat of a session: top bar (back, title and folder = session menu with model and effort under them, Torna indietro, ⋯), the conversation with
+// The chat of a session: top bar (back, title and folder = session menu with the model under them, Torna indietro, ⋯), the conversation with
 // Claude's request inside it, the ghost of your message and "Torna giù", and the floating dock (composer + queue).
 export function ChatScreen({ tabId }: { tabId: string }) {
   const touch = useTouch()
@@ -272,7 +272,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     <section className="screen chat-screen" ref={screen} aria-label={t('chat')}>
       <header className="topbar">
         {!touch.wide && <IconButton icon="back" label={otherWaiting ? t('backWaiting') : t('back')} dot={otherWaiting} onClick={back} />}
-        {/* Title and folder (the session menu), the model and effort under them */}
+        {/* Title and folder (the session menu), the model under them */}
         <div className="title-stack">
           <button className="title-btn" aria-haspopup="dialog" onClick={openMenu}>
             <Badge state={sessionState(meta)} />
@@ -281,7 +281,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
               <span className="sub">{baseName(meta.cwd)}</span>
             </span>
           </button>
-          <button className="model-btn" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
+          <button className="model-btn" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('model'), body: <ModelSheet tabId={tabId} /> })}>
             <span>{modelLabel(meta, models)}</span>
             <Icon name="down" />
           </button>
@@ -331,7 +331,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   )
 }
 
-// The session menu (⋯ and the title): where it runs and with what; File, Note, Torna indietro, model and effort,
+// The session menu (⋯ and the title): where it runs and with what; File, Note, Torna indietro, model, effort,
 // account, rename, fork, restart, the panels to come, close.
 function SessionMenu({ tabId }: { tabId: string }) {
   const { state, connection, go, openSheet, closeSheets, toast, fail } = useTouch()
@@ -341,9 +341,9 @@ function SessionMenu({ tabId }: { tabId: string }) {
   const notes = useQuery(() => (meta ? connection.request('notes.list', { cwd: meta.cwd }) : Promise.resolve(undefined)), [connection, meta?.cwd, state.notesVersion[meta?.cwd ?? '']])
   if (!meta) return null
   const busy = meta.status === 'running' || meta.status === 'starting' || meta.status === 'requires_action'
-  // "Modello" alone for a model without effort levels (unknown until the model sheet asked: assume it has them).
+  // No "Impegno" item for a model known to have no effort levels (unknown until a sheet asked: assume it has them).
   const levels = models?.find((model) => model.value === (meta.model ?? 'default'))?.supportedEffortLevels
-  const modelTitle = models && !levels?.length ? t('model') : t('modelAndEffort')
+  const effort = currentEffort(meta, models)
   const stopped = meta.status === 'error'
   const fork = () =>
     connection.request('tab.fork', { tabId, newTabId: crypto.randomUUID() }).then(() => {
@@ -359,7 +359,7 @@ function SessionMenu({ tabId }: { tabId: string }) {
     <>
       <div className="card compact">
         <span className="mono-line">{meta.cwd}</span>
-        <span className="muted">{`${modelLabel(meta, models)} · ${t(modeLabel(meta.mode))}`}</span>
+        <span className="muted">{[modelLabel(meta, models), effort, t(modeLabel(meta.mode))].filter(Boolean).join(' · ')}</span>
       </div>
       <ul className="menu">
         <li>
@@ -381,11 +381,19 @@ function SessionMenu({ tabId }: { tabId: string }) {
           </button>
         </li>
         <li>
-          <button onClick={() => openSheet({ title: modelTitle, body: <ModelSheet tabId={tabId} /> })}>
-            {modelTitle}
+          <button onClick={() => openSheet({ title: t('model'), body: <ModelSheet tabId={tabId} /> })}>
+            {t('model')}
             <span className="right">{modelLabel(meta, models)} ›</span>
           </button>
         </li>
+        {!(models && !levels?.length) && (
+          <li>
+            <button onClick={() => openSheet({ title: t('modeTitle'), body: <ModeSheet tabId={tabId} /> })}>
+              {t('effort')}
+              <span className="right">{effort ?? t('defaultEffortModel')} ›</span>
+            </button>
+          </li>
+        )}
         <li>
           <button onClick={() => openSheet({ title: t('account'), body: <AccountPickSheet tabId={tabId} /> })}>
             {t('account')}

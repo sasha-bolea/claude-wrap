@@ -65,7 +65,7 @@ function QueuedCountdown({ text, images, until, onStop }: { text: string; images
 
 // The composer of the touch layout: one box floating over the chat — the text on top; under it + (photos and
 // files), permissions and the context gauge on the left; on the right Stop and Coda while Claude responds (Coda puts
-// what is written straight into the queue), then Send (model and effort are in the chat's top bar). `/` suggests
+// what is written straight into the queue), then Send (the model is in the chat's top bar, the effort in the mode sheet). `/` suggests
 // commands, `@` files; `!` runs a shell command; long pastes collapse. Files that are not photos go to allegati/ and
 // are mentioned.
 // A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.

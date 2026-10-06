@@ -116,7 +116,7 @@ Examples: [TouchApp.tsx:326](../packages/ui/src/touch/TouchApp.tsx#L326), [Touch
 52 px bar: back icon button, the title with its small `.sub` line (path, state), icon buttons on the right. In the
 chat a `.title-stack` of two lines: the `.title-btn` (badge, then title and folder side by side on one line, 14 px,
 each cut with "…", the folder gives way first) that opens the session menu, and under it, lined up with the title's
-text, the `.model-btn` (model · effort ⌄, 12 px, cut with "…") that opens the model sheet as a popover below it.
+text, the `.model-btn` (model name ⌄, 12 px, cut with "…"; the effort is not shown here) that opens the model sheet (models only) as a popover below it. The effort is chosen at the top of the permission-mode sheet (`.segmented.effort`, only for a model with levels; stays open, then the modes; picking a mode closes it); the ⋯ menu has separate "Model" and "Effort" items.
 Examples: [FilesScreen.tsx:219](../packages/ui/src/touch/FilesScreen.tsx#L219), [ChatScreen.tsx:286](../packages/ui/src/touch/ChatScreen.tsx#L286), [parts.tsx:47](../packages/ui/src/touch/parts.tsx#L47).
 
 ### Icon button — `.icon-btn` (`.dot`, `.count`, `.on`, `.dim`, `.accent`)
@@ -149,7 +149,7 @@ Examples: [SheetHost.tsx:49](../packages/ui/src/touch/SheetHost.tsx#L49), [ChatS
 ### Buttons and fields — `.button` (`.primary`, `.danger`, `.block`), `.link-btn`, `.field` (`.mono`), `.check-row`, `.segmented` (`.effort`, `.cols-N`), `.toggle-input`
 Same roles as on the desktop; `.link-btn`: the light text actions under a list ("Sessioni passate · + Nuova
 sessione"); `.segmented`: a radio group as one control (effort levels — `.cols-N` for N levels).
-Examples: [HomeScreen.tsx:166](../packages/ui/src/touch/HomeScreen.tsx#L166), [HomeScreen.tsx:335](../packages/ui/src/touch/HomeScreen.tsx#L335), [SettingsScreen.tsx:167](../packages/ui/src/touch/SettingsScreen.tsx#L167), [modelSheets.tsx:66](../packages/ui/src/touch/modelSheets.tsx#L66).
+Examples: [HomeScreen.tsx:166](../packages/ui/src/touch/HomeScreen.tsx#L166), [HomeScreen.tsx:335](../packages/ui/src/touch/HomeScreen.tsx#L335), [SettingsScreen.tsx:167](../packages/ui/src/touch/SettingsScreen.tsx#L167), [modelSheets.tsx:91](../packages/ui/src/touch/modelSheets.tsx#L91).
 
 ### Cards, chips, badges — `.card` (`.compact`, `.bad`), `.chip` (`.changed`), `.badge` (`.waiting`, `.working`, `.error`, `.unseen`)
 `.card`: a framed block (session info in the menu, error and trust notices, the 🔜 placeholder). `.chip`: small
@@ -205,7 +205,7 @@ Examples: [ChatScreen.tsx:294](../packages/ui/src/touch/ChatScreen.tsx#L294), [C
 
 ### Composer and dock — `.dock`, `.composer`, `.input-box`, `.input-tools`, `.mode-btn`, `.queue-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.linked-note`, `.shell-hint`, `.suggest`
 One box floating over the chat over a light veil (2 px blur, a slightly dark gradient, fading to the page colour only in the last line above the bottom: the chat stays readable under it): the text on top; below it the
-+ (photos and files), the permission mode icon and the context gauge on the left; on the right, while Claude works or waits, Stop and the `.send.queue-btn` (a filled 38 px circle like Send and Stop, in the text colour — dark on light, light on dark — so the three actions weigh the same and stay told apart by colour; puts what is written straight into the queue and empties the field — no queue mode; dimmed while nothing is written; count or pause badge: a small 14 px accent circle on its rim; 6 px apart on each side so a tap does not hit the wrong one), then Send, which always sends (model · effort is in the top bar). When Claude is done the queue button goes. A linked note shows above the box (× unlinks it). Composer and box are one `minmax(0, 1fr)` column: a long note
++ (photos and files), the permission mode icon and the context gauge on the left; on the right, while Claude works or waits, Stop and the `.send.queue-btn` (a filled 38 px circle like Send and Stop, in the text colour — dark on light, light on dark — so the three actions weigh the same and stay told apart by colour; puts what is written straight into the queue and empties the field — no queue mode; dimmed while nothing is written; count or pause badge: a small 14 px accent circle on its rim; 6 px apart on each side so a tap does not hit the wrong one), then Send, which always sends (the model is in the top bar, the effort in the mode sheet). When Claude is done the queue button goes. A linked note shows above the box (× unlinks it). Composer and box are one `minmax(0, 1fr)` column: a long note
 title or file name is cut with "…", never pushing Send off the screen.
 Examples: [ChatScreen.tsx:314](../packages/ui/src/touch/ChatScreen.tsx#L314), [TouchComposer.tsx:315](../packages/ui/src/touch/TouchComposer.tsx#L315), [TouchComposer.tsx:308](../packages/ui/src/touch/TouchComposer.tsx#L308).
 
@@ -264,7 +264,7 @@ Examples: [SettingsScreen.tsx:215](../packages/ui/src/touch/SettingsScreen.tsx#L
 "Nuove sessioni": a row "Sforzo" with six segments in two rows of three (Del modello, then the five levels) and a
 wrapping hint, and a row "Modalità permessi" showing the chosen mode, which opens the same radio menu as the composer's
 mode sheet (`ModeMenu`). Both apply to sessions created from then on (forks keep their source's); open ones keep theirs.
-Examples: [SettingsScreen.tsx:167](../packages/ui/src/touch/SettingsScreen.tsx#L167), [modelSheets.tsx:94](../packages/ui/src/touch/modelSheets.tsx#L94).
+Examples: [SettingsScreen.tsx:167](../packages/ui/src/touch/SettingsScreen.tsx#L167), [modelSheets.tsx:75](../packages/ui/src/touch/modelSheets.tsx#L75).
 
 ### Settings → colour palettes — `.swatches`, `.swatch`, `.color-row`, `.color-hex`, `.color-pick` (existing `.list`, `.row.current`, `.sticky-actions`, `.two-buttons`)
 A row "Palette colori" in the App group (subtitle: the palette on this device) opens the list: the backend's palettes

@@ -69,7 +69,7 @@ export class FakeSession {
   rejectNext?: Error
   // Set to hold setPermissionMode / setModel calls until the promise resolves (in-flight tests).
   gate?: Promise<void>
-  models: ModelInfo[] = [{ value: 'default', displayName: 'Default', description: '' }, { value: 'haiku', displayName: 'Haiku', description: '' }]
+  models: ModelInfo[] = [{ value: 'default', displayName: 'Default', description: '', supportedEffortLevels: ['low', 'medium', 'high'] }, { value: 'haiku', displayName: 'Haiku', description: '' }]
   commands = [
     { name: 'compact', description: 'Compact', argumentHint: '' },
     { name: '__internal', description: '', argumentHint: '' }
