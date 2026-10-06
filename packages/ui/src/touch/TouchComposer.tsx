@@ -24,6 +24,8 @@ const SUGGESTIONS_ID = 'touch-suggestions'
 const noHistory = () => Promise.resolve([])
 // Enter sends only where there is a hardware keyboard (a pointer that hovers); on the phone it adds a line.
 const enterSends = () => matchMedia('(hover: hover)').matches
+// Two Esc presses within this time in an empty field open the rewind.
+const ESCAPE_TWICE_MS = 600
 
 type ComposerProps = { meta: TabMeta; running: boolean; requestOpen: boolean; onFocusField: () => void }
 
@@ -70,7 +72,7 @@ function QueuedCountdown({ text, images, until, onStop }: { text: string; images
 // are mentioned.
 // A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.
 export function TouchComposer({ meta, running, requestOpen, onFocusField }: ComposerProps) {
-  const { connection, backendId, openSheet, toast, snack, fail, inserts, clearInsert } = useTouch()
+  const { connection, backendId, openSheet, toast, snack, fail, inserts, clearInsert, go } = useTouch()
   const tabId = meta.tabId
   const input = useRef<HTMLTextAreaElement>(null)
   const picker = useRef<HTMLInputElement>(null)
@@ -117,6 +119,7 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField }: Comp
     clearInsert(tabId)
     const joined = insert.replace ? insert.text : insert.noteId ? `${text.replace(/\s*$/, '')}\n\n${insert.text}`.trimStart() : `${text ? text.replace(/\s*$/, ' ') : ''}${insert.text}`
     draft.setValue(joined, joined.length)
+    if (insert.images?.length) draft.setImages([...insert.images, ...images])
     if (insert.noteId) setLinked({ noteId: insert.noteId, text: insert.text })
   }, [insert])
 
@@ -190,11 +193,26 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField }: Comp
     }
   }
   const stop = () => void connection.request('tab.interrupt', { tabId }).catch(fail)
+  // When Esc was last pressed in the field (for Esc Esc).
+  const lastEscape = useRef(0)
+  // Esc twice quickly in an empty field (hardware keyboard) opens the rewind, as in the CLI. Returns whether it did;
+  // the first press is left to the app's Esc (stops Claude), and while Claude still works the second says to stop first.
+  const rewindOnSecondEscape = (): boolean => {
+    const now = Date.now()
+    const previous = lastEscape.current
+    lastEscape.current = now
+    if (!enterSends() || hasContent || now - previous > ESCAPE_TWICE_MS) return false
+    lastEscape.current = 0
+    if (running) toast(t('stopFirst'))
+    else go({ name: 'rewind', tabId })
+    return true
+  }
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.nativeEvent.isComposing) return
     const choosing = Boolean(popup?.options.length)
     if (popup && event.key === 'Escape') suggestions.close()
+    else if (event.key === 'Escape' && rewindOnSecondEscape()) event.stopPropagation()
     else if (choosing && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) suggestions.move(event.key === 'ArrowDown' ? 1 : -1)
     else if (choosing && (event.key === 'Enter' || event.key === 'Tab') && !event.shiftKey) pick(popup!.options[popup!.active]!)
     else if (event.key === 'Enter' && !event.shiftKey && enterSends()) void send()

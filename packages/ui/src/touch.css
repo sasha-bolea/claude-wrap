@@ -392,6 +392,10 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 
 /* Rewind (sub-phase D) and quotes of a message */
 .rewind-quote { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+/* Rewind preview: the files that would change (mono, wrapped) and the totals */
+.rewind-files { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-family: var(--font-mono); font-size: 13px; }
+.rewind-diff { font-family: var(--font-mono); font-size: 13px; }
+.rewind-diff .added { color: var(--success); } .rewind-diff .removed { color: var(--danger); }
 /* A long press opens the message's actions (Copy text is there): iOS must not start a selection or its callout, which
    spread over the whole screen */
 .msg-user, .msg-user-row { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }

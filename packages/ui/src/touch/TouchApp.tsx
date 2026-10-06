@@ -12,6 +12,7 @@ import { Icon } from './icons.tsx'
 import { useKeyboard } from './keyboard.ts'
 import { TerminalScreen, useOpenTerminal } from './TerminalScreen.tsx'
 import { LaterScreen } from './LaterScreen.tsx'
+import { RewindScreen } from './RewindScreen.tsx'
 import { ContextScreen, UsageScreen } from './UsageScreens.tsx'
 import { NoteScreen, NotesScreen } from './NotesScreen.tsx'
 import { PaletteScreen, PalettesScreen } from './PalettesScreen.tsx'
@@ -41,7 +42,7 @@ function regionOf(screen: Screen): Region {
   }
 }
 // The right panel's first screens (opened from the chat's top bar or its menu); the others go on top of one.
-const PANEL_ROOTS = new Set<Screen['name']>(['files', 'notes', 'terminal', 'later', 'context', 'usage'])
+const PANEL_ROOTS = new Set<Screen['name']>(['files', 'notes', 'terminal', 'later', 'context', 'usage', 'rewind'])
 // Width from which the wide arrangement is used.
 const WIDE_QUERY = '(min-width: 1024px)'
 
@@ -98,6 +99,8 @@ function ScreenView({ screen }: { screen: Screen }): ReactNode {
       return <ContextScreen tabId={screen.tabId} />
     case 'usage':
       return <UsageScreen tabId={screen.tabId} />
+    case 'rewind':
+      return <RewindScreen tabId={screen.tabId} itemId={screen.itemId} />
   }
 }
 

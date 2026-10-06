@@ -316,7 +316,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
             <IconButton icon="note" className={touch.panel?.name === 'notes' ? 'on' : undefined} label={t('folderNotes')} expanded={touch.panel?.name === 'notes'} onClick={() => touch.togglePanel({ name: 'notes', tabId })} />
           </>
         )}
-        <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'later', key: 'rewind', tabId }))} />
+        <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'rewind', tabId }))} />
         <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />
       </header>
       <UpdateBar />
@@ -399,7 +399,7 @@ function SessionMenu({ tabId }: { tabId: string }) {
           <button onClick={() => openTerminal({ tabId })}>{t('terminal')}</button>
         </li>
         <li>
-          <button disabled={busy} onClick={() => go({ name: 'later', key: 'rewind', tabId })}>
+          <button disabled={busy} onClick={() => go({ name: 'rewind', tabId })}>
             {t('rewindLabel')}
             {busy && <span className="right">{t('stopFirstShort')}</span>}
           </button>
@@ -485,7 +485,7 @@ function MessageActions({ item, tabId }: { item: UserItem; tabId: string }) {
           <button onClick={copy}>{t('copyText')}</button>
         </li>
         <li>
-          <button disabled={busy} onClick={() => go({ name: 'later', key: 'rewind', tabId })}>
+          <button disabled={busy} onClick={() => go({ name: 'rewind', tabId, itemId: item.itemId })}>
             {t('rewindToBefore')}
             {busy && <span className="right">{t('stopFirstShort')}</span>}
           </button>

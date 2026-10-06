@@ -1,10 +1,10 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react'
 import type { Connection, StoreState } from '@athome/client'
-import type { Home, TabMeta, Welcome } from '@athome/protocol'
+import type { Home, Image, TabMeta, Welcome } from '@athome/protocol'
 import type { Capabilities } from '../App.tsx'
 
 // The 🔜 panels and settings pages (a placeholder that says what they will show and the / command to use meanwhile).
-export type LaterKey = 'context' | 'usage' | 'tasks' | 'todo' | 'diff' | 'mcp' | 'hooks' | 'status' | 'config' | 'permissions' | 'memory' | 'skills' | 'agents' | 'styles' | 'plugins' | 'rewind'
+export type LaterKey = 'context' | 'usage' | 'tasks' | 'todo' | 'diff' | 'mcp' | 'hooks' | 'status' | 'config' | 'permissions' | 'memory' | 'skills' | 'agents' | 'styles' | 'plugins'
 
 // Screens of the touch layout, one at a time; the stack keeps them mounted, so going back finds them as they were.
 export type Screen =
@@ -25,6 +25,8 @@ export type Screen =
   | { name: 'later'; key: LaterKey; tabId?: string }
   | { name: 'context'; tabId: string }
   | { name: 'usage'; tabId: string }
+  // Go back to one of your messages (/rewind); itemId: a message picked by a long press, its actions open at once.
+  | { name: 'rewind'; tabId: string; itemId?: string }
 
 // A bottom sheet: its title, an optional mono line under it (a path), and its body — a component that reads live
 // state. field: the sheet is for typing (the cursor goes to its first field; otherwise the focus goes to the title,
@@ -35,7 +37,7 @@ export type SheetSpec = { title: ReactNode; path?: string; body: ReactNode; fiel
 export type LiveState = StoreState & { welcome: Welcome; tabs: TabMeta[]; home: Home; projects: string[] }
 
 // Text (and the note it comes from) waiting to go into a chat's composer.
-export type ComposerInsert = { text: string; noteId?: string; replace?: boolean }
+export type ComposerInsert = { text: string; noteId?: string; replace?: boolean; images?: Image[] }
 
 export type Touch = {
   connection: Connection
