@@ -96,7 +96,7 @@ function useScrollThumb(conversation: React.RefObject<HTMLDivElement | null>, do
   return { thumb, place }
 }
 
-// The chat of a session: top bar (back, title and folder = session menu, model and effort, Torna indietro, ⋯), the conversation with
+// The chat of a session: top bar (back, title and folder = session menu with model and effort under them, Torna indietro, ⋯), the conversation with
 // Claude's request inside it, the ghost of your message and "Torna giù", and the floating dock (composer + queue).
 export function ChatScreen({ tabId }: { tabId: string }) {
   const touch = useTouch()
@@ -282,17 +282,20 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     <section className="screen chat-screen" ref={screen} aria-label={t('chat')}>
       <header className="topbar">
         {!touch.wide && <IconButton icon="back" label={otherWaiting ? t('backWaiting') : t('back')} dot={otherWaiting} onClick={back} />}
-        <button className="title-btn" aria-haspopup="dialog" onClick={openMenu}>
-          <Badge state={sessionState(meta)} />
-          <span className="title-text">
-            <span>{meta.title}</span>
-            <span className="sub">{baseName(meta.cwd)}</span>
-          </span>
-        </button>
-        <button className="model-btn" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
-          <span>{modelLabel(meta, models)}</span>
-          <Icon name="down" />
-        </button>
+        {/* Title and folder (the session menu), the model and effort under them */}
+        <div className="title-stack">
+          <button className="title-btn" aria-haspopup="dialog" onClick={openMenu}>
+            <Badge state={sessionState(meta)} />
+            <span className="title-text">
+              <span>{meta.title}</span>
+              <span className="sub">{baseName(meta.cwd)}</span>
+            </span>
+          </button>
+          <button className="model-btn" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
+            <span>{modelLabel(meta, models)}</span>
+            <Icon name="down" />
+          </button>
+        </div>
         {touch.wide && (
           <>
             <IconButton icon="files" className={touch.panel?.name === 'files' ? 'on' : undefined} label={t('folderFiles')} expanded={touch.panel?.name === 'files'} onClick={() => touch.togglePanel({ name: 'files', tabId })} />

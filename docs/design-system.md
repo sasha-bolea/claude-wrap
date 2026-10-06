@@ -112,12 +112,12 @@ wraps each stack entry (`display: contents`, `hidden` below the top). `.screen`:
 with a `.pad` grid (16 px gaps; `.tight` 10 px; `.settings` 22 px), optional `.sticky-actions`.
 Examples: [TouchApp.tsx:326](../packages/ui/src/touch/TouchApp.tsx#L326), [TouchApp.tsx:339](../packages/ui/src/touch/TouchApp.tsx#L339), [FilesScreen.tsx:226](../packages/ui/src/touch/FilesScreen.tsx#L226).
 
-### Top bar — `.topbar`, `h1` (`.sub`, `.pad-left`), `.title-btn` (`.title-text`), `.model-btn`
+### Top bar — `.topbar`, `h1` (`.sub`, `.pad-left`), `.title-stack`, `.title-btn` (`.title-text`), `.model-btn`
 52 px bar: back icon button, the title with its small `.sub` line (path, state), icon buttons on the right. In the
-chat the title is a `.title-btn` (badge, then title and folder side by side on one line, 14 px, each cut with "…",
-the folder gives way first) that opens the session menu; next to it the `.model-btn` (model · effort ⌄, at most 40%
-of the bar) opens the model sheet as a popover below it.
-Examples: [FilesScreen.tsx:219](../packages/ui/src/touch/FilesScreen.tsx#L219), [ChatScreen.tsx:268](../packages/ui/src/touch/ChatScreen.tsx#L268), [parts.tsx:47](../packages/ui/src/touch/parts.tsx#L47).
+chat a `.title-stack` of two lines: the `.title-btn` (badge, then title and folder side by side on one line, 14 px,
+each cut with "…", the folder gives way first) that opens the session menu, and under it, lined up with the title's
+text, the `.model-btn` (model · effort ⌄, 12 px, cut with "…") that opens the model sheet as a popover below it.
+Examples: [FilesScreen.tsx:219](../packages/ui/src/touch/FilesScreen.tsx#L219), [ChatScreen.tsx:286](../packages/ui/src/touch/ChatScreen.tsx#L286), [parts.tsx:47](../packages/ui/src/touch/parts.tsx#L47).
 
 ### Icon button — `.icon-btn` (`.dot`, `.count`, `.on`, `.dim`, `.accent`)
 44×44 line icon ([icons.tsx](../packages/ui/src/touch/icons.tsx), class `.i`, the prototype's set) with `aria-label`.
@@ -193,7 +193,7 @@ Examples: [ChatScreen.tsx:294](../packages/ui/src/touch/ChatScreen.tsx#L294), [C
 
 ### Composer and dock — `.dock`, `.composer` (`.queue-mode`), `.input-box`, `.input-tools`, `.mode-btn`, `.queue-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.linked-note`, `.shell-hint`, `.suggest`
 One box floating over the chat over a light veil (2 px blur, a slightly dark gradient, fading to the page colour only in the last line above the bottom: the chat stays readable under it): the text on top; below it the
-permission mode icon, + (photos and files) and the context gauge on the left; on the right, while Claude works or waits, Stop and the `.queue-btn` (queue mode, count or pause badge; 6 px apart on each side so a tap does not hit the wrong one), then Send (model · effort is in the top bar). When Claude is done the queue button goes and queue mode turns off. Queue mode: dashed border, Send adds to the
++ (photos and files), the permission mode icon and the context gauge on the left; on the right, while Claude works or waits, Stop and the `.queue-btn` (queue mode, count or pause badge; 6 px apart on each side so a tap does not hit the wrong one), then Send (model · effort is in the top bar). When Claude is done the queue button goes and queue mode turns off. Queue mode: dashed border, Send adds to the
 queue. A linked note shows above the box (× unlinks it). Composer and box are one `minmax(0, 1fr)` column: a long note
 title or file name is cut with "…", never pushing Send off the screen.
 Examples: [ChatScreen.tsx:314](../packages/ui/src/touch/ChatScreen.tsx#L314), [TouchComposer.tsx:315](../packages/ui/src/touch/TouchComposer.tsx#L315), [TouchComposer.tsx:308](../packages/ui/src/touch/TouchComposer.tsx#L308).

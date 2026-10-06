@@ -486,8 +486,12 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .model-btn:active { background: var(--surface-2); }
 .model-btn span { text-align: left; line-height: 1.2; }
 .model-btn svg.i { width: 16px; height: 16px; flex: none; }
-.topbar .model-btn { flex: 0 1 auto; max-width: 40%; font-size: 13px; padding: 0 6px; }
-.topbar .model-btn span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* Chat top bar: the model and effort on a second line under the title, lined up with its text */
+.title-stack { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.title-stack .title-btn { flex: none; width: 100%; min-height: 26px; }
+.title-stack .model-btn { max-width: calc(100% - 22px); min-height: 22px; margin-left: 22px; padding: 0 4px; font-size: 12px; }
+.title-stack .model-btn span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.title-stack .model-btn svg.i { width: 13px; height: 13px; }
 .input-tools .gauge-btn { margin-right: auto; }
 /* The composer's gauge: a ring filled to the highest of context, 5-hour and weekly use (no number beside it) */
 .gauge-btn { flex: none; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; border-radius: 12px; padding: 0; color: var(--text-muted); }

@@ -85,9 +85,15 @@ describe('PWA (fake SDK)', () => {
     await page.getByRole('button', { name: /^project project/ }).waitFor()
   })
 
-  it('the permission mode sheet and the photo picker of the composer work', async () => {
+  it('the permission mode sheet and the photo picker of the composer work; + is first, the model sits under the title', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
+    const box = async (name: string | RegExp) => (await button(page, name).boundingBox())!
+    expect((await box('Attach photos or files')).x).toBeLessThan((await box('Permission mode: Ask for permissions')).x)
+    const title = (await page.locator('.title-btn').boundingBox())!
+    const model = await box(/^Model and effort: /)
+    expect(model.y).toBeGreaterThanOrEqual(title.y + title.height - 1)
+    expect(model.x).toBeLessThan(title.x + title.width / 2)
     await button(page, 'Permission mode: Ask for permissions').click()
     await page.getByRole('dialog', { name: 'Permission mode' }).getByRole('radio', { name: 'Plan' }).click()
     await button(page, 'Permission mode: Plan').waitFor()

@@ -63,8 +63,8 @@ function QueuedCountdown({ text, images, until, onStop }: { text: string; images
   )
 }
 
-// The composer of the touch layout: one box floating over the chat — the text on top; under it permissions,
-// + (photos and files) and the context gauge on the left; on the right Stop and Coda (queue mode) while Claude
+// The composer of the touch layout: one box floating over the chat — the text on top; under it + (photos and
+// files), permissions and the context gauge on the left; on the right Stop and Coda (queue mode) while Claude
 // responds, then Send (model and effort are in the chat's top bar). `/` suggests commands, `@` files; `!` runs a shell command; long
 // pastes collapse. Queue mode writes into the queue. Files that are not photos go to allegati/ and are mentioned.
 // A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.
@@ -334,10 +334,10 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onToggleQ
           onBlur={() => suggestions.close()}
         />
         <div className="input-tools" hidden={Boolean(waiting)}>
+          <IconButton icon="plus" label={t('attachPhotoOrFile')} onClick={() => picker.current?.click()} />
           <button className="icon-btn mode-btn" data-mode={meta.mode} aria-label={t('modeButtonLabel', { mode: t(modeLabel(meta.mode)) })} onClick={() => openSheet({ title: t('modeTitle'), body: <ModeSheet tabId={tabId} /> })}>
             <Icon name={modeIcon(meta.mode)} />
           </button>
-          <IconButton icon="plus" label={t('attachPhotoOrFile')} onClick={() => picker.current?.click()} />
           <GaugeButton meta={meta} />
           {(running || requestOpen) && (
             <>
