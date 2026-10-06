@@ -316,26 +316,47 @@ function useReadTimes(items: Item[]): Record<string, number> {
   return readAt
 }
 
-// "Claude sta lavorando… 12 s": the turn's work time, from core's workingSince (it survives reopening the app and
-// leaves out the time Claude waited for an answer). since: TabMeta.workingSince, undefined while Claude starts.
-function WorkingLine({ since }: { since?: number }) {
+// The turn's work time, from core's workingSince (it survives reopening the app and leaves out the time Claude waited
+// for an answer), re-read every second. The one source of the working line and of its mini label.
+// Parameters: TabMeta.workingSince, undefined while Claude starts. Returns the full text ("Claude is working · 12 s")
+// and the elapsed time alone ("" while starting).
+function useWorkingText(since?: number) {
   const [, tick] = useState(0)
   useEffect(() => {
     const timer = setInterval(() => tick((n) => n + 1), 1000)
     return () => clearInterval(timer)
   }, [])
+  const time = since === undefined ? '' : durationLabel(Math.max(0, Date.now() - since))
+  return { time, text: since === undefined ? t('startingClaude') : t('workingFor', { time }) }
+}
+
+// "Claude sta lavorando… 12 s", drawn by the chat over the conversation (not inside its scroll content), above the dock.
+// Parameters: since (see useWorkingText), the element's ref (the chat moves it with the text when scrolled up).
+export function WorkingLine({ since, lineRef }: { since?: number; lineRef: React.Ref<HTMLDivElement> }) {
+  const { text } = useWorkingText(since)
   return (
-    <div className="working-line">
+    <div className="working-line" ref={lineRef}>
       <span className="badge working" />
-      <span>{since === undefined ? t('startingClaude') : t('workingFor', { time: durationLabel(Math.max(0, Date.now() - since)) })}</span>
+      <span>{text}</span>
+    </div>
+  )
+}
+
+// The working line's mini label while the line is out of view: only the dot and the time, the words for screen readers.
+export function WorkingMini({ since }: { since?: number }) {
+  const { time, text } = useWorkingText(since)
+  return (
+    <div className="working-mini" role="img" aria-label={text}>
+      <span className="badge working" />
+      {time && <span aria-hidden="true">{time}</span>}
     </div>
   )
 }
 
 type ConversationProps = { meta: TabMeta; view?: TabView; loadImage: LoadImage; onAnswer: (requestId: string, answer: Answer) => void; onRestart: () => void; onTrust: () => void; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown>; onUnsend: (item: UserItem) => Promise<unknown> }
 
-// The conversation: items, then Claude's request (part of the chat, it scrolls with it), the working line and the
-// cards of a stopped process or an untrusted folder.
+// The conversation: items, then Claude's request (part of the chat, it scrolls with it), the cards of a stopped process or
+// an untrusted folder, and last the room left for the working line (drawn by the chat, it must end the content).
 export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTrust, onActions, onSendNow, onUnsend }: ConversationProps) {
   const items = view?.items ?? []
   const readAt = useReadTimes(items)
@@ -351,7 +372,6 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
           <ToolStack key={entry.tools[0]!.itemId} items={entry.tools} />
         )
       )}
-      {(meta.status === 'running' || meta.status === 'starting') && <WorkingLine since={meta.status === 'running' ? meta.workingSince : undefined} />}
       <LimitCard meta={meta} />
       <ContinueCard meta={meta} />
       {request && <RequestCard key={request.requestId} request={request} onAnswer={(answer) => onAnswer(request.requestId, answer)} />}
@@ -371,6 +391,7 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
           </button>
         </div>
       )}
+      {(meta.status === 'running' || meta.status === 'starting') && <div className="working-room" aria-hidden="true" />}
     </>
   )
 }

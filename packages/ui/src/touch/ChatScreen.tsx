@@ -6,7 +6,7 @@ import { modeLabel } from '../modes.ts'
 import type { Answer } from '../chatHooks.ts'
 import { useScreen, useTouch, type LaterKey } from './context.tsx'
 import { AccountPickSheet, accountName } from './accounts.tsx'
-import { Conversation } from './Conversation.tsx'
+import { Conversation, WorkingLine, WorkingMini } from './Conversation.tsx'
 import { Icon } from './icons.tsx'
 import { baseName, sessionState } from './model.ts'
 import { ModeSheet, ModelSheet, currentEffort, modelLabel, useModels } from './modelSheets.tsx'
@@ -21,6 +21,9 @@ type UserItem = Extract<Item, { kind: 'user' }>
 const FOLLOW = 60
 // Following new text, each frame covers this share of the way still left to the bottom (an ease-out glide).
 const GLIDE_SHARE = 0.2
+// The working line is out of view (behind the dock) once it sits this far (px) under its place at the bottom: its
+// height 20 + the 10 it floats over the dock.
+const WORKING_OUT = 30
 // A finger moving the chat faster than this (px/ms, over its last move) closes the keyboard; slower leaves it open.
 const KEYBOARD_CLOSE_SPEED = 0.6
 // Dragging the ghost up past this distance puts it away.
@@ -111,6 +114,9 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const following = useRef(follow)
   following.current = follow
   const [missed, setMissed] = useState(false)
+  // The working line's element and whether it is out of view (then its mini label shows).
+  const workingLine = useRef<HTMLDivElement>(null)
+  const [lineOut, setLineOut] = useState(false)
   const screen = useRef<HTMLElement>(null)
   const conversation = useRef<HTMLDivElement>(null)
   const dock = useRef<HTMLDivElement>(null)
@@ -171,6 +177,17 @@ export function ChatScreen({ tabId }: { tabId: string }) {
       if (following.current) toBottom()
     }
   }
+  // The working line follows the end of the text: moved down by the distance left to the bottom (a CSS variable, no
+  // layout, no scrollTop). Called when the user scrolls and when text arrives while not following; while following,
+  // the glide never moves it. `rest`: back in its place (the chat is going to the bottom).
+  const placeWorking = (rest = false) => {
+    const box = conversation.current
+    const element = workingLine.current
+    if (!box || !element) return
+    const distance = rest ? 0 : box.scrollHeight - box.clientHeight - box.scrollTop
+    element.style.setProperty('--working-y', `${distance}px`)
+    setLineOut(distance >= WORKING_OUT)
+  }
   const stopGlide = () => {
     if (glide.current !== undefined) cancelAnimationFrame(glide.current)
     glide.current = undefined
@@ -179,6 +196,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     stopGlide()
     const box = conversation.current
     if (box) box.scrollTop = box.scrollHeight
+    placeWorking(true)
   }
   // A scroll to the bottom caused by a layout change: with a finger on the chat it waits for the finger to lift.
   const settleBottom = () => {
@@ -193,6 +211,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     if (!box || touching.current) return
     if (box.scrollHeight - box.clientHeight - box.scrollTop > box.clientHeight || matchMedia('(prefers-reduced-motion: reduce)').matches) return toBottom()
     if (glide.current !== undefined) return
+    placeWorking(true)
     glideAt.current = box.scrollTop
     const step = () => {
       const left = box.scrollHeight - box.clientHeight - box.scrollTop
@@ -207,9 +226,11 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   // New content: followed down while at the bottom, otherwise the "Torna giù" button gets a dot.
   useLayoutEffect(() => {
     if (follow) glideToBottom()
-    else setMissed(true)
+    else (setMissed(true), placeWorking())
     updateGhost()
   }, [view?.items, view?.requests])
+  // The line appears (a turn starts): in its place, or where the text's end is if the chat is scrolled up.
+  useLayoutEffect(() => placeWorking(following.current), [meta?.status === 'running' || meta?.status === 'starting'])
   // The dock floats over the conversation, which leaves room for it under its last message. Only a real change of the
   // dock's height moves the chat: reaching the bottom by hand is never touched, or iOS would cut its bounce short.
   useEffect(() => {
@@ -263,6 +284,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     // The glide's own steps: the chat keeps following (new text may outrun it for a moment). Any other move stops it.
     if (glide.current !== undefined && !touching.current && Math.abs(box.scrollTop - glideAt.current) <= 1) return void (updateGhost(), placeThumb(false))
     stopGlide()
+    placeWorking()
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < FOLLOW
     setFollow(atBottom)
     if (atBottom) setMissed(false)
@@ -329,6 +351,8 @@ export function ChatScreen({ tabId }: { tabId: string }) {
         <div className="conversation" ref={conversation} onScroll={onScroll} onTouchStart={() => ((touching.current = true), (closeKeyboard.current = false), (lastMove.current = undefined), stopGlide())} onTouchMove={onChatTouchMove} onTouchEnd={() => onChatTouchEnd(true)} onTouchCancel={() => onChatTouchEnd(false)} onWheel={stopGlide} aria-live="off">
           <Conversation meta={meta} view={view} loadImage={loadImage} onAnswer={answer} onRestart={() => void connection.request('tab.restart', { tabId }).catch(fail)} onTrust={() => askTrust(meta.cwd, () => undefined)} onActions={openActions} onSendNow={sendNow} onUnsend={unsend} />
         </div>
+        {running && <WorkingLine since={meta.status === 'running' ? meta.workingSince : undefined} lineRef={workingLine} />}
+        {running && lineOut && <WorkingMini since={meta.status === 'running' ? meta.workingSince : undefined} />}
         <div className="scroll-thumb" ref={thumb} aria-hidden="true" />
         {shownGhost && (
           <>

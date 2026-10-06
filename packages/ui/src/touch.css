@@ -216,7 +216,15 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .shell .cmd { font-weight: 700; font-family: var(--font-mono); font-size: 13px; }
 .turn-end { align-self: flex-end; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .notice-line { margin: 0; text-align: center; font-size: 12px; color: var(--text-muted); }
-.working-line { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+/* The working line is not scroll content: it stays above the dock while the chat follows, and the chat moves it down by
+   the distance from the bottom (--working-y) when scrolled up, so it looks attached to the end of the text. The room
+   (.working-room) keeps the last text from ending under it. */
+.working-room { flex: none; height: 20px; }
+.working-line { position: absolute; left: 14px; bottom: calc(var(--dock-h, 90px) + 10px); z-index: 1; height: 20px; transform: translateY(var(--working-y, 0px)); will-change: transform; pointer-events: none; display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.col-center .working-line, .col-center .working-mini { left: max(14px, calc((100% - 780px) / 2)); }
+/* Its mini label while the line is out of view: dot and time, bottom left (the jump button is on the right) */
+.working-mini { position: absolute; left: 14px; bottom: calc(var(--dock-h, 90px) + 10px); z-index: 2; height: 28px; padding: 0 10px; gap: 6px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); box-shadow: 0 4px 14px rgba(0,0,0,.12); pointer-events: none; display: flex; align-items: center; font-size: 13px; font-variant-numeric: tabular-nums; animation: mini-in .18s ease-out; }
+@keyframes mini-in { from { opacity: 0; } }
 .msg-ai table, .msg-peer table { border-collapse: collapse; font-size: 13px; margin: 6px 0; width: 100%; table-layout: fixed; }
 .msg-ai th, .msg-ai td, .msg-peer th, .msg-peer td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; vertical-align: top; }
 .msg-ai th, .msg-peer th { background: var(--surface-2); }
