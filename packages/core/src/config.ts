@@ -54,7 +54,7 @@ export interface CoreConfig {
   snapshotItems?: number
   ring?: RingLimits
   closeTimeoutMs?: number
-  // How long the next queued message waits while its chat is on screen (ms; default 5000).
+  // How long the next queued message waits while its chat is on screen (ms; default 10000).
   queueCountdownMs?: number
   // Whether a client shows that tab's chat on screen right now (set by createCore from client.watch/visibility).
   watching?: (tabId: string) => boolean

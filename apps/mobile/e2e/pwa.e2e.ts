@@ -258,7 +258,7 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('.msg-user').filter({ hasText: 'queued one' }).count()).toBe(0)
     await resume.click()
     // The chat is on screen: the message counts down in the composer before it goes.
-    await page.getByRole('status').filter({ hasText: /From the queue: goes in \d s/ }).waitFor()
+    await page.getByRole('status').filter({ hasText: /From the queue: goes in \d+ s/ }).waitFor()
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toBe('Echo: queued one')
     await page.locator('.queue-tray').waitFor({ state: 'detached' })
   })
@@ -492,6 +492,24 @@ describe('PWA (fake SDK)', () => {
     await page.reload()
     await button(page, 'Settings').click()
     expect(await page.getByRole('radiogroup', { name: 'Compact when the conversation reaches' }).getByRole('radio', { name: '200k' }).isChecked()).toBe(true)
+  })
+
+  it('new sessions in Settings: the effort and permission mode chosen there are those of the next session', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await button(page, 'Settings').click()
+    const effort = page.getByRole('radiogroup', { name: 'Effort' })
+    expect(await effort.getByRole('radio', { name: 'Model’s own' }).isChecked()).toBe(true)
+    await effort.getByRole('radio', { name: 'High', exact: true }).click()
+    await page.getByText('New sessions: effort High').waitFor()
+    await button(page, /^Permission mode/).click()
+    await page.getByRole('dialog', { name: 'Permission mode' }).getByRole('radio', { name: 'Plan' }).click()
+    await page.getByText('New sessions: Plan').waitFor()
+    await page.reload()
+    await button(page, 'Settings').click()
+    expect(await page.getByRole('radiogroup', { name: 'Effort' }).getByRole('radio', { name: 'High', exact: true }).isChecked()).toBe(true)
+    await button(page, 'Back').click()
+    await openProject(page)
+    await button(page, 'Permission mode: Plan').waitFor()
   })
 
   it('the usage limit card: quiet "Switch to" buttons and Cancel, which puts it away', async () => {

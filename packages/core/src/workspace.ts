@@ -1,7 +1,7 @@
 import { homedir } from 'node:os'
 import { basename, join, relative } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
-import { WORKSPACE_STREAM, tabStream, type Home, type PlanLimits } from '@claude-wrap/protocol'
+import { WORKSPACE_STREAM, tabStream, type Effort, type Home, type PermissionMode, type PlanLimits } from '@claude-wrap/protocol'
 import { AccountStore } from './accounts.ts'
 import { ActivityFile } from './activity.ts'
 import type { CoreConfig, Notice, SdkApi } from './config.ts'
@@ -81,6 +81,8 @@ export class Workspace {
         accounts: this.accounts.list(),
         defaultAccount: this.accounts.defaultAccount,
         autoCompactWindow: this.store.data.autoCompactWindow,
+        defaultEffort: this.store.data.defaultEffort,
+        defaultMode: this.store.data.defaultMode,
         terminals: this.terminals.list()
       }),
       config.ring ?? DEFAULT_RING
@@ -293,8 +295,32 @@ export class Workspace {
   // and taken by every process at its next start (live ones restart, at the end of a running turn).
   async setAutoCompactWindow(tokens: number | undefined): Promise<void> {
     await this.store.update((data) => (data.autoCompactWindow = tokens))
-    this.stream.emit({ type: 'settings.updated', autoCompactWindow: tokens })
+    this.announceSettings()
     await Promise.all([...this.tabs.values()].map((tab) => tab.applyAutoCompactWindow()))
+  }
+
+  // The effort of the sessions created from now on (undefined: the model's): saved and announced.
+  async setDefaultEffort(effort: Effort | undefined): Promise<void> {
+    await this.store.update((data) => (data.defaultEffort = effort))
+    this.announceSettings()
+  }
+
+  // The permission mode of the sessions created from now on (undefined: 'default'): saved and announced.
+  async setDefaultMode(mode: PermissionMode | undefined): Promise<void> {
+    await this.store.update((data) => (data.defaultMode = mode))
+    this.announceSettings()
+  }
+
+  // A new session's init with the default effort and mode filled in where the client gave none.
+  withDefaults(init: TabInit): TabInit {
+    const { defaultEffort, defaultMode } = this.store.data
+    return { ...init, effort: init.effort ?? defaultEffort, mode: init.mode ?? defaultMode }
+  }
+
+  // Tells the clients every backend setting as it now is.
+  private announceSettings(): void {
+    const { autoCompactWindow, defaultEffort, defaultMode } = this.store.data
+    this.stream.emit({ type: 'settings.updated', autoCompactWindow, defaultEffort, defaultMode })
   }
 
   // The plan windows of an account as last read (composer gauges).
@@ -414,7 +440,7 @@ export class Workspace {
       sdkOptions: config.sdkOptions ?? {},
       transcript: { coalesceMs: config.coalesceMs ?? 16, snapshotItems: config.snapshotItems ?? 200, ring: config.ring ?? DEFAULT_RING },
       closeTimeoutMs: config.closeTimeoutMs ?? 3000,
-      queueCountdownMs: config.queueCountdownMs ?? 5000,
+      queueCountdownMs: config.queueCountdownMs ?? 10_000,
       watched: (tabId) => config.watching?.(tabId) ?? false,
       checkCanStart: () => {
         const live = [...this.tabs.values()].filter((tab) => tab.holdsProcess).length

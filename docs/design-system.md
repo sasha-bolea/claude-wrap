@@ -199,7 +199,7 @@ Examples: [ChatScreen.tsx:314](../packages/ui/src/touch/ChatScreen.tsx#L314), [T
 
 ### Queue countdown — `.countdown`, `.countdown-text`, `.countdown-label`, `.countdown-stop`, `.countdown-ring`
 While the chat is on screen, the next queued message does not go at once: the composer shows its text, "Dalla coda:
-parte tra N s" and a danger Stop inside a ring that empties in 5 s (`role="status"`). Stop puts the message back into
+parte tra N s" and a danger Stop inside a ring that empties in 10 s (`role="status"`). Stop puts the message back into
 the field (before what was being written) and the rest of the queue waits for ▶; at 0 it goes. With the chat not on
 screen (another screen, the app hidden, nobody connected) the queue goes at once, as before.
 Examples: [TouchComposer.tsx:38](../packages/ui/src/touch/TouchComposer.tsx#L38).
@@ -247,6 +247,12 @@ A row "Compatta quando la conversazione arriva a" with five segments: Standard (
 200k, 500k, 1M — Claude Code's `autoCompactWindow` (as /autocompact) for every session — and a wrapping hint under
 it. A change restarts the live processes (idle now, working at the end of their turn) with the conversations kept.
 Examples: [SettingsScreen.tsx:190](../packages/ui/src/touch/SettingsScreen.tsx#L190).
+
+### Settings → new sessions (existing `.list`, `.row.stacked`, `.segmented.effort`, `.menu` via `ModeMenu`)
+"Nuove sessioni": a row "Sforzo" with six segments in two rows of three (Del modello, then the five levels) and a
+wrapping hint, and a row "Modalità permessi" showing the chosen mode, which opens the same radio menu as the composer's
+mode sheet (`ModeMenu`). Both apply to sessions created from then on (forks keep their source's); open ones keep theirs.
+Examples: [SettingsScreen.tsx:189](../packages/ui/src/touch/SettingsScreen.tsx#L189), [modelSheets.tsx:94](../packages/ui/src/touch/modelSheets.tsx#L94).
 
 ### Composer gauge — `.gauge-btn` (`.high`), `.gauge-ring` (`.gauge-track`, `.gauge-fill`), `.gauge-bar`
 Right of the model in the composer: a 20 px ring filled to the **highest** of three shares — context window (after the
