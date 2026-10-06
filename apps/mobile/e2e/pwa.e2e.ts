@@ -33,10 +33,15 @@ afterEach(async () => {
 })
 
 describe('PWA (fake SDK)', () => {
-  it('on iPhone Safari it asks to install first; once paired it stays paired after a reload', async () => {
+  it('on iPhone Safari it asks to install first (only that when opened for a coloured icon); once paired it stays paired after a reload', async () => {
     const safari = await (await newPhone(true)).newPage()
     await safari.goto(backend.url)
     await safari.getByRole('heading', { name: 'Install the app first' }).waitFor()
+    expect(await safari.getByRole('button', { name: 'Continue in the browser' }).count()).toBe(1)
+    // Opened from "Icon in this colour": only the way to the Home screen, pairing Safari would waste the code.
+    await safari.goto(`${backend.url}/?accent=0f766e`)
+    await safari.getByText('Pair the app opened from the Home screen').waitFor()
+    expect(await safari.getByRole('button', { name: 'Continue in the browser' }).count()).toBe(0)
     const page = await pairedPage(await newPhone(), backend)
     expect(page.url()).not.toContain('#pair=')
     await page.reload()

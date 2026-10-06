@@ -314,6 +314,8 @@ Examples: [accounts.tsx:19](../packages/ui/src/touch/accounts.tsx#L19), [account
 
 ### Launch and pairing — `.splash` (`.splash-main`, `.splash-state` `.bad`, `.dots`), `.hero-mark` (`.big`), `.hero-title`, `.steps`, `.error-text`, `.code-box`
 The launch screen until the server answers (same mark as the iOS splash). The pairing screen: install steps in iPhone
-Safari, the link-or-code field in the installed app; right after pairing a sheet offers the notifications once.
+Safari (opened from "Icona con questo colore": only those, no "Continua nel browser", since pairing Safari would
+waste the one-time code), the link-or-code field in the installed app; right after pairing a sheet offers the
+notifications once.
 `.code-box`: a one-time pairing code (Settings → Add device).
-Examples: [Splash.tsx:13](../packages/ui/src/touch/Splash.tsx#L13), [PairScreen.tsx:41](../packages/ui/src/PairScreen.tsx#L41), [SettingsScreen.tsx:319](../packages/ui/src/touch/SettingsScreen.tsx#L319).
+Examples: [Splash.tsx:13](../packages/ui/src/touch/Splash.tsx#L13), [PairScreen.tsx:43](../packages/ui/src/PairScreen.tsx#L43), [SettingsScreen.tsx:319](../packages/ui/src/touch/SettingsScreen.tsx#L319).

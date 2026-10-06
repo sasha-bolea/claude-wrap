@@ -123,7 +123,8 @@ async function pair(code: string): Promise<void> {
 
 function showPairing(notice?: string): void {
   const code = /#pair=([\w-]+)/.exec(location.hash)?.[1]
-  root.render(<PairScreen installed={standalone || !isIos} initialCode={code} notice={notice} onPair={pair} />)
+  const forHomeScreen = new URLSearchParams(location.search).has('accent')
+  root.render(<PairScreen installed={standalone || !isIos} initialCode={code} forHomeScreen={forHomeScreen} notice={notice} onPair={pair} />)
 }
 
 // Connects with the device token and shows the app; a revoked token leads back to pairing. justPaired: the app

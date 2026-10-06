@@ -6,6 +6,8 @@ type PairScreenProps = {
   installed: boolean
   // Code taken from a #pair= link, if the page was opened with one.
   initialCode?: string
+  // Opened from "Icon in this colour" to add the app again: Safari offers only the way to the Home screen.
+  forHomeScreen?: boolean
   // Why the previous pairing ended (revoked device), if it did.
   notice?: string
   // Exchanges the code for a device token; rejects with a message to show.
@@ -19,8 +21,8 @@ export function codeFromInput(input: string): string {
 }
 
 // First screen of an unpaired PWA (touch layout). In Safari it explains how to install first (pairing there would
-// pair Safari, not the app); in the installed app it takes the link or code from `claude-wrap pair` or another device.
-export function PairScreen({ installed, initialCode, notice, onPair }: PairScreenProps) {
+// pair Safari, not the app; opened for a coloured icon, it offers nothing else); in the installed app it takes the link or code from `claude-wrap pair` or another device.
+export function PairScreen({ installed, initialCode, forHomeScreen, notice, onPair }: PairScreenProps) {
   const [input, setInput] = useState(initialCode ?? '')
   const [error, setError] = useState(notice)
   const [busy, setBusy] = useState(false)
@@ -50,10 +52,12 @@ export function PairScreen({ installed, initialCode, notice, onPair }: PairScree
                   <li>{t('pairStepAdd')}</li>
                   <li>{t('pairStepOpen')}</li>
                 </ol>
-                <p className="muted flat">{t('pairSafariNote')}</p>
-                <button className="button block" onClick={() => setAnyway(true)}>
-                  {t('pairInBrowser')}
-                </button>
+                <p className="muted flat">{t(forHomeScreen ? 'pairIconNote' : 'pairSafariNote')}</p>
+                {!forHomeScreen && (
+                  <button className="button block" onClick={() => setAnyway(true)}>
+                    {t('pairInBrowser')}
+                  </button>
+                )}
               </>
             ) : (
               <>
