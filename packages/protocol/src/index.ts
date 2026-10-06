@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { COMMANDS } from './commands.ts'
-import { browserEventSchema, browserSnapshotSchema, tabEventSchema, tabSnapshotSchema, terminalEventSchema, terminalSnapshotSchema, workspaceEventSchema, workspaceSnapshotSchema } from './model.ts'
+import { tabEventSchema, tabSnapshotSchema, terminalEventSchema, terminalSnapshotSchema, workspaceEventSchema, workspaceSnapshotSchema } from './model.ts'
 
 export * from './model.ts'
 export * from './commands.ts'
@@ -16,9 +16,7 @@ export const LIMITS = {
   images: 20,
   // File explorer: what a preview shows at most, and the largest file uploaded or downloaded.
   previewBytes: 2 * 1024 * 1024,
-  fileBytes: 20 * 1024 * 1024,
-  // Browser: most tabs open at once in the server's one browser.
-  browserMaxTabs: 5
+  fileBytes: 20 * 1024 * 1024
 } as const
 
 // Liveness: the client pings every PING_INTERVAL_MS; after PING_MISSES unanswered pings it reconnects.
@@ -90,7 +88,7 @@ export const evSchema = z.object({
   stream: z.string(),
   epoch: z.string(),
   seq: z.number().int(),
-  ev: z.union([workspaceEventSchema, tabEventSchema, terminalEventSchema, browserEventSchema])
+  ev: z.union([workspaceEventSchema, tabEventSchema, terminalEventSchema])
 })
 // Full state of a stream; may arrive at any time, also on a live stream.
 export const resetSchema = z.object({
@@ -98,7 +96,7 @@ export const resetSchema = z.object({
   stream: z.string(),
   epoch: z.string(),
   seq: z.number().int(),
-  snapshot: z.union([workspaceSnapshotSchema, tabSnapshotSchema, terminalSnapshotSchema, browserSnapshotSchema])
+  snapshot: z.union([workspaceSnapshotSchema, tabSnapshotSchema, terminalSnapshotSchema])
 })
 // The stream no longer exists (e.g. its tab was closed while the client was away).
 export const goneSchema = z.object({ t: z.literal('gone'), stream: z.string() })

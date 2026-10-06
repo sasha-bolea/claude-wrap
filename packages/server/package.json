@@ -13,7 +13,6 @@
   "dependencies": {
     "@athome/core": "*",
     "@athome/protocol": "*",
-    "@playwright/mcp": "0.0.83",
     "web-push": "^3.6.7",
     "ws": "^8.22.0"
   },

@@ -1,6 +1,5 @@
 import { join } from 'node:path'
-import { LIMITS, PROTOCOL_VERSION, WORKSPACE_STREAM, browserStream, clientFrameSchema, type Channel, type Cmd, type CoreFrame, type ErrorCode, type Hello, type Palette, type Welcome } from '@athome/protocol'
-import type { BrowserHost } from './browser.ts'
+import { LIMITS, PROTOCOL_VERSION, WORKSPACE_STREAM, clientFrameSchema, type Channel, type Cmd, type CoreFrame, type ErrorCode, type Hello, type Palette, type Welcome } from '@athome/protocol'
 import { createHandlers, execute, type Connection, type Handlers } from './commands.ts'
 import type { CoreConfig } from './config.ts'
 import { sweepOrphans } from './process.ts'
@@ -23,8 +22,6 @@ export interface Core {
   closeAll(): Promise<void>
   // The saved colour palettes (the remote host shows them to a device being set up, before it is paired).
   palettes(): Promise<Palette[]>
-  // The shared browser, when this host has one (the integration with Claude's sessions drives it).
-  browser(): Promise<BrowserHost | undefined>
 }
 
 type Runtime = { workspace: Workspace; handlers: Handlers }
@@ -64,10 +61,6 @@ export function createCore(config: CoreConfig): Core {
     workspace.stream.attach(connection.send, hello.resume[WORKSPACE_STREAM])
     for (const [stream, position] of Object.entries(hello.resume)) {
       if (stream === WORKSPACE_STREAM) continue
-      if (stream === browserStream() && workspace.browser) {
-        await workspace.browser.subscribe(connection.send, position).catch(() => connection.send({ t: 'gone', stream }))
-        continue
-      }
       const tab = workspace.tabOfStream(stream)
       const terminal = tab ? undefined : workspace.terminals.streamOf(stream)
       if (tab) await tab.subscribe(connection.send, position)
@@ -111,11 +104,10 @@ export function createCore(config: CoreConfig): Core {
         workspace.stream.detach(send)
         for (const tab of workspace.tabs.values()) tab.unsubscribe(send)
         workspace.terminals.detachAll(send)
-        void workspace.browser?.unsubscribe(send)
       })
     )
   }
 
   const palettes = () => runtime.then(async ({ workspace }) => (await workspace.palettes.loaded, workspace.palettes.list()))
-  return { ready: runtime.then(() => undefined), attach, closeAll: () => runtime.then(({ workspace }) => workspace.closeAll()), palettes, browser: () => runtime.then(({ workspace }) => workspace.browser) }
+  return { ready: runtime.then(() => undefined), attach, closeAll: () => runtime.then(({ workspace }) => workspace.closeAll()), palettes }
 }

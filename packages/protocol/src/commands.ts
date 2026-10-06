@@ -236,20 +236,6 @@ export const COMMANDS = {
   'terminal.input': { args: z.object({ terminalId: z.string(), data: z.string().max(64 * 1024) }), result: empty },
   'terminal.resize': { args: z.object({ terminalId: z.string(), cols: terminalSize, rows: terminalSize }), result: empty },
   'terminal.close': { args: z.object({ terminalId: z.string() }), result: empty },
-  // Browser: Chromium session shared by Sasha (viewing frames) and Claude (control via Playwright MCP over CDP).
-  'browser.subscribe': { args: empty, result: empty },
-  'browser.unsubscribe': { args: empty, result: empty },
-  'browser.navigate': { args: z.object({ url: z.string().url().refine((url) => url.startsWith('http://') || url.startsWith('https://'), 'only http: or https: urls').max(8192) }), result: empty },
-  'browser.back': { args: empty, result: empty },
-  'browser.forward': { args: empty, result: empty },
-  'browser.reload': { args: empty, result: empty },
-  'browser.tabNew': { args: z.object({ url: z.string().url().refine((url) => url.startsWith('http://') || url.startsWith('https://'), 'only http: or https: urls').max(8192).optional() }), result: z.object({ tabId: z.string() }) },
-  'browser.tabSelect': { args: z.object({ tabId: z.string() }), result: empty },
-  'browser.tabClose': { args: z.object({ tabId: z.string() }), result: empty },
-  'browser.pointer': { args: z.object({ type: z.enum(['down', 'move', 'up']), x: z.number().min(0).max(1), y: z.number().min(0).max(1), button: z.enum(['left', 'right', 'middle']).optional(), clickCount: z.number().int().min(1).max(3).optional(), touch: z.boolean().optional() }), result: empty },
-  'browser.wheel': { args: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), dx: z.number().finite(), dy: z.number().finite() }).refine((args) => Math.abs(args.dx) <= 10000 && Math.abs(args.dy) <= 10000, 'wheel deltas must satisfy |d| ≤ 10000'), result: empty },
-  'browser.text': { args: z.object({ text: z.string().max(20000) }), result: empty },
-  'browser.viewport': { args: z.object({ width: z.number().int().min(200).max(4000), height: z.number().int().min(200).max(4000), mobile: z.boolean(), scale: z.number().min(1).max(4).optional() }), result: empty },
   // Folder trust: what the folder would load and run, and where an accepted trust applies.
   'trust.check': {
     args: z.object({ cwd: z.string().min(1) }),

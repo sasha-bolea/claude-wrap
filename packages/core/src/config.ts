@@ -1,6 +1,5 @@
 import type { Options, SDKSessionInfo, SessionMessage, query } from '@anthropic-ai/claude-agent-sdk'
 import type { BackendKind } from '@athome/protocol'
-import type { BrowserSettings } from './browser.ts'
 import type { HostCommands } from './commands.ts'
 import type { RingLimits } from './stream.ts'
 import type { ShellCommand } from './terminals.ts'
@@ -53,9 +52,6 @@ export interface CoreConfig {
   // Moves a file or folder to the system trash (desktop: Electron's shell.trashItem, in main). Absent: the app's own
   // trash in <stateDir>/trash, 7 days (remote server).
   trashItem?: (path: string) => Promise<void>
-  // The shared browser (remote server only): the Chromium to run and where. Absent: every browser.* command fails.
-  // launch/connect replace the real process and DevTools connection in tests; idleMs: close after this long unused.
-  browser?: BrowserSettings
   maxLiveSessions?: number
   coalesceMs?: number
   snapshotItems?: number

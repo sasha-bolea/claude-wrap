@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { basename, isAbsolute, relative } from 'node:path'
-import type { HookCallback, Options, SDKMessage, SDKResultMessage, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { Options, SDKMessage, SDKResultMessage, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
 import {
   EFFORT_LEVELS,
   tabStream,
@@ -20,7 +20,6 @@ import {
   type Usage
 } from '@athome/protocol'
 import type { Notice, SdkApi } from './config.ts'
-import type { BrowserHost } from './browser.ts'
 import { CoreError, messageOf } from './errors.ts'
 import { suggestFiles } from './fileSuggestions.ts'
 import { Normalizer, peerOf, storedPeer } from './normalize.ts'
@@ -39,10 +38,6 @@ const BASE_OPTIONS: Options = {
   settingSources: ['user', 'project', 'local'],
   systemPrompt: { type: 'preset', preset: 'claude_code' }
 }
-
-// The MCP server name for the shared browser and the matcher of its tools (mcp__<server>__<tool>).
-const BROWSER_MCP_NAME = 'playwright'
-const BROWSER_TOOL_MATCHER = `^mcp__${BROWSER_MCP_NAME}__`
 
 export interface TabEnvironment {
   sdk: SdkApi
@@ -83,8 +78,6 @@ export interface TabEnvironment {
   autoCompactWindow(): number | undefined
   // The token of an account (undefined for the login).
   accountToken(account: string | undefined): Promise<string | undefined>
-  // The shared browser (remote server only), when configured.
-  browser?: BrowserHost
 }
 
 // What a rewind gives back: the rewound prompt for the composer (conversation modes), the files it restored (code
@@ -501,7 +494,6 @@ export class Tab {
     if (!session) return
     this.endIncoming()
     this.session = undefined
-    this.env.browser?.stopActing(this.tabId, true)
     this.turnRunning = false
     this.held.clear()
     this.lifecycle = 'dormant'
@@ -843,7 +835,6 @@ export class Tab {
       this.requests.denyAll('Session closed')
       await this.startPromise?.catch(() => undefined)
       await this.session?.close(this.env.closeTimeoutMs)
-      this.env.browser?.stopActing(this.tabId, true)
       this.transcript.dispose()
     })()
     return this.closePromise
@@ -938,36 +929,7 @@ export class Tab {
       effort: this.effort,
       ...(autoCompactWindow ? { settings: { autoCompactWindow } } : {}),
       permissionMode: this.mode,
-      canUseTool: this.requests.ask,
-      ...this.browserOptions()
-    }
-  }
-
-  // The shared browser for this session: our Playwright MCP (attached to the same Chromium as Sasha's live view)
-  // replaces the user's same-name server, and hooks start the browser and mark this chat as acting while a
-  // browser tool runs. Nothing without a configured browser.
-  private browserOptions(): Pick<Options, 'mcpServers' | 'hooks'> {
-    const browser = this.env.browser
-    const mcp = browser?.mcp
-    if (!browser || !mcp) return {}
-    const before: HookCallback = async () => {
-      await browser.ensure()
-      browser.startActing(this.tabId, this.title)
-      return { continue: true }
-    }
-    const after: HookCallback = async () => {
-      browser.stopActing(this.tabId)
-      return { continue: true }
-    }
-    const hooks = (callback: HookCallback) => [{ matcher: BROWSER_TOOL_MATCHER, hooks: [callback] }]
-    return {
-      mcpServers: { ...this.env.sdkOptions.mcpServers, [BROWSER_MCP_NAME]: { type: 'stdio', command: mcp.command, args: mcp.args } },
-      hooks: {
-        ...this.env.sdkOptions.hooks,
-        PreToolUse: [...(this.env.sdkOptions.hooks?.PreToolUse ?? []), ...hooks(before)],
-        PostToolUse: [...(this.env.sdkOptions.hooks?.PostToolUse ?? []), ...hooks(after)],
-        PostToolUseFailure: [...(this.env.sdkOptions.hooks?.PostToolUseFailure ?? []), ...hooks(after)]
-      }
+      canUseTool: this.requests.ask
     }
   }
 
@@ -1208,7 +1170,6 @@ export class Tab {
     if (this.session !== session) return
     this.endIncoming()
     this.session = undefined
-    this.env.browser?.stopActing(this.tabId, true)
     this.turnRunning = false
     this.held.clear()
     if (this.lifecycle === 'closing') return

@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import type { BrowserEvent, BrowserSnapshot, CoreFrame, EvFrame, ResetFrame, StreamPosition, TabEvent, TabSnapshot, TerminalEvent, TerminalSnapshot, WorkspaceEvent, WorkspaceSnapshot } from '@athome/protocol'
+import type { CoreFrame, EvFrame, ResetFrame, StreamPosition, TabEvent, TabSnapshot, TerminalEvent, TerminalSnapshot, WorkspaceEvent, WorkspaceSnapshot } from '@athome/protocol'
 
 export type Send = (frame: CoreFrame) => void
-export type StreamEvent = TabEvent | WorkspaceEvent | TerminalEvent | BrowserEvent
-export type StreamSnapshot = TabSnapshot | WorkspaceSnapshot | TerminalSnapshot | BrowserSnapshot
+export type StreamEvent = TabEvent | WorkspaceEvent | TerminalEvent
+export type StreamSnapshot = TabSnapshot | WorkspaceSnapshot | TerminalSnapshot
 export type RingLimits = { events: number; bytes: number }
 
 export const DEFAULT_RING: RingLimits = { events: 2000, bytes: 4 * 1024 * 1024 }

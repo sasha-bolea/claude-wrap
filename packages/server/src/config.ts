@@ -1,7 +1,5 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // Server settings from the environment (systemd EnvironmentFile on the home server, not in the repo):
@@ -11,10 +9,6 @@ import { fileURLToPath } from 'node:url'
 //   CLAUDE_WRAP_STATE_DIR       state, devices, pairing codes (default ~/.local/state/claude-wrap)
 //   CLAUDE_WRAP_TAILSCALE_LOGIN owner's Tailscale login; when set, requests without it are refused
 //   CLAUDE_WRAP_STATIC_DIR      PWA build to serve (default apps/mobile/dist)
-//   CLAUDE_WRAP_BROWSER=1       switches the shared browser on (off by default)
-//   CLAUDE_WRAP_BROWSER_PORT   DevTools port of the shared browser, loopback only (default 3013)
-//   CLAUDE_WRAP_CHROME          Chromium executable (default ~/.cache/ms-playwright/chromium-1247/chrome-linux64/chrome;
-//                               not found -> the browser is off)
 //   CLAUDE_WRAP_FAKE_SDK=1      scripted fake SDK (tests, zero quota)
 
 export type ServerConfig = {
@@ -26,51 +20,21 @@ export type ServerConfig = {
   tailscaleLogin?: string
   staticDir: string
   fakeSdk: boolean
-  // Absent when no Chromium is found: the browser is off.
-  browser?: { port: number; executable: string; profileDir: string; mcp?: { command: string; args: string[] } }
 }
 
 // Reads the configuration; throws with a readable message when the root is missing.
 export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   if (!env.CLAUDE_WRAP_ROOT) throw new Error('CLAUDE_WRAP_ROOT is not set: the folder sessions may run in (e.g. /srv/progetti)')
   if (!env.CLAUDE_WRAP_PUBLIC_URL) throw new Error('CLAUDE_WRAP_PUBLIC_URL is not set: the address clients use (e.g. https://<host>.<tailnet>.ts.net:8443)')
-  const stateDir = env.CLAUDE_WRAP_STATE_DIR ?? join(homedir(), '.local', 'state', 'claude-wrap')
   return {
     root: env.CLAUDE_WRAP_ROOT,
     publicUrl: new URL(env.CLAUDE_WRAP_PUBLIC_URL),
     port: Number(env.CLAUDE_WRAP_PORT ?? 3012),
     host: env.CLAUDE_WRAP_HOST ?? '127.0.0.1',
-    stateDir,
+    stateDir: env.CLAUDE_WRAP_STATE_DIR ?? join(homedir(), '.local', 'state', 'claude-wrap'),
     tailscaleLogin: env.CLAUDE_WRAP_TAILSCALE_LOGIN || undefined,
     staticDir: env.CLAUDE_WRAP_STATIC_DIR ?? fileURLToPath(new URL('../../../apps/mobile/dist', import.meta.url)),
-    fakeSdk: env.CLAUDE_WRAP_FAKE_SDK === '1',
-    browser: browserConfig(env, stateDir)
-  }
-}
-
-// The shared browser's settings, or undefined when it is not switched on (CLAUDE_WRAP_BROWSER=1) or no Chromium is
-// found. Creates the private profile folder (0700).
-function browserConfig(env: NodeJS.ProcessEnv, stateDir: string): ServerConfig['browser'] {
-  if (env.CLAUDE_WRAP_BROWSER !== '1') return undefined
-  const executable = env.CLAUDE_WRAP_CHROME || join(homedir(), '.cache', 'ms-playwright', 'chromium-1247', 'chrome-linux64', 'chrome')
-  if (!existsSync(executable)) return undefined
-  const profileDir = join(stateDir, 'browser', 'profile')
-  mkdirSync(profileDir, { recursive: true, mode: 0o700 })
-  const port = Number(env.CLAUDE_WRAP_BROWSER_PORT ?? 3013)
-  return { port, executable, profileDir, mcp: playwrightMcp(port) }
-}
-
-// The command that runs Playwright MCP attached to the shared Chromium over CDP (its default context, so Claude and
-// Sasha's live view share tabs and logins): this Node on the package's CLI. Undefined when the package is missing.
-export function playwrightMcp(port: number): { command: string; args: string[] } | undefined {
-  try {
-    const manifest = createRequire(import.meta.url).resolve('@playwright/mcp/package.json')
-    const bin = (JSON.parse(readFileSync(manifest, 'utf8')) as { bin?: string | Record<string, string> }).bin
-    const entry = typeof bin === 'string' ? bin : Object.values(bin ?? {})[0]
-    if (!entry) return undefined
-    return { command: process.execPath, args: [join(dirname(manifest), entry), '--headless', '--browser', 'chromium', '--cdp-endpoint', `http://127.0.0.1:${port}`] }
-  } catch {
-    return undefined
+    fakeSdk: env.CLAUDE_WRAP_FAKE_SDK === '1'
   }
 }
 

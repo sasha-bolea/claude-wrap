@@ -182,19 +182,6 @@ export const terminalEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('terminal.exit'), exitCode: z.number().int() })
 ])
 
-// One screencast frame of the active tab (jpeg, base64).
-export const browserFrameSchema = z.object({ type: z.literal('browser.frame'), tabId: z.string(), data: z.string().max(3_000_000), width: z.number().int(), height: z.number().int(), viewportWidth: z.number().int(), viewportHeight: z.number().int(), seq: z.number().int() })
-
-// The browser's stream: frames of the active tab, its tabs, and the chats whose Claude is using it.
-export const browserEventSchema = z.discriminatedUnion('type', [
-  browserFrameSchema,
-  z.object({ type: z.literal('browser.tabs'), tabs: z.array(z.object({ tabId: z.string(), url: z.string(), title: z.string(), active: z.boolean() })), running: z.boolean() }),
-  z.object({ type: z.literal('browser.acting'), sessions: z.array(z.object({ tabId: z.string(), title: z.string() })) }),
-])
-
-// The browser stream's full state: tabs, whether Chromium runs, chats whose Claude acts in it, and the latest frame (a static page sends none).
-export const browserSnapshotSchema = z.object({ kind: z.literal('browser'), tabs: z.array(z.object({ tabId: z.string(), url: z.string(), title: z.string(), active: z.boolean() })), running: z.boolean(), acting: z.array(z.object({ tabId: z.string(), title: z.string() })), frame: browserFrameSchema.optional() })
-
 export const workspaceSnapshotSchema = z.object({
   kind: z.literal('workspace'),
   tabs: z.array(tabMetaSchema),
@@ -282,8 +269,6 @@ export const usageSchema = z.object({
 export const tabStream = (tabId: string) => `tab:${tabId}`
 // Name of the output stream of one terminal.
 export const terminalStream = (terminalId: string) => `terminal:${terminalId}`
-// Name of the browser stream; Sasha views frames, Claude controls via Playwright MCP.
-export const browserStream = () => 'browser'
 
 export type PermissionMode = z.infer<typeof permissionModeSchema>
 export type TabStatus = (typeof TAB_STATUSES)[number]
@@ -306,8 +291,6 @@ export type TabSnapshot = z.infer<typeof tabSnapshotSchema>
 export type TerminalMeta = z.infer<typeof terminalMetaSchema>
 export type TerminalEvent = z.infer<typeof terminalEventSchema>
 export type TerminalSnapshot = z.infer<typeof terminalSnapshotSchema>
-export type BrowserEvent = z.infer<typeof browserEventSchema>
-export type BrowserSnapshot = z.infer<typeof browserSnapshotSchema>
 export type SessionInfo = z.infer<typeof sessionInfoSchema>
 export type ProjectConfig = z.infer<typeof projectConfigSchema>
 export type ContextUsage = z.infer<typeof contextUsageSchema>

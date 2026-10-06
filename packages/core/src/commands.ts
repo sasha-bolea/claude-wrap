@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 import { COMMANDS, LIMITS, type Cmd, type CommandArgs, type CommandName, type CommandResult, type ErrorCode, type Image, type Reply } from '@athome/protocol'
-import type { BrowserHost } from './browser.ts'
 import { CoreError, messageOf } from './errors.ts'
 import { deletable, listFiles, makeDir, moveFile, readFileFor, writeFileFor } from './files.ts'
 import { createFolder, listFolders } from './folders.ts'
@@ -24,12 +23,6 @@ export type HostCommands = Partial<Pick<Handlers, 'devices.list' | 'devices.pair
 
 const notHere = () => {
   throw new CoreError('not_found', 'devices and push exist only on the remote server')
-}
-
-// The shared browser, or not_found where the host has none (the desktop's own core).
-function browserOf(workspace: Workspace): BrowserHost {
-  if (!workspace.browser) throw new CoreError('not_found', 'the browser is only on the server')
-  return workspace.browser
 }
 
 // Copies a tab's session (up to an item, if given) into a new tab next to it. Refused while a turn runs: the
@@ -240,20 +233,6 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'terminal.input': ({ terminalId, data }) => (workspace.terminals.input(terminalId, data), {}),
     'terminal.resize': ({ terminalId, cols, rows }) => (workspace.terminals.resize(terminalId, cols, rows), {}),
     'terminal.close': ({ terminalId }) => (workspace.terminals.close(terminalId), {}),
-    // Browser (remote server only): Chromium shared by every client and, later, Claude.
-    'browser.subscribe': async (_args, connection) => (await browserOf(workspace).subscribe(connection.send), {}),
-    'browser.unsubscribe': async (_args, connection) => (await browserOf(workspace).unsubscribe(connection.send), {}),
-    'browser.navigate': async ({ url }) => (await browserOf(workspace).navigate(url), {}),
-    'browser.back': async () => (await browserOf(workspace).history(-1), {}),
-    'browser.forward': async () => (await browserOf(workspace).history(1), {}),
-    'browser.reload': async () => (await browserOf(workspace).reload(), {}),
-    'browser.tabNew': async ({ url }) => ({ tabId: await browserOf(workspace).tabNew(url) }),
-    'browser.tabSelect': async ({ tabId }) => (await browserOf(workspace).tabSelect(tabId), {}),
-    'browser.tabClose': async ({ tabId }) => (await browserOf(workspace).tabClose(tabId), {}),
-    'browser.pointer': async (args) => (await browserOf(workspace).pointer(args), {}),
-    'browser.wheel': async (args) => (await browserOf(workspace).wheel(args), {}),
-    'browser.text': async ({ text }) => (await browserOf(workspace).text(text), {}),
-    'browser.viewport': async (args) => (await browserOf(workspace).setViewport(args), {}),
     'trust.check': ({ cwd }) => workspace.trust.check(cwd),
     'trust.grant': async ({ cwd }) => (await workspace.grantTrust(cwd), {}),
     'request.answer': ({ tabId, requestId, ...answer }, connection) => (tabOf(tabId).answer(requestId, answer, connection.label), {})
