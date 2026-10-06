@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FileEntry, TabMeta } from '@athome/protocol'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { answeredQuestions, durationLabel, filesChanged, folderSummary, freeName, htmlLines, inside, modelShortName, resetLabel, sessionState, spanNodes, tokenLabel } from './model.ts'
+import { answeredQuestions, durationLabel, filesChanged, folderSummary, freeName, htmlLines, inside, modelShortName, recentFirst, resetLabel, sessionState, spanNodes, tokenLabel } from './model.ts'
 
 const tab = (cwd: string, status: TabMeta['status']): TabMeta => ({ tabId: cwd + status, title: 't', cwd, status, mode: 'default', queue: [], pendingRequests: 0 })
 
@@ -35,6 +35,13 @@ describe('touch model', () => {
     expect(folderSummary(tabs, '/srv/p/c')).toEqual({ open: 0, state: 'idle' })
     expect(sessionState(tab('/x', 'starting'))).toBe('working')
     expect(sessionState(tab('/x', 'dormant'))).toBe('idle')
+  })
+
+  it('open sessions list the last used first; those never used keep their order, last', () => {
+    const used = (tabId: string, lastUsedAt?: number): TabMeta => ({ ...tab('/x', 'idle'), tabId, ...(lastUsedAt ? { lastUsedAt } : {}) })
+    const tabs = [used('old1'), used('a', 100), used('old2'), used('b', 300), used('c', 200)]
+    expect(recentFirst(tabs).map((one) => one.tabId)).toEqual(['b', 'c', 'a', 'old1', 'old2'])
+    expect(tabs.map((one) => one.tabId)).toEqual(['old1', 'a', 'old2', 'b', 'c'])
   })
 
   it('a model id becomes its short name with the version', () => {

@@ -33,6 +33,9 @@ export function folderSummary(tabs: TabMeta[], folder: string): { open: number; 
   return { open: states.length, state: URGENCY.find((state) => states.includes(state)) ?? 'idle' }
 }
 
+// The open sessions with the last used first (a copy); those saved before the time existed follow in their order.
+export const recentFirst = (tabs: TabMeta[]) => [...tabs].sort((a, b) => (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0))
+
 // The last part of a path (a folder's name).
 export const baseName = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() ?? path
 

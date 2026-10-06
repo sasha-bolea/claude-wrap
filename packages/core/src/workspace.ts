@@ -152,7 +152,7 @@ export class Workspace {
   create(init: TabInit): string {
     const existing = this.tabs.get(init.tabId) ?? (init.resume ? this.tabOfSession(init.resume) : undefined)
     if (existing) return existing.tabId
-    const tab = new Tab({ ...init, account: init.account ?? this.accounts.defaultAccount }, this.env)
+    const tab = new Tab({ ...init, account: init.account ?? this.accounts.defaultAccount, lastUsedAt: Date.now() }, this.env)
     this.add(tab)
     this.stream.emit({ type: 'tab.added', tab: tab.meta() })
     this.persist()

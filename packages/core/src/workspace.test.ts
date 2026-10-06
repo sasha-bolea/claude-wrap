@@ -149,6 +149,29 @@ describe('tab operations', () => {
     expect(tabs(client).map((tab) => tab.tabId)).toEqual(['c', 'a', 'b'])
   })
 
+  it('a tab is used when opened and when a message is sent or queued; the time survives a restart', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'cw-state-'))
+    fake.histories.set('s1', [stored.user('u1', 'hi')])
+    fake.histories.set('s2', [stored.user('u2', 'hi')])
+    const first = makeCore({ stateDir })
+    const client = await connect(first)
+    await client.ok('tab.create', { tabId: 'a', cwd, resume: 's1' })
+    await tick(5)
+    await client.ok('tab.create', { tabId: 'b', cwd, resume: 's2' })
+    const opened = meta(client, 'b')!.lastUsedAt
+    expect(opened).toBeGreaterThan(meta(client, 'a')!.lastUsedAt!)
+    await tick(5)
+    await client.ok('tab.queuePause', { tabId: 'a', paused: true })
+    await client.ok('tab.queueAdd', { tabId: 'a', text: 'later' })
+    expect(meta(client, 'a')!.lastUsedAt).toBeGreaterThan(opened!)
+    const used = meta(client, 'a')!.lastUsedAt
+    await first.closeAll()
+
+    const again = await connect(makeCore({ stateDir }), false)
+    expect(meta(again, 'a')?.lastUsedAt).toBe(used)
+    expect(meta(again, 'b')?.lastUsedAt).toBe(opened)
+  })
+
   it('rename also renames the stored session', async () => {
     fake.histories.set('s1', [stored.user('u1', 'hi')])
     const client = await connect(makeCore())

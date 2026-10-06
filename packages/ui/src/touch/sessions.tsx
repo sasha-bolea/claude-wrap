@@ -3,7 +3,7 @@ import type { CommandResult, SessionInfo, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { readDraft } from '../viewState.ts'
 import { useTouch } from './context.tsx'
-import { baseName, sessionState } from './model.ts'
+import { baseName, recentFirst, sessionState } from './model.ts'
 import { Badge, IconButton, stateWords } from './parts.tsx'
 
 type TrustCheck = CommandResult<'trust.check'>
@@ -290,7 +290,7 @@ export function OpenSessions() {
     <>
       <p className="label">{t('openSessions')}</p>
       <ul className="list">
-        {state.tabs.map((tab) => (
+        {recentFirst(state.tabs).map((tab) => (
           <SessionRow key={tab.tabId} tab={tab} withFolder />
         ))}
       </ul>
@@ -304,7 +304,7 @@ export function SessionLists({ open, stored: all, folder, withFolder, onChange }
     <>
       <p className="label">{t('openSessions')}</p>
       <ul className="list">
-        {open.map((tab) => (
+        {recentFirst(open).map((tab) => (
           <SessionRow key={tab.tabId} tab={tab} withFolder={withFolder} />
         ))}
         {!open.length && (

@@ -25,6 +25,8 @@ export type PersistedTab = {
   interrupted?: 'limit' | 'switch'
   // The context window after the last turn (composer gauge).
   context?: ContextGauge
+  // When the tab was last used (ms): opened, or a message sent or queued.
+  lastUsedAt?: number
 }
 
 // A claude process started by this core, recorded to kill it if the core dies without closing it.

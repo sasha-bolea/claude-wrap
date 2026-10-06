@@ -103,6 +103,8 @@ export type TabInit = {
   interrupted?: 'limit' | 'switch'
   // The context window after the last turn.
   context?: ContextGauge
+  // When the tab was last used (ms).
+  lastUsedAt?: number
 }
 
 // Longest title taken from the CLI (chars). Its "summary" is its generated title, but for some sessions (long ones,
@@ -155,6 +157,8 @@ export class Tab {
   private interrupted?: 'limit' | 'switch'
   // The context window after the last turn (composer gauge).
   private contextGauge?: ContextGauge
+  // When the tab was last used (ms): opened, or a message sent or queued.
+  lastUsedAt?: number
   // The countdown of the next queued message, while its chat is on screen.
   private countdown?: { queueId: string; until: number; timer: NodeJS.Timeout }
   sessionId?: string
@@ -199,6 +203,7 @@ export class Tab {
     this.account = init.account
     this.interrupted = init.interrupted
     this.contextGauge = init.context
+    this.lastUsedAt = init.lastUsedAt
     this.sessionId = init.resume
     this.model = init.model
     this.effort = init.effort
@@ -239,9 +244,9 @@ export class Tab {
 
   // What survives a restart (the tab comes back dormant).
   persisted(): PersistedTab {
-    const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause, autoTitle, account, interrupted } = this
+    const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause, autoTitle, account, interrupted, lastUsedAt } = this
     const context = this.contextGauge
-    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account, interrupted, context }
+    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account, interrupted, context, lastUsedAt }
   }
 
   // The stored-session uuid behind an item (fork up to that item).
@@ -250,13 +255,13 @@ export class Tab {
   }
 
   meta(): TabMeta {
-    const { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queuePause, account, interrupted } = this
+    const { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queuePause, account, interrupted, lastUsedAt } = this
     const limitedUntil = this.env.limitedUntil(account)
     const planLimits = this.env.planLimits(account)
     const context = this.contextGauge
     const queueCountdown = this.countdown && { queueId: this.countdown.queueId, until: this.countdown.until }
     const queue = this.queue.map(({ queueId, text, from, images }) => ({ queueId, text, from, images: images?.length }))
-    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}), ...(interrupted ? { interrupted } : {}), ...(context ? { context } : {}), ...(planLimits ? { planLimits } : {}), ...(queueCountdown ? { queueCountdown } : {}) }
+    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}), ...(interrupted ? { interrupted } : {}), ...(context ? { context } : {}), ...(planLimits ? { planLimits } : {}), ...(queueCountdown ? { queueCountdown } : {}), ...(lastUsedAt ? { lastUsedAt } : {}) }
   }
 
   // Subscribes a connection to the transcript (loading a resumed session's history first, without a process).
@@ -278,8 +283,10 @@ export class Tab {
   // as in the terminal) and its item stays pending until the CLI reads it.
   async send(message: Outgoing): Promise<void> {
     this.assertOpen()
+    this.used()
     // A message of the user takes the place of "Continua".
-    if (this.interrupted) (this.interrupted = undefined), this.changed()
+    if (this.interrupted) this.interrupted = undefined
+    this.changed()
     if (message.text.trim()) this.env.promptSent(this, message.text)
     if (!this.turnRunning) return this.deliver(message)
     const session = await this.ensureSession()
@@ -289,6 +296,7 @@ export class Tab {
   // Adds a message to the queue: it goes at once if Claude is free and the queue is not paused.
   queueAdd(message: Outgoing): void {
     this.assertOpen()
+    this.used()
     this.queue.push(message)
     this.changed()
     this.dispatchNext()
@@ -959,6 +967,11 @@ export class Tab {
 
   // Something of the tab changed: tell the workspace. An empty queue is never paused, except by a usage limit (which
   // also holds the next message typed into the queue until the reset).
+  // Marks the tab as used now (the open-sessions lists show the last used first); the caller announces the change.
+  private used(): void {
+    this.lastUsedAt = Date.now()
+  }
+
   private changed(): void {
     if (!this.queue.length && this.queuePause && this.queuePause.reason !== 'limit') this.queuePause = undefined
     // A countdown ends when its message is no longer next, the queue waits, or Claude started working.
