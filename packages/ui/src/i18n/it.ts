@@ -409,8 +409,6 @@ export const it: Record<MessageKey, string> = {
   shellHintShort: 'Shell',
   removeFile: 'Togli {name}',
   fileTooLarge: '{name} è troppo grande (al massimo {max})',
-  unlinkNote: 'Non collegare la nota: non verrà cancellata',
-  noteUnlinked: 'Nota scollegata: non verrà cancellata',
   noteKept: 'La nota resta: nel messaggio ne è rimasto poco',
   noteUsedDeleted: 'Nota «{title}» usata e cancellata',
   queueStackLabel: 'Coda: {count} in attesa. Prossimo: {next}. Apri la coda',

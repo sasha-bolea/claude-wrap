@@ -328,13 +328,6 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField }: Comp
           ))}
         </div>
       )}
-      {linked && (
-        <div className="linked-note">
-          <Icon name="note" />
-          <span>{noteTitle(linked.text)}</span>
-          <IconButton icon="close" label={t('unlinkNote')} onClick={() => (setLinked(undefined), toast(t('noteUnlinked')))} />
-        </div>
-      )}
       {shellMode && <div className="shell-hint">{t('shellHintShort')}</div>}
       <div className="input-box">
         {waiting && countdown && <QueuedCountdown text={waiting.text} images={waiting.images} until={countdown.until} onStop={hold} />}

@@ -570,8 +570,7 @@ describe('PWA (fake SDK)', () => {
     await button(page, 'Notes').click()
     await button(page, 'Use in the message').click()
     await expect.poll(() => composer(page).inputValue()).toBe(text)
-    await page.locator('.linked-note').getByText('Remember the milk', { exact: false }).waitFor()
-    // A long title is cut: the bar stays as wide as the screen and Send stays on it.
+    // The bar stays as wide as the screen and Send stays on it.
     const send = page.getByRole('button', { name: 'Send', exact: true })
     const viewport = page.viewportSize()!.width
     expect((await page.locator('.input-box').boundingBox())!.width).toBeLessThanOrEqual(viewport)

@@ -407,8 +407,6 @@ export const en = {
   shellHintShort: 'Shell',
   removeFile: 'Remove {name}',
   fileTooLarge: '{name} is too large (at most {max})',
-  unlinkNote: 'Unlink the note: it will not be deleted',
-  noteUnlinked: 'Note unlinked: it will not be deleted',
   noteKept: 'The note stays: little of it is left in the message',
   noteUsedDeleted: 'Note «{title}» used and deleted',
   queueStackLabel: 'Queue: {count} waiting. Next: {next}. Open the queue',
