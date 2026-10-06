@@ -562,7 +562,7 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 @keyframes fade { from { opacity: 0; } }
 /* Reopened on the way back (it never really left): no animation */
 .sheet.instant, .scrim.instant { animation: none; }
-/* Head: grabber (drag down to close) + title + Chiudi; sticks while the sheet scrolls */
+/* Head: grabber (drag down to close; the content too, from its top) + title + Chiudi; sticks while the sheet scrolls */
 .sheet-head { position: sticky; top: 0; z-index: 1; background: var(--surface); display: grid; grid-template-columns: 1fr auto; align-items: center; padding-top: 14px; touch-action: none; }
 .sheet-head::before { content: ''; position: absolute; top: 5px; left: 50%; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: var(--border); }
 .sheet-head .icon-btn { margin-right: -10px; color: var(--text-muted); }

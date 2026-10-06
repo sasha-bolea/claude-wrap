@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, type TouchEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { t } from '../i18n.ts'
 import type { SheetSpec } from './context.tsx'
 import { Icon } from './icons.tsx'
@@ -25,16 +25,70 @@ function placePopover(element: HTMLElement, anchor: Anchor): void {
   element.style.setProperty('--pop-left', `${Math.min(Math.max(EDGE, left), innerWidth - POPOVER_WIDTH - EDGE)}px`)
 }
 
-// Drag distance (px) past which a sheet dragged by its head closes.
+// Drag distance (px) past which a dragged sheet closes.
 const DRAG_CLOSE = 90
 
+// Whether a touch at target may pull the sheet down: fields keep their own gestures (caret, selection), and nothing
+// between the target and the sheet may be scrolled away from its top (the drag scrolls it back first).
+function canPull(target: Element, root: HTMLElement): boolean {
+  if (target.closest('input, textarea, select, [contenteditable]')) return false
+  for (let node: Element | null = target; node && node !== root.parentElement; node = node.parentElement) if (node.scrollTop > 0) return false
+  return true
+}
+
+// Drag to close, on the head or on the content: a downward drag pulls the sheet when its content is at the top (a drag
+// that scrolled the content up to the top goes on pulling it); released past DRAG_CLOSE it closes, otherwise it springs
+// back. A drag that starts sideways never pulls. Native listeners: a pull must cancel the native scroll and bounce.
+// root: the sheet; onClose: closes it. Returns the cleanup.
+function dragToClose(root: HTMLElement, onClose: () => void): () => void {
+  let touch: { x: number; y: number; from?: number; dy: number; sideways?: boolean } | undefined
+  const start = (event: TouchEvent) => {
+    const point = event.touches[0]!
+    touch = { x: point.clientX, y: point.clientY, dy: 0 }
+    if ((event.target as Element).closest('.sheet-head') && !(event.target as Element).closest('button')) touch.from = point.clientY
+  }
+  const move = (event: TouchEvent) => {
+    if (!touch || touch.sideways || event.touches.length > 1) return
+    const point = event.touches[0]!
+    if (touch.from === undefined) {
+      const dx = Math.abs(point.clientX - touch.x)
+      const down = point.clientY - touch.y
+      if (dx > Math.abs(down) && dx > 8) touch.sideways = true
+      // Not at the top yet: the native scroll goes on; the drag starts where the content reaches the top.
+      if (touch.sideways || down <= 0 || !canPull(event.target as Element, root)) return void (touch.y = point.clientY)
+      touch.from = point.clientY
+    }
+    event.preventDefault()
+    touch.dy = Math.max(0, point.clientY - touch.from)
+    root.style.transform = `translateY(${touch.dy}px)`
+  }
+  const end = () => {
+    if (touch?.from !== undefined) {
+      if (touch.dy > DRAG_CLOSE) onClose()
+      else root.style.transform = ''
+    }
+    touch = undefined
+  }
+  root.addEventListener('touchstart', start, { passive: true })
+  root.addEventListener('touchmove', move, { passive: false })
+  root.addEventListener('touchend', end)
+  root.addEventListener('touchcancel', end)
+  return () => {
+    root.removeEventListener('touchstart', start)
+    root.removeEventListener('touchmove', move)
+    root.removeEventListener('touchend', end)
+    root.removeEventListener('touchcancel', end)
+  }
+}
+
 // The bottom sheets (wide arrangement: popovers by their button, or centred dialogs): one shown at a time (the last opened), over a scrim. Every sheet has the same head — grabber,
-// title, Chiudi — and closes by dragging the head down, tapping the scrim or Esc. A sheet that shows up again on the
+// title, Chiudi — and closes by dragging it down (by the head, or by the content from its top), tapping the scrim or Esc. A sheet that shows up again on the
 // way back (instant) has no animation. Focus: the first field of a typing sheet, otherwise the title, never a button.
 export function SheetHost({ sheets, instant, onClose }: { sheets: SheetEntry[]; instant: boolean; onClose: () => void }) {
   const sheet = sheets.at(-1)
   const element = useRef<HTMLElement>(null)
-  const drag = useRef<{ y: number; dy: number } | undefined>(undefined)
+  const close = useRef(onClose)
+  close.current = onClose
   // A popover is placed when it opens and again when its content grows (a list that arrives later).
   useLayoutEffect(() => {
     const root = element.current
@@ -52,22 +106,11 @@ export function SheetHost({ sheets, instant, onClose }: { sheets: SheetEntry[]; 
     const field = sheet.field ? root.querySelector<HTMLElement>('input:not([type=checkbox]):not([type=radio]), textarea') : null
     ;(field ?? root.querySelector<HTMLElement>('.sheet-head h2'))?.focus({ preventScroll: true })
   }, [sheet?.id])
+  useEffect(() => {
+    const root = element.current
+    return root ? dragToClose(root, () => close.current()) : undefined
+  }, [sheet?.id])
   if (!sheet) return null
-
-  const onTouchStart = (event: TouchEvent) => {
-    if ((event.target as Element).closest('.sheet-head') && !(event.target as Element).closest('button')) drag.current = { y: event.touches[0]!.clientY, dy: 0 }
-  }
-  const onTouchMove = (event: TouchEvent) => {
-    if (!drag.current || !element.current) return
-    drag.current.dy = Math.max(0, event.touches[0]!.clientY - drag.current.y)
-    element.current.style.transform = `translateY(${drag.current.dy}px)`
-  }
-  const onTouchEnd = () => {
-    if (!drag.current) return
-    if (drag.current.dy > DRAG_CLOSE) onClose()
-    else if (element.current) element.current.style.transform = ''
-    drag.current = undefined
-  }
 
   return (
     <>
@@ -84,9 +127,6 @@ export function SheetHost({ sheets, instant, onClose }: { sheets: SheetEntry[]; 
           event.preventDefault()
           onClose()
         }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
       >
         <div className="sheet-head">
           <h2 id={`sheet-title-${sheet.id}`} tabIndex={-1}>

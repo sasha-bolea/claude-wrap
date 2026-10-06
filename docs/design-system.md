@@ -50,7 +50,7 @@ and composer, `style.css`) was removed in C2.5.
    and File) registers `useBackHandler`. **Swipe from the left edge = Back** (the screen follows the finger, the one
    below shows; none while a sheet is open).
 2. **Sheets from the bottom for every menu and confirmation** (`openSheet({ title, path?, body, field? })`): slide up
-   with a fade, drag down / scrim / × / Esc close; a sheet opened from another goes back to it; a screen entered from
+   with a fade, drag down (by the head, or by the content once it is at its top; not from fields) / scrim / × / Esc close; a sheet opened from another goes back to it; a screen entered from
    a sheet (the session menu) opens it again, without animation, when you come back. Focus goes to the sheet's title
    (or its first field when `field`), **never to a button**. The body is an element that reads live state from the
    context.

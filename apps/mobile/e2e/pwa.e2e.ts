@@ -103,6 +103,32 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: look [1 images]')
   })
 
+  it('a sheet closes when its content is dragged down from the top; a short drag or a scroll leaves it open', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    const cdp = await page.context().newCDPSession(page)
+    // A real touch drag (scrolls natively, unlike synthetic events): from (x, y) down by dy in small steps.
+    const drag = async (x: number, y: number, dy: number) => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+      for (let step = 1; step <= 10; step++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y + (dy * step) / 10 }] })
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    }
+    const dialog = page.getByRole('dialog')
+    await button(page, 'More actions').click()
+    await dialog.waitFor()
+    const item = (await dialog.getByRole('button').nth(1).boundingBox())!
+    await drag(item.x + 20, item.y + item.height / 2, 40)
+    await page.waitForTimeout(400)
+    expect(await dialog.count()).toBe(1)
+    // A drag up scrolls the content, it never closes the sheet.
+    await drag(item.x + 20, item.y + item.height / 2, -150)
+    await page.waitForTimeout(400)
+    expect(await dialog.count()).toBe(1)
+    await page.evaluate(() => document.querySelector('.sheet')!.scrollTo(0, 0))
+    await drag(item.x + 20, item.y + item.height / 2, 200)
+    await dialog.waitFor({ state: 'detached' })
+  })
+
   it('two devices on the same session stay in sync; an answer on one closes the request on the other', async () => {
     const first = await pairedPage(await newPhone(), backend, 'phone')
     await openProject(first)
