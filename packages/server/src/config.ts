@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 //   CLAUDE_WRAP_STATE_DIR       state, devices, pairing codes (default ~/.local/state/claude-wrap)
 //   CLAUDE_WRAP_TAILSCALE_LOGIN owner's Tailscale login; when set, requests without it are refused
 //   CLAUDE_WRAP_STATIC_DIR      PWA build to serve (default apps/mobile/dist)
+//   CLAUDE_WRAP_BROWSER=1       switches the shared browser on (off by default)
 //   CLAUDE_WRAP_BROWSER_PORT   DevTools port of the shared browser, loopback only (default 3013)
 //   CLAUDE_WRAP_CHROME          Chromium executable (default ~/.cache/ms-playwright/chromium-1247/chrome-linux64/chrome;
 //                               not found -> the browser is off)
@@ -47,8 +48,10 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   }
 }
 
-// The shared browser's settings, or undefined when no Chromium is found. Creates the private profile folder (0700).
+// The shared browser's settings, or undefined when it is not switched on (CLAUDE_WRAP_BROWSER=1) or no Chromium is
+// found. Creates the private profile folder (0700).
 function browserConfig(env: NodeJS.ProcessEnv, stateDir: string): ServerConfig['browser'] {
+  if (env.CLAUDE_WRAP_BROWSER !== '1') return undefined
   const executable = env.CLAUDE_WRAP_CHROME || join(homedir(), '.cache', 'ms-playwright', 'chromium-1247', 'chrome-linux64', 'chrome')
   if (!existsSync(executable)) return undefined
   const profileDir = join(stateDir, 'browser', 'profile')
