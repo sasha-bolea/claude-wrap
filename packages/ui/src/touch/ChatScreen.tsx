@@ -141,7 +141,12 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const touching = useRef(false)
   // Where and when the finger last moved on the chat (speed of the drag).
   const lastMove = useRef<{ y: number; at: number } | undefined>(undefined)
-  // A quick drag on the chat while the keyboard is open closes it (the focused field lets go); a slow one reads on.
+  // A quick drag was seen while the keyboard is open: the field lets go when the finger lifts, never mid-pan (the
+  // keyboard closing resizes the viewport under the finger and cancels the native scroll).
+  const closeKeyboard = useRef(false)
+  // The chat should go to the bottom but a finger was down: done when it lifts (if still following).
+  const pendingBottom = useRef(false)
+  // A quick drag on the chat while the keyboard is open marks it to close; a slow one reads on.
   const onChatTouchMove = (event: TouchEvent) => {
     const y = event.touches[0]!.clientY
     const at = event.timeStamp
@@ -149,8 +154,22 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     lastMove.current = { y, at }
     if (!last || at <= last.at || !screen.current?.closest('.device')?.classList.contains('kb-open')) return
     if (Math.abs(y - last.y) / (at - last.at) < KEYBOARD_CLOSE_SPEED) return
-    const field = document.activeElement
-    if (field instanceof HTMLElement && screen.current.contains(field)) field.blur()
+    closeKeyboard.current = true
+  }
+  // The finger lifted (or the touch was cancelled): the deferred keyboard close (only on a real end: a cancel can come
+  // from iOS taking the pan over, and closing the keyboard then is the very resize we avoid) and the deferred scroll.
+  const onChatTouchEnd = (ended: boolean) => {
+    touching.current = false
+    const close = closeKeyboard.current
+    closeKeyboard.current = false
+    if (ended && close) {
+      const field = document.activeElement
+      if (field instanceof HTMLElement && screen.current?.contains(field)) field.blur()
+    }
+    if (pendingBottom.current) {
+      pendingBottom.current = false
+      if (following.current) toBottom()
+    }
   }
   const stopGlide = () => {
     if (glide.current !== undefined) cancelAnimationFrame(glide.current)
@@ -160,6 +179,11 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     stopGlide()
     const box = conversation.current
     if (box) box.scrollTop = box.scrollHeight
+  }
+  // A scroll to the bottom caused by a layout change: with a finger on the chat it waits for the finger to lift.
+  const settleBottom = () => {
+    if (touching.current) pendingBottom.current = true
+    else toBottom()
   }
   // Follows new text without jumps: each frame the chat moves a share of the way still left, so the bottom is
   // reached softly however the text arrives. Farther than a screen (a history loaded), with reduced motion or while
@@ -197,7 +221,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
       if (next === height) return
       height = next
       screen.current?.style.setProperty('--dock-h', `${next}px`)
-      if (following.current) toBottom()
+      if (following.current) settleBottom()
       placeThumb(false)
     })
     observer.observe(element)
@@ -223,7 +247,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   }, [top, connected, tabId, connection])
   // Back on top (from File, Note): the conversation at the bottom again if it was following.
   useEffect(() => {
-    if (top && follow) toBottom()
+    if (top && follow) settleBottom()
   }, [top])
 
   if (!meta) return null
@@ -298,7 +322,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
       <UpdateBar />
       <ConnectionBanner />
       <div className="chat-body">
-        <div className="conversation" ref={conversation} onScroll={onScroll} onTouchStart={() => ((touching.current = true), (lastMove.current = undefined), stopGlide())} onTouchMove={onChatTouchMove} onTouchEnd={() => (touching.current = false)} onTouchCancel={() => (touching.current = false)} onWheel={stopGlide} aria-live="off">
+        <div className="conversation" ref={conversation} onScroll={onScroll} onTouchStart={() => ((touching.current = true), (closeKeyboard.current = false), (lastMove.current = undefined), stopGlide())} onTouchMove={onChatTouchMove} onTouchEnd={() => onChatTouchEnd(true)} onTouchCancel={() => onChatTouchEnd(false)} onWheel={stopGlide} aria-live="off">
           <Conversation meta={meta} view={view} loadImage={loadImage} onAnswer={answer} onRestart={() => void connection.request('tab.restart', { tabId }).catch(fail)} onTrust={() => askTrust(meta.cwd, () => undefined)} onActions={openActions} onSendNow={sendNow} />
         </div>
         <div className="scroll-thumb" ref={thumb} aria-hidden="true" />
@@ -325,7 +349,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
         )}
       </div>
       <div className="dock" ref={dock}>
-        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} onFocusField={() => (setFollow(true), toBottom())} />
+        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} onFocusField={() => (setFollow(true), settleBottom())} />
       </div>
     </section>
   )

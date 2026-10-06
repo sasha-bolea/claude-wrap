@@ -8,7 +8,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import type { Browser, BrowserContext } from 'playwright-core'
+import type { Browser, BrowserContext, CDPSession } from 'playwright-core'
 import { createPairingCode } from '@athome/server'
 import { button, composer, home, lastAnswer, launchChrome, openProject, pairedPage, phone, send, startBackend, type Backend } from './harness.ts'
 
@@ -308,6 +308,74 @@ describe('PWA (fake SDK)', () => {
     await page.waitForTimeout(400)
     expect(await conversation.evaluate((box) => box.scrollHeight - box.scrollTop - box.clientHeight)).toBeLessThan(2)
     expect(await conversation.evaluate((box) => (box as HTMLElement & { writes?: number }).writes)).toBe(0)
+  })
+
+  // A real touch gesture over CDP: from (x, y) through the given offsets, one move each, without lifting.
+  const touchStart = (cdp: CDPSession, x: number, y: number) => cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+  const touchMove = (cdp: CDPSession, x: number, y: number) => cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] })
+  const touchEnd = (cdp: CDPSession) => cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+
+  it('a vertical drag from the left edge scrolls the chat and never moves the screen; a horizontal edge swipe still goes back', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'slow')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('word399')
+    await page.locator('.working-line').waitFor({ state: 'detached' })
+    const conversation = page.locator('.conversation')
+    await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight - box.clientHeight - 100))
+    await page.waitForTimeout(300)
+    const before = await conversation.evaluate((box) => box.scrollTop)
+    const cdp = await page.context().newCDPSession(page)
+    const area = (await conversation.boundingBox())!
+    const y = area.y + area.height / 2
+    await touchStart(cdp, 10, y)
+    const seen: string[] = []
+    for (let step = 1; step <= 10; step++) {
+      // Down by 12 px a step, a few px of sideways drift.
+      await touchMove(cdp, 10 + (step % 3), y + step * 12)
+      seen.push(await page.evaluate(() => { const screen = document.querySelector<HTMLElement>('.chat-screen')!; return `${screen.style.transform}|${screen.classList.contains('dragging')}` }))
+    }
+    await touchEnd(cdp)
+    expect(seen.every((value) => value === '|false')).toBe(true)
+    await page.waitForTimeout(300)
+    expect(await conversation.evaluate((box) => box.scrollTop)).not.toBe(before)
+    // A horizontal swipe from the same edge goes back.
+    await touchStart(cdp, 10, y)
+    for (let step = 1; step <= 10; step++) await touchMove(cdp, 10 + step * 25, y + step)
+    await touchEnd(cdp)
+    await page.locator('.chat-screen').waitFor({ state: 'detached' })
+  })
+
+  it('a fast drag on the chat with the keyboard open writes no scrollTop and keeps the field until the finger lifts', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'slow')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('word399')
+    await page.locator('.working-line').waitFor({ state: 'detached' })
+    const conversation = page.locator('.conversation')
+    await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight - box.clientHeight - 100))
+    await composer(page).click()
+    await page.evaluate(() => document.querySelector('.device')!.classList.add('kb-open'))
+    await conversation.evaluate((box) => {
+      const native = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')!
+      const counted = box as HTMLElement & { writes?: number }
+      counted.writes = 0
+      Object.defineProperty(box, 'scrollTop', { configurable: true, get: () => native.get!.call(box), set: (value: number) => ((counted.writes! += 1), native.set!.call(box, value)) })
+    })
+    const cdp = await page.context().newCDPSession(page)
+    const area = (await conversation.boundingBox())!
+    await touchStart(cdp, area.x + 100, area.y + area.height / 2)
+    // Fast: 40 px every few ms. The dock resizes under the finger (as when the keyboard goes away).
+    for (let step = 1; step <= 5; step++) {
+      await touchMove(cdp, area.x + 100, area.y + area.height / 2 - step * 40)
+      await page.waitForTimeout(10)
+    }
+    await page.evaluate(() => { document.querySelector<HTMLElement>('.dock')!.style.paddingTop = '30px' })
+    await page.waitForTimeout(150)
+    expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('TEXTAREA')
+    expect(await conversation.evaluate((box) => (box as HTMLElement & { writes?: number }).writes)).toBe(0)
+    await touchEnd(cdp)
+    await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('TEXTAREA')
   })
 
   it('commands in a row stack up like the queue; a tap spreads them into their cards, "Stack" gathers them again', async () => {

@@ -531,31 +531,44 @@ function useEdgeSwipe(device: React.RefObject<HTMLDivElement | null>, stack: Ent
   useEffect(() => {
     const root = device.current
     if (!root) return
-    let drag: { x: number; dx: number; screen: HTMLElement } | undefined
+    // `swiping` stays false until the gesture is told apart: only a mostly horizontal move makes it a back swipe.
+    let drag: { x: number; y: number; dx: number; swiping: boolean; screen: HTMLElement } | undefined
     const top = stack.at(-1)!
     const inside = () => handlers.current.get(top.id)?.active ?? false
     const start = (event: TouchEvent) => {
       const touch = event.touches[0]!
       const screen = root.querySelector<HTMLElement>(`[data-entry="${top.id}"] > .screen`)
       if (sheetOpen || !screen || touch.clientX - root.getBoundingClientRect().left > EDGE || (stack.length < 2 && !inside())) return
-      drag = { x: touch.clientX, dx: 0, screen }
+      drag = { x: touch.clientX, y: touch.clientY, dx: 0, swiping: false, screen }
     }
     const move = (event: TouchEvent) => {
       if (!drag) return
-      drag.dx = Math.max(0, event.touches[0]!.clientX - drag.x)
-      if (drag.dx > 8) {
+      const touch = event.touches[0]!
+      const moved = touch.clientX - drag.x
+      if (!drag.swiping) {
+        // Undecided: a vertical gesture leaves the screen alone (touching it would cancel the native scroll).
+        if (Math.abs(moved) <= 8 && Math.abs(touch.clientY - drag.y) <= 8) return
+        if (moved <= 8 || moved <= Math.abs(touch.clientY - drag.y)) return void (drag = undefined)
+        drag.swiping = true
         drag.screen.classList.add('dragging')
         if (!inside()) setRevealBelow(true)
       }
+      drag.dx = Math.max(0, moved)
       drag.screen.style.transform = `translateX(${drag.dx}px)`
     }
-    const end = () => {
+    // Puts the screen back; the drag, if any, ends here.
+    const reset = () => {
       if (!drag) return
-      const { screen, dx } = drag
+      const { screen, swiping } = drag
       drag = undefined
+      if (!swiping) return
       screen.style.transform = ''
       screen.classList.remove('dragging')
       setRevealBelow(false)
+    }
+    const end = () => {
+      const dx = drag?.swiping ? drag.dx : 0
+      reset()
       if (dx > SWIPE_BACK) back()
     }
     root.addEventListener('touchstart', start, { passive: true })
@@ -563,6 +576,7 @@ function useEdgeSwipe(device: React.RefObject<HTMLDivElement | null>, stack: Ent
     root.addEventListener('touchend', end)
     root.addEventListener('touchcancel', end)
     return () => {
+      reset()
       root.removeEventListener('touchstart', start)
       root.removeEventListener('touchmove', move)
       root.removeEventListener('touchend', end)
