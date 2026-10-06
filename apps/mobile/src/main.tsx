@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { Connection, openWebSocket } from '@athome/client'
-import { App, PairScreen, pointIcons, t, type AppCapability, type PushCapability } from '@athome/ui'
+import type { Palette } from '@athome/protocol'
+import { App, PairScreen, SetupScreen, addressWithPalette, applyPalette, paletteFromAddress, pointIcons, setActivePalette, t, type AppCapability, type PushCapability } from '@athome/ui'
 import '@athome/ui/touch.css'
 
 // The PWA host: pairing (one-time code → device token), the WebSocket connection to the server it was loaded
@@ -164,7 +165,7 @@ function start(token: string, justPaired = false): void {
     push,
     app,
     openExternal: (url: string) => void window.open(url, '_blank', 'noopener'),
-    pairLink: (code: string) => `${location.origin}/#pair=${code}`,
+    pairLinks: (code: string) => ({ browser: `${location.origin}/?browser=1#pair=${code}`, app: `${location.origin}/?pair=${code}` }),
     iconLink: (accent: string) => `${location.origin}/?accent=${accent.slice(1)}`,
     logout: () => logout(),
     onActivateTab: (listener: (tabId: string) => void) => {
@@ -183,8 +184,47 @@ function start(token: string, justPaired = false): void {
   root.render(<App connection={connection} capabilities={capabilities} />)
 }
 
-// Opened from the link "Icon in this colour": the Home screen icon in its accent, before any pairing.
-pointIcons()
+// The setup page of the installed app, opened in the browser by the "install the app" link (?pair=code): the palette
+// chosen goes into the address, which the manifest turns into the installed app's start address.
+function showSetup(code: string): void {
+  const carried = paletteFromAddress()
+  if (carried) applyPalette(carried.colors)
+  const load = async () => {
+    const response = await fetch(`/setup/palettes?code=${encodeURIComponent(code)}`, { cache: 'no-store' })
+    if (!response.ok) throw new Error(t('setupCodeGone'))
+    return (await response.json()) as { palettes: Palette[]; expiresAt: number }
+  }
+  const pick = (palette: Palette) => {
+    history.replaceState(null, '', addressWithPalette(code, palette))
+    applyPalette(palette.colors)
+  }
+  root.render(<SetupScreen ios={isIos} initial={carried?.paletteId} load={load} onPick={pick} />)
+}
+
+// Pairs with a code from the address at once (the installed app's start address, or the "use it in the browser"
+// link); a refused code leads to the pairing screen with the reason.
+function pairNow(code: string): void {
+  pair(code).catch((error: unknown) => showPairing(error instanceof Error ? error.message : String(error)))
+}
+
+// Start: what the address asks for (?pair= in the browser: setup; in the installed app: its first start), else the
+// app with the saved token, else pairing ("use it in the browser" links pair at once).
+const addressCode = new URLSearchParams(location.search).get('pair') ?? undefined
 const token = read(TOKEN_KEY)
-if (token) start(token)
-else showPairing()
+if (addressCode && !standalone) showSetup(addressCode)
+else if (token) {
+  if (addressCode) history.replaceState(null, '', '/')
+  pointIcons()
+  start(token)
+} else if (addressCode) {
+  const carried = paletteFromAddress()
+  if (carried) setActivePalette(carried)
+  pointIcons()
+  pairNow(addressCode)
+} else {
+  // Opened from the link "Icon in this colour": the Home screen icon in its accent, before any pairing.
+  pointIcons()
+  const hashCode = /#pair=([\w-]+)/.exec(location.hash)?.[1]
+  if (hashCode && new URLSearchParams(location.search).has('browser')) pairNow(hashCode)
+  else showPairing()
+}

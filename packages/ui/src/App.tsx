@@ -19,8 +19,9 @@ export type Capabilities = {
   // Touch layout (the PWA): one screen at a time instead of the tab bar.
   layout?: 'desktop' | 'mobile'
   push?: PushCapability
-  // Link that pairs a new device with a one-time code (the server's address).
-  pairLink?: (code: string) => string
+  // Links that pair a new device with a one-time code (the server's address): in the browser at once, or through the
+  // setup page of the installed app (the PWA).
+  pairLinks?: (code: string) => { browser: string; app: string }
   // Link that opens the app with its Home screen icon in an accent (#rrggbb), to add it again from the browser (the PWA).
   iconLink?: (accent: string) => string
   // Forgets this device's pairing (the PWA goes back to its pairing screen).

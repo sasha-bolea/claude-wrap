@@ -37,6 +37,7 @@ async function main(): Promise<void> {
     allowedHosts: hosts,
     tailscaleLogin: config.tailscaleLogin,
     files: await loadStaticFiles(config.staticDir),
+    palettes: () => core.palettes(),
     socketOrigin: `wss://${config.publicUrl.host}`
   })
   console.log(`AtHome server on ${config.host}:${server.port}, root ${config.root}, ${devices.list().length} paired devices`)

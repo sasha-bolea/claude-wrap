@@ -324,17 +324,28 @@ function AddDeviceSheet({ onDone }: { onDone: () => void }) {
   const { connection, capabilities, closeSheets, toast, fail } = useTouch()
   const [name, setName] = useState('')
   const [code, setCode] = useState<{ code: string; expiresAt: number }>()
-  const link = code && (capabilities.pairLink?.(code.code) ?? code.code)
+  const links = code && capabilities.pairLinks?.(code.code)
   const start = () => connection.request('devices.pairStart', { name: name.trim() }).then(setCode, fail)
-  const copy = () => navigator.clipboard?.writeText(link!).then(() => toast(t('linkCopied')), () => toast(t('copyFailed')))
+  const copy = (text: string) => navigator.clipboard?.writeText(text).then(() => toast(t('linkCopied')), () => toast(t('copyFailed')))
   if (code)
     return (
       <>
         <p className="muted flat">{t('pairCodeHint', { until: new Date(code.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}</p>
         <div className="code-box">{code.code}</div>
-        <button className="button block" onClick={() => void copy()}>
-          {t('copyLink')}
-        </button>
+        {links ? (
+          <>
+            <button className="button block" onClick={() => void copy(links.browser)}>
+              {t('copyBrowserLink')}
+            </button>
+            <button className="button block" onClick={() => void copy(links.app)}>
+              {t('copyAppLink')}
+            </button>
+          </>
+        ) : (
+          <button className="button block" onClick={() => void copy(code.code)}>
+            {t('copyLink')}
+          </button>
+        )}
         <button className="button block" onClick={() => (closeSheets(), onDone())}>
           {t('done')}
         </button>

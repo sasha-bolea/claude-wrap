@@ -33,7 +33,7 @@ export async function startBackend(): Promise<Backend> {
   const hosts: string[] = []
   const origins: string[] = []
   const files = await loadStaticFiles(DIST)
-  server = await startServer({ attach: core.attach, devices, port: 0, allowedHosts: hosts, allowedOrigins: origins, files, log: () => undefined })
+  server = await startServer({ attach: core.attach, devices, port: 0, allowedHosts: hosts, allowedOrigins: origins, files, palettes: () => core.palettes(), log: () => undefined })
   const url = `http://127.0.0.1:${server.port}`
   hosts.push(`127.0.0.1:${server.port}`)
   origins.push(url)

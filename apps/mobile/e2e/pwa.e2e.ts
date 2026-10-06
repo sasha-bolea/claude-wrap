@@ -9,6 +9,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { Browser, BrowserContext } from 'playwright-core'
+import { createPairingCode } from '@athome/server'
 import { button, composer, home, lastAnswer, launchChrome, openProject, pairedPage, phone, send, startBackend, type Backend } from './harness.ts'
 
 let browser: Browser
@@ -46,6 +47,58 @@ describe('PWA (fake SDK)', () => {
     expect(page.url()).not.toContain('#pair=')
     await page.reload()
     await home(page).waitFor()
+  })
+
+  it('Add device gives two links with one code: the browser one pairs Safari at once', async () => {
+    const context = await newPhone()
+    const page = await pairedPage(context, backend)
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: backend.url })
+    await button(page, 'Settings').click()
+    await page.getByRole('button', { name: 'Add device' }).click()
+    await page.getByLabel('Name of the new device').fill('tablet')
+    await page.getByRole('button', { name: 'Create code' }).click()
+    await page.getByRole('button', { name: 'Copy the link to install the app' }).click()
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toMatch(new RegExp(`^${backend.url}/\\?pair=[\\w-]+$`))
+    await page.getByRole('button', { name: 'Copy the link to use it in the browser' }).click()
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toMatch(new RegExp(`^${backend.url}/\\?browser=1#pair=[\\w-]+$`))
+    const safari = await (await newPhone(true)).newPage()
+    await safari.goto(await page.evaluate(() => navigator.clipboard.readText()))
+    await safari.getByRole('button', { name: 'Not now' }).click()
+    await home(safari).waitFor()
+  })
+
+  it('the app link asks for a palette in Safari and carries it, with the code, into the installed app, which pairs by itself', async () => {
+    const { code } = await createPairingCode(backend.stateDir, 'iphone')
+    const safari = await (await newPhone(true)).newPage()
+    await safari.goto(`${backend.url}/?pair=${code}`)
+    await safari.getByRole('heading', { name: 'Install AtHome' }).waitFor()
+    await safari.getByText('Choose Add to Home Screen.').waitFor()
+    await safari.getByRole('radio', { name: /^Notte/ }).click()
+    expect(await safari.evaluate(() => document.documentElement.style.getPropertyValue('--background'))).toBe('#0f1419')
+    expect(await safari.getByRole('radio', { name: /^Notte/ }).getAttribute('aria-checked')).toBe('true')
+    expect(safari.url()).toContain(`pair=${code}`)
+    expect(safari.url()).toContain('palette=preset-night')
+    expect(await safari.locator('link[rel="apple-touch-icon"]').getAttribute('href')).toBe('/icon-180.png?accent=4c9aff')
+    const manifestHref = await safari.locator('link[rel="manifest"]').getAttribute('href')
+    const manifest = await (await safari.request.get(`${backend.url}${manifestHref}`)).json()
+    expect(manifest.start_url).toContain(`pair=${code}`)
+    expect(manifest.start_url).toContain('palette=preset-night')
+
+    // The installed app opens at that start address, with storage of its own.
+    const installed = await newPhone(true)
+    await installed.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true }))
+    const app = await installed.newPage()
+    await app.goto(`${backend.url}${manifest.start_url}`)
+    await app.getByRole('button', { name: 'Not now' }).click()
+    await home(app).waitFor()
+    expect(app.url()).toBe(`${backend.url}/`)
+    expect(await app.evaluate(() => document.documentElement.style.getPropertyValue('--background'))).toBe('#0f1419')
+    await button(app, 'Settings').click()
+    await app.getByRole('button', { name: /^Colour palette/ }).filter({ hasText: 'Notte' }).waitFor()
+
+    // The code is spent: the setup page says so.
+    await safari.goto(`${backend.url}/?pair=${code}`)
+    await safari.getByText('This code was used or has expired').waitFor()
   })
 
   it('a wrong code is refused with a clear message', async () => {

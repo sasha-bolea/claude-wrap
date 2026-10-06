@@ -50,6 +50,7 @@ async function start(login?: string): Promise<void> {
     allowedHosts: ['server.example.ts.net:8443'],
     tailscaleLogin: login,
     files: await loadStaticFiles(web),
+    palettes: () => core.palettes(),
     socketOrigin: 'wss://server.example.ts.net:8443',
     log: () => undefined
   })
@@ -238,6 +239,19 @@ describe('remote server: files, limits, root', () => {
     expect(icon.headers['content-type']).toBe('image/png')
     expect((await http('GET', '/icon-192.png')).status).toBe(404)
     expect((await http('GET', '/icon-192.png', { Host: 'evil.example' })).status).toBe(403)
+  })
+
+  it('the setup page of the installed app lists the palettes with a valid pairing code, which stays usable', async () => {
+    const { code, expiresAt } = await createPairingCode(stateDir, 'phone')
+    const setup = await http('GET', `/setup/palettes?code=${code}`)
+    expect(setup.status).toBe(200)
+    expect(setup.headers['content-type']).toBe('application/json')
+    const body = JSON.parse(setup.body) as { palettes: { name: string }[]; expiresAt: number }
+    expect(body.expiresAt).toBe(expiresAt)
+    expect(body.palettes.map((palette) => palette.name)).toContain('Notte')
+    for (const bad of ['', '?code=unknown-code-here']) expect((await http('GET', `/setup/palettes${bad}`)).status).toBe(404)
+    expect((await http('POST', '/pair', PROXY_HEADERS, JSON.stringify({ code }))).status).toBe(200)
+    expect((await http('GET', `/setup/palettes?code=${code}`)).status).toBe(404)
   })
 
   it('a frame over the size limit closes the socket', async () => {

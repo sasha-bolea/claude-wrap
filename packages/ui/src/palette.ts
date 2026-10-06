@@ -1,4 +1,4 @@
-import { DEFAULT_PALETTE_ID, type Palette, type PaletteColors } from '@athome/protocol'
+import { DEFAULT_PALETTE_ID, PALETTE_COLORS, type Palette, type PaletteColors } from '@athome/protocol'
 
 // The palette on this device: its id and its colours, kept so the app starts with them before it connects.
 export type ActivePalette = { paletteId: string; colors: PaletteColors }
@@ -60,25 +60,50 @@ export function paletteTokens(colors: PaletteColors): { tokens: Record<string, s
 }
 
 // The links of the Home screen icon, the tab icon and the manifest: the server draws them in an accent asked with
-// ?accent=rrggbb (packages/server/src/tinted.ts).
+// ?accent=rrggbb, and writes into the manifest's start address what the page's address carries for the installed
+// app (packages/server/src/tinted.ts).
 const ICON_LINKS = ['apple-touch-icon', 'icon', 'manifest'] as const
+// What the address may carry into the installed app: pairing code, palette id, its 6 colours (rrggbb, comma-separated).
+const CARRIED = ['pair', 'palette', 'colors'] as const
 
-// The accent this page's address asks for (the link "Icon in this colour" copies, opened in the browser that adds
-// the app to the Home screen), as #rrggbb; undefined when it names none.
+// The palette the page's address carries (the app's setup page, then the installed app's start address); undefined
+// when it carries none or a malformed one.
+export function paletteFromAddress(): ActivePalette | undefined {
+  const query = new URLSearchParams(location.search)
+  const paletteId = query.get('palette')
+  const values = (query.get('colors') ?? '').split(',').map((value) => `#${value.toLowerCase()}`)
+  if (!paletteId || values.length !== PALETTE_COLORS.length || !values.every((value) => HEX.test(value))) return undefined
+  return { paletteId, colors: Object.fromEntries(PALETTE_COLORS.map((key, i) => [key, values[i]!])) as PaletteColors }
+}
+
+// The address carrying a palette for the installed app, with its pairing code: '/?pair=…&palette=…&colors=…'.
+export function addressWithPalette(code: string, palette: Palette): string {
+  const colors = PALETTE_COLORS.map((key) => palette.colors[key].slice(1)).join(',')
+  return `/?${new URLSearchParams({ pair: code, palette: palette.paletteId, colors })}`
+}
+
+// The accent this page's address asks for (the link "Icon in this colour", or the palette carried by the setup page),
+// as #rrggbb; undefined when it names none.
 function addressAccent(): string | undefined {
-  const accent = `#${new URLSearchParams(location.search).get('accent') ?? ''}`
-  return HEX.test(accent) ? accent.toLowerCase() : undefined
+  const query = new URLSearchParams(location.search)
+  const accent = `#${query.get('accent') ?? ''}`
+  return HEX.test(accent) ? accent.toLowerCase() : paletteFromAddress()?.colors.accent
 }
 
 // Points the icon and manifest links at their version in the accent (#rrggbb) — the address's own accent first —
-// or back to the fixed files when there is none. Pages without these links (the desktop) are left as they are.
+// or back to the fixed files when there is none; the manifest link also passes on what the address carries. Pages
+// without these links (the desktop) are left as they are.
 export function pointIcons(accent?: string): void {
   const chosen = addressAccent() ?? accent
+  const address = new URLSearchParams(location.search)
   for (const rel of ICON_LINKS) {
     const link = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`)
     if (!link) continue
     link.dataset.original ??= link.getAttribute('href') ?? ''
-    link.setAttribute('href', chosen ? `${link.dataset.original}?accent=${chosen.slice(1)}` : link.dataset.original)
+    const query = new URLSearchParams()
+    if (rel === 'manifest') for (const key of CARRIED) if (address.get(key)) query.set(key, address.get(key)!)
+    if (chosen) query.set('accent', chosen.slice(1))
+    link.setAttribute('href', query.size ? `${link.dataset.original}?${query}` : link.dataset.original)
   }
 }
 

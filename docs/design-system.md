@@ -318,5 +318,10 @@ The launch screen until the server answers (same mark as the iOS splash). The pa
 Safari (opened from "Icona con questo colore": only those, no "Continua nel browser", since pairing Safari would
 waste the one-time code), the link-or-code field in the installed app; right after pairing a sheet offers the
 notifications once.
-`.code-box`: a one-time pairing code (Settings → Add device).
-Examples: [Splash.tsx:13](../packages/ui/src/touch/Splash.tsx#L13), [PairScreen.tsx:43](../packages/ui/src/PairScreen.tsx#L43), [SettingsScreen.tsx:273](../packages/ui/src/touch/SettingsScreen.tsx#L273).
+`.code-box`: a one-time pairing code (Settings → Add device), with two copy buttons on the PWA — the link that pairs
+the browser at once (`/?browser=1#pair=`) and the link that installs the app (`/?pair=`); the first one used spends the code.
+The **setup page** (`SetupScreen`, the install link opened in the browser): the backend's palettes as radio rows with
+`.swatches` (as in Settings → Palette colori) — the page previews the one picked and its address and manifest carry it,
+with the code, into the installed app's start address — then the install `.steps`; it never pairs the browser. A used
+or expired code shows `.error-text`.
+Examples: [Splash.tsx:13](../packages/ui/src/touch/Splash.tsx#L13), [PairScreen.tsx:43](../packages/ui/src/PairScreen.tsx#L43), [SettingsScreen.tsx:273](../packages/ui/src/touch/SettingsScreen.tsx#L273), [SettingsScreen.tsx:334](../packages/ui/src/touch/SettingsScreen.tsx#L334), [SetupScreen.tsx:46](../packages/ui/src/SetupScreen.tsx#L46).

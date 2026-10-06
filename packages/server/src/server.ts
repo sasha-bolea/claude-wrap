@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type RawData, type WebSocket } from 'ws'
 import type { Identity } from '@athome/core'
-import type { Channel } from '@athome/protocol'
+import type { Channel, Palette } from '@athome/protocol'
 import type { DeviceStore } from './devices.ts'
 import { findStatic, type StaticFiles } from './staticFiles.ts'
 import { createTinter } from './tinted.ts'
@@ -33,6 +33,8 @@ export type ServerOptions = {
   // Owner's login as set by Tailscale Serve in Tailscale-User-Login; absent → not checked (dev).
   tailscaleLogin?: string
   files?: StaticFiles
+  // The saved colour palettes, offered to a device being set up (GET /setup/palettes); absent → none.
+  palettes?: () => Promise<Palette[]>
   // wss:// origin the PWA connects to, for the CSP.
   socketOrigin?: string
   // Wraps every channel before core sees it (tests: lose frames on purpose).
@@ -137,11 +139,21 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     answer(res, 200, JSON.stringify(paired), 'application/json')
   }
 
+  // GET /setup/palettes?code= → {palettes, expiresAt}: what the setup page of the installed app offers, before it
+  // pairs. Needs a valid pairing code, which stays usable (the installed app spends it).
+  async function setupPalettes(search: string, res: ServerResponse): Promise<void> {
+    const code = new URLSearchParams(search).get('code')
+    const expiresAt = code ? await options.devices.pairingExpiry(code) : undefined
+    if (!expiresAt) return answer(res, 404, JSON.stringify({ error: 'unknown or expired code' }), 'application/json')
+    answer(res, 200, JSON.stringify({ palettes: (await options.palettes?.()) ?? [], expiresAt }), 'application/json')
+  }
+
   function onRequest(req: IncomingMessage, res: ServerResponse): void {
     if (!allowed(req)) return answer(res, 403, 'forbidden')
     const { pathname, search } = new URL(req.url ?? '/', 'http://localhost')
     if (pathname === '/pair' && req.method === 'POST') return void pair(req, res).catch(() => answer(res, 400, 'bad request'))
     if (req.method !== 'GET' && req.method !== 'HEAD') return answer(res, 405, 'method not allowed')
+    if (pathname === '/setup/palettes') return void setupPalettes(search, res).catch(() => answer(res, 500, 'error'))
     const file = options.files && (tinted(pathname, search) ?? findStatic(options.files, pathname))
     if (!file) return answer(res, 404, 'not found')
     res.writeHead(200, { ...headers, 'Content-Type': file.type, 'Content-Length': file.body.length })

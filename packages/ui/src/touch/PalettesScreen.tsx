@@ -9,7 +9,7 @@ import { IconButton, Title } from './parts.tsx'
 const HEX = /^#[0-9a-f]{6}$/i
 
 // The 6 colours of a palette as small round swatches (decoration: the name says which palette it is).
-function Swatches({ colors }: { colors: PaletteColors }) {
+export function Swatches({ colors }: { colors: PaletteColors }) {
   return (
     <span className="swatches" aria-hidden="true">
       {PALETTE_COLORS.map((key) => (

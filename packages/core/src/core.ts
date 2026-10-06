@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { LIMITS, PROTOCOL_VERSION, WORKSPACE_STREAM, clientFrameSchema, type Channel, type Cmd, type CoreFrame, type ErrorCode, type Hello, type Welcome } from '@athome/protocol'
+import { LIMITS, PROTOCOL_VERSION, WORKSPACE_STREAM, clientFrameSchema, type Channel, type Cmd, type CoreFrame, type ErrorCode, type Hello, type Palette, type Welcome } from '@athome/protocol'
 import { createHandlers, execute, type Connection, type Handlers } from './commands.ts'
 import type { CoreConfig } from './config.ts'
 import { sweepOrphans } from './process.ts'
@@ -20,6 +20,8 @@ export interface Core {
   attach(channel: Channel, identity?: Identity): void
   // Closes every tab (quit). Resolves when processes are gone, at most after a few seconds.
   closeAll(): Promise<void>
+  // The saved colour palettes (the remote host shows them to a device being set up, before it is paired).
+  palettes(): Promise<Palette[]>
 }
 
 type Runtime = { workspace: Workspace; handlers: Handlers }
@@ -106,5 +108,6 @@ export function createCore(config: CoreConfig): Core {
     )
   }
 
-  return { ready: runtime.then(() => undefined), attach, closeAll: () => runtime.then(({ workspace }) => workspace.closeAll()) }
+  const palettes = () => runtime.then(async ({ workspace }) => (await workspace.palettes.loaded, workspace.palettes.list()))
+  return { ready: runtime.then(() => undefined), attach, closeAll: () => runtime.then(({ workspace }) => workspace.closeAll()), palettes }
 }

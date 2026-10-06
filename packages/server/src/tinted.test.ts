@@ -47,6 +47,28 @@ describe('icons in the palette accent', () => {
     expect(manifest.icons[1].purpose).toBe('any maskable')
   })
 
+  // Setting up the installed app: the palette picked in the browser and the pairing code travel in its start address.
+  it('the manifest carries the pairing code, the palette and its colours in its start address; the icons take the palette accent', () => {
+    const colors = 'faf9f7,ffffff,1f1e1c,4c9aff,c62828,2e7d32'
+    const file = createTinter(files())('/manifest.webmanifest', `?pair=Code_123-abcdEFGHij&palette=preset-night&colors=${colors}`)
+    const manifest = JSON.parse(file!.body.toString())
+    expect(manifest.start_url).toBe(`/?pair=Code_123-abcdEFGHij&palette=preset-night&colors=${encodeURIComponent(colors)}`)
+    expect(manifest.theme_color).toBe('#4c9aff')
+    expect(manifest.icons[0].src).toBe('/icon-192.png?accent=4c9aff')
+  })
+
+  it('a code alone goes in the start address, the icons stay fixed; bad values are left out', () => {
+    const tinted = createTinter(files())
+    const manifest = JSON.parse(tinted('/manifest.webmanifest', '?pair=Code_123-abcdEFGHij')!.body.toString())
+    expect(manifest.start_url).toBe('/?pair=Code_123-abcdEFGHij')
+    expect(manifest.theme_color).toBe('#c96442')
+    expect(manifest.icons[0].src).toBe('/icon-192.png')
+    const bad = JSON.parse(tinted('/manifest.webmanifest', '?pair=x%22y&palette=a/b&colors=123&accent=0f766e')!.body.toString())
+    expect(bad.start_url).toBeUndefined()
+    expect(bad.icons[0].src).toBe('/icon-192.png?accent=0f766e')
+    expect(tinted('/manifest.webmanifest', '?pair=x%22y')).toBeUndefined()
+  })
+
   it('no colour, a bad colour or another file: nothing tinted (the fixed file is served)', () => {
     const tinted = createTinter(files())
     expect(tinted('/icon-192.png', '')).toBeUndefined()

@@ -73,6 +73,13 @@ export class DeviceStore {
     return createPairingCode(this.stateDir, name, createdBy)
   }
 
+  // When a pairing code expires, without using it; undefined for an unknown, used or expired code.
+  async pairingExpiry(code: string): Promise<number | undefined> {
+    const text = await readFile(join(this.stateDir, 'pairing', `${sha256(code)}.json`), 'utf8').catch(() => undefined)
+    const pairing = text ? (JSON.parse(text) as Pairing) : undefined
+    return pairing && pairing.expiresAt >= Date.now() ? pairing.expiresAt : undefined
+  }
+
   // Consumes a pairing code: the file is removed whatever happens next. Returns the new device's id and token,
   // or undefined for an unknown or expired code.
   async completePairing(code: string): Promise<{ deviceId: string; token: string } | undefined> {
