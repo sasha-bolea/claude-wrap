@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type
 import { ClientError } from '@athome/client'
 import { LIMITS, type TabMeta } from '@athome/protocol'
 import { useComposerPopup, useDraft, usePromptHistory } from '../composerHooks.ts'
-import { applySuggestion, caretOnEdgeLine, expandPastes, isLongPaste, pastePlaceholder } from '../composerText.ts'
+import { applySuggestion, caretOnEdgeLine, expandPastes, isLongPaste, pastePlaceholder, trimBlankLines } from '../composerText.ts'
 import { t } from '../i18n.ts'
 import { dataUrl, readBase64, readImages } from '../images.ts'
 import { modeLabel, nextMode } from '../modes.ts'
@@ -166,7 +166,7 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField }: Comp
   const send = async (toQueue = false) => {
     if (!hasContent) return
     const sent = { text, images, docs, pastes: draft.pastes }
-    const expanded = expandPastes(text.trimEnd(), draft.pastes)
+    const expanded = expandPastes(trimBlankLines(text), draft.pastes)
     history.reset()
     history.invalidate()
     draft.clear()

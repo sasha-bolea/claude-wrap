@@ -55,6 +55,10 @@ export const isLongPaste = (text: string) => text.length > LONG_PASTE_CHARS || t
 // The placeholder of paste number id, in the CLI's format (its history stores the same).
 export const pastePlaceholder = (id: number, text: string) => `[Pasted text #${id} +${text.split('\n').length - 1} lines]`
 
+// The message without the empty lines before and after it (and trailing spaces); the empty lines in the middle and
+// the indent of its first line stay. Returns the trimmed text.
+export const trimBlankLines = (text: string) => text.replace(/^(?:[ \t]*\r?\n)+/, '').trimEnd()
+
 // The text to send, with every placeholder still present replaced by its paste, and those pastes in order.
 export function expandPastes(text: string, pastes: Record<number, string>): { text: string; pastes: string[] } {
   const used: string[] = []

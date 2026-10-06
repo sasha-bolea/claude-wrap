@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { applySuggestion, expandPastes, isLongPaste, matchCommands, mention, pastePlaceholder, triggerAt } from './composerText.ts'
+import { applySuggestion, expandPastes, isLongPaste, matchCommands, mention, pastePlaceholder, trimBlankLines, triggerAt } from './composerText.ts'
 
 describe('composer text', () => {
+  it('drops the blank lines before and after the message, keeps those in the middle and the first line indent', () => {
+    expect(trimBlankLines('\n\n  \nhello\n\n\nworld\n \n\n')).toBe('hello\n\n\nworld')
+    expect(trimBlankLines('\r\n  indented\r\n')).toBe('  indented')
+    expect(trimBlankLines('plain')).toBe('plain')
+    expect(trimBlankLines('\n \n')).toBe('')
+  })
+
   it('finds a command trigger only as the first word, a file trigger after a space or at the start', () => {
     expect(triggerAt('/comp', 5)).toEqual({ kind: 'command', query: 'comp', start: 0, end: 5 })
     expect(triggerAt('/compact now', 12)).toBeUndefined()
