@@ -124,6 +124,13 @@ export const COMMANDS = {
   // tab starts its process to answer (no message is sent).
   'tab.context': { args: z.object({ tabId }), result: contextUsageSchema },
   'tab.usage': { args: z.object({ tabId }), result: usageSchema },
+  // Points where a conversation can be rewound to: a message and its text summary.
+  'tab.rewindPoints': { args: z.object({ tabId }), result: z.object({ points: z.array(z.object({ itemId: z.string(), text: z.string(), images: z.number().optional() })) }) },
+  // Preview of what a rewind would do: whether it's possible and what files would change.
+  'tab.rewindPreview': { args: z.object({ tabId, itemId: z.string() }), result: z.object({ canRewind: z.boolean(), error: z.string().optional(), filesChanged: z.array(z.string()).optional(), insertions: z.number().optional(), deletions: z.number().optional() }) },
+  // Rewind a conversation to a specific message: restores conversation, code, or both. newTabId: set when rewinding
+  // the conversation to the first message opens a new empty session.
+  'tab.rewind': { args: z.object({ tabId, itemId: z.string(), mode: z.enum(['both', 'conversation', 'code']) }), result: z.object({ text: z.string().optional(), images: z.array(imageSchema).optional(), filesChanged: z.array(z.string()).optional(), skippedLinks: z.number().optional(), newTabId: z.string().optional() }) },
   // Reads the composer's gauges again (TabMeta.context, planLimits) from the session's live process, or (dormant) the
   // plan windows through a live session of the same account; starts none.
   // Claude Code's auto-compact window for every session (as /autocompact; tokens, clamped by the CLI to the model's

@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import type { CanUseTool, ModelInfo, Options, PermissionResult, Query, SDKControlGetContextUsageResponse, SDKControlGetUsageResponse, SDKMessage, SDKSessionInfo, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { CanUseTool, ModelInfo, Options, PermissionResult, Query, RewindFilesResult, SDKControlGetContextUsageResponse, SDKControlGetUsageResponse, SDKMessage, SDKSessionInfo, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
 
 // Scriptable stand-in for the SDK's query(): messages are pushed by hand with emit(), control methods are
 // recorded. Plain code (no vitest) so the hosts can also drive it for deterministic e2e runs.
 
 export type ControlCall = { method: string; args: unknown[] }
+export type RewindCall = { userMessageId: string; dryRun?: boolean }
 
 // A /context answer: 48.5k of a 200k window, two MCP tools of one server, one memory file.
 const FAKE_CONTEXT = {
@@ -60,6 +61,7 @@ const FAKE_USAGE = {
 export class FakeSession {
   readonly received: SDKUserMessage[] = []
   readonly calls: ControlCall[] = []
+  readonly rewindCalls: RewindCall[] = []
   // Subtypes of raw control requests this session refuses (a CLI without them).
   readonly refusedRequests = new Set<string>()
   closed = false
@@ -75,6 +77,10 @@ export class FakeSession {
   // Answers of getContextUsage and of the /usage call (set to change them; a usage of undefined rejects).
   contextUsage: SDKControlGetContextUsageResponse = FAKE_CONTEXT
   usage: SDKControlGetUsageResponse | undefined = FAKE_USAGE
+  // Results of rewindFiles calls, keyed by userMessageId (default: no file checkpoint found).
+  rewindResults = new Map<string, RewindFilesResult>()
+  // The resumeSessionAt option received when this session was created.
+  resumeSessionAt?: string
   private pending: SDKMessage[] = []
   private wake?: () => void
   private finished = false
@@ -87,6 +93,7 @@ export class FakeSession {
   // options: what core passed to query(); prompt: the streaming input, consumed in the background.
   constructor(options: Options, prompt: AsyncIterable<SDKUserMessage>) {
     this.options = options
+    this.resumeSessionAt = options.resumeSessionAt
     void (async () => {
       for await (const message of prompt) {
         this.received.push(message)
@@ -176,6 +183,10 @@ export class FakeSession {
         if (!this.usage) throw new Error('usage unavailable')
         return this.usage
       },
+      rewindFiles: async (userMessageId: string, options?: { dryRun?: boolean }) => {
+        this.rewindCalls.push({ userMessageId, dryRun: options?.dryRun })
+        return this.rewindResults.get(userMessageId) ?? { canRewind: false, error: 'No file checkpoint found for this message.' }
+      },
       close: () => {
         record('close', [])
         this.closed = true
@@ -222,6 +233,13 @@ export function createFakeSdk() {
     const customTitle = stored.customTitle ?? stored.aiTitle
     return { sessionId, summary: customTitle ?? summaryOf(history), lastModified: stored.lastModified, customTitle, firstPrompt: summaryOf(history), cwd: stored.cwd }
   }
+  // Like the CLI resuming at a message: the stored chain keeps that message and drops what follows; new records are
+  // appended after it. sessionId: the resumed session; uuid: the message to keep last (unknown uuid: no change).
+  const truncateAt = (sessionId: string, uuid: string) => {
+    const history = histories.get(sessionId)
+    const index = history?.findIndex((message) => message.uuid === uuid) ?? -1
+    if (history && index >= 0) history.splice(index + 1)
+  }
   return {
     sessions,
     histories,
@@ -229,6 +247,8 @@ export function createFakeSdk() {
     query: ((params: { prompt: AsyncIterable<SDKUserMessage>; options?: Options }) => {
       const session = new FakeSession(params.options ?? {}, params.prompt)
       sessions.push(session)
+      const { resume, resumeSessionAt } = params.options ?? {}
+      if (resume && resumeSessionAt) truncateAt(resume, resumeSessionAt)
       return session.asQuery()
     }) as unknown as typeof import('@anthropic-ai/claude-agent-sdk').query,
     getSessionMessages: async (sessionId: string) => histories.get(sessionId) ?? [],

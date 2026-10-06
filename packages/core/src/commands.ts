@@ -146,6 +146,15 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'tab.commands': async ({ tabId }) => ({ commands: await tabOf(tabId).commands() }),
     'tab.context': ({ tabId }) => tabOf(tabId).contextUsage(),
     'tab.usage': ({ tabId }) => tabOf(tabId).usage(),
+    'tab.rewindPoints': () => {
+      throw new CoreError('not_found', 'rewind points not yet implemented')
+    },
+    'tab.rewindPreview': () => {
+      throw new CoreError('not_found', 'rewind preview not yet implemented')
+    },
+    'tab.rewind': () => {
+      throw new CoreError('not_found', 'rewind not yet implemented')
+    },
     'settings.setAutoCompactWindow': async ({ tokens }) => (await workspace.setAutoCompactWindow(tokens), {}),
     'settings.setDefaultEffort': async ({ effort }) => (await workspace.setDefaultEffort(effort), {}),
     'settings.setDefaultMode': async ({ mode }) => (await workspace.setDefaultMode(mode), {}),
