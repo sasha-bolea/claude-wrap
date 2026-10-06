@@ -369,7 +369,7 @@ function NewFolderSheet({ parent, atRoot, onDone }: { parent: string; atRoot: bo
 
 // The sessions of one folder: open ones (also those in its subfolders) and saved ones, and a new session there.
 export function FolderSessionsScreen({ path }: { path: string }) {
-  const { state, connection, back } = useTouch()
+  const { state, connection, back, go } = useTouch()
   const { top } = useScreen()
   const startSession = useStartSession()
   const stored = useQuery(() => connection.request('sessions.list', { cwd: path }), [connection, path, state.tabs.length])
@@ -381,6 +381,7 @@ export function FolderSessionsScreen({ path }: { path: string }) {
       <header className="topbar">
         <IconButton icon="back" label={t('back')} onClick={back} />
         <Title text={baseName(path)} sub={path} />
+        <IconButton icon="note" label={t('folderNotes')} onClick={() => go({ name: 'notes', folder: path })} />
       </header>
       <div className="scroll">
         <div className="pad tight">

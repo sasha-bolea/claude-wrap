@@ -16,9 +16,9 @@ export type Screen =
   // File explorer of a session's folder (tabId) or of a folder of the Home (folder): exactly one.
   | { name: 'files'; tabId?: string; folder?: string }
   | { name: 'file'; tabId?: string; folder?: string; path: string; modified?: number }
-  | { name: 'notes'; tabId: string }
+  | { name: 'notes'; tabId?: string; folder?: string }
   | { name: 'terminal'; terminalId: string }
-  | { name: 'note'; tabId: string; noteId?: string }
+  | { name: 'note'; tabId?: string; folder?: string; noteId?: string }
   | { name: 'settings' }
   | { name: 'palettes' }
   | { name: 'palette'; paletteId?: string }

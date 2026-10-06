@@ -81,11 +81,11 @@ function ScreenView({ screen }: { screen: Screen }): ReactNode {
     case 'file':
       return <FileScreen tabId={screen.tabId} folder={screen.folder} path={screen.path} modified={screen.modified} />
     case 'notes':
-      return <NotesScreen tabId={screen.tabId} />
+      return <NotesScreen tabId={screen.tabId} folder={screen.folder} />
     case 'terminal':
       return <TerminalScreen terminalId={screen.terminalId} />
     case 'note':
-      return <NoteScreen tabId={screen.tabId} noteId={screen.noteId} />
+      return <NoteScreen tabId={screen.tabId} folder={screen.folder} noteId={screen.noteId} />
     case 'settings':
       return <SettingsScreen />
     case 'palettes':

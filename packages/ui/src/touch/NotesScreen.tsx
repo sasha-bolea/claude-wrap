@@ -12,34 +12,36 @@ const SAVE_DELAY = 600
 const noteRest = (text: string) => text.trim().split('\n').slice(1).join('\n')
 
 // "Usa nel messaggio": the note's text into the chat's composer, linked to the draft until it is sent; back to the chat.
-function useNoteInMessage(tabId: string) {
+function useNoteInMessage(tabId?: string) {
   const { insertInComposer, backTo } = useTouch()
   return (note: { noteId: string; text: string }) => {
+    if (!tabId) return
     insertInComposer(tabId, { text: note.text, noteId: note.noteId })
     backTo((screen) => screen.name === 'chat' && screen.tabId === tabId)
   }
 }
 
-// Notes of the session's folder (the same on every device): search, open, use in the message, a new one.
-export function NotesScreen({ tabId }: { tabId: string }) {
+// Notes of a session's folder (tabId) or of a Home folder (folder, no chat): the same on every device; search, open,
+// use in the message (session only), a new one.
+export function NotesScreen({ tabId, folder }: { tabId?: string; folder?: string }) {
   const { state, connection, back, go } = useTouch()
-  const meta = state.tabs.find((tab) => tab.tabId === tabId)
-  const cwd = meta?.cwd ?? ''
+  const meta = tabId ? state.tabs.find((tab) => tab.tabId === tabId) : undefined
+  const cwd = folder ?? meta?.cwd ?? ''
   const [needle, setNeedle] = useState('')
   const notes = useQuery(() => (cwd ? connection.request('notes.list', { cwd }) : Promise.resolve(undefined)), [connection, cwd, state.notesVersion[cwd]])
   const toMessage = useNoteInMessage(tabId)
-  if (!meta) return null
+  if (!folder && !meta) return null
   const search = needle.trim().toLowerCase()
   const list = (notes.data?.notes ?? []).filter((note) => note.text.toLowerCase().includes(search))
   // The new note's field takes the cursor within the tap, or iOS would not open the keyboard.
   const newNote = () => {
-    flushSync(() => go({ name: 'note', tabId }))
+    flushSync(() => go({ name: 'note', tabId, folder }))
     ;[...document.querySelectorAll<HTMLTextAreaElement>('.note-editor')].at(-1)?.focus({ preventScroll: true })
   }
   return (
     <section className="screen" aria-label={t('folderNotes')}>
       <header className="topbar">
-        <IconButton icon="back" label={t('chat')} onClick={back} />
+        <IconButton icon="back" label={t(folder ? 'back' : 'chat')} onClick={back} />
         <Title text={t('notes')} sub={baseName(cwd)} />
         <IconButton icon="plus" label={t('newNote')} onClick={newNote} />
       </header>
@@ -49,16 +51,18 @@ export function NotesScreen({ tabId }: { tabId: string }) {
           <ul className="note-list">
             {list.map((note) => (
               <li key={note.noteId} className="note-card">
-                <button className="note-open" onClick={() => go({ name: 'note', tabId, noteId: note.noteId })}>
+                <button className="note-open" onClick={() => go({ name: 'note', tabId, folder, noteId: note.noteId })}>
                   <strong>{noteTitle(note.text)}</strong>
                   {noteRest(note.text) && <span className="note-preview">{noteRest(note.text)}</span>}
                   <span className="note-date">{when(note.updatedAt)}</span>
                 </button>
-                <div className="note-actions">
-                  <button className="button" onClick={() => toMessage(note)}>
-                    {t('useInMessage')}
-                  </button>
-                </div>
+                {tabId && (
+                  <div className="note-actions">
+                    <button className="button" onClick={() => toMessage(note)}>
+                      {t('useInMessage')}
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
             {notes.data && !list.length && <li className="muted empty-line">{t(search ? 'noNotesFound' : 'noNotes')}</li>}
@@ -71,9 +75,9 @@ export function NotesScreen({ tabId }: { tabId: string }) {
 
 // One note: saved as you type (and when you leave it or the app); emptied, it goes away. The trash deletes it (with
 // undo); "Usa nel messaggio" saves it and takes it to the chat.
-export function NoteScreen({ tabId, noteId: opened }: { tabId: string; noteId?: string }) {
+export function NoteScreen({ tabId, folder, noteId: opened }: { tabId?: string; folder?: string; noteId?: string }) {
   const { state, connection, back, snack, fail } = useTouch()
-  const cwd = state.tabs.find((tab) => tab.tabId === tabId)?.cwd ?? ''
+  const cwd = folder ?? state.tabs.find((tab) => tab.tabId === tabId)?.cwd ?? ''
   const [text, setText] = useState(opened ? undefined : '')
   const [savedAt, setSavedAt] = useState<number>()
   const noteId = useRef(opened)
@@ -146,7 +150,7 @@ export function NoteScreen({ tabId, noteId: opened }: { tabId: string; noteId?: 
       <header className="topbar">
         <IconButton icon="back" label={t('notes')} onClick={back} />
         <Title text={t('note')} sub={status} />
-        <IconButton icon="to-chat" className="accent" label={t('useInMessage')} disabled={!text?.trim()} onClick={use} />
+        {tabId && <IconButton icon="to-chat" className="accent" label={t('useInMessage')} disabled={!text?.trim()} onClick={use} />}
         <IconButton icon="trash" label={t('deleteNote')} onClick={remove} />
       </header>
       <textarea className="note-editor" aria-label={t('noteText')} placeholder={t('writeNote')} value={text ?? ''} disabled={text === undefined} onChange={(event) => change(event.target.value)} />
