@@ -8,6 +8,7 @@ import {
   tabStream,
   terminalStream,
   type BrowserEvent,
+  type BrowserSnapshot,
   type Channel,
   type CommandArgs,
   type CommandName,
@@ -210,8 +211,9 @@ export class Connection {
     else pending.reject(new ClientError('invalid_args', `invalid result for ${pending.frame.name}`))
   }
 
-  private onReset(stream: string, epoch: string, seq: number, snapshot: WorkspaceSnapshot | TabSnapshot | TerminalSnapshot): void {
+  private onReset(stream: string, epoch: string, seq: number, snapshot: WorkspaceSnapshot | TabSnapshot | TerminalSnapshot | BrowserSnapshot): void {
     if (snapshot.kind === 'workspace') this.store.applyWorkspaceReset(snapshot)
+    else if (snapshot.kind === 'browser') return // the browser view is not built yet
     else if (snapshot.kind === 'terminal') {
       const sink = this.terminalSinks.get(terminalIdOf(stream))
       if (!sink) return
