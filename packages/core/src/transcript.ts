@@ -33,6 +33,11 @@ export class Transcript implements TranscriptWriter {
     return position === undefined ? undefined : this.items[position]
   }
 
+  // Every item, oldest first.
+  all(): readonly Item[] {
+    return this.items
+  }
+
   has(itemId: string): boolean {
     return this.index.has(itemId)
   }
@@ -111,6 +116,21 @@ export class Transcript implements TranscriptWriter {
       this.items = []
       this.index.clear()
       write()
+    })
+  }
+
+  // Drops the item and everything after it (a rewind): new epoch; the images of the items kept stay.
+  truncateAt(itemId: string): void {
+    const end = this.index.get(itemId)
+    if (end === undefined) return
+    this.flush()
+    const kept = this.items.slice(0, end)
+    const blobs = new Map(this.blobs)
+    this.rebuildFrom(() => {
+      for (const item of kept) {
+        this.add(item)
+        if (item.kind === 'user') for (const { imageId } of item.images ?? []) this.blobs.set(imageId, blobs.get(imageId)!)
+      }
     })
   }
 

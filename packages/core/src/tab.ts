@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { basename } from 'node:path'
-import type { Options, SDKMessage, SDKResultMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
+import { basename, isAbsolute, relative } from 'node:path'
+import type { Options, SDKMessage, SDKResultMessage, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
 import {
   EFFORT_LEVELS,
   tabStream,
@@ -80,6 +80,14 @@ export interface TabEnvironment {
   accountToken(account: string | undefined): Promise<string | undefined>
 }
 
+// What a rewind gives back: the rewound prompt for the composer (conversation modes), the files it restored (code
+// modes) and startOver when the target was the first message (the caller opens a fresh session for it).
+export type RewindOutcome = { text?: string; images?: Image[]; filesChanged?: string[]; skippedLinks?: number; startOver?: boolean }
+// A message the user can rewind to: its item id, a clamped summary of its text and its number of images.
+export type RewindPoint = { itemId: string; text: string; images?: number }
+// Longest text of a rewind point (chars).
+const REWIND_TEXT = 200
+
 // A user message on its way: queueId is the cmd id (SDK message uuid); pastes are long pasted texts inside text.
 export type Outgoing = { queueId: string; text: string; from: string; images?: Image[]; pastes?: string[] }
 
@@ -107,6 +115,8 @@ export type TabInit = {
   lastUsedAt?: number
   // Claude finished while nobody looked at the chat.
   unseen?: boolean
+  // After a conversation rewind: the stored message the next process resumes at (everything after it is dropped).
+  resumeAt?: string
 }
 
 // Longest title taken from the CLI (chars). Its "summary" is its generated title, but for some sessions (long ones,
@@ -211,6 +221,10 @@ export class Tab {
   // lastModified of the stored session when its history was loaded, and whether a process ever ran here.
   private historyModified?: number
   private liveStarted = false
+  // A rewind is in progress (the tab counts as busy; sending and starting a queued message wait).
+  private rewinding = false
+  // The stored message the next process resumes at, from a conversation rewind until that process reports init.
+  private resumeAt?: string
 
   constructor(init: TabInit, env: TabEnvironment) {
     this.env = env
@@ -224,6 +238,7 @@ export class Tab {
     this.lastUsedAt = init.lastUsedAt
     this.unseenFinish = init.unseen ?? false
     this.sessionId = init.resume
+    this.resumeAt = init.resumeAt
     this.model = init.model
     this.effort = init.effort
     this.mode = this.confirmedMode = init.mode ?? 'default'
@@ -258,14 +273,14 @@ export class Tab {
 
   // A process is starting or running a turn (fork and session deletion are refused meanwhile).
   get busy(): boolean {
-    return this.status === 'starting' || this.status === 'running' || this.status === 'requires_action'
+    return this.rewinding || this.status === 'starting' || this.status === 'running' || this.status === 'requires_action'
   }
 
   // What survives a restart (the tab comes back dormant).
   persisted(): PersistedTab {
-    const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause, autoTitle, account, interrupted, lastUsedAt } = this
+    const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause, autoTitle, account, interrupted, lastUsedAt, resumeAt } = this
     const context = this.contextGauge
-    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account, interrupted, context, lastUsedAt, ...(this.unseenFinish ? { unseen: true } : {}) }
+    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account, interrupted, context, lastUsedAt, ...(resumeAt ? { resumeAt } : {}), ...(this.unseenFinish ? { unseen: true } : {}) }
   }
 
   // The stored-session uuid behind an item (fork up to that item).
@@ -303,6 +318,7 @@ export class Tab {
   // as in the terminal) and its item stays pending until the CLI reads it.
   async send(message: Outgoing): Promise<void> {
     this.assertOpen()
+    this.assertNotRewinding()
     this.used()
     // A message of the user takes the place of "Continua".
     if (this.interrupted) this.interrupted = undefined
@@ -491,6 +507,7 @@ export class Tab {
   // uuid: the cmd id (item id and stored message uuid).
   async shell(command: string, uuid: string): Promise<{ exitCode: number }> {
     this.assertOpen()
+    this.assertNotRewinding()
     if (this.turnRunning) throw new CoreError('session_busy', 'wait for the turn to end')
     this.turnRunning = true
     this.changed()
@@ -514,6 +531,100 @@ export class Tab {
       this.dispatchNext()
       this.changed()
     }
+  }
+
+  // The messages of the user the chat can be rewound to, oldest first: real prompts (not waiting to be read, not from
+  // another session, not `!` commands) after the last compaction, which the CLI cannot rewind across.
+  rewindPoints(): RewindPoint[] {
+    const items = this.transcript.all()
+    const boundary = items.findLastIndex((item) => item.kind === 'compactBoundary')
+    return items.slice(boundary + 1).flatMap((item) => {
+      if (item.kind !== 'user' || item.pending) return []
+      return [{ itemId: item.itemId, text: item.text.slice(0, REWIND_TEXT), ...(item.images?.length ? { images: item.images.length } : {}) }]
+    })
+  }
+
+  // What rewinding the files to a message would change (starts the process if dormant; sends nothing).
+  async rewindPreview(itemId: string): Promise<{ canRewind: boolean; error?: string; filesChanged?: string[]; insertions?: number; deletions?: number }> {
+    const target = this.rewindTarget(itemId)
+    const session = await this.ensureSession()
+    const { filesChanged, ...rest } = await session.query.rewindFiles(target.uuid, { dryRun: true }).catch((error: unknown) => this.sdkFailure('Rewind preview failed', error))
+    return { ...rest, ...(filesChanged ? { filesChanged: filesChanged.map((path) => this.relativePath(path)) } : {}) }
+  }
+
+  // Rewinds to a message like the CLI's /rewind: the files, the conversation, or both. Refused while Claude works.
+  // The conversation is cut before the message: the next process resumes at the message before it, the queue waits for
+  // ▶, and the message's text and images come back for the composer. The first message has nothing before it: nothing
+  // is cut and startOver is set, the caller opens a fresh session for it.
+  async rewind(itemId: string, mode: 'both' | 'conversation' | 'code'): Promise<RewindOutcome> {
+    this.assertOpen()
+    this.assertNotRewinding()
+    const target = this.rewindTarget(itemId)
+    this.assertIdle()
+    this.rewinding = true
+    this.changed()
+    try {
+      const code = mode === 'conversation' ? {} : await this.rewindCode(target.uuid)
+      return mode === 'code' ? code : { ...code, ...(await this.rewindConversation(target)) }
+    } finally {
+      this.rewinding = false
+      this.changed()
+      this.dispatchNext()
+    }
+  }
+
+  // The user item to rewind to and its stored message uuid; not_found / invalid_args otherwise.
+  private rewindTarget(itemId: string): { item: Extract<Item, { kind: 'user' }>; uuid: string } {
+    const item = this.transcript.get(itemId)
+    if (!item) throw new CoreError('not_found', 'message not found')
+    if (item.kind !== 'user' || item.pending) throw new CoreError('invalid_args', 'not a message of the user to rewind to')
+    return { item, uuid: item.sourceUuid ?? item.itemId }
+  }
+
+  // Refuses while a turn, a held message, a request or a `!` command is at work.
+  private assertIdle(): void {
+    if (this.turnRunning || this.held.size || this.requests.size || this.shellAbort || this.lifecycle === 'starting') throw new CoreError('session_busy', 'wait for Claude to finish before rewinding')
+  }
+
+  // Restores the files to their state at the message.
+  private async rewindCode(uuid: string): Promise<RewindOutcome> {
+    const session = await this.ensureSession()
+    const result = await session.query.rewindFiles(uuid).catch((error: unknown) => this.sdkFailure('Rewind failed', error))
+    if (!result.canRewind) throw new CoreError('sdk_error', result.error ?? 'the files cannot be rewound to this message')
+    return { filesChanged: (result.filesChanged ?? []).map((path) => this.relativePath(path)), skippedLinks: result.skippedLinks ?? 0 }
+  }
+
+  // Cuts the conversation before the target (see rewind). Another session's message may have started a turn since the
+  // check: it is checked again once the stored session was read.
+  private async rewindConversation({ item, uuid }: { item: Extract<Item, { kind: 'user' }>; uuid: string }): Promise<RewindOutcome> {
+    const before = await this.messageBefore(uuid)
+    this.assertIdle()
+    const images = (item.images ?? []).flatMap((ref) => this.transcript.blob(ref.imageId) ?? [])
+    const prompt = { text: item.text, ...(images.length ? { images } : {}) }
+    if (!before) return { ...prompt, startOver: true }
+    this.resumeAt = before
+    await this.releaseProcess()
+    this.normalizer = new Normalizer(this.transcript)
+    this.silentResults = 0
+    this.silentUuids.clear()
+    this.transcript.truncateAt(item.itemId)
+    // The queued messages were written for the conversation as it was: they wait for ▶.
+    if (this.queue.length) this.queuePause = { reason: 'user' }
+    return prompt
+  }
+
+  // The stored message just before the one with uuid in the session's chain (the point to resume at), or undefined when
+  // it is the first. System records and subagent messages are not resume points. not_found when uuid is not stored.
+  private async messageBefore(uuid: string): Promise<string | undefined> {
+    const messages = this.sessionId ? await this.env.sdk.getSessionMessages(this.sessionId, { dir: this.cwd }).catch(() => []) : []
+    const position = messages.findIndex((message) => message.uuid === uuid)
+    if (position < 0) throw new CoreError('not_found', 'that message is not in the stored session yet')
+    return messages.slice(0, position).findLast((message) => message.type !== 'system' && !message.parent_tool_use_id)?.uuid
+  }
+
+  // A path the CLI reports, relative to the tab's folder when inside it.
+  private relativePath(path: string): string {
+    return isAbsolute(path) ? relative(this.cwd, path) || path : path
   }
 
   // Files and folders of the tab's folder for an `@` mention (trusted folders only; starts no process).
@@ -702,9 +813,15 @@ export class Tab {
     const dir = { dir: this.cwd }
     this.historyPromise ??= Promise.all([this.env.sdk.getSessionMessages(sessionId, dir), this.env.sdk.getSessionInfo(sessionId, dir)]).then(([messages, info]) => {
       this.historyModified = info?.lastModified
-      this.transcript.rebuildFrom(() => messages.forEach((message) => this.normalizer.history(message)))
+      this.transcript.rebuildFrom(() => this.cutAtResume(messages).forEach((message) => this.normalizer.history(message)))
     })
     return this.historyPromise
+  }
+
+  // The stored messages up to and including the rewind's resume point (all of them when none is set or it is not found).
+  private cutAtResume(messages: SessionMessage[]): SessionMessage[] {
+    const end = this.resumeAt ? messages.findIndex((message) => message.uuid === this.resumeAt) : -1
+    return end < 0 ? messages : messages.slice(0, end + 1)
   }
 
   // Before the first spawn: if the stored session changed since its history was read (a terminal CLI wrote to
@@ -771,6 +888,7 @@ export class Tab {
       env: { ...(this.env.sdkOptions.env ?? process.env), CLAUDE_CODE_SESSION_NAME: this.title, ...(token ? { CLAUDE_CODE_OAUTH_TOKEN: token } : {}) },
       cwd: this.cwd,
       resume: this.sessionId,
+      ...(this.resumeAt ? { resumeSessionAt: this.resumeAt } : {}),
       model: this.model,
       effort: this.effort,
       ...(autoCompactWindow ? { settings: { autoCompactWindow } } : {}),
@@ -836,7 +954,7 @@ export class Tab {
 
   // The queue may send now: Claude is free, the queue is not paused and not empty.
   private queueFree(): boolean {
-    const free = !this.turnRunning && !this.held.size && !this.requests.size && this.lifecycle !== 'closing' && this.lifecycle !== 'starting'
+    const free = !this.rewinding && !this.turnRunning && !this.held.size && !this.requests.size && this.lifecycle !== 'closing' && this.lifecycle !== 'starting'
     return free && !this.queuePause && this.queue.length > 0
   }
 
@@ -928,6 +1046,8 @@ export class Tab {
     this.normalizer.live(message)
     if (message.type === 'system' && message.subtype === 'init') {
       this.setSessionId(message.session_id)
+      // The new process runs on the cut conversation: its own records continue from there.
+      this.resumeAt = undefined
       this.activeModel = message.model
       this.adoptMode(message.permissionMode, true)
     } else if (message.type === 'system' && message.subtype === 'status' && message.permissionMode) {
@@ -1057,6 +1177,10 @@ export class Tab {
 
   private notice(level: 'info' | 'warning' | 'error', text: string): void {
     this.transcript.add({ kind: 'notice', itemId: `notice-${this.transcript.stream.seq + 1}-${Date.now()}`, level, text })
+  }
+
+  private assertNotRewinding(): void {
+    if (this.rewinding) throw new CoreError('session_busy', 'a rewind is in progress')
   }
 
   private assertOpen(): void {

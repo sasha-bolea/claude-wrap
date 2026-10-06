@@ -240,13 +240,17 @@ export function createFakeSdk() {
     const index = history?.findIndex((message) => message.uuid === uuid) ?? -1
     if (history && index >= 0) history.splice(index + 1)
   }
+  // Results of rewindFiles for the sessions created from now on (see FakeSession.rewindResults).
+  const rewindResults = new Map<string, RewindFilesResult>()
   return {
     sessions,
     histories,
+    rewindResults,
     infos,
     query: ((params: { prompt: AsyncIterable<SDKUserMessage>; options?: Options }) => {
       const session = new FakeSession(params.options ?? {}, params.prompt)
       sessions.push(session)
+      for (const [id, result] of rewindResults) session.rewindResults.set(id, result)
       const { resume, resumeSessionAt } = params.options ?? {}
       if (resume && resumeSessionAt) truncateAt(resume, resumeSessionAt)
       return session.asQuery()

@@ -29,6 +29,8 @@ export type PersistedTab = {
   lastUsedAt?: number
   // Claude finished while nobody looked at the chat.
   unseen?: boolean
+  // After a conversation rewind: the stored message the next process resumes at (the history is cut there meanwhile).
+  resumeAt?: string
 }
 
 // A claude process started by this core, recorded to kill it if the core dies without closing it.

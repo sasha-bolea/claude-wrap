@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { COMMANDS, LIMITS, type Cmd, type CommandArgs, type CommandName, type CommandResult, type ErrorCode, type Image, type Reply } from '@athome/protocol'
 import { CoreError, messageOf } from './errors.ts'
 import { deletable, listFiles, makeDir, moveFile, readFileFor, writeFileFor } from './files.ts'
@@ -36,6 +37,17 @@ async function fork(workspace: Workspace, { tabId, newTabId, upToItemId }: Comma
   const created = workspace.create({ tabId: newTabId, cwd: tab.cwd, resume: sessionId, title, model: tab.model, effort: tab.effort, mode: tab.mode })
   workspace.reorder(created, [...workspace.tabs.keys()].indexOf(tabId) + 1)
   return { tabId: created }
+}
+
+// Rewinds a tab (see Tab.rewind). Rewinding to the first message cuts nothing: the old session stays as it is (a past
+// session, its tab open) and a fresh tab in the same folder, with the same model, effort, mode and account, gets the prompt.
+async function rewind(workspace: Workspace, { tabId, itemId, mode }: CommandArgs<'tab.rewind'>): Promise<CommandResult<'tab.rewind'>> {
+  const tab = workspace.tabOf(tabId)
+  const { startOver, ...outcome } = await tab.rewind(itemId, mode)
+  if (!startOver) return outcome
+  const created = workspace.create({ tabId: randomUUID(), cwd: tab.cwd, model: tab.model, effort: tab.effort, mode: tab.mode, account: tab.accountId })
+  workspace.reorder(created, [...workspace.tabs.keys()].indexOf(tabId) + 1)
+  return { ...outcome, newTabId: created }
 }
 
 // Stored sessions of a folder, or (no cwd) of every folder inside the roots, newest first, with their folder and the
@@ -146,15 +158,9 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'tab.commands': async ({ tabId }) => ({ commands: await tabOf(tabId).commands() }),
     'tab.context': ({ tabId }) => tabOf(tabId).contextUsage(),
     'tab.usage': ({ tabId }) => tabOf(tabId).usage(),
-    'tab.rewindPoints': () => {
-      throw new CoreError('not_found', 'rewind points not yet implemented')
-    },
-    'tab.rewindPreview': () => {
-      throw new CoreError('not_found', 'rewind preview not yet implemented')
-    },
-    'tab.rewind': () => {
-      throw new CoreError('not_found', 'rewind not yet implemented')
-    },
+    'tab.rewindPoints': ({ tabId }) => ({ points: tabOf(tabId).rewindPoints() }),
+    'tab.rewindPreview': ({ tabId, itemId }) => tabOf(tabId).rewindPreview(itemId),
+    'tab.rewind': (args) => rewind(workspace, args),
     'settings.setAutoCompactWindow': async ({ tokens }) => (await workspace.setAutoCompactWindow(tokens), {}),
     'settings.setDefaultEffort': async ({ effort }) => (await workspace.setDefaultEffort(effort), {}),
     'settings.setDefaultMode': async ({ mode }) => (await workspace.setDefaultMode(mode), {}),
