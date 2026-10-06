@@ -182,13 +182,11 @@ export const terminalEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('terminal.exit'), exitCode: z.number().int() })
 ])
 
-// A browser's stream: frames of the active tab, tabs list, browser sessions, dialogs, and hold mode.
+// The browser's stream: frames of the active tab, its tabs, and the chats whose Claude is using it.
 export const browserEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('browser.frame'), tabId: z.string(), data: z.string().max(3_000_000), width: z.number().int(), height: z.number().int(), viewportWidth: z.number().int(), viewportHeight: z.number().int(), seq: z.number().int() }),
   z.object({ type: z.literal('browser.tabs'), tabs: z.array(z.object({ tabId: z.string(), url: z.string(), title: z.string(), active: z.boolean() })), running: z.boolean() }),
   z.object({ type: z.literal('browser.acting'), sessions: z.array(z.object({ tabId: z.string(), title: z.string() })) }),
-  z.object({ type: z.literal('browser.dialog'), dialog: z.object({ kind: z.enum(['alert', 'confirm', 'prompt', 'beforeunload']), message: z.string(), defaultPrompt: z.string().optional() }).optional() }),
-  z.object({ type: z.literal('browser.hold'), held: z.boolean() })
 ])
 
 export const workspaceSnapshotSchema = z.object({

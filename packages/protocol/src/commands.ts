@@ -248,12 +248,8 @@ export const COMMANDS = {
   'browser.tabClose': { args: z.object({ tabId: z.string() }), result: empty },
   'browser.pointer': { args: z.object({ type: z.enum(['down', 'move', 'up']), x: z.number().min(0).max(1), y: z.number().min(0).max(1), button: z.enum(['left', 'right', 'middle']).optional(), clickCount: z.number().int().min(1).max(3).optional(), touch: z.boolean().optional() }), result: empty },
   'browser.wheel': { args: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), dx: z.number().finite(), dy: z.number().finite() }).refine((args) => Math.abs(args.dx) <= 10000 && Math.abs(args.dy) <= 10000, 'wheel deltas must satisfy |d| ≤ 10000'), result: empty },
-  'browser.key': { args: z.object({ type: z.enum(['down', 'up']), key: z.string().max(32), code: z.string().max(32).optional(), modifiers: z.number().int().min(0).max(15).optional() }), result: empty },
   'browser.text': { args: z.object({ text: z.string().max(20000) }), result: empty },
-  'browser.copySelection': { args: empty, result: z.object({ text: z.string() }) },
   'browser.viewport': { args: z.object({ width: z.number().int().min(200).max(4000), height: z.number().int().min(200).max(4000), mobile: z.boolean(), scale: z.number().min(1).max(4).optional() }), result: empty },
-  'browser.dialogAnswer': { args: z.object({ accept: z.boolean(), text: z.string().max(20000).optional() }), result: empty },
-  'browser.setHold': { args: z.object({ held: z.boolean() }), result: empty },
   // Folder trust: what the folder would load and run, and where an accepted trust applies.
   'trust.check': {
     args: z.object({ cwd: z.string().min(1) }),

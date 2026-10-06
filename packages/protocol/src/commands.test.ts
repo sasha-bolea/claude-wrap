@@ -67,17 +67,6 @@ describe('browser commands', () => {
     expect(tooSmallResult.success).toBe(false)
   })
 
-  it('browser.key enforces max key length', () => {
-    const schema = COMMANDS['browser.key']
-    const validKey = { type: 'down' as const, key: 'Enter' }
-    const validResult = schema.args.safeParse(validKey)
-    expect(validResult.success).toBe(true)
-
-    // Reject key over 32 chars
-    const longKey = { type: 'down' as const, key: 'a'.repeat(33) }
-    const longResult = schema.args.safeParse(longKey)
-    expect(longResult.success).toBe(false)
-  })
 
   it('browser.frame event parses correctly', () => {
     const frameEvent = {
