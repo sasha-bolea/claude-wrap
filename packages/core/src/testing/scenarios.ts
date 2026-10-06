@@ -7,6 +7,7 @@ import { sdk, stored } from './messages.ts'
 // Each fake process answers the user's messages by keyword:
 //   permission → asks to Write a file, then reports the decision (and the deny reason)
 //   question   → asks a multiple-choice question, then echoes the answers
+//   questions  → asks two questions in one form (single and multiple choice), then echoes the answers
 //   plan       → asks to approve a plan, then reports the decision
 //   slow       → streams a long answer, word by word, until interrupted
 //   markdown   → answers with a remote image and a link (rendering safety checks)
@@ -77,6 +78,12 @@ const QUESTION = {
     { question: 'Which color?', header: 'Color', multiSelect: false, options: [{ label: 'Red', description: 'Warm' }, { label: 'Blue', description: 'Cold' }] }
   ]
 }
+const QUESTIONS = {
+  questions: [
+    QUESTION.questions[0],
+    { question: 'Which sizes?', header: 'Size', multiSelect: true, options: [{ label: 'Small', description: 'S' }, { label: 'Large', description: 'L' }] }
+  ]
+}
 const WRITE_RULE = [{ type: 'addRules', rules: [{ toolName: 'Write' }], behavior: 'allow', destination: 'localSettings' }]
 const SLOW_TEXT = Array.from({ length: 400 }, (_, n) => `word${n}`).join(' ')
 
@@ -91,6 +98,7 @@ async function respond(turn: Turn, text: string, images: number): Promise<void> 
     return stream(turn, `Permission: ${outcome}`)
   }
   if (keyword === 'question') return stream(turn, `Question: ${await ask(turn, 'AskUserQuestion', QUESTION)}`)
+  if (keyword === 'questions') return stream(turn, `Questions: ${await ask(turn, 'AskUserQuestion', QUESTIONS)}`)
   if (keyword === 'plan') return stream(turn, `Plan: ${await ask(turn, 'ExitPlanMode', { plan: '1. Do the thing\n2. Check it' })}`)
   if (keyword === 'slow') return stream(turn, SLOW_TEXT)
   if (keyword === 'tools') {

@@ -460,6 +460,11 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .option small { display: block; color: var(--text-muted); }
 .question { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
 .question legend { padding: 0; margin-bottom: 8px; font-weight: 600; }
+/* Steps of a form with several questions: one at a time, like the CLI; current = accent outline, answered = filled */
+.question-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.question-step { min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: none; color: var(--text-muted); font: inherit; font-size: 13px; }
+.question-step.done { background: var(--surface-2); color: var(--text); }
+.question-step[aria-current="step"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 
 /* Composer: one box with the text on top and the controls below */
 /* No strip around it: the rounded bar floats on the dock's blurred gradient */

@@ -96,6 +96,24 @@ describe('desktop chat (fake SDK)', () => {
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Question: allow {"Which color?":"Blue"}')
   })
 
+  it('shows the questions of one form one at a time, like the CLI', async () => {
+    const { page } = ctx
+    await send(page, 'questions')
+    const panel = page.getByRole('region', { name: 'Question from Claude' })
+    await expect.poll(() => panel.getByRole('group').count()).toBe(1)
+    expect(await panel.getByRole('group').getAttribute('aria-label')).toBe('Color, question 1 of 2')
+    await panel.getByRole('radio', { name: /Blue/ }).click()
+    await expect.poll(() => panel.getByRole('group').getAttribute('aria-label')).toBe('Size, question 2 of 2')
+    expect(await panel.getByRole('button', { name: 'Answer' }).isDisabled()).toBe(true)
+    await panel.getByRole('checkbox', { name: /Small/ }).check()
+    await panel.getByRole('checkbox', { name: /Large/ }).check()
+    await panel.getByRole('button', { name: /^Color/ }).click()
+    expect(await panel.getByRole('radio', { name: /Blue/ }).isChecked()).toBe(true)
+    await panel.getByRole('button', { name: 'Next' }).click()
+    await panel.getByRole('button', { name: 'Answer' }).click()
+    await expect.poll(() => lastAnswer(page).textContent()).toBe('Questions: allow {"Which color?":"Blue","Which sizes?":"Small, Large"}')
+  })
+
   it('approving a plan with auto-accept switches the permission mode', async () => {
     const { page } = ctx
     await send(page, 'plan')

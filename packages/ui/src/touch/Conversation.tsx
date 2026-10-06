@@ -383,51 +383,97 @@ function PermissionCard({ request, onAnswer }: { request: Request; onAnswer: (an
   )
 }
 
+const OTHER = '\u0000other'
+
+// Claude's multiple-choice questions, one at a time like the CLI: with more than one, a row of steps (one per
+// header, tap = go to it) sits on top; choosing an answer of a single-choice question moves on to the next one.
+// Answer, on the last step, sends them all once each has an answer; Skip declines the whole form.
 function QuestionCard({ request, onAnswer }: { request: Request; onAnswer: (answer: Answer) => void }) {
   const questions = (Array.isArray(request.input.questions) ? request.input.questions : []) as Question[]
   const [chosen, setChosen] = useState<Record<string, string[]>>({})
   const [other, setOther] = useState<Record<string, string>>({})
-  const OTHER = '\u0000other'
-  const choose = (question: Question, label: string) =>
+  const [step, setStep] = useState(0)
+  const last = step >= questions.length - 1
+  const choose = (question: Question, label: string) => {
     setChosen((current) => {
       const selected = current[question.question] ?? []
       if (!question.multiSelect) return { ...current, [question.question]: [label] }
       return { ...current, [question.question]: selected.includes(label) ? selected.filter((entry) => entry !== label) : [...selected, label] }
     })
+    if (!question.multiSelect && label !== OTHER && !last) setStep(step + 1)
+  }
   const answerOf = (question: Question) => (chosen[question.question] ?? []).map((label) => (label === OTHER ? (other[question.question] ?? '') : label)).filter(Boolean).join(', ')
   const complete = questions.every((question) => answerOf(question))
+  const question = questions[step]
   return (
     <>
-      {questions.map((question) => (
-        <fieldset key={question.question} className="question">
-          <legend>
-            <span className="chip">{question.header}</span> {question.question}
-          </legend>
-          {[...question.options, { label: OTHER, description: t('otherHint') }].map((option) => (
-            <label key={option.label} className="option">
-              <input type={question.multiSelect ? 'checkbox' : 'radio'} name={question.question} checked={chosen[question.question]?.includes(option.label) ?? false} onChange={() => choose(question, option.label)} />
-              <span>
-                {option.label === OTHER ? t('otherEllipsis') : option.label}
-                <small>{option.description}</small>
-              </span>
-            </label>
-          ))}
-          {chosen[question.question]?.includes(OTHER) && (
-            <div className="reveal">
-              <input className="field" aria-label={t('yourAnswer')} placeholder={t('yourAnswer')} autoFocus value={other[question.question] ?? ''} onChange={(event) => setOther((current) => ({ ...current, [question.question]: event.target.value }))} />
-            </div>
-          )}
-        </fieldset>
-      ))}
+      {questions.length > 1 && <QuestionSteps questions={questions} step={step} answered={(entry) => Boolean(answerOf(entry))} onStep={setStep} />}
+      {question && (
+        <QuestionFields
+          key={question.question}
+          question={question}
+          label={questions.length > 1 ? t('questionStep', { header: question.header, n: String(step + 1), total: String(questions.length) }) : undefined}
+          chosen={chosen[question.question] ?? []}
+          other={other[question.question] ?? ''}
+          onChoose={(label) => choose(question, label)}
+          onOther={(text) => setOther((current) => ({ ...current, [question.question]: text }))}
+        />
+      )}
       <div className="grant-row">
-        <button className="button primary" disabled={!complete} onClick={() => onAnswer({ decision: 'allow', answers: Object.fromEntries(questions.map((question) => [question.question, answerOf(question)])) })}>
-          {t('answer')}
-        </button>
+        {last ? (
+          <button className="button primary" disabled={!complete} onClick={() => onAnswer({ decision: 'allow', answers: Object.fromEntries(questions.map((entry) => [entry.question, answerOf(entry)])) })}>
+            {t('answer')}
+          </button>
+        ) : (
+          <button className="button primary" disabled={!question || !answerOf(question)} onClick={() => setStep(step + 1)}>
+            {t('nextQuestion')}
+          </button>
+        )}
         <button className="button" onClick={() => onAnswer({ decision: 'deny' })}>
           {t('skip')}
         </button>
       </div>
     </>
+  )
+}
+
+// The steps of a form with several questions: one button per header, the current one marked, the answered ones
+// filled. Params: the questions, the current step, whether a question has an answer, the callback to change step.
+function QuestionSteps({ questions, step, answered, onStep }: { questions: Question[]; step: number; answered: (question: Question) => boolean; onStep: (step: number) => void }) {
+  return (
+    <nav className="question-steps" aria-label={t('questionSteps')}>
+      {questions.map((question, index) => (
+        <button key={question.question} className={`question-step${answered(question) ? ' done' : ''}`} aria-current={index === step ? 'step' : undefined} onClick={() => onStep(index)}>
+          {question.header}
+        </button>
+      ))}
+    </nav>
+  )
+}
+
+// One question with its options, plus "Other…" and its field once chosen. Params: the question, the group's label
+// (the step, when the form has several), the chosen labels, the "Other" text and the callbacks that change them.
+function QuestionFields({ question, label, chosen, other, onChoose, onOther }: { question: Question; label?: string; chosen: string[]; other: string; onChoose: (label: string) => void; onOther: (text: string) => void }) {
+  return (
+    <fieldset className="question" aria-label={label}>
+      <legend>
+        <span className="chip">{question.header}</span> {question.question}
+      </legend>
+      {[...question.options, { label: OTHER, description: t('otherHint') }].map((option) => (
+        <label key={option.label} className="option">
+          <input type={question.multiSelect ? 'checkbox' : 'radio'} name={question.question} checked={chosen.includes(option.label)} onChange={() => onChoose(option.label)} />
+          <span>
+            {option.label === OTHER ? t('otherEllipsis') : option.label}
+            <small>{option.description}</small>
+          </span>
+        </label>
+      ))}
+      {chosen.includes(OTHER) && (
+        <div className="reveal">
+          <input className="field" aria-label={t('yourAnswer')} placeholder={t('yourAnswer')} autoFocus value={other} onChange={(event) => onOther(event.target.value)} />
+        </div>
+      )}
+    </fieldset>
   )
 }
 

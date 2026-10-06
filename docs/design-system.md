@@ -177,6 +177,10 @@ Examples: [Conversation.tsx:142](../packages/ui/src/touch/Conversation.tsx#L142)
 ### Request card — `.request` (`.preview`, `.grant-row`, `.reveal`)
 Claude's permission, question or plan inside the conversation (rule 3); `.reveal` holds the field and the button
 that appear after choosing "No…", "Other…" or "Keep planning…".
+A form with several questions shows one at a time, like the CLI: a row of `.question-step` pills (`.question-steps`,
+one per header; current = accent outline with `aria-current="step"`, answered = filled; tap = go to it) above the
+question; choosing an answer of a single-choice question moves on, "Avanti" otherwise; "Rispondi" on the last step
+sends them all. A single question shows no steps. Example: [Conversation.tsx:444](../packages/ui/src/touch/Conversation.tsx#L444).
 Examples: [Conversation.tsx:336](../packages/ui/src/touch/Conversation.tsx#L336), [Conversation.tsx:346](../packages/ui/src/touch/Conversation.tsx#L346).
 
 ### Conversation scroll indicator — `.scroll-thumb` (`.on`)
