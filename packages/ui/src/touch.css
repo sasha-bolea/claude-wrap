@@ -235,13 +235,6 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .compacted::before, .compacted::after { content: ''; flex: 1; border-top: 1px dashed var(--border); }
 .thumb-btn { border: 0; padding: 0; background: none; border-radius: 10px; }
 
-/* Chat top bar: the title is a button that opens the session menu */
-.title-btn { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 8px; border: 0; background: none; text-align: left; padding: 0 4px; border-radius: 12px; }
-.title-btn:active { background: var(--surface-2); }
-.title-text { min-width: 0; display: flex; align-items: baseline; gap: 6px; font-weight: 600; font-size: 14px; line-height: 1.25; }
-.title-text > span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.title-text > span:first-child { flex: 0 1 auto; }
-.title-text > .sub { flex: 0 10 auto; min-width: 3ch; display: inline; }
 .icon-btn .count { position: absolute; top: 5px; right: 3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--surface-2); color: var(--text-muted); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
 .icon-btn .count svg.i { width: 11px; height: 11px; stroke-width: 3.2; vertical-align: -1px; }
 
@@ -514,12 +507,19 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .model-btn:active { background: var(--surface-2); }
 .model-btn span { text-align: left; line-height: 1.2; }
 .model-btn svg.i { width: 16px; height: 16px; flex: none; }
-/* Chat top bar: the model and effort on a second line under the title, lined up with its text */
-.title-stack { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
-.title-stack .title-btn { flex: none; width: 100%; min-height: 26px; }
-.title-stack .model-btn { max-width: calc(100% - 22px); min-height: 22px; margin-left: 22px; padding: 0 4px; font-size: 12px; }
-.title-stack .model-btn span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.title-stack .model-btn svg.i { width: 13px; height: 13px; }
+/* Chat top bar: two rows. Row 1 = back, state, "folder / title" on one line (plain text; the title is cut first, the
+   folder keeps up to 45% then is cut too). Row 2 = the model, then the tools on the right. */
+.topbar.chat-bar { flex-direction: column; align-items: stretch; gap: 0; padding-top: calc(4px + env(safe-area-inset-top, 0px)); padding-bottom: 2px; }
+.chat-bar .bar-row { display: flex; align-items: center; gap: 4px; min-width: 0; min-height: 44px; }
+.chat-bar .bar-row:first-child { gap: 8px; }
+.device.wide .chat-bar .bar-row:first-child { padding-left: 8px; }
+.chat-bar .bar-spacer { flex: 1; }
+.chat-bar .chat-title { flex: 1; min-width: 0; display: flex; align-items: baseline; font-size: 15px; font-weight: 600; line-height: 1.25; white-space: nowrap; }
+.chat-title .folder { flex: 0 1 auto; max-width: 45%; min-width: 3ch; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); font-weight: 400; }
+.chat-title .sep { flex: none; white-space: pre; color: var(--text-muted); font-weight: 400; }
+.chat-title .name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.chat-bar .model-btn { min-height: 44px; max-width: 50%; padding: 0 8px; font-size: 13px; }
+.chat-bar .model-btn span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .input-tools .gauge-btn { margin-right: auto; }
 /* The composer's gauge: a ring filled to the highest of context, 5-hour and weekly use (no number beside it) */
 .gauge-btn { flex: none; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; border-radius: 12px; padding: 0; color: var(--text-muted); }

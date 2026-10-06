@@ -112,7 +112,7 @@ describe('PWA (fake SDK)', () => {
     await trust.or(composer(page)).first().waitFor()
     if (await trust.isVisible()) await trust.click()
     await composer(page).waitFor()
-    expect(await page.locator('.chat-screen .title-text > span').first().textContent()).toBe('Login review')
+    expect(await page.locator('.chat-screen .chat-title .name').textContent()).toBe('Login review')
   })
 
   it('a message from another session shows in the chat with its sender, before the answer to it', async () => {
@@ -175,17 +175,22 @@ describe('PWA (fake SDK)', () => {
     await openProject(page)
     const box = async (name: string | RegExp) => (await button(page, name).boundingBox())!
     expect((await box('Attach photos or files')).x).toBeLessThan((await box('Permission mode: Ask for permissions')).x)
-    const title = (await page.locator('.title-btn').boundingBox())!
+    const title = (await page.locator('.chat-title').boundingBox())!
     const model = await box(/^Model: /)
     expect(model.y).toBeGreaterThanOrEqual(title.y + title.height - 1)
     expect(model.x).toBeLessThan(title.x + title.width / 2)
+    // The title is plain text "folder / title": tapping it opens nothing.
+    expect(await page.locator('.chat-title').textContent()).toMatch(/\S+\s\/\s\S+/)
+    expect(await page.locator('.chat-title').evaluate((el) => el.closest('button') === null)).toBe(true)
+    await page.locator('.chat-title').click()
+    expect(await page.getByRole('dialog').count()).toBe(0)
     // The model sheet lists models only; the ⋯ menu has separate Model and Effort items; the effort is chosen in the mode sheet.
     await page.locator('.topbar .model-btn').click()
     const modelSheet = page.getByRole('dialog', { name: 'Model', exact: true })
     await modelSheet.getByText('Haiku').waitFor()
     expect(await modelSheet.getByRole('radiogroup', { name: 'Effort' }).count()).toBe(0)
     await page.keyboard.press('Escape')
-    await page.locator('.title-btn').click()
+    await button(page, 'More actions').click()
     const menu = page.getByRole('dialog').last()
     await menu.getByRole('button', { name: /^Model/ }).waitFor()
     await menu.getByRole('button', { name: /^Effort/ }).click()

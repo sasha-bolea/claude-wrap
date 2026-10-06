@@ -97,7 +97,7 @@ function useScrollThumb(conversation: React.RefObject<HTMLDivElement | null>, do
   return { thumb, place }
 }
 
-// The chat of a session: top bar (back, title and folder = session menu with the model under them, Torna indietro, ⋯), the conversation with
+// The chat of a session: top bar (row 1: back, state, "folder / title" as plain text; row 2: model, Torna indietro, ⋯), the conversation with
 // Claude's request inside it, the ghost of your message and "Torna giù", and the floating dock (composer + queue).
 export function ChatScreen({ tabId }: { tabId: string }) {
   const touch = useTouch()
@@ -315,31 +315,34 @@ export function ChatScreen({ tabId }: { tabId: string }) {
 
   return (
     <section className="screen chat-screen" ref={screen} aria-label={t('chat')}>
-      <header className="topbar">
-        {!touch.wide && <IconButton icon="back" label={otherWaiting ? t('backWaiting') : t('back')} dot={otherWaiting} onClick={back} />}
-        {/* Title and folder (the session menu), the model under them */}
-        <div className="title-stack">
-          <button className="title-btn" aria-haspopup="dialog" onClick={openMenu}>
-            <Badge state={sessionState(meta)} />
-            <span className="title-text">
-              <span>{meta.title}</span>
-              <span className="sub">{baseName(meta.cwd)}</span>
-            </span>
-          </button>
+      <header className="topbar chat-bar">
+        {/* Row 1: back, state, "folder / title" (plain text, not a button) */}
+        <div className="bar-row">
+          {!touch.wide && <IconButton icon="back" label={otherWaiting ? t('backWaiting') : t('back')} dot={otherWaiting} onClick={back} />}
+          <Badge state={sessionState(meta)} />
+          <h1 className="chat-title">
+            <span className="folder">{baseName(meta.cwd)}</span>
+            <span className="sep" aria-hidden="true"> / </span>
+            <span className="name">{meta.title}</span>
+          </h1>
+        </div>
+        {/* Row 2: the model, then the tools */}
+        <div className="bar-row tools-row">
           <button className="model-btn" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('model'), body: <ModelSheet tabId={tabId} /> })}>
             <span>{modelLabel(meta, models)}</span>
             <Icon name="down" />
           </button>
+          <span className="bar-spacer" />
+          {touch.wide && (
+            <>
+              <IconButton icon="files" className={touch.panel?.name === 'files' ? 'on' : undefined} label={t('folderFiles')} expanded={touch.panel?.name === 'files'} onClick={() => touch.togglePanel({ name: 'files', tabId })} />
+              <IconButton icon="note" className={touch.panel?.name === 'notes' ? 'on' : undefined} label={t('folderNotes')} expanded={touch.panel?.name === 'notes'} onClick={() => touch.togglePanel({ name: 'notes', tabId })} />
+            </>
+          )}
+          {state.welcome.browser && actingInBrowser(view?.items ?? []) && <IconButton icon="browser" className="accent" label={t('browserActingHere')} onClick={() => go({ name: 'browser' })} />}
+          <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'rewind', tabId }))} />
+          <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />
         </div>
-        {touch.wide && (
-          <>
-            <IconButton icon="files" className={touch.panel?.name === 'files' ? 'on' : undefined} label={t('folderFiles')} expanded={touch.panel?.name === 'files'} onClick={() => touch.togglePanel({ name: 'files', tabId })} />
-            <IconButton icon="note" className={touch.panel?.name === 'notes' ? 'on' : undefined} label={t('folderNotes')} expanded={touch.panel?.name === 'notes'} onClick={() => touch.togglePanel({ name: 'notes', tabId })} />
-          </>
-        )}
-        {state.welcome.browser && actingInBrowser(view?.items ?? []) && <IconButton icon="browser" className="accent" label={t('browserActingHere')} onClick={() => go({ name: 'browser' })} />}
-        <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'rewind', tabId }))} />
-        <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />
       </header>
       <UpdateBar />
       <ConnectionBanner />
@@ -378,7 +381,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   )
 }
 
-// The session menu (⋯ and the title): where it runs and with what; File, Note, Torna indietro, model, effort,
+// The session menu (⋯): where it runs and with what; File, Note, Torna indietro, model, effort,
 // account, rename, fork, restart, the panels to come, close.
 function SessionMenu({ tabId }: { tabId: string }) {
   const { state, connection, go, openSheet, closeSheets, toast, fail } = useTouch()
