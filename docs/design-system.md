@@ -143,7 +143,7 @@ Examples: [parts.tsx:56](../packages/ui/src/touch/parts.tsx#L56), [FilesScreen.t
 `.danger` for closing/deleting actions, `role="radio"` + `aria-checked` for a choice. `.two-buttons`: Cancel and the
 action of a confirmation. A folder's menu starts a session in one tap ("Nuova sessione qui") or with a name ("Nuova
 sessione con nome…": a sheet with the name `.field` and Crea): the name is the tab's title and the session's name for
-the other sessions (e.g. `op-ui`), kept; without one the tab takes the title the CLI gives after the first prompt.
+the other sessions, kept; without one the tab takes the title the CLI gives after the first prompt.
 Examples: [SheetHost.tsx:49](../packages/ui/src/touch/SheetHost.tsx#L49), [ChatScreen.tsx:350](../packages/ui/src/touch/ChatScreen.tsx#L350), [HomeScreen.tsx:298](../packages/ui/src/touch/HomeScreen.tsx#L298), [HomeScreen.tsx:252](../packages/ui/src/touch/HomeScreen.tsx#L252).
 
 ### Buttons and fields — `.button` (`.primary`, `.danger`, `.block`), `.link-btn`, `.field` (`.mono`), `.check-row`, `.segmented` (`.effort`, `.cols-N`), `.toggle-input`

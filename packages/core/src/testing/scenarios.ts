@@ -12,7 +12,7 @@ import { sdk, stored } from './messages.ts'
 //   slow       → streams a long answer, word by word, until interrupted
 //   markdown   → answers with a remote image and a link (rendering safety checks)
 //   tools      → runs three Bash commands in a row (ls, a long git log, npm test), then "Tools: done"
-//   peer       → answers, then another session's message arrives (op-ui, stored) and gets its own answer
+//   peer       → answers, then another session's message arrives (stored) and gets its own answer
 //   crash      → the process dies
 //   /command   → "Ran /command" as a synthetic assistant message, like the CLI's local commands
 //   anything else → streams "Echo: <text>" word by word (" [N images]" appended when images came along)
@@ -129,10 +129,10 @@ async function respond(turn: Turn, text: string, images: number): Promise<void> 
   if (keyword === 'markdown') return stream(turn, 'Image: ![tracker](https://example.com/pixel.png) and a [link](https://example.com).')
   if (keyword === 'peer') {
     // After this answer, another session sends a message (SendMessage): the CLI starts a turn for it by itself.
-    await stream(turn, 'Peer: waiting for op-ui')
+    await stream(turn, 'Peer: waiting for the other session')
     await sleep(turn.options.wordDelayMs * 5)
-    const id = turn.peer('op-ui', 'Tests pass on **op/ui**')
-    await stream(turn, 'Thanks op-ui, merging')
+    const id = turn.peer('other-session', 'Tests pass on **main**')
+    await stream(turn, 'Thanks, merging')
     return void session.emit(sdk.lifecycle(id, 'completed'))
   }
   if (keyword === 'limit') {

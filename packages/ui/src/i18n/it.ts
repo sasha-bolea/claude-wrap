@@ -268,7 +268,6 @@ export const it: Record<MessageKey, string> = {
   newSessionHere: 'Nuova sessione qui',
   newNamedSession: 'Nuova sessione con nome…',
   sessionName: 'Nome della sessione',
-  sessionNamePlaceholder: 'es. op-ui',
   open: 'Apri',
   openContent: 'Apri il contenuto',
   markProject: 'Segna come progetto',

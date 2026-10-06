@@ -266,7 +266,6 @@ export const en = {
   newSessionHere: 'New session here',
   newNamedSession: 'New session with a name…',
   sessionName: 'Session name',
-  sessionNamePlaceholder: 'e.g. op-ui',
   open: 'Open',
   openContent: 'Open the content',
   markProject: 'Mark as project',

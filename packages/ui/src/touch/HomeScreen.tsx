@@ -205,14 +205,14 @@ export function HomeScreen({ view: asked }: { view?: View }) {
   )
 }
 
-// "Nuova sessione con nome…": the name other sessions find it by (e.g. op-ui for the capo's operai), kept on the tab.
+// "Nuova sessione con nome…": the tab's title, also the name other sessions find it by, kept.
 function NamedSessionSheet({ cwd }: { cwd: string }) {
   const startSession = useStartSession()
   const [name, setName] = useState('')
   const create = () => name.trim() && startSession(cwd, name.trim())
   return (
     <>
-      <input className="field" aria-label={t('sessionName')} placeholder={t('sessionNamePlaceholder')} autoComplete="off" autoCapitalize="off" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && create()} />
+      <input className="field" aria-label={t('sessionName')} autoComplete="off" autoCapitalize="off" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && create()} />
       <button className="button primary block" disabled={!name.trim()} onClick={create}>
         {t('create')}
       </button>

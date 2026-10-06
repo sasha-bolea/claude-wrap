@@ -19,7 +19,7 @@ function writeSession(): void {
   const dir = join(CONFIG, 'projects', CWD.replace(/[^a-zA-Z0-9]/g, '-'))
   mkdirSync(dir, { recursive: true })
   const base = { cwd: CWD, sessionId: SESSION, isSidechain: false, userType: 'external', version: '2.1.287', gitBranch: '', entrypoint: 'sdk-ts' }
-  const envelope = 'Another Claude session sent a message:\n<cross-session-message from="uds:/x.sock" from-name="op-ui" from-mode="prompting">\nTests pass\n</cross-session-message>'
+  const envelope = 'Another Claude session sent a message:\n<cross-session-message from="uds:/x.sock" from-name="other-session" from-mode="prompting">\nTests pass\n</cross-session-message>'
   const lines = [
     { ...base, type: 'user', uuid: HUMAN_UUID, parentUuid: null, timestamp: '2026-10-06T10:00:00.000Z', message: { role: 'user', content: 'hello' }, origin: { kind: 'human' } },
     {
@@ -30,7 +30,7 @@ function writeSession(): void {
       timestamp: '2026-10-06T10:00:05.000Z',
       isMeta: true,
       message: { role: 'user', content: envelope },
-      origin: { kind: 'peer', from: 'uds:/x.sock', name: 'op-ui', fromMode: 'prompting', body: 'Tests pass' }
+      origin: { kind: 'peer', from: 'uds:/x.sock', name: 'other-session', fromMode: 'prompting', body: 'Tests pass' }
     }
   ]
   writeFileSync(join(dir, `${SESSION}.jsonl`), lines.map((line) => JSON.stringify(line)).join('\n') + '\n')
@@ -52,7 +52,7 @@ describe('SDK contract: messages from another session', () => {
     const { getSessionMessages } = await import('@anthropic-ai/claude-agent-sdk')
     const messages = await getSessionMessages(SESSION, { dir: CWD })
     expect(messages.map((message) => message.uuid)).toEqual([HUMAN_UUID, PEER_UUID])
-    expect(storedPeer(messages[1]!)).toEqual({ from: 'op-ui', text: 'Tests pass' })
+    expect(storedPeer(messages[1]!)).toEqual({ from: 'other-session', text: 'Tests pass' })
     expect(storedPeer(messages[0]!)).toBeUndefined()
   })
 })
