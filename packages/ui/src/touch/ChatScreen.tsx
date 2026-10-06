@@ -106,7 +106,6 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const view = state.transcripts[tabId]
   const models = useModels(tabId)
   useTabSubscription(connection, tabId, fail)
-  const [queueMode, setQueueMode] = useState(false)
   const [follow, setFollow] = useState(true)
   // follow for the dock's observer, which lives as long as the chat.
   const following = useRef(follow)
@@ -222,11 +221,6 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     void connection.request('client.watch', { tabId }).catch(() => undefined)
     return () => void connection.request('client.watch', {}).catch(() => undefined)
   }, [top, connected, tabId, connection])
-  // Claude done (the queue button is gone with Stop): back to sending directly.
-  const responding = meta?.status === 'running' || meta?.status === 'starting' || Boolean(view?.requests[0])
-  useEffect(() => {
-    if (!responding) setQueueMode(false)
-  }, [responding])
   // Back on top (from File, Note): the conversation at the bottom again if it was following.
   useEffect(() => {
     if (top && follow) toBottom()
@@ -252,10 +246,6 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const openMenu = () => openSheet({ title: meta.title, body: <SessionMenu tabId={tabId} /> })
   const sendNow = (item: UserItem) => connection.request('tab.sendPendingNow', { tabId, itemId: item.itemId }).catch(fail)
   const openActions = (item: UserItem) => openSheet({ title: t('yourMessage'), body: <MessageActions item={item} tabId={tabId} /> })
-  const toggleQueue = () => {
-    setQueueMode(!queueMode)
-    if (!queueMode) screen.current?.querySelector('textarea')?.focus({ preventScroll: true })
-  }
 
   // Ghost: drag up to put away; a tap scrolls back to the message.
   const onGhostStart = (event: TouchEvent) => (ghostDrag.current = { y: event.touches[0]!.clientY, dy: 0 })
@@ -335,7 +325,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
         )}
       </div>
       <div className="dock" ref={dock}>
-        <TouchComposer meta={meta} queueMode={queueMode} running={running} requestOpen={Boolean(request)} onToggleQueue={toggleQueue} onFocusField={() => (setFollow(true), toBottom())} />
+        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} onFocusField={() => (setFollow(true), toBottom())} />
       </div>
     </section>
   )

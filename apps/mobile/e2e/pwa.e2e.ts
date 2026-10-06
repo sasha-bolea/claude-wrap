@@ -210,15 +210,21 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('details.tool').count()).toBe(0)
   })
 
-  it('the queue: queue mode adds a card; Stop pauses the queue; ▶ sends the next message', async () => {
+  it('the queue: the queue button puts what I wrote in the queue at once; Stop pauses the queue; ▶ sends the next message', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
     await send(page, 'slow')
     await page.locator('.working-line').waitFor()
-    await button(page, /^Queue: empty/).click()
+    // Nothing written: nothing to queue.
+    expect(await button(page, /^Add to the queue/).isDisabled()).toBe(true)
     await composer(page).fill('queued one')
-    await button(page, 'Add to the queue').click()
+    await button(page, /^Add to the queue \(empty\)/).click()
     await page.getByRole('button', { name: /^Queue: 1 waiting\. Next: queued one/ }).waitFor()
+    // The field is empty again and Send still sends (no queue mode).
+    expect(await composer(page).inputValue()).toBe('')
+    await button(page, /^Add to the queue \(1 queued\)/).waitFor()
+    expect(await page.locator('.composer.queue-mode').count()).toBe(0)
+    await button(page, 'Send').waitFor()
     await button(page, 'Stop: stop Claude').click()
     const resume = page.getByRole('button', { name: 'Queue paused: Resume' })
     await resume.waitFor()
@@ -236,9 +242,8 @@ describe('PWA (fake SDK)', () => {
     await openProject(page)
     await send(page, 'slow')
     await page.locator('.working-line').waitFor()
-    await button(page, /^Queue: empty/).click()
     await composer(page).fill('wait for me')
-    await button(page, 'Add to the queue').click()
+    await button(page, /^Add to the queue/).click()
     await button(page, 'Stop: stop Claude').click()
     await button(page, 'Queue paused: Resume').click()
     const countdown = page.getByRole('status').filter({ hasText: 'wait for me' })

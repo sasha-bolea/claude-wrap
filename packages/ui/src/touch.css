@@ -518,10 +518,8 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .countdown-ring { position: absolute; inset: 0; width: 44px; height: 44px; transform: rotate(-90deg); }
 .countdown-ring circle { fill: none; stroke: var(--danger); stroke-width: 2.5; stroke-linecap: round; transition: stroke-dashoffset .2s linear; }
 .countdown-stop svg.i { width: 18px; height: 18px; }
-.composer.queue-mode .input-box { border-style: dashed; border-color: var(--accent); }
-.queue-btn.on { color: var(--accent); background: var(--surface-2); }
 .input-tools .queue-btn { margin: 0 6px; }
-.input-tools .queue-btn.on { color: var(--accent); }
+.input-tools .queue-btn:disabled { opacity: .4; }
 /* A message waiting to be read with "Invia ora" beside it (32 px circle, 44 px to the touch) */
 .msg-user-row { align-self: stretch; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
 .send-now { position: relative; flex: none; width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--accent); background: var(--surface); color: var(--accent); }

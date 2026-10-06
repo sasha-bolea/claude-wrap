@@ -359,7 +359,6 @@ export const en = {
   folderNotTrusted: 'This folder is not trusted yet: Claude cannot start here.',
   decideTrust: 'Decide…',
   writeToClaude: 'Write to Claude…',
-  addToQueuePlaceholder: 'Add to the queue…',
   addToQueue: 'Add to the queue',
   attachPhotoOrFile: 'Attach photos or files',
   stopClaude: 'Stop: stop Claude',

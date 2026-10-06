@@ -361,7 +361,6 @@ export const it: Record<MessageKey, string> = {
   folderNotTrusted: 'Questa cartella non è ancora fidata: Claude non può partire qui.',
   decideTrust: 'Decidi…',
   writeToClaude: 'Scrivi a Claude…',
-  addToQueuePlaceholder: 'Aggiungi alla coda…',
   addToQueue: 'Aggiungi alla coda',
   attachPhotoOrFile: 'Allega foto o file',
   stopClaude: 'Stop: ferma Claude',

@@ -25,7 +25,7 @@ const noHistory = () => Promise.resolve([])
 // Enter sends only where there is a hardware keyboard (a pointer that hovers); on the phone it adds a line.
 const enterSends = () => matchMedia('(hover: hover)').matches
 
-type ComposerProps = { meta: TabMeta; queueMode: boolean; running: boolean; requestOpen: boolean; onToggleQueue: () => void; onFocusField: () => void }
+type ComposerProps = { meta: TabMeta; running: boolean; requestOpen: boolean; onFocusField: () => void }
 
 // Ring of the countdown around Stop (SVG units, a 44×44 box).
 const RING_RADIUS = 20
@@ -64,11 +64,12 @@ function QueuedCountdown({ text, images, until, onStop }: { text: string; images
 }
 
 // The composer of the touch layout: one box floating over the chat — the text on top; under it + (photos and
-// files), permissions and the context gauge on the left; on the right Stop and Coda (queue mode) while Claude
-// responds, then Send (model and effort are in the chat's top bar). `/` suggests commands, `@` files; `!` runs a shell command; long
-// pastes collapse. Queue mode writes into the queue. Files that are not photos go to allegati/ and are mentioned.
+// files), permissions and the context gauge on the left; on the right Stop and Coda while Claude responds (Coda puts
+// what is written straight into the queue), then Send (model and effort are in the chat's top bar). `/` suggests
+// commands, `@` files; `!` runs a shell command; long pastes collapse. Files that are not photos go to allegati/ and
+// are mentioned.
 // A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.
-export function TouchComposer({ meta, queueMode, running, requestOpen, onToggleQueue, onFocusField }: ComposerProps) {
+export function TouchComposer({ meta, running, requestOpen, onFocusField }: ComposerProps) {
   const { connection, backendId, openSheet, toast, snack, fail, inserts, clearInsert } = useTouch()
   const tabId = meta.tabId
   const input = useRef<HTMLTextAreaElement>(null)
@@ -155,9 +156,9 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onToggleQ
       () => undefined
     )
   }
-  // Sends (or queues, or runs as a shell command). On failure everything goes back into the composer; an untrusted
-  // folder opens the trust sheet first.
-  const send = async () => {
+  // Sends (or runs as a shell command); toQueue: into the queue instead (the queue button). On failure everything goes
+  // back into the composer; an untrusted folder opens the trust sheet first.
+  const send = async (toQueue = false) => {
     if (!hasContent) return
     const sent = { text, images, docs, pastes: draft.pastes }
     const expanded = expandPastes(text.trimEnd(), draft.pastes)
@@ -178,13 +179,13 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onToggleQ
       }
       const message = [expanded.text, mentions.join(' ')].filter(Boolean).join('\n')
       const args = { tabId, text: message, ...(sent.images.length ? { images: sent.images } : {}), ...(expanded.pastes.length ? { pastes: expanded.pastes } : {}) }
-      await connection.request(queueMode ? 'tab.queueAdd' : 'tab.send', args)
+      await connection.request(toQueue ? 'tab.queueAdd' : 'tab.send', args)
       settleNote(message)
     } catch (error) {
       draft.setValue(expanded.text || sent.text)
       draft.setImages(sent.images)
       setDocs(sent.docs)
-      if (error instanceof ClientError && error.code === 'needs_trust') askTrust(meta.cwd, () => void send())
+      if (error instanceof ClientError && error.code === 'needs_trust') askTrust(meta.cwd, () => void send(toQueue))
       else fail(error)
     }
   }
@@ -266,10 +267,11 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onToggleQ
   // Send and Stop while typing keep the keyboard open: they never take the focus from the field.
   const keepFocus = { onPointerDown: (event: PointerEvent) => document.activeElement === input.current && event.preventDefault() }
   const queueCount = meta.queuePause ? undefined : meta.queue.length ? String(meta.queue.length) : undefined
-  const queueLabel = `${t('queue')}: ${meta.queue.length ? t('queuedCount', { count: String(meta.queue.length) }) : t('queueEmptyShort')}${meta.queuePause ? `, ${pauseWords(meta)}` : ''}`
+  // "Add to the queue (2 queued, paused …)": what the button does and what the queue holds.
+  const queueLabel = `${t('addToQueue')} (${meta.queue.length ? t('queuedCount', { count: String(meta.queue.length) }) : t('queueEmptyShort')}${meta.queuePause ? `, ${pauseWords(meta)}` : ''})`
 
   return (
-    <footer className={`composer${shellMode ? ' shell-mode' : ''}${queueMode ? ' queue-mode' : ''}`}>
+    <footer className={`composer${shellMode ? ' shell-mode' : ''}`}>
       {popup && popup.options.length > 0 && (
         <ul className="suggest" role="listbox" id={SUGGESTIONS_ID} aria-label={t(`suggestions_${popup.kind}`)}>
           {popup.options.map((option, index) => (
@@ -324,7 +326,7 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onToggleQ
           aria-autocomplete="list"
           aria-controls={popup?.options.length ? SUGGESTIONS_ID : undefined}
           aria-activedescendant={popup?.options.length ? `${SUGGESTIONS_ID}-${popup.active}` : undefined}
-          placeholder={t(queueMode ? 'addToQueuePlaceholder' : 'writeToClaude')}
+          placeholder={t('writeToClaude')}
           value={text}
           onChange={(event) => change(event.target.value, event.target.selectionStart)}
           onKeyDown={onKeyDown}
@@ -344,7 +346,7 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onToggleQ
               <button className="send stop" aria-label={t('stopClaude')} onClick={stop} {...keepFocus}>
                 <Icon name="stop" />
               </button>
-              <button className={`icon-btn queue-btn${queueMode ? ' on' : ''}`} aria-label={queueLabel} aria-expanded={queueMode} onClick={onToggleQueue} {...keepFocus}>
+              <button className="icon-btn queue-btn" aria-label={queueLabel} disabled={!hasContent || shellMode} onClick={() => void send(true)} {...keepFocus}>
                 <Icon name="queue" />
                 {(queueCount || meta.queuePause) && (
                   <span className="count" aria-hidden="true">
@@ -354,8 +356,8 @@ export function TouchComposer({ meta, queueMode, running, requestOpen, onToggleQ
               </button>
             </>
           )}
-          <button className="send" aria-label={t(queueMode ? 'addToQueue' : shellMode ? 'run' : 'send')} disabled={!hasContent} onClick={() => void send()} {...keepFocus}>
-            <Icon name={queueMode ? 'queue' : 'send'} />
+          <button className="send" aria-label={t(shellMode ? 'run' : 'send')} disabled={!hasContent} onClick={() => void send()} {...keepFocus}>
+            <Icon name="send" />
           </button>
         </div>
       </div>
