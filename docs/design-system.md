@@ -191,9 +191,9 @@ The ghost: your message whose answer you are reading, once it scrolled off the t
 arrived; "Claude ti aspetta" with a request open).
 Examples: [ChatScreen.tsx:294](../packages/ui/src/touch/ChatScreen.tsx#L294), [ChatScreen.tsx:307](../packages/ui/src/touch/ChatScreen.tsx#L307).
 
-### Composer and dock — `.dock`, `.composer` (`.queue-mode`), `.input-box`, `.input-tools`, `.mode-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.linked-note`, `.shell-hint`, `.suggest`
+### Composer and dock — `.dock`, `.composer` (`.queue-mode`), `.input-box`, `.input-tools`, `.mode-btn`, `.queue-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.linked-note`, `.shell-hint`, `.suggest`
 One box floating over the chat over a light veil (2 px blur, a slightly dark gradient, fading to the page colour only in the last line above the bottom: the chat stays readable under it): the text on top; below it the
-permission mode icon, + (photos and files) and the context gauge on the left, Stop (while Claude works or waits) and Send on the right (model · effort is in the top bar). Queue mode: dashed border, Send adds to the
+permission mode icon, + (photos and files) and the context gauge on the left; on the right, while Claude works or waits, Stop and the `.queue-btn` (queue mode, count or pause badge; 6 px apart on each side so a tap does not hit the wrong one), then Send (model · effort is in the top bar). When Claude is done the queue button goes and queue mode turns off. Queue mode: dashed border, Send adds to the
 queue. A linked note shows above the box (× unlinks it). Composer and box are one `minmax(0, 1fr)` column: a long note
 title or file name is cut with "…", never pushing Send off the screen.
 Examples: [ChatScreen.tsx:314](../packages/ui/src/touch/ChatScreen.tsx#L314), [TouchComposer.tsx:315](../packages/ui/src/touch/TouchComposer.tsx#L315), [TouchComposer.tsx:308](../packages/ui/src/touch/TouchComposer.tsx#L308).
