@@ -102,7 +102,9 @@ export const tabMetaSchema = z.object({
   queueCountdown: z.object({ queueId: z.string(), until: z.number() }).optional(),
   planLimits: z.object({ fiveHour: limitWindowSchema.optional(), sevenDay: limitWindowSchema.optional() }).optional(),
   // When the session was last used (ms): opened, or a message sent or queued; absent for tabs saved before it existed.
-  lastUsedAt: z.number().optional()
+  lastUsedAt: z.number().optional(),
+  // Claude finished (or stopped with an error) while nobody looked at the chat; goes once someone does.
+  unseen: z.literal(true).optional()
 })
 
 // A Claude account of the backend added with a token made by `claude setup-token` (the token never leaves core).

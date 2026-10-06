@@ -87,7 +87,7 @@ function SessionRow({ tab, withFolder }: { tab: TabMeta; withFolder?: boolean })
   const draft = readDraft(backendId, tab.tabId).trim()
   return (
     <li className={`row${tab.tabId === chatTabId ? ' current' : ''}`} aria-current={tab.tabId === chatTabId ? 'page' : undefined}>
-      <Badge state={sessionState(tab)} />
+      <Badge state={sessionState(tab)} unseen={tab.unseen} />
       <button className="row-main" onClick={() => go({ name: 'chat', tabId: tab.tabId })}>
         <span className="row-title">{tab.title}</span>
         <span className="row-sub">{`${withFolder ? `${baseName(tab.cwd)} · ` : ''}${stateWords(tab)}`}</span>

@@ -4,7 +4,7 @@ import { t } from '../i18n.ts'
 import { useAvailableUpdate } from '../appUpdate.ts'
 import { useTouch } from './context.tsx'
 import { Icon, type IconName } from './icons.tsx'
-import { sessionState, type SessionState } from './model.ts'
+import { badgeClass, sessionState, type SessionState } from './model.ts'
 
 // Small pieces shared by the touch screens.
 
@@ -110,8 +110,9 @@ export function ConnectionBanner() {
 const STATE_LABEL = { waiting: 'stateWaiting', working: 'stateWorking', error: 'stateError', idle: 'stateIdle' } as const
 
 // The status dot of a session (pulsing when it waits for you), with its meaning for screen readers.
-export function Badge({ state }: { state: SessionState }) {
-  return <span className={`badge ${state === 'idle' ? '' : state}`} role="img" aria-label={t(STATE_LABEL[state])} />
+// unseen: Claude finished while nobody looked at the chat (an idle dot takes the accent colour).
+export function Badge({ state, unseen }: { state: SessionState; unseen?: boolean }) {
+  return <span className={badgeClass(state, unseen)} role="img" aria-label={t(STATE_LABEL[state])} />
 }
 
 // The words of a session's state for a list row.

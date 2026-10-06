@@ -140,6 +140,7 @@ input, textarea, select { font-size: 16px; }
 .badge.working { background: var(--success); }
 .badge.waiting { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
 .badge.error { background: var(--danger); }
+.badge.unseen { background: var(--accent); }
 @keyframes pulse { 50% { opacity: .35; } }
 
 /* Lists of rows (sessions, folders, devices) */

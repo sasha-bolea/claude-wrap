@@ -105,6 +105,8 @@ export type TabInit = {
   context?: ContextGauge
   // When the tab was last used (ms).
   lastUsedAt?: number
+  // Claude finished while nobody looked at the chat.
+  unseen?: boolean
 }
 
 // Longest title taken from the CLI (chars). Its "summary" is its generated title, but for some sessions (long ones,
@@ -166,6 +168,8 @@ export class Tab {
   private contextGauge?: ContextGauge
   // When the tab was last used (ms): opened, or a message sent or queued.
   lastUsedAt?: number
+  // Claude finished (or stopped with an error) while nobody looked at the chat (set and cleared by the workspace).
+  private unseenFinish: boolean
   // The countdown of the next queued message, while its chat is on screen.
   private countdown?: { queueId: string; until: number; timer: NodeJS.Timeout }
   sessionId?: string
@@ -215,6 +219,7 @@ export class Tab {
     this.interrupted = init.interrupted
     this.contextGauge = init.context
     this.lastUsedAt = init.lastUsedAt
+    this.unseenFinish = init.unseen ?? false
     this.sessionId = init.resume
     this.model = init.model
     this.effort = init.effort
@@ -257,7 +262,7 @@ export class Tab {
   persisted(): PersistedTab {
     const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause, autoTitle, account, interrupted, lastUsedAt } = this
     const context = this.contextGauge
-    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account, interrupted, context, lastUsedAt }
+    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account, interrupted, context, lastUsedAt, ...(this.unseenFinish ? { unseen: true } : {}) }
   }
 
   // The stored-session uuid behind an item (fork up to that item).
@@ -272,7 +277,7 @@ export class Tab {
     const context = this.contextGauge
     const queueCountdown = this.countdown && { queueId: this.countdown.queueId, until: this.countdown.until }
     const queue = this.queue.map(({ queueId, text, from, images }) => ({ queueId, text, from, images: images?.length }))
-    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}), ...(interrupted ? { interrupted } : {}), ...(context ? { context } : {}), ...(planLimits ? { planLimits } : {}), ...(queueCountdown ? { queueCountdown } : {}), ...(lastUsedAt ? { lastUsedAt } : {}) }
+    return { tabId, title, cwd, sessionId, status, model, activeModel, effort, mode, error, queue, queuePause, pendingRequests: this.requests.size, account, ...(limitedUntil ? { limitedUntil } : {}), ...(interrupted ? { interrupted } : {}), ...(context ? { context } : {}), ...(planLimits ? { planLimits } : {}), ...(queueCountdown ? { queueCountdown } : {}), ...(lastUsedAt ? { lastUsedAt } : {}), ...(this.unseenFinish ? { unseen: true as const } : {}) }
   }
 
   // Subscribes a connection to the transcript (loading a resumed session's history first, without a process).
@@ -414,6 +419,18 @@ export class Tab {
   // A CLI process is running for the tab (gauges are read only from one).
   get live(): boolean {
     return Boolean(this.session)
+  }
+
+  // Claude finished while nobody looked at the chat (for the workspace: the notification count).
+  get unseen(): boolean {
+    return this.unseenFinish
+  }
+
+  // Marks the chat as finished and not looked at yet (true) or looked at (false); announced only when it changes.
+  setUnseen(unseen: boolean): void {
+    if (this.unseenFinish === unseen) return
+    this.unseenFinish = unseen
+    this.changed()
   }
 
   // Why Claude was stopped mid-work, if it was (for the workspace: "Continua" and the limit's end).

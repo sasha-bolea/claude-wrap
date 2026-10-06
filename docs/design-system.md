@@ -151,10 +151,10 @@ Same roles as on the desktop; `.link-btn`: the light text actions under a list (
 sessione"); `.segmented`: a radio group as one control (effort levels — `.cols-N` for N levels).
 Examples: [HomeScreen.tsx:166](../packages/ui/src/touch/HomeScreen.tsx#L166), [HomeScreen.tsx:335](../packages/ui/src/touch/HomeScreen.tsx#L335), [SettingsScreen.tsx:167](../packages/ui/src/touch/SettingsScreen.tsx#L167), [modelSheets.tsx:66](../packages/ui/src/touch/modelSheets.tsx#L66).
 
-### Cards, chips, badges — `.card` (`.compact`, `.bad`), `.chip` (`.changed`), `.badge` (`.waiting`, `.working`, `.error`)
+### Cards, chips, badges — `.card` (`.compact`, `.bad`), `.chip` (`.changed`), `.badge` (`.waiting`, `.working`, `.error`, `.unseen`)
 `.card`: a framed block (session info in the menu, error and trust notices, the 🔜 placeholder). `.chip`: small
 state words (draft, queued, "this one"); `.chip.changed`: new / changed by Claude. `.badge`: the session state dot,
-pulsing while it waits for you (`Badge` component, with its meaning for screen readers).
+pulsing while it waits for you (`Badge` component, with its meaning for screen readers); `.unseen`: an idle dot in the accent colour, not pulsing, while Claude finished and nobody looked at the chat yet (core's `TabMeta.unseen`; the words stay "idle"). Folder rows take it too when one of their chats is unseen (`badgeClass` in [model.ts](../packages/ui/src/touch/model.ts)).
 Examples: [ChatScreen.tsx:346](../packages/ui/src/touch/ChatScreen.tsx#L346), [FilesScreen.tsx:243](../packages/ui/src/touch/FilesScreen.tsx#L243), [parts.tsx:113](../packages/ui/src/touch/parts.tsx#L113).
 
 ### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-user-row`, `.send-now`, `.msg-ai`, `.msg-peer` (`.from`), `.think`, `.tool`, `.working-line`, `.turn-end`

@@ -27,11 +27,17 @@ export function inside(path: string, folder: string): boolean {
   return target === base || target.startsWith(`${base}/`)
 }
 
-// The open sessions inside a folder: how many, and the most urgent state among them ('idle' when none).
-export function folderSummary(tabs: TabMeta[], folder: string): { open: number; state: SessionState } {
-  const states = tabs.filter((tab) => inside(tab.cwd, folder)).map(sessionState)
-  return { open: states.length, state: URGENCY.find((state) => states.includes(state)) ?? 'idle' }
+// The open sessions inside a folder: how many, the most urgent state among them ('idle' when none), and whether one
+// finished while nobody looked at it.
+export function folderSummary(tabs: TabMeta[], folder: string): { open: number; state: SessionState; unseen: boolean } {
+  const inFolder = tabs.filter((tab) => inside(tab.cwd, folder))
+  const states = inFolder.map(sessionState)
+  return { open: states.length, state: URGENCY.find((state) => states.includes(state)) ?? 'idle', unseen: inFolder.some((tab) => tab.unseen) }
 }
+
+// The classes of a status dot: its state, and `unseen` (accent colour, not pulsing) on an idle one when a chat
+// finished while nobody looked at it.
+export const badgeClass = (state: SessionState, unseen?: boolean) => `badge${state === 'idle' ? (unseen ? ' unseen' : '') : ` ${state}`}`
 
 // The open sessions with the last used first (a copy); those saved before the time existed follow in their order.
 export const recentFirst = (tabs: TabMeta[]) => [...tabs].sort((a, b) => (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0))

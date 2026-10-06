@@ -27,6 +27,8 @@ export type PersistedTab = {
   context?: ContextGauge
   // When the tab was last used (ms): opened, or a message sent or queued.
   lastUsedAt?: number
+  // Claude finished while nobody looked at the chat.
+  unseen?: boolean
 }
 
 // A claude process started by this core, recorded to kill it if the core dies without closing it.

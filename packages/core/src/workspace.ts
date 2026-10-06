@@ -37,8 +37,6 @@ const DAY_MS = 24 * 3600 * 1000
 // the trust gate, the Home (folders, project marks), trash, notes, and their persistence.
 export class Workspace {
   readonly tabs = new Map<string, Tab>()
-  // Chats that finished (or stopped with an error) while nobody looked at them, for the notification count.
-  private readonly finished = new Set<string>()
   readonly stream: Stream
   readonly trust: TrustGate
   readonly sdk: SdkApi
@@ -169,7 +167,7 @@ export class Workspace {
 
   // Someone looks at the chat of a tab: it no longer counts as finished in the notification.
   seen(tabId: string): void {
-    this.finished.delete(tabId)
+    this.tabs.get(tabId)?.setUnseen(false)
   }
 
   // Closes a tab (its queue is discarded); the session lock is released only once its process has exited.
@@ -177,7 +175,6 @@ export class Workspace {
     const tab = this.tabOf(tabId)
     await tab.close()
     this.tabs.delete(tabId)
-    this.finished.delete(tabId)
     if (tab.sessionId && this.sessionIndex.get(tab.sessionId) === tabId) this.sessionIndex.delete(tab.sessionId)
     this.stream.emit({ type: 'tab.removed', tabId })
     this.persist()
@@ -430,10 +427,11 @@ export class Workspace {
   // Tells the host about an event, with the chats now waiting for an answer and the ones finished while nobody looked.
   // tab, kind, detail: the event; config: where the notifier is.
   private notify(tab: Tab, kind: Notice['kind'], detail: string | undefined, config: CoreConfig): void {
-    if (kind !== 'request' && !(config.watching?.(tab.tabId) ?? false)) this.finished.add(tab.tabId)
+    if (kind !== 'request' && !(config.watching?.(tab.tabId) ?? false)) tab.setUnseen(true)
     const waiting = [...this.tabs.values()].filter((other) => other.meta().pendingRequests > 0 || (other === tab && kind === 'request'))
-    for (const other of waiting) this.finished.delete(other.tabId)
-    config.notifier?.({ kind, tabId: tab.tabId, title: tab.title, detail, waiting: waiting.length, finished: this.finished.size })
+    for (const other of waiting) other.setUnseen(false)
+    const finished = [...this.tabs.values()].filter((other) => other.unseen).length
+    config.notifier?.({ kind, tabId: tab.tabId, title: tab.title, detail, waiting: waiting.length, finished })
   }
 
   // What tabs need from their surroundings: SDK, options, limits, and the callbacks that feed the workspace.
@@ -456,7 +454,7 @@ export class Workspace {
         return folder
       },
       changed: (tab) => {
-        if (tab.busy) this.finished.delete(tab.tabId)
+        if (tab.busy && tab.unseen) return tab.setUnseen(false)
         this.countActivity()
         if (this.tabs.get(tab.tabId) !== tab) return
         this.stream.emit({ type: 'tab.updated', tab: tab.meta() })

@@ -3,7 +3,7 @@ import type { FolderEntry, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useBackHandler, useScreen, useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
-import { baseName, folderSummary, inside, type SessionState } from './model.ts'
+import { badgeClass, baseName, folderSummary, inside, type SessionState } from './model.ts'
 import { ConnectionBanner, Crumbs, IconButton, Title, UpdateBar, useQuery } from './parts.tsx'
 import { BackendSwitch } from './backends.tsx'
 import { OpenSessions, pastOnly, SessionLists, useStartSession } from './sessions.tsx'
@@ -55,7 +55,7 @@ function FolderRow({ entry, project, tabs, onEnter, onChanged }: { entry: Folder
         <span className="row-title">{entry.name}</span>
         {summary.open > 0 && (
           <span className="row-sub folder-status">
-            <span className={`badge ${summary.state === 'idle' ? '' : summary.state}`} aria-hidden="true" />
+            <span className={badgeClass(summary.state, summary.unseen)} aria-hidden="true" />
             {`${t(summary.open === 1 ? 'oneOpenSession' : 'openSessionsCount', { count: String(summary.open) })} · ${t(SUMMARY_WORDS[summary.state])}`}
           </span>
         )}

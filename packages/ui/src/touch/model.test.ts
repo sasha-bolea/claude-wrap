@@ -30,9 +30,11 @@ describe('touch model', () => {
 
   it('a folder shows how many sessions are open inside it and the most urgent state', () => {
     const tabs = [tab('/srv/p/a', 'idle'), tab('/srv/p/a/sub', 'running'), tab('/srv/p/a', 'requires_action'), tab('/srv/p/b', 'error')]
-    expect(folderSummary(tabs, '/srv/p/a')).toEqual({ open: 3, state: 'waiting' })
-    expect(folderSummary(tabs, '/srv/p/b')).toEqual({ open: 1, state: 'error' })
-    expect(folderSummary(tabs, '/srv/p/c')).toEqual({ open: 0, state: 'idle' })
+    expect(folderSummary(tabs, '/srv/p/a')).toEqual({ open: 3, state: 'waiting', unseen: false })
+    expect(folderSummary(tabs, '/srv/p/b')).toEqual({ open: 1, state: 'error', unseen: false })
+    expect(folderSummary(tabs, '/srv/p/c')).toEqual({ open: 0, state: 'idle', unseen: false })
+    // A chat finished but not looked at yet colours the folder's badge too.
+    expect(folderSummary([...tabs, { ...tab('/srv/p/b/x', 'idle'), unseen: true }], '/srv/p/b')).toEqual({ open: 2, state: 'error', unseen: true })
     expect(sessionState(tab('/x', 'starting'))).toBe('working')
     expect(sessionState(tab('/x', 'dormant'))).toBe('idle')
   })
