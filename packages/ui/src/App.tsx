@@ -21,6 +21,8 @@ export type Capabilities = {
   push?: PushCapability
   // Link that pairs a new device with a one-time code (the server's address).
   pairLink?: (code: string) => string
+  // Link that opens the app with its Home screen icon in an accent (#rrggbb), to add it again from the browser (the PWA).
+  iconLink?: (accent: string) => string
   // Forgets this device's pairing (the PWA goes back to its pairing screen).
   logout?: () => void
   // The installed app's version and the newer builds the server offers (the PWA).

@@ -59,11 +59,35 @@ export function paletteTokens(colors: PaletteColors): { tokens: Record<string, s
   return { tokens, scheme: dark ? 'dark' : 'light' }
 }
 
+// The links of the Home screen icon, the tab icon and the manifest: the server draws them in an accent asked with
+// ?accent=rrggbb (packages/server/src/tinted.ts).
+const ICON_LINKS = ['apple-touch-icon', 'icon', 'manifest'] as const
+
+// The accent this page's address asks for (the link "Icon in this colour" copies, opened in the browser that adds
+// the app to the Home screen), as #rrggbb; undefined when it names none.
+function addressAccent(): string | undefined {
+  const accent = `#${new URLSearchParams(location.search).get('accent') ?? ''}`
+  return HEX.test(accent) ? accent.toLowerCase() : undefined
+}
+
+// Points the icon and manifest links at their version in the accent (#rrggbb) — the address's own accent first —
+// or back to the fixed files when there is none. Pages without these links (the desktop) are left as they are.
+export function pointIcons(accent?: string): void {
+  const chosen = addressAccent() ?? accent
+  for (const rel of ICON_LINKS) {
+    const link = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`)
+    if (!link) continue
+    link.dataset.original ??= link.getAttribute('href') ?? ''
+    link.setAttribute('href', chosen ? `${link.dataset.original}?accent=${chosen.slice(1)}` : link.dataset.original)
+  }
+}
+
 // Puts a palette's colours on the page; none: back to the theme's (touch.css).
 export function applyPalette(colors?: PaletteColors): void {
   const style = document.documentElement.style
   const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
   if (meta) meta.dataset.original ??= meta.content
+  pointIcons(colors?.accent)
   if (!colors) {
     for (const token of TOKENS) style.removeProperty(token)
     style.removeProperty('color-scheme')

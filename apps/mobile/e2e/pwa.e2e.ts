@@ -672,6 +672,38 @@ describe('PWA (fake SDK)', () => {
     expect(await background()).toBe('')
   })
 
+  it('with a palette on, the Home screen icon and the manifest take its accent; "Icon in this colour" copies a link that gives them to a browser not paired', async () => {
+    const context = await newPhone()
+    const page = await pairedPage(context, backend)
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: backend.url })
+    const href = (target: typeof page, rel: string) => target.locator(`link[rel="${rel}"]`).getAttribute('href')
+    expect(await href(page, 'apple-touch-icon')).toBe('/icon-180.png')
+    await button(page, 'Settings').click()
+    await page.getByRole('button', { name: /^Colour palette/ }).click()
+    await page.getByRole('button', { name: 'New palette' }).click()
+    await page.getByLabel('Palette name').fill('Teal')
+    await page.getByLabel('Accent, hex code').fill('#0f766e')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('radio', { name: /^Teal/ }).waitFor()
+    expect(await href(page, 'apple-touch-icon')).toBe('/icon-180.png?accent=0f766e')
+    expect(await href(page, 'icon')).toBe('/icon-192.png?accent=0f766e')
+    expect(await href(page, 'manifest')).toBe('/manifest.webmanifest?accent=0f766e')
+
+    await page.getByRole('button', { name: 'Icon in this colour' }).click()
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(`${backend.url}/?accent=0f766e`)
+    const browser = await (await newPhone()).newPage()
+    await browser.goto(`${backend.url}/?accent=0f766e`)
+    await expect.poll(() => href(browser, 'apple-touch-icon')).toBe('/icon-180.png?accent=0f766e')
+    const icon = await browser.request.get(`${backend.url}/icon-180.png?accent=0f766e`)
+    expect(icon.headers()['content-type']).toBe('image/png')
+    const manifest = await (await browser.request.get(`${backend.url}/manifest.webmanifest?accent=0f766e`)).json()
+    expect(manifest.theme_color).toBe('#0f766e')
+
+    await page.getByRole('radio', { name: /^Theme colours/ }).click()
+    expect(await href(page, 'apple-touch-icon')).toBe('/icon-180.png')
+    expect(await page.getByRole('button', { name: 'Icon in this colour' }).count()).toBe(0)
+  })
+
   // Sub-phase A: no zoom (pinch, double tap, focus on a small field), a splash screen for every iPhone size, and an
   // installed app that offers the newer build after a server update.
   it('zoom is locked: viewport, double tap, 16 px fields on the pairing screen too', async () => {

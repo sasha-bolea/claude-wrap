@@ -266,7 +266,10 @@ first, then the backend's palettes as radio rows (`.row.current` + `aria-checked
 `⋯` to edit; "Nuova palette" in the sticky bar. The editor: name field, one `.color-row` per colour (label, mono
 `.color-hex` field typed by hand, 44 px round native `.color-pick`), the whole app previews the draft; Salva saves and
 turns it on here, leaving without saving restores; the bin in the top bar deletes after a confirmation sheet.
-Examples: [SettingsScreen.tsx:186](../packages/ui/src/touch/SettingsScreen.tsx#L186), [PalettesScreen.tsx:49](../packages/ui/src/touch/PalettesScreen.tsx#L49), [PalettesScreen.tsx:78](../packages/ui/src/touch/PalettesScreen.tsx#L78).
+With a palette on, the page's icon and manifest links point at their version in its accent (`?accent=`, drawn by the
+server), and the PWA shows a `.link-btn` "Icona con questo colore" under the list: it copies a link that opens the app
+with that icon, for adding it again to the Home screen (iOS keeps the icon it took when the app was added).
+Examples: [SettingsScreen.tsx:186](../packages/ui/src/touch/SettingsScreen.tsx#L186), [PalettesScreen.tsx:52](../packages/ui/src/touch/PalettesScreen.tsx#L52), [PalettesScreen.tsx:60](../packages/ui/src/touch/PalettesScreen.tsx#L60), [PalettesScreen.tsx:87](../packages/ui/src/touch/PalettesScreen.tsx#L87).
 
 ### Composer gauge — `.gauge-btn` (`.high`), `.gauge-ring` (`.gauge-track`, `.gauge-fill`), `.gauge-bar`
 Right of the model in the composer: a 20 px ring filled to the **highest** of three shares — context window (after the

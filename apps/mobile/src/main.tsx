@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import { Connection, openWebSocket } from '@athome/client'
-import { App, PairScreen, t, type AppCapability, type PushCapability } from '@athome/ui'
+import { App, PairScreen, pointIcons, t, type AppCapability, type PushCapability } from '@athome/ui'
 import '@athome/ui/touch.css'
 
 // The PWA host: pairing (one-time code → device token), the WebSocket connection to the server it was loaded
@@ -164,6 +164,7 @@ function start(token: string, justPaired = false): void {
     app,
     openExternal: (url: string) => void window.open(url, '_blank', 'noopener'),
     pairLink: (code: string) => `${location.origin}/#pair=${code}`,
+    iconLink: (accent: string) => `${location.origin}/?accent=${accent.slice(1)}`,
     logout: () => logout(),
     onActivateTab: (listener: (tabId: string) => void) => {
       tabListeners.add(listener)
@@ -181,6 +182,8 @@ function start(token: string, justPaired = false): void {
   root.render(<App connection={connection} capabilities={capabilities} />)
 }
 
+// Opened from the link "Icon in this colour": the Home screen icon in its accent, before any pairing.
+pointIcons()
 const token = read(TOKEN_KEY)
 if (token) start(token)
 else showPairing()

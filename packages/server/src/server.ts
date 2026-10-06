@@ -5,6 +5,7 @@ import type { Identity } from '@athome/core'
 import type { Channel } from '@athome/protocol'
 import type { DeviceStore } from './devices.ts'
 import { findStatic, type StaticFiles } from './staticFiles.ts'
+import { createTinter } from './tinted.ts'
 
 // The remote host: HTTP for the PWA files and pairing, WebSocket `/ws` for the protocol. Behind Tailscale Serve
 // (TLS) on 127.0.0.1. Every request must name an allowed Host (and, when configured, carry the owner's
@@ -109,6 +110,7 @@ function watchBackpressure(socket: WebSocket, log: (line: string) => void): () =
 export async function startServer(options: ServerOptions): Promise<RunningServer> {
   const log = options.log ?? ((line: string) => console.log(line))
   const headers = securityHeaders(options.socketOrigin)
+  const tinted = createTinter(options.files ?? new Map())
   const sockets = new Map<string, Set<WebSocket>>() // deviceId → open sockets
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD })
   let unauthenticated = 0
@@ -137,10 +139,10 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 
   function onRequest(req: IncomingMessage, res: ServerResponse): void {
     if (!allowed(req)) return answer(res, 403, 'forbidden')
-    const { pathname } = new URL(req.url ?? '/', 'http://localhost')
+    const { pathname, search } = new URL(req.url ?? '/', 'http://localhost')
     if (pathname === '/pair' && req.method === 'POST') return void pair(req, res).catch(() => answer(res, 400, 'bad request'))
     if (req.method !== 'GET' && req.method !== 'HEAD') return answer(res, 405, 'method not allowed')
-    const file = options.files && findStatic(options.files, pathname)
+    const file = options.files && (tinted(pathname, search) ?? findStatic(options.files, pathname))
     if (!file) return answer(res, 404, 'not found')
     res.writeHead(200, { ...headers, 'Content-Type': file.type, 'Content-Length': file.body.length })
     res.end(req.method === 'HEAD' ? undefined : file.body)

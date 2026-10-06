@@ -450,6 +450,8 @@ export const en = {
   paletteName: 'Palette name',
   paletteHint: 'The app shows the colours while you change them; the other shades are made from these. Leaving without saving gives back the colours there were.',
   paletteSaved: '“{name}” saved and on',
+  iconInPalette: 'Icon in this colour',
+  iconLinkCopied: 'Link copied: open it in Safari (or the browser), then add the app to the Home screen and pair it again',
   paletteDelete: 'Delete the palette',
   paletteDeleteTitle: 'Delete “{name}”?',
   paletteDeleteBody: 'It goes from every device; a device using it keeps its colours until you pick another.',

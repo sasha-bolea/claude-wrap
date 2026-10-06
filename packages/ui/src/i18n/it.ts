@@ -452,6 +452,8 @@ export const it: Record<MessageKey, string> = {
   paletteName: 'Nome della palette',
   paletteHint: 'L’app mostra i colori mentre li cambi; le altre sfumature vengono da questi. Se esci senza salvare tornano i colori di prima.',
   paletteSaved: '“{name}” salvata e attiva',
+  iconInPalette: 'Icona con questo colore',
+  iconLinkCopied: 'Link copiato: aprilo in Safari (o nel browser), aggiungi l’app alla schermata Home e abbinala di nuovo',
   paletteDelete: 'Elimina la palette',
   paletteDeleteTitle: 'Eliminare “{name}”?',
   paletteDeleteBody: 'Sparisce da ogni dispositivo; chi la sta usando tiene i suoi colori finché non ne sceglie un’altra.',

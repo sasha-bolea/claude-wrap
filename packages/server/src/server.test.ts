@@ -232,6 +232,14 @@ describe('remote server: files, limits, root', () => {
     expect((await http('GET', '/', { Host: 'evil.example' })).status).toBe(403)
   })
 
+  it('the icons and the manifest come in the accent of a palette when asked; the fixed ones otherwise', async () => {
+    const icon = await http('GET', '/icon-192.png?accent=1a2b3c')
+    expect(icon.status).toBe(200)
+    expect(icon.headers['content-type']).toBe('image/png')
+    expect((await http('GET', '/icon-192.png')).status).toBe(404)
+    expect((await http('GET', '/icon-192.png', { Host: 'evil.example' })).status).toBe(403)
+  })
+
   it('a frame over the size limit closes the socket', async () => {
     const token = await pairDevice()
     const { socket } = await rawSocket()

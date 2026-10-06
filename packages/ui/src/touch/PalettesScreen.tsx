@@ -24,9 +24,12 @@ function Swatches({ colors }: { colors: PaletteColors }) {
 // Settings → Palette: the theme's colours or one of the backend's saved palettes, on this device; each palette opens
 // in the editor; Nuova palette starts from the colours on screen now.
 export function PalettesScreen() {
-  const { state, back, go } = useTouch()
+  const { state, capabilities, back, go, toast, fail } = useTouch()
   const active = useSyncExternalStore(subscribeActivePalette, activePaletteId)
   const pick = (palette?: Palette) => setActivePalette(palette && { paletteId: palette.paletteId, colors: palette.colors })
+  const accent = active && readActivePalette()?.colors.accent
+  // The link that gives the Home screen icon this accent: iOS takes the icon only when the app is added again.
+  const copyIconLink = () => navigator.clipboard.writeText(capabilities.iconLink!(accent!)).then(() => toast(t('iconLinkCopied')), fail)
   return (
     <section className="screen" aria-label={t('palettes')}>
       <header className="topbar">
@@ -53,6 +56,12 @@ export function PalettesScreen() {
             ))}
           </ul>
           {state.palettes.length === 0 && <p className="muted flat">{t('palettesEmpty')}</p>}
+          {accent && capabilities.iconLink && (
+            <button className="link-btn" onClick={() => void copyIconLink()}>
+              <Icon name="image" />
+              {t('iconInPalette')}
+            </button>
+          )}
         </div>
       </div>
       <div className="sticky-actions">
