@@ -73,7 +73,8 @@ deploy/             install.sh (--when-idle), rollback.sh, systemd units (servic
 - Workspace packages are devDependencies of `apps/desktop` (bundled by electron-vite); runtime `dependencies` there = only what must stay external (the SDK).
 - Touch UI: components in `packages/ui/src/touch/`, styles only in `touch.css` (no inline styles, no emoji in badges: icons of `touch/icons.tsx`); untrusted text never becomes HTML (highlighted code goes through `spanNodes`). Before a push, check the PWA e2e and the Linux tests: `main` deploys itself on the home server.
 - File commands take a place: `tabId` (the session's folder, trust-gated) or `folder` (a Home folder, inside the roots).
-- SDK runtime methods outside its types (raw control requests: send now, `cancelAsyncMessage`, `command_lifecycle` frames) stay behind casts in core and are covered by `smoke:composer`.
+- SDK runtime methods outside its types (raw control requests: send now, `cancelAsyncMessage`, `rename_session`; `command_lifecycle` frames) stay behind casts in core and are covered by `smoke:composer`; fields of stored messages outside the types (`origin`, `is_meta` from `getSessionMessages`) are covered by `sdkContract.test.ts` (real SDK, sample file, zero tokens).
+- AtHome shows only native Claude Code features (Sasha, 2026-10-06): no app-specific agent or team features.
 - UI: follow [docs/design-system.md](docs/design-system.md) before building or changing any interface.
 - Host changes on the home server are done by the `linux stup` session on Sasha's request, never from here.
 - A second Claude session (server dev clone `/srv/progetti/claude-wrap`) also pushes to `main`: `git pull --ff-only` before working and before committing, push promptly.

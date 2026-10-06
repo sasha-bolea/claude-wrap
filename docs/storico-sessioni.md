@@ -2,6 +2,62 @@
 
 _Append-only archive of session entries that left [STATO.md](STATO.md), newest on top._
 
+## 2026-10-06 15:32 — Deploy unblocked, palette icon and presets, pairing links, session names, messages between sessions; team plan cancelled (phone session, server dev clone)
+Sasha on the iPhone, 11:30–15:30, in the server dev clone; other sessions worked in the same clone (AtHome rename,
+palettes, last-used order). Every change pushed over SSH and deployed by the update timer.
+- **Deploy unblocked:** the release of the AtHome rename (`0192a0b`) failed in 6 s — the live release's `install.sh`
+  built it with the old workspace name. Sasha ran the repo's new script by hand (bug-risolti, deploy.md).
+- **App icon in the palette's accent** (`adce2f5`): the server draws the "@~" icons and the manifest per device
+  (`?accent=`); "Icona con questo colore" copied a link to add the app again from Safari. Pairing from that link spent
+  the one-time code in Safari: fixed in `e33ec15` (bug-risolti).
+- **Palettes only** (`24b627f`): 17 presets (9 light, 8 dark) added once to the backend, a default palette for a device
+  that never picked one ("AtHome chiaro", a placeholder until Sasha picks), no light/dark theme, one splash screen per
+  iPhone size in the default colours.
+- **Two pairing links** (`f41181f`): "Aggiungi dispositivo" copies a browser link (pairs at once) and an
+  install-the-app link (setup page with every palette of the backend, through `GET /setup/palettes?code=`, which leaves
+  the code unspent; then the install steps). Palette and code travel in the address and in the manifest's `start_url`:
+  the installed app pairs by itself and turns the palette on. Not tried on a real iPhone yet.
+- **Session names** (`2f01f3c`): a session's name for the other sessions (ListAgents, SendMessage) is its tab's title.
+  Probes showed the CLI takes `CLAUDE_CODE_SESSION_NAME` at start and the `rename_session` control request later; it
+  never renames itself after its generated title, and `rename_session` stores the title (it then stays, like the
+  Claude app). "Nuova sessione con nome…" in a folder's menu.
+- **Messages between sessions** (`192c5c2`): a message from another session starts a turn by itself and the CLI emits
+  no user message for it; core reads it from the stored session when the unknown command starts (its uuid is the
+  stored message's), holding live frames ≤ 1.5 s, and shows "Da @nome" before the answer. A `revisore` run (~245k
+  tokens, 14 min) found two real HIGH problems before the commit (an unhandled rejection that could stop the core, the
+  bubble landing after the answer when the CLI writes its file late), both fixed with tests.
+- **Reviewers made lean** (claude-config `c7a2eca`, `cbfd969`, Sasha: "diminuisci il lavoro dei revisori,
+  persistente"): diff and touched functions only, no test runs, ~15 tool calls, short report, `revisore-sicurezza` on
+  sonnet; reviewers only on large steps or real risk.
+- **Team plan cancelled:** a plan to support the capo/operai way of working inside AtHome (6 steps) was approved, then
+  dropped at step 2 (subagent cards, never coded): AtHome shows only native Claude Code features. The PC session's
+  uncommitted proposal and STATO item were removed; `214f10f` removed the capo/operai names from code and tests.
+  Kept after multiple-choice questions: automatic name, named sessions, messages between sessions.
+- **Verification:** unit 253 (+2 skipped), PWA e2e 46/46, desktop e2e 33/33 at the last push; `smoke:composer`
+  could not run (the default login hit its weekly limit until 2026-10-09 22:00).
+
+### Cambiamenti al codice
+- Icon tint: `packages/server/src/markIcon.ts` (mark drawing, shared with `apps/mobile/scripts/icons.ts`),
+  `tinted.ts` (+test: icons, manifest with accent and `start_url`, bounded cache), `server.ts` (tinter, `GET
+  /setup/palettes`), `devices.ts` (`pairingExpiry`), `main.ts` and the PWA e2e harness (`palettes: core.palettes()`),
+  `packages/core/src/core.ts` (`palettes()`); `packages/server/package.json` export `./markIcon`.
+- Pairing: `packages/ui/src/PairScreen.tsx` (`forHomeScreen`), `SetupScreen.tsx` (new), `palette.ts` (`pointIcons`,
+  `paletteFromAddress`, `addressWithPalette`), `apps/mobile/src/main.tsx` (start: setup / pair from the address /
+  browser link), `App.tsx` (`pairLinks`, `iconLink`), `SettingsScreen.tsx` (two copy buttons), `PalettesScreen.tsx`
+  (icon link, `Swatches` exported).
+- Presets: `packages/protocol/src/presets.ts` (new), `packages/core/src/palettes.ts` (added once,
+  `palettes-presets.json`), `palette.ts` (`nextActive`), `touch.css` (no dark theme), `SettingsScreen.tsx` and
+  `TouchApp.tsx` (no theme switch), `apps/mobile/scripts/icons.ts` (one splash per size), `public/splash/*`.
+- Names: `packages/core/src/tab.ts` (`CLAUDE_CODE_SESSION_NAME`, `nameSession`, `tabTitle`), `HomeScreen.tsx`
+  (`NamedSessionSheet`), `sessions.tsx` (`useStartSession(cwd, title?)`), `scripts/smoke-composer.ts`
+  (`checkSessionName`), `testing/fakeQuery.ts` (`aiTitle`, `firstPrompt`, `refusedRequests`).
+- Messages between sessions: `packages/protocol/src/model.ts` (`peerMessage`), `packages/core/src/normalize.ts`
+  (`peerOrigin`, `peerOf`, `storedPeer`), `tab.ts` (`lookUpIncoming`, `findIncoming`, `releaseWaiting`,
+  `peerFromResult`), `packages/ui/src/touch/Conversation.tsx` (`PeerMessage`), `touch.css` (`.msg-peer`),
+  `testing/messages.ts` (`stored.peer`), `testing/scenarios.ts` (keyword `peer`), `sdkContract.test.ts` (new).
+- Tests: core tests for every item above; PWA e2e for icons, setup, two links, presets, named session, peer message.
+- Docs: `design-system.md` (palettes, pairing, setup page, named session, `.msg-peer`).
+
 ## 2026-10-06 11:16 — Queue button, queue bin, sheets closed from their content, 10 s countdown (phone session)
 A morning session in the server dev clone (09:30–11:15), Sasha on the iPhone: small composer, queue and sheet requests,
 each pushed over SSH and deployed by the update timer. Another Claude session worked in the same clone at the same time

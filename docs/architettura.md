@@ -48,7 +48,7 @@ Import rule: `protocol` ← `core`, `client`; `client` ← `ui`; `core` ← `ser
 
 **Streams, epochs, numbering.** `workspace` stream (tab list and meta: title, cwd, status, model, mode, queue, pending-request index, devices) + one `tab:<id>` stream per tab (transcript). Each stream has `{epoch, seq}`: epoch is random, minted at core start and again whenever a transcript is rebuilt (restart of a dead tab, `conversation_reset`). Resume: same epoch and lastSeq still in the ring → replay; otherwise `reset`. `reset` may also be pushed **at any time** on a live stream (seq keeps increasing). Ring buffers are bounded by **count and bytes** (e.g. 2 000 events / 4 MB). A `reset` snapshot carries the last K items + `hasMore`; older items via `tab.history {beforeItemId}`. Core is single-threaded and the **delta coalescer is the only writer** of transcript text: pending deltas are applied to state only when their event gets a seq, and any snapshot first flushes that stream → snapshot + seq is atomic by construction. Clients subscribe only to tabs they display; the workspace stream carries status, `turn.finished`, `request.opened` → badges/notifications for unsubscribed tabs.
 
-**Transcript is normalized in core** (the first attempt's `chat/stato.ts` reducer moves to core; clients never see SDK messages). Items carry `itemId` and `sourceUuid` (JSONL message uuid). Kinds: `user {text, imageRefs?, from}`, `assistantText`, `thinking`, `toolCall {name, input, result?, isError?}`, `turnEnd {costUsd?, durationMs?, interrupted?, error?}`, `notice {level, text}`, `compactBoundary`, `localCommandOutput`. Streamed item identity = (message id, block index); the final `assistant` frame emits `item.updated` on the same item, never a second `item.added`. Images live in a per-tab **blob store** (`{imageId, mediaType}` in items, bytes via `blob.get`). Subagent messages are kept in core and rendered in Phase 4. Unknown SDK types → ignored list (census Part D §4) or debug notice.
+**Transcript is normalized in core** (the first attempt's `chat/stato.ts` reducer moves to core; clients never see SDK messages). Items carry `itemId` and `sourceUuid` (JSONL message uuid). Kinds: `user {text, imageRefs?, from}`, `assistantText`, `thinking`, `toolCall {name, input, result?, isError?}`, `turnEnd {costUsd?, durationMs?, interrupted?, error?}`, `notice {level, text}`, `compactBoundary`, `localCommandOutput`, `shell {command, output, exitCode?}`, `peerMessage {from, text}` (a message from another Claude session, §9.9). Streamed item identity = (message id, block index); the final `assistant` frame emits `item.updated` on the same item, never a second `item.added`. Images live in a per-tab **blob store** (`{imageId, mediaType}` in items, bytes via `blob.get`). Subagent messages (`parent_tool_use_id`) are dropped: the chat shows the Agent call and its result (AtHome shows only native features; the plan to render them was cancelled on 2026-10-06). Unknown SDK types → ignored list (census Part D §4) or debug notice.
 
 **Commands** (Phase 1 set as built; later phases add context, usage, mcp.*, rewind, tasks, settings…; not built yet: `blob.get`, `files.upload`, `tab.suggestFiles` (Phase 2), `client.visibility`, `devices.*`, `fs.browse`, `pair.complete` (Phase 3)):
 - Workspace: `tab.create {tabId (client-generated), cwd, resume?, title?, model?, mode?}` (duplicate tabId → existing tab; a session already owned by any tab — dormant included — returns that tab), `tab.close`, `tab.rename` (also renames the stored session), `tab.reorder {index}` (→ workspace event `tab.moved`), `tab.fork {newTabId, upToItemId?}` (refused with `session_busy` while starting/running/waiting; the new tab goes right after the source), `tab.restart` (dead tab: transcript reloaded from the JSONL, new epoch, same session id), `tab.subscribe` / `tab.unsubscribe`, `tab.history`.
@@ -146,9 +146,16 @@ Import rule: `protocol` ← `core`, `client`; `client` ← `ui`; `core` ← `ser
   `POST /pair` (a one-time code becomes a device token, stored hashed), device and push commands are *host commands*
   the server adds to the core's handlers; Origin/Host allow-lists, sessions confined to `allowedRoots`
   (`/srv/progetti`). It serves the PWA build (`no-cache`) and `version.json`. Deploy: [deploy.md](deploy.md).
+  Per device it draws the PWA's icons and manifest ([tinted.ts](../packages/server/src/tinted.ts), mark in
+  [markIcon.ts](../packages/server/src/markIcon.ts)): `/icon-{180,192,512}.png?accent=rrggbb` in a palette's accent,
+  `/manifest.webmanifest?accent&pair&palette&colors` whose `start_url` carries what the setup page chose (iOS keeps
+  Safari's storage apart from the installed app's); bounded cache, only the query decides the answer. `GET
+  /setup/palettes?code=` gives the backend's palettes to the setup page with a valid pairing code, left unspent.
 - **PWA host** ([apps/mobile/src/main.tsx](../apps/mobile/src/main.tsx)): pairing screen, WebSocket connection,
   Web Push through the service worker, version checks (`checkVersion` at every reconnection, back on screen, every
-  15 min), gestures (no zoom). Both orientations (until 2026-10-03 portrait only).
+  15 min), gestures (no zoom). Both orientations (until 2026-10-03 portrait only). At start: `?pair=` in the browser →
+  the setup page ([SetupScreen.tsx](../packages/ui/src/SetupScreen.tsx): palette, then install steps); `?pair=` in the
+  installed app → pairs by itself and turns the carried palette on; `?browser=1#pair=` → pairs the browser at once.
 - **Desktop**: the touch app since C2 (`DesktopShell` keeps one connection per backend and passes them as
   `capabilities.backends`: the switch on top of the Home); the local core asks main for the system trash (`trashItem` over `parentPort`,
   [coreHost.ts](../apps/desktop/src/main/coreHost.ts) ↔ [coreProcess.ts](../apps/desktop/src/main/coreProcess.ts)).
@@ -199,8 +206,14 @@ Import rule: `protocol` ← `core`, `client`; `client` ← `ui`; `core` ← `ser
   open ones.
 - A tab where nothing was ever sent (no session id, no queue) is not restored after a restart; the touch UI closes it
   when its chat is left with an empty composer.
-- The tab title follows the CLI's own title (`getSessionInfo`: custom title or summary) at every turn end while
-  `autoTitle` (set when no title was given; off after a rename).
+- The tab title follows the session's own title at every turn end while `autoTitle` (set when no title was given;
+  off after a rename): `getSessionInfo`'s custom title — which includes the title the CLI generates after the first
+  prompt — else the first 3 words of the first prompt ([tab.ts](../packages/core/src/tab.ts) `tabTitle`).
+- **The tab title is the session's name for the other sessions** (ListAgents, SendMessage, also across folders): the
+  CLI starts with `CLAUDE_CODE_SESSION_NAME` = the title, and a live session gets every new title through the
+  `rename_session` control request (`source: 'remote'` for the automatic one, `'host'` for the user's; the CLI stores
+  it as the session's title, so it then stays). A refused automatic rename is ignored; a refused user rename reaches
+  the user. The CLI never renames itself after its generated title (probed on 2.1.287).
 
 ### 9.6 Updates
 - Server: `claude-wrap-update.timer` → `install.sh main --when-idle` (build, tests on the server, switch only while
@@ -251,3 +264,30 @@ Import rule: `protocol` ← `core`, `client`; `client` ← `ui`; `core` ← `ser
   `activity.json`, looked at every 2 s, so the update waits for it — a server left running in a terminal holds the
   updates until it stops. A shell started inside the shell is not seen as work.
 - **Limits:** terminals end with core (a restart or an update closes them).
+
+### 9.9 Messages between sessions (2026-10-06)
+- Native Claude Code: `SendMessage` / `ListAgents` reach every live session of the machine, in any folder; a session
+  is reachable while its CLI process runs (a dormant tab is not, like a closed terminal session).
+- A message from another session starts a turn by itself and the CLI emits **no user message** for it: only a
+  `command_lifecycle` `started` whose `command_uuid` is the stored message's uuid, and the turn's `result` with
+  `origin: {kind: 'peer', name, body, …}`. [tab.ts](../packages/core/src/tab.ts) (`lookUpIncoming`): for a command core
+  did not send, it reads the stored message (`getSessionMessages`, whose entries carry `origin` and `is_meta` outside
+  the SDK's types), again at 150/250/500 ms while the CLI has not written it (it writes in batches, ~100 ms), and holds
+  the live frames meanwhile (≤ 1.5 s), so the `peerMessage` precedes the answer; a result naming it is the fallback.
+  Malformed or empty ones show nothing; every failure is caught (an unhandled rejection would stop the core).
+- History: stored messages with `origin.kind === 'peer'` become `peerMessage` items, never a user bubble with the
+  CLI's envelope ([normalize.ts](../packages/core/src/normalize.ts) `peerOrigin`, `storedPeer`).
+- A background subagent's final report reaches its session the same way (`origin` peer with `senderTaskId`), so it
+  shows as "Da @<agent>"; its task notification (`origin.kind 'task-notification'`) shows nothing.
+- [sdkContract.test.ts](../packages/core/src/sdkContract.test.ts) runs the real `getSessionMessages` on a sample
+  session file (temporary `CLAUDE_CONFIG_DIR`, zero tokens), so an SDK bump that drops `origin` fails `npm test`.
+
+### 9.10 Palettes (2026-10-06)
+- Palettes live in `<stateDir>/palettes.json` (core, [palettes.ts](../packages/core/src/palettes.ts)); which one is on
+  is each device's (`localStorage`). The 17 presets of [presets.ts](../packages/protocol/src/presets.ts) are added once,
+  after any saved ones (`palettes-presets.json` remembers it); then they are ordinary palettes.
+- No light/dark theme: `touch.css`'s `:root` holds the default palette's colours (`DEFAULT_PALETTE_ID`), shown until
+  the app knows the device's palette; a device that never picked one gets the default, else the first
+  ([palette.ts](../packages/ui/src/palette.ts) `nextActive`). The iPhone splash screens use the default colours.
+- The page points its icon and manifest links at the server's tinted versions (`pointIcons`), so the Home-screen icon
+  takes the accent of the palette on when the app is added (iOS keeps it afterwards).

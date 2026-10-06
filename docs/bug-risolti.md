@@ -442,3 +442,23 @@ These were solved in the first attempt. Files refer to that repository. Each ent
   use a separate worktree with its own `node_modules/@claude-wrap` links: the root `node_modules` links are relative
   and point back to the shared clone.
 - **Files:** none (process); `CLAUDE.md` "Conventions" already holds the rule.
+
+### 2026-10-06 — The first update after the AtHome rename failed in 6 s
+- **Symptom:** release `0192a0b` was marked `.failed` (`npm error No workspaces found: --workspace=@claude-wrap/mobile`);
+  `1d3c49f` stayed live and the timer never retried it.
+- **Cause:** the update timer runs the **live** release's `install.sh`, which built the new commit with the old
+  workspace name; the commit had renamed the packages to `@athome/*`. A `.failed` release is never retried.
+- **Fix:** run the repo's new script once by hand: remove the `.failed` marker and
+  `/srv/progetti/claude-wrap/deploy/install.sh main --when-idle` (Sasha ran it: the agent's attempt was refused by the
+  permission classifier). Any change of the build command needs this once ([deploy.md](deploy.md)).
+- **Files:** none (process); `docs/deploy.md`.
+
+### 2026-10-06 — The coloured-icon link let Safari spend the pairing code
+- **Symptom:** after adding the PWA from "Icona con questo colore", the installed app asked for a code; the one
+  entered in Safari was "already used".
+- **Cause:** iOS keeps Safari's storage apart from the Home-screen app's. The link opened the pairing screen in
+  Safari, which offers "Continua nel browser": pairing there spent the one-time code for Safari; the toast did not
+  say where to pair.
+- **Fix:** `e33ec15` — opened with `?accent=`, Safari shows only the install steps and a note; the toast says to pair
+  in the app. Then `f41181f`: the install link carries the code in the app's start address, so the app pairs itself.
+- **Files:** `packages/ui/src/PairScreen.tsx`, `apps/mobile/src/main.tsx`, `packages/ui/src/i18n/{en,it}.ts`.

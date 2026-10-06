@@ -22,7 +22,7 @@ _Runbook of multi-step or rare procedures. One-liners used often live in CLAUDE.
 **When:** before closing any UI or core change.
 1. `npm run e2e` — builds the desktop app (`electron-vite build`), then runs `apps/desktop/e2e/*.e2e.ts` one app at a time (~1 min).
 2. Each test launches `apps/desktop` with `CLAUDE_WRAP_FAKE_SDK=1` (scripted fake SDK, zero quota), `CLAUDE_WRAP_STATE_DIR=<temp>` (never the real app state) and `--lang=en-US` (English UI for the selectors). The native folder dialog is stubbed: `nextFolder(app, folder)` sets what it returns.
-3. Fake SDK keywords (send them as the message): `permission`, `question`, `plan`, `slow` (long stream to interrupt), `markdown` (remote image + link), `tools` (three Bash commands in a row, one long), `crash`; anything else is echoed word by word. Conversations are stored in the fake session store (in memory of the core process: gone after an app restart).
+3. Fake SDK keywords (send them as the message): `permission`, `question`, `plan`, `slow` (long stream to interrupt), `markdown` (remote image + link), `tools` (three Bash commands in a row, one long), `peer` (after the answer, another session's message arrives and gets its own answer), `crash`; anything else is echoed word by word. Conversations are stored in the fake session store (in memory of the core process: gone after an app restart).
 4. A failing selector: check names in `packages/ui/src/i18n/en.ts`; playwright `hasText` is a case-insensitive substring ("Renamed" matches "Rename"+"Delete").
 
 5. On the home server (no display): `timeout 900 xvfb-run -a -s "-screen 0 1440x900x24" npm run e2e`. Needs the
@@ -101,12 +101,18 @@ not "Back". Dates in fake data must be relative to now or far ahead (a fixed dat
   `/context` and `/usage` in the terminal when in doubt.
 - If the SDK renamed the usage call: update `readUsage` in `usage.ts` (and the fake in `testing/fakeQuery.ts`).
 
-## Splash screens and icons of the PWA
-**When:** the accent or background token changes, or a new iPhone size appears.
-1. `node apps/mobile/scripts/icons.ts` — writes `apps/mobile/public/icon-*.png`, the 24 splash PNGs in
-   `public/splash/` and the `<link rel="apple-touch-startup-image">` block of `apps/mobile/index.html` (between its
-   two comments).
-2. `npm run e2e:mobile` (the splash test checks every link is served as PNG).
+## Splash screens and icons of the PWA (and the default palette)
+**When:** the default palette changes, or a new iPhone size appears. The icons a device sees in its own palette's
+accent are drawn by the server at request time (`packages/server/src/tinted.ts`): nothing to generate for them.
+1. Default palette (Sasha's pick): `DEFAULT_PALETTE_ID` and the palette's colours in
+   `packages/protocol/src/presets.ts`; copy its tokens into `touch.css`'s `:root` (the `palette.test.ts` test fails
+   until they match).
+2. `node apps/mobile/scripts/icons.ts` — writes `apps/mobile/public/icon-*.png`, one splash PNG per iPhone size in
+   `public/splash/` (the default palette's colours, no light/dark) and the `<link rel="apple-touch-startup-image">`
+   block of `apps/mobile/index.html` (between its two comments). The mark is drawn by `@athome/server/markIcon`.
+3. `npm test`, then `npm run e2e:mobile` (the splash test checks every link is served as PNG).
+**Warning:** the presets are added to a backend only once (`palettes-presets.json`): a changed preset reaches existing
+backends only by editing the palette in the app.
 
 ## Following an automatic deploy on the home server
 **When:** after a push to `main`, to know when the phone can update.
