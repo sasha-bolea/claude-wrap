@@ -363,6 +363,8 @@ export const it: Record<MessageKey, string> = {
   claudeWaitsYou: 'Claude ti aspetta',
   yourMessage: 'Il tuo messaggio',
   copyText: 'Copia il testo',
+  copyCode: 'Copia il codice',
+  codeCopied: 'Codice copiato',
   folderFiles: 'File della cartella',
   folderNotes: 'Note della cartella',
   model: 'Modello',

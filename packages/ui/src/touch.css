@@ -179,6 +179,12 @@ input, textarea, select { font-size: 16px; }
 .msg-ai code, .msg-peer code { font: 13px var(--font-mono); background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
 .msg-ai pre, .msg-peer pre { margin: 6px 0; padding: 10px; background: var(--surface-2); border-radius: 10px; font: 12.5px/1.5 var(--font-mono); white-space: pre-wrap; }
 .msg-ai pre code, .msg-peer pre code { background: none; padding: 0; }
+/* A code block of the markdown with its copy button in the top right corner (the text keeps clear of it). */
+.code-block { position: relative; }
+.code-block > pre { padding-right: 40px; }
+.copy-code { position: absolute; top: 2px; right: 2px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: none; color: var(--text-muted); }
+.copy-code .i { width: 18px; height: 18px; }
+.copy-code.done { color: var(--accent); }
 .msg-ai a, .msg-peer a { color: var(--accent); }
 /* A message from another Claude session (SendMessage): on the left, framed in the accent, its sender on top */
 .msg-peer { align-self: flex-start; max-width: 92%; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 4px 16px 16px 16px; padding: 9px 12px; overflow-wrap: anywhere; }

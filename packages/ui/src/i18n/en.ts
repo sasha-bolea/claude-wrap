@@ -361,6 +361,8 @@ export const en = {
   claudeWaitsYou: 'Claude is waiting for you',
   yourMessage: 'Your message',
   copyText: 'Copy the text',
+  copyCode: 'Copy the code',
+  codeCopied: 'Code copied',
   folderFiles: 'Folder files',
   folderNotes: 'Folder notes',
   model: 'Model',
