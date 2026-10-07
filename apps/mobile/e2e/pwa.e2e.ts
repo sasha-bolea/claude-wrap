@@ -930,6 +930,21 @@ describe('PWA (fake SDK)', () => {
     expect(await background()).toBe('#faf9f7')
   })
 
+  it('a code block in an answer has a copy button: it copies the code and shows a tick for a moment', async () => {
+    const context = await newPhone()
+    const page = await pairedPage(context, backend)
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: backend.url })
+    await openProject(page)
+    await composer(page).fill('run this\n```\nls -la /srv\n```')
+    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    const block = page.locator('.msg-ai .code-block').last()
+    await block.waitFor()
+    await block.getByRole('button', { name: 'Copy the code' }).click()
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('ls -la /srv\n')
+    await block.getByRole('button', { name: 'Code copied' }).waitFor()
+    await block.getByRole('button', { name: 'Copy the code' }).waitFor()
+  })
+
   it('with a palette on, the Home screen icon and the manifest take its accent; "Icon in this colour" copies a link that gives them to a browser not paired', async () => {
     const context = await newPhone()
     const page = await pairedPage(context, backend)
