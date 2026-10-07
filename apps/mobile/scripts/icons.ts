@@ -3,13 +3,15 @@
 // icons in a palette's accent with it too).
 // - Icons public/icon-180.png, -192, -512: the "@~" mark ("at home") in a blocky face on the accent colour (iOS
 //   rounds the corners).
-// - iPhone splash screens public/splash/<w>x<h>.png: one flat neutral grey (LAUNCH) with nothing on it. iOS caches
-//   them at install, so they cannot follow a palette; the app's own launch screen (ui/touch/Splash.tsx) continues
-//   the same grey and the page behind it is that grey too. iOS shows one only when its size matches the screen exactly.
+// - iPhone splash screens public/splash/<w>x<h>.png: one flat neutral grey (LAUNCH) with the white "@~" glyph alone
+//   (no tile, no accent) centred across, its top LAUNCH_GLYPH_ABOVE_CENTRE points above the screen's middle, one grid
+//   cell = LAUNCH_CELL_POINTS (both from @athome/protocol, so ui/touch/Splash.tsx draws it at the same place). iOS
+//   caches them at install, so they cannot follow a palette; the app's own launch screen continues the same grey and
+//   glyph and the page behind it is that grey too. iOS shows one only when its size matches the screen exactly.
 // Icon colour: the default palette's accent.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { DEFAULT_PALETTE_ID, PRESET_PALETTES } from '@athome/protocol'
-import { canvas, markIcon, png, type Rgb } from '@athome/server/markIcon'
+import { DEFAULT_PALETTE_ID, LAUNCH_CELL_POINTS, LAUNCH_GLYPH_ABOVE_CENTRE, MARK_ROWS, PRESET_PALETTES } from '@athome/protocol'
+import { canvas, drawGlyph, markIcon, png, type Rgb } from '@athome/server/markIcon'
 
 // A #rrggbb colour as red, green, blue.
 function rgb(hex: string): Rgb {
@@ -20,6 +22,7 @@ function rgb(hex: string): Rgb {
 const DEFAULT = PRESET_PALETTES.find((preset) => preset.paletteId === DEFAULT_PALETTE_ID)!.colors
 // The iOS launch image's colour (also --launch-colour in touch.css and the manifest's background_color).
 const LAUNCH = rgb('#8e8e93')
+const WHITE: Rgb = [255, 255, 255]
 const ACCENT = rgb(DEFAULT.accent)
 // iPhone screens in portrait: width and height in CSS points, pixel ratio (SE 2nd gen … 17 Pro Max, Air).
 const IPHONES = [
@@ -38,6 +41,9 @@ mkdirSync(new URL('splash/', PUBLIC), { recursive: true })
 const links: string[] = []
 for (const [width, height, ratio] of IPHONES) {
   const splash = canvas(width * ratio, height * ratio, LAUNCH)
+  const cell = Math.round(LAUNCH_CELL_POINTS * ratio)
+  const glyphWidth = MARK_ROWS[0]!.length * cell
+  drawGlyph(splash, Math.floor((width * ratio - glyphWidth) / 2), Math.round((height / 2 - LAUNCH_GLYPH_ABOVE_CENTRE) * ratio), cell, WHITE)
   const file = `${width * ratio}x${height * ratio}.png`
   writeFileSync(new URL(`splash/${file}`, PUBLIC), png(splash))
   const media = `screen and (device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait)`

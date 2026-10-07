@@ -317,15 +317,17 @@ svg.ghost-thumb { width: 22px; height: 22px; color: var(--text-muted); }
 /* Launch screen */
 /* --launch-colour: the iOS launch image's grey (apps/mobile/scripts/icons.ts); fixed, not palette-driven, so the two screens look like one */
 :root { --launch-colour: #8e8e93; }
-.splash { justify-content: space-between; align-items: center; background: var(--launch-colour); color: #fff; padding: env(safe-area-inset-top, 0px) 24px calc(16px + env(safe-area-inset-bottom, 0px)); }
-.splash-main { flex: 1; display: grid; align-content: center; justify-items: center; gap: 14px; width: 100%; max-width: 320px; }
+.splash { align-items: center; background: var(--launch-colour); color: #fff; padding: env(safe-area-inset-top, 0px) 24px calc(16px + env(safe-area-inset-bottom, 0px)); }
+/* The glyph's size and place are in points, as the iOS launch image has them (LAUNCH_CELL_POINTS, LAUNCH_GLYPH_ABOVE_CENTRE in protocol/brand.ts: 13 × 7 cells of 16/3 pt, top 68.17 pt above the middle); the text sits below it and never moves it. */
+.splash-glyph { position: absolute; left: 50%; top: calc(50% - 68.1667px); width: 69.3333px; height: 37.3333px; margin-left: -34.6667px; fill: #fff; }
+.splash-main { position: absolute; top: calc(50% - 16px); left: 50%; transform: translateX(-50%); display: grid; align-content: start; justify-items: center; gap: 14px; width: calc(100% - 48px); max-width: 320px; }
 .splash-state { margin: 0; min-height: 44px; display: flex; align-items: center; gap: 10px; text-align: center; font-weight: 600; }
 .splash .button.primary { background: #fff; color: #1c1c1e; }
 .dots { display: inline-flex; gap: 4px; }
 .dots i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 1s ease-in-out infinite; }
 .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
 .splash-actions { display: grid; gap: 8px; width: 100%; }
-.splash-foot { margin: 0; font-size: 12px; color: rgba(255,255,255,.85); text-align: center; }
+.splash-foot { margin: auto 0 0; font-size: 12px; color: rgba(255,255,255,.85); text-align: center; }
 /* "Nuova versione" bar (Home and chat) */
 .update-bar { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 600; }
 .update-bar span { flex: 1; }

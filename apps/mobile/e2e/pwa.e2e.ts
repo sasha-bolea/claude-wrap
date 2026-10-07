@@ -1268,6 +1268,18 @@ describe('PWA (fake SDK)', () => {
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).not.toBe('rgb(142, 142, 147)')
     expect(await splash.innerText()).toBe('')
     expect(await page.getByText('AtHome', { exact: true }).count()).toBe(0)
+    // The white glyph is there from the first frame, where the iOS launch image has it: 13 × 7 cells of 16/3 points,
+    // centred across, its top 68.17 points above the middle of the 390 × 844 screen (launch image: 1170 × 2532, glyph
+    // at x 481-689, y 1062-1174 in pixels).
+    const glyph = splash.locator('svg.splash-glyph')
+    expect(await glyph.getAttribute('aria-hidden')).toBe('true')
+    expect(await glyph.evaluate((element) => getComputedStyle(element).fill)).toBe('rgb(255, 255, 255)')
+    const box = (await glyph.boundingBox())!
+    expect(Math.abs(box.x * 3 - 481)).toBeLessThan(1)
+    expect(Math.abs(box.y * 3 - 1062)).toBeLessThan(1)
+    expect(Math.abs(box.width * 3 - 208)).toBeLessThan(1)
+    expect(Math.abs(box.height * 3 - 112)).toBeLessThan(1)
+    expect(await splash.locator('svg.splash-glyph rect').count()).toBe(31)
     await expect.poll(() => splash.innerText(), { timeout: 5000 }).toContain('Connecting to the server')
     // Connected: the page takes the palette's colour back.
     await page.close()

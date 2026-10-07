@@ -5,6 +5,7 @@ import { tabEventSchema, tabSnapshotSchema, terminalEventSchema, terminalSnapsho
 export * from './model.ts'
 export * from './commands.ts'
 export * from './presets.ts'
+export * from './brand.ts'
 
 // Major version of the client↔core protocol: a different value on the two sides is incompatible.
 export const PROTOCOL_VERSION = 1

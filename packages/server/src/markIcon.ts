@@ -1,4 +1,5 @@
 import { crc32, deflateSync } from 'node:zlib'
+import { MARK_ROWS } from '@athome/protocol'
 
 // The "@~" mark ("at home") as PNG images, without image libraries: a blocky face in white on the accent colour.
 // Used by apps/mobile/scripts/icons.ts (the PWA's fixed icons and splash screens) and by the server (icons in the
@@ -8,17 +9,6 @@ export type Rgb = readonly [number, number, number]
 export type Image = { width: number; height: number; data: Buffer }
 
 const WHITE: Rgb = [0xff, 0xff, 0xff]
-// The mark's bitmap, '#' = ink: a 7×7 "@", one blank column, a 5-wide "~".
-const MARK_ROWS = [
-  '.#####.......',
-  '#.....#......',
-  '#..##.#......',
-  '#.#.#.#..##.#',
-  '#..###..#.##.',
-  '#............',
-  '.#####.......'
-]
-
 // An RGB image filled with one colour, rows already prefixed with PNG filter byte 0.
 export function canvas(width: number, height: number, colour: Rgb): Image {
   const stride = 1 + width * 3
@@ -40,6 +30,22 @@ function insideCorners(x: number, y: number, size: number, radius: number): bool
   const dx = Math.max(radius - x - 0.5, x + 0.5 - (size - radius), 0)
   const dy = Math.max(radius - y - 0.5, y + 0.5 - (size - radius), 0)
   return dx * dx + dy * dy <= radius * radius
+}
+
+// Paints only the glyph's pixels, no tile: the "@~" grid with its top-left corner at (left, top), each grid cell a
+// cell×cell square of the given colour. Pixels outside the image are skipped.
+export function drawGlyph(image: Image, left: number, top: number, cell: number, ink: Rgb): void {
+  const stride = 1 + image.width * 3
+  MARK_ROWS.forEach((row, gridY) => {
+    for (let gridX = 0; gridX < row.length; gridX++) {
+      if (row[gridX] !== '#') continue
+      for (let y = top + gridY * cell; y < top + (gridY + 1) * cell; y++) {
+        for (let x = left + gridX * cell; x < left + (gridX + 1) * cell; x++) {
+          if (x >= 0 && y >= 0 && x < image.width && y < image.height) image.data.set(ink, y * stride + 1 + x * 3)
+        }
+      }
+    }
+  })
 }
 
 // Paints the "@~" mark: a size×size accent square at (left, top) with the glyphs in white, centred.
