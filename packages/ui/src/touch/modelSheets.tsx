@@ -40,8 +40,8 @@ function useOfferedModels(tabId: string) {
   return list
 }
 
-// "Modello e impegno": every model with its version and a line about it, and under them the effort levels of the
-// chosen model (none: no selector). Changes apply at once; the sheet stays open.
+// "Modello e impegno": at the top the effort levels of the chosen model (none: no selector), under them every model with
+// its version and a line about it. Changes apply at once; the sheet stays open.
 export function ModelSheet({ tabId }: { tabId: string }) {
   const { state, connection, announce, fail } = useTouch()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
@@ -54,6 +54,21 @@ export function ModelSheet({ tabId }: { tabId: string }) {
   const pickEffort = (effort: Effort) => connection.request('tab.setEffort', { tabId, effort }).then(() => announce(t('effortAnnounce', { effort: effortLabel(effort) })), fail)
   return (
     <>
+    {levels.length > 0 && (
+      <div className="group">
+        <p className="label" id={`effort-${tabId}`}>
+          {t('effort')}
+        </p>
+        <div className={`segmented effort cols-${levels.length}`} role="radiogroup" aria-labelledby={`effort-${tabId}`}>
+          {levels.map((level) => (
+            <label key={level}>
+              <input type="radio" name={`effort-${tabId}`} value={level} checked={meta.effort === level} onChange={() => void pickEffort(level)} />
+              <span>{effortLabel(level)}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    )}
     <ul className="menu" role="radiogroup" aria-label={t('model')}>
       {!list && (
         <li className="muted" role="status">
@@ -71,21 +86,6 @@ export function ModelSheet({ tabId }: { tabId: string }) {
         </li>
       ))}
     </ul>
-    {levels.length > 0 && (
-      <div className="group">
-        <p className="label" id={`effort-${tabId}`}>
-          {t('effort')}
-        </p>
-        <div className={`segmented effort cols-${levels.length}`} role="radiogroup" aria-labelledby={`effort-${tabId}`}>
-          {levels.map((level) => (
-            <label key={level}>
-              <input type="radio" name={`effort-${tabId}`} value={level} checked={meta.effort === level} onChange={() => void pickEffort(level)} />
-              <span>{effortLabel(level)}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-    )}
     </>
   )
 }
