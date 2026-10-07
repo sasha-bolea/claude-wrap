@@ -430,6 +430,54 @@ describe('PWA (fake SDK)', () => {
     await page.locator('.chat-screen').waitFor({ state: 'detached' })
   })
 
+  it('the scroll indicator can be grabbed while it shows: dragging it scrolls in proportion, it grows while held; hidden, the right edge scrolls as usual', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'slow')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('word399')
+    await page.locator('.working-line').waitFor({ state: 'detached' })
+    const conversation = page.locator('.conversation')
+    const thumb = page.locator('.scroll-thumb')
+    const cdp = await page.context().newCDPSession(page)
+    const area = (await conversation.boundingBox())!
+    // Hidden thumb: a drag on the right edge scrolls the text natively, nothing grabs.
+    await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight - box.clientHeight - 600))
+    await page.waitForTimeout(1500)
+    expect(await thumb.evaluate((element) => element.classList.contains('on'))).toBe(false)
+    const rest = await conversation.evaluate((box) => box.scrollTop)
+    const edge = area.x + area.width - 10
+    await touchStart(cdp, edge, area.y + area.height / 2)
+    for (let step = 1; step <= 10; step++) await touchMove(cdp, edge, area.y + area.height / 2 + step * 10)
+    expect(await thumb.evaluate((element) => element.classList.contains('grabbed'))).toBe(false)
+    await touchEnd(cdp)
+    await page.waitForTimeout(1500)
+    const scrolled = await conversation.evaluate((box) => box.scrollTop)
+    expect(rest - scrolled).toBeGreaterThan(50)
+    expect(rest - scrolled).toBeLessThan(150)
+    // Visible thumb: grab it and drag up by 60 px, the conversation follows in proportion.
+    await conversation.evaluate((box) => (box.scrollTop -= 1))
+    await expect.poll(() => thumb.evaluate((element) => element.classList.contains('on'))).toBe(true)
+    const rect = (await thumb.boundingBox())!
+    const m = await conversation.evaluate((box) => ({ range: box.scrollHeight - box.clientHeight, top: box.scrollTop, dock: document.querySelector<HTMLElement>('.dock')!.offsetHeight, height: box.clientHeight }))
+    const room = m.height - m.dock - 6 - rect.height
+    const x = rect.x + 1
+    const y = rect.y + rect.height / 2
+    await touchStart(cdp, x, y)
+    for (let step = 1; step <= 10; step++) await touchMove(cdp, x - (step % 3), y - step * 6)
+    expect(await thumb.evaluate((element) => element.classList.contains('grabbed'))).toBe(true)
+    expect(await thumb.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(5)
+    // Held past the usual fade: still visible.
+    await page.waitForTimeout(1200)
+    expect(await thumb.evaluate((element) => element.classList.contains('on'))).toBe(true)
+    const now = await conversation.evaluate((box) => box.scrollTop)
+    const expected = (60 / room) * m.range
+    expect(m.top - now).toBeGreaterThan(expected * 0.85)
+    expect(m.top - now).toBeLessThan(expected * 1.15)
+    await touchEnd(cdp)
+    await expect.poll(() => thumb.evaluate((element) => element.classList.contains('grabbed'))).toBe(false)
+    await expect.poll(() => thumb.evaluate((element) => element.classList.contains('on')), { timeout: 3000 }).toBe(false)
+  })
+
   it('a fast drag on the chat with the keyboard open writes no scrollTop and keeps the field until the finger lifts', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)

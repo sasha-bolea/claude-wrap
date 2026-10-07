@@ -254,11 +254,16 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 
 /* Conversation + "Torna giù" */
 .chat-body { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-.jump { position: absolute; right: 12px; bottom: calc(var(--dock-h, 90px) + 10px); min-width: 44px; height: 44px; padding: 0 11px; gap: 6px; border-radius: 22px; border: 1px solid var(--border); background: var(--surface); color: var(--text); box-shadow: 0 4px 14px rgba(0,0,0,.15); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+.jump { position: absolute; z-index: 3; right: 12px; bottom: calc(var(--dock-h, 90px) + 10px); min-width: 44px; height: 44px; padding: 0 11px; gap: 6px; border-radius: 22px; border: 1px solid var(--border); background: var(--surface); color: var(--text); box-shadow: 0 4px 14px rgba(0,0,0,.15); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
 /* Scroll indicator of the conversation on touch screens: from the top to just above the dock, never behind its blur
    (the native one, hidden here, cannot be inset on iOS) */
 .scroll-thumb { display: none; position: absolute; top: 3px; right: 3px; z-index: 2; width: 3px; border-radius: 2px; background: color-mix(in srgb, var(--text) 40%, transparent); opacity: 0; transition: opacity .35s ease-out; pointer-events: none; }
 .scroll-thumb.on { opacity: 1; transition-duration: .1s; }
+/* Grabbable while shown: an invisible 44 px hit area on the right edge (a pseudo-element counts for hit-testing), as tall
+   as the thumb plus a margin above; hidden, it takes no touch and the edge scrolls as usual. Held: wider, stronger. */
+.scroll-thumb.on { pointer-events: auto; touch-action: none; }
+.scroll-thumb::before { content: ''; position: absolute; top: -12px; bottom: 0; right: -3px; width: 44px; }
+.scroll-thumb.grabbed { width: 7px; background: color-mix(in srgb, var(--text) 65%, transparent); transition: width .12s ease-out, background .12s; }
 @media (pointer: coarse) {
   .conversation { scrollbar-width: none; }
   .conversation::-webkit-scrollbar { display: none; }

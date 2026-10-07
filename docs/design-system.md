@@ -205,6 +205,10 @@ Examples: [Conversation.tsx:354](../packages/ui/src/touch/Conversation.tsx#L354)
 On touch screens (`pointer: coarse`) the native indicator of `.conversation` is hidden (iOS draws it down behind the
 dock's blur and cannot inset it); a thin thumb runs from the top of the chat to just above the dock, shows while
 scrolling and fades out. Mouse screens keep the native scrollbar.
+While it shows (`.on`) it can be grabbed like iOS's own: an invisible 44 px hit area on the right edge (the `::before`,
+from a little above the thumb to its bottom; the `.jump` button sits above it) takes the touch, the thumb grows to 7 px
+(`.grabbed`, stronger colour) and stays while held, and the finger's travel maps to scrollTop in proportion (the inverse
+of `place`). Hidden, the edge scrolls as usual; the thumb stays `aria-hidden`.
 Examples: [ChatScreen.tsx:291](../packages/ui/src/touch/ChatScreen.tsx#L291).
 
 ### Ghost and jump — `.ghost` (`.ghost-bubble`, `.ghost-thumb`, `.ghost-more`, `.leaving`), `.jump` (`.ask`, `.dot`)

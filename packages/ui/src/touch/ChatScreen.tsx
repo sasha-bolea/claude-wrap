@@ -72,11 +72,22 @@ function useGhost(conversation: React.RefObject<HTMLDivElement | null>, element:
 
 // The conversation's scroll indicator on a touch screen. iOS draws its own down to the bottom of the scroller, behind
 // the dock's blur, and has no inset for it: the native one is hidden (touch.css) and this one runs from the top of the
-// conversation to just above the dock. It shows while scrolling and fades out like the native one.
-// Parameters: the conversation and the dock. Returns the thumb's ref and `place`, to call on scroll and on resize.
-function useScrollThumb(conversation: React.RefObject<HTMLDivElement | null>, dock: React.RefObject<HTMLDivElement | null>) {
+// conversation to just above the dock. It shows while scrolling and fades out like the native one. While it shows, a
+// finger on it (an invisible wider hit area, touch.css) grabs it: it grows and stays, and dragging it scrolls the
+// conversation in proportion (the app writes scrollTop here, but never with a finger on the conversation itself).
+// Parameters: the conversation, the dock and `onGrab` (called when a finger grabs it, to stop the follow glide).
+// Returns the thumb's ref and `place`, to call on scroll and on resize.
+function useScrollThumb(conversation: React.RefObject<HTMLDivElement | null>, dock: React.RefObject<HTMLDivElement | null>, onGrab: () => void) {
   const thumb = useRef<HTMLDivElement>(null)
   const fade = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const grabbed = useRef(false)
+  const grab = useRef(onGrab)
+  grab.current = onGrab
+  const hold = (element: HTMLElement) => {
+    clearTimeout(fade.current)
+    if (grabbed.current) return
+    fade.current = setTimeout(() => element.classList.remove('on'), 900)
+  }
   const place = useCallback((show: boolean) => {
     const box = conversation.current
     const element = thumb.current
@@ -91,8 +102,52 @@ function useScrollThumb(conversation: React.RefObject<HTMLDivElement | null>, do
     element.style.transform = `translateY(${Math.round(offset)}px)`
     if (!show) return
     element.classList.add('on')
-    clearTimeout(fade.current)
-    fade.current = setTimeout(() => element.classList.remove('on'), 900)
+    hold(element)
+  }, [conversation, dock])
+  // The grab: only while visible (`.on`; hidden, the element has no hit area). The finger's travel along the track maps
+  // to scrollTop proportionally, the inverse of `place`. Non-passive listeners: the touch must not scroll the page.
+  useEffect(() => {
+    const element = thumb.current
+    const box = conversation.current
+    if (!element || !box) return
+    let drag: { y: number; top: number } | undefined
+    const start = (event: globalThis.TouchEvent) => {
+      if (!element.classList.contains('on') || event.touches.length !== 1) return
+      event.preventDefault()
+      event.stopPropagation()
+      grabbed.current = true
+      clearTimeout(fade.current)
+      element.classList.add('grabbed')
+      drag = { y: event.touches[0]!.clientY, top: box.scrollTop }
+      grab.current()
+    }
+    const move = (event: globalThis.TouchEvent) => {
+      if (!drag) return
+      event.preventDefault()
+      event.stopPropagation()
+      const room = box.clientHeight - (dock.current?.offsetHeight ?? 0) - 6 - element.offsetHeight
+      if (room <= 0) return
+      const range = box.scrollHeight - box.clientHeight
+      const next = drag.top + ((event.touches[0]!.clientY - drag.y) / room) * range
+      box.scrollTop = Math.min(range, Math.max(0, next))
+    }
+    const end = () => {
+      if (!drag) return
+      drag = undefined
+      grabbed.current = false
+      element.classList.remove('grabbed')
+      hold(element)
+    }
+    element.addEventListener('touchstart', start, { passive: false })
+    element.addEventListener('touchmove', move, { passive: false })
+    element.addEventListener('touchend', end)
+    element.addEventListener('touchcancel', end)
+    return () => {
+      element.removeEventListener('touchstart', start)
+      element.removeEventListener('touchmove', move)
+      element.removeEventListener('touchend', end)
+      element.removeEventListener('touchcancel', end)
+    }
   }, [conversation, dock])
   useEffect(() => () => clearTimeout(fade.current), [])
   return { thumb, place }
@@ -124,7 +179,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const ghostDrag = useRef<{ y: number; dy: number } | undefined>(undefined)
   const ghostElement = useRef<HTMLButtonElement>(null)
   const { ghost, update: updateGhost, dismiss: dismissGhost } = useGhost(conversation, ghostElement)
-  const { thumb, place: placeThumb } = useScrollThumb(conversation, dock)
+  const { thumb, place: placeThumb } = useScrollThumb(conversation, dock, () => stopGlide())
   // The ghost on screen: once `ghost` goes away it stays for its slide back up (`.leaving`), then it is removed.
   const [lastGhost, setLastGhost] = useState(ghost)
   const shownGhost = ghost ?? lastGhost
