@@ -8,7 +8,7 @@ import { useScreen, useTouch, type LaterKey } from './context.tsx'
 import { AccountPickSheet, accountName } from './accounts.tsx'
 import { Conversation, WorkingMini } from './Conversation.tsx'
 import { Icon } from './icons.tsx'
-import { baseName, sessionState } from './model.ts'
+import { sessionState } from './model.ts'
 import { ModeSheet, ModelSheet, currentEffort, modelLabel, useModels } from './modelSheets.tsx'
 import { Badge, ConnectionBanner, IconButton, UpdateBar, useQuery } from './parts.tsx'
 import { CloseButton, RenameSheet, useTrustPrompt } from './sessions.tsx'
@@ -96,7 +96,7 @@ function useScrollThumb(conversation: React.RefObject<HTMLDivElement | null>, do
   return { thumb, place }
 }
 
-// The chat of a session: top bar (row 1: back, state, "folder / title" as plain text; row 2: model, Torna indietro, ⋯), the conversation with
+// The chat of a session: top bar (back; on its right the state and title as plain text over model, Torna indietro, ⋯), the conversation with
 // Claude's request inside it, the ghost of your message and "Torna giù", and the floating dock (composer + queue).
 export function ChatScreen({ tabId }: { tabId: string }) {
   const touch = useTouch()
@@ -315,18 +315,14 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   return (
     <section className="screen chat-screen" ref={screen} aria-label={t('chat')}>
       <header className="topbar chat-bar">
-        {/* Row 1: back, state, "folder / title" (plain text, not a button) */}
-        <div className="bar-row">
-          {!touch.wide && <IconButton icon="back" label={otherWaiting ? t('backWaiting') : t('back')} dot={otherWaiting} onClick={back} />}
-          <Badge state={sessionState(meta)} />
-          <h1 className="chat-title">
-            <span className="folder">{baseName(meta.cwd)}</span>
-            <span className="sep" aria-hidden="true"> / </span>
-            <span className="name">{meta.title}</span>
-          </h1>
-        </div>
-        {/* Row 2: the model, then the tools */}
-        <div className="bar-row tools-row">
+        {/* Back, centred on both rows; on its right the title (plain text, not a button) over the model and the tools */}
+        {!touch.wide && <IconButton icon="back" label={otherWaiting ? t('backWaiting') : t('back')} dot={otherWaiting} onClick={back} />}
+        <div className="bar-main">
+          <div className="bar-row title-row">
+            <Badge state={sessionState(meta)} />
+            <h1 className="chat-title">{meta.title}</h1>
+          </div>
+          <div className="bar-row tools-row">
           <button className="model-btn" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('model'), body: <ModelSheet tabId={tabId} /> })}>
             <span>{modelLabel(meta, models)}</span>
             <Icon name="down" />
@@ -340,6 +336,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
           )}
           <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'rewind', tabId }))} />
           <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />
+          </div>
         </div>
       </header>
       <UpdateBar />

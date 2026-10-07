@@ -112,7 +112,7 @@ describe('PWA (fake SDK)', () => {
     await trust.or(composer(page)).first().waitFor()
     if (await trust.isVisible()) await trust.click()
     await composer(page).waitFor()
-    expect(await page.locator('.chat-screen .chat-title .name').textContent()).toBe('Login review')
+    expect(await page.locator('.chat-screen .chat-title').textContent()).toBe('Login review')
   })
 
   it('a message from another session shows in the chat with its sender, before the answer to it', async () => {
@@ -179,8 +179,14 @@ describe('PWA (fake SDK)', () => {
     const model = await box(/^Model: /)
     expect(model.y).toBeGreaterThanOrEqual(title.y + title.height - 1)
     expect(model.x).toBeLessThan(title.x + title.width / 2)
-    // The title is plain text "folder / title": tapping it opens nothing.
-    expect(await page.locator('.chat-title').textContent()).toMatch(/\S+\s\/\s\S+/)
+    // Back is centred on the bar's height, the title and the model on its right; the title is the chat's name only (no
+    // folder), plain text: tapping it opens nothing.
+    const back = await box('Back')
+    const bar = (await page.locator('.chat-screen .topbar').boundingBox())!
+    expect(Math.abs(back.y + back.height / 2 - (bar.y + bar.height / 2))).toBeLessThan(4)
+    expect(title.x).toBeGreaterThan(back.x + back.width - 1)
+    expect(model.x).toBeGreaterThan(back.x + back.width - 1)
+    expect(await page.locator('.chat-title').textContent()).not.toContain(' / ')
     expect(await page.locator('.chat-title').evaluate((el) => el.closest('button') === null)).toBe(true)
     await page.locator('.chat-title').click()
     expect(await page.getByRole('dialog').count()).toBe(0)
