@@ -16,7 +16,7 @@ import { sizeLabel } from './model.ts'
 import { ModeSheet } from './modelSheets.tsx'
 import { IconButton, noteTitle } from './parts.tsx'
 import { useUndoReset } from './keyboard.ts'
-import { pauseWords, QueueTray } from './queue.tsx'
+import { pauseWords, QueueTray, waitingQueue } from './queue.tsx'
 import { useTrustPrompt } from './sessions.tsx'
 
 // Tallest the field grows before it scrolls (px).
@@ -287,9 +287,10 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }:
   }
   // Send and Stop while typing keep the keyboard open: they never take the focus from the field.
   const keepFocus = { onPointerDown: (event: PointerEvent) => document.activeElement === input.current && event.preventDefault() }
-  const queueCount = meta.queuePause ? undefined : meta.queue.length ? String(meta.queue.length) : undefined
+  const queued = waitingQueue(meta).length
+  const queueCount = meta.queuePause ? undefined : queued ? String(queued) : undefined
   // "Add to the queue (2 queued, paused …)": what the button does and what the queue holds.
-  const queueLabel = `${t('addToQueue')} (${meta.queue.length ? t('queuedCount', { count: String(meta.queue.length) }) : t('queueEmptyShort')}${meta.queuePause ? `, ${pauseWords(meta)}` : ''})`
+  const queueLabel = `${t('addToQueue')} (${queued ? t('queuedCount', { count: String(queued) }) : t('queueEmptyShort')}${meta.queuePause ? `, ${pauseWords(meta)}` : ''})`
 
   return (
     <footer className={`composer${shellMode ? ' shell-mode' : ''}`}>
