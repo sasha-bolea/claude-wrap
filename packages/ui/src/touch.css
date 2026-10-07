@@ -226,10 +226,10 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .notice-line { margin: 0; text-align: center; font-size: 12px; color: var(--text-muted); }
 /* The working line ends the text and scrolls with it; its mini label (.working-mini) shows when it is out of view. */
 .working-line { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-/* Its mini label while the line is out of view: dot and time as a tab sticking out of the input box's top left edge
-   (same surface and border, open at the bottom: 1 px over the box's border so the two read as one shape); it slides
-   out from under the box (mini-out), no fade */
-.working-mini { position: absolute; left: 18px; bottom: 100%; margin-bottom: -1px; z-index: 1; height: 26px; padding: 0 10px; gap: 6px; border-radius: 12px 12px 0 0; border: 1px solid var(--border); border-bottom: 0; background: var(--surface); color: var(--text-muted); pointer-events: none; display: flex; align-items: center; font-size: 13px; font-variant-numeric: tabular-nums; animation: mini-out .22s ease-out; }
+/* Its mini label while the line is out of view: dot and time as a tab resting on the input box, flush with its left
+   edge (left -1px: the box's border); open at the bottom, it sits on the box's top border, which stays visible under it.
+   It slides out from under the box (mini-out), no fade */
+.working-mini { position: absolute; left: -1px; bottom: 100%; margin-bottom: 1px; z-index: 1; height: 26px; padding: 0 10px; gap: 6px; border-radius: 12px 12px 0 0; border: 1px solid var(--border); border-bottom: 0; background: var(--surface); color: var(--text-muted); pointer-events: none; display: flex; align-items: center; font-size: 13px; font-variant-numeric: tabular-nums; animation: mini-out .22s ease-out; }
 /* It comes out from under the box (behind it while it slides: z-index -1), then sits on its border. */
 @keyframes mini-out { from { transform: translateY(100%); z-index: -1; } to { z-index: -1; } }
 .msg-ai table, .msg-peer table { border-collapse: collapse; font-size: 13px; margin: 6px 0; width: 100%; table-layout: fixed; }

@@ -167,7 +167,8 @@ stops it), so Claude's streaming never jerks the view. With the keyboard open, a
 The working line (`.working-line`, dot + "Claude is working · 1 min 20 s") is plain scroll content: the last element of the
 conversation's text, before the cards ([Conversation.tsx:375](../packages/ui/src/touch/Conversation.tsx#L375)), so it moves with the text.
 Once it is out of view (scrolled below the visible area, or hidden behind the floating dock), `.working-mini` shows as a
-tab sticking out of the input box's top left edge (same surface and border colour as the box, open at the bottom; passed to
+tab resting on the input box, flush with its left edge (same surface and border colour, open at the bottom: the box's top
+border stays visible under it, the two do not merge; passed to
 `TouchComposer` as `tab` and rendered inside `.input-box`): it slides out from under the box, no fade. Dot and time only, the full
 text as its accessible label, not interactive ([ChatScreen.tsx](../packages/ui/src/touch/ChatScreen.tsx), `tab=` on `TouchComposer`); it leaves when the line is back in view or
 the turn ends. The chat finds out with an `IntersectionObserver` rooted on `.conversation` whose bottom edge is pulled
