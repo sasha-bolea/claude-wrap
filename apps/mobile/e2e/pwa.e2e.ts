@@ -973,6 +973,14 @@ describe('PWA (fake SDK)', () => {
     await block.getByRole('button', { name: 'Copy the code' }).waitFor()
   })
 
+  it("on a phone the page behind the app (seen through iOS's keyboard tool bar) has the app's own colour, not the frame's", async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    const colours = () => page.evaluate(() => [document.documentElement, document.body, document.querySelector('.device')!].map((element) => getComputedStyle(element).backgroundColor))
+    const [html, body, device] = await colours()
+    expect(html).toBe(device)
+    expect(body).toBe(device)
+  })
+
   it('with a palette on, the Home screen icon and the manifest take its accent; "Icon in this colour" copies a link that gives them to a browser not paired', async () => {
     const context = await newPhone()
     const page = await pairedPage(context, backend)

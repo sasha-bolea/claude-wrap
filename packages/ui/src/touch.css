@@ -42,6 +42,8 @@ code { font-family: var(--font-mono); }
 /* On a phone (also in landscape) the app fills the visual viewport: --app-h and the shift follow the keyboard. */
 @media (max-width: 520px), (pointer: coarse) {
   html, body { overflow: hidden; overscroll-behavior: none; }
+  /* The page behind the keyboard and its translucent tool bar is the app's own colour, not the wide window's frame */
+  html, body { background: var(--background); }
   body { padding: 0; }
   .device { position: fixed; top: 0; left: 0; max-width: none; height: var(--app-h, 100%); border-radius: 0; box-shadow: none; }
 }
