@@ -326,7 +326,12 @@ describe('PWA (fake SDK)', () => {
     expect((await line.boundingBox())!.y).toBeGreaterThan(area.y + area.height - 90)
     expect(await mini.getAttribute('aria-label')).toContain('Claude is working')
     expect(await mini.textContent()).toMatch(/^\s*\d+ (s|min|h)/)
+    // A tab on the input box's top edge, once it has slid out from under it.
+    await page.waitForTimeout(400)
     const label = (await mini.boundingBox())!
+    const box = (await page.locator('.input-box').boundingBox())!
+    expect(Math.abs(label.y + label.height - (box.y + 1))).toBeLessThan(1.5)
+    expect(label.x).toBeGreaterThan(box.x)
     const jump = (await page.locator('.jump').boundingBox())!
     expect(label.x + label.width).toBeLessThan(jump.x)
     // Back at the bottom: the line is in view again and the label goes.

@@ -348,7 +348,6 @@ export function ChatScreen({ tabId }: { tabId: string }) {
         <div className="conversation" ref={conversation} onScroll={onScroll} onTouchStart={() => ((touching.current = true), (closeKeyboard.current = false), (lastMove.current = undefined), stopGlide())} onTouchMove={onChatTouchMove} onTouchEnd={() => onChatTouchEnd(true)} onTouchCancel={() => onChatTouchEnd(false)} onWheel={stopGlide} aria-live="off">
           <Conversation meta={meta} view={view} workingRef={setWorkingLine} loadImage={loadImage} onAnswer={answer} onRestart={() => void connection.request('tab.restart', { tabId }).catch(fail)} onTrust={() => askTrust(meta.cwd, () => undefined)} onActions={openActions} onSendNow={sendNow} onUnsend={unsend} />
         </div>
-        {running && lineOut && <WorkingMini since={meta.status === 'running' ? meta.workingSince : undefined} />}
         <div className="scroll-thumb" ref={thumb} aria-hidden="true" />
         {shownGhost && (
           <>
@@ -373,7 +372,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
         )}
       </div>
       <div className="dock" ref={dock}>
-        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} onFocusField={() => (setFollow(true), settleBottom())} />
+        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} onFocusField={() => (setFollow(true), settleBottom())} tab={running && lineOut ? <WorkingMini since={meta.status === 'running' ? meta.workingSince : undefined} /> : undefined} />
       </div>
     </section>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type TouchEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type ReactNode, type TouchEvent } from 'react'
 import { ClientError } from '@athome/client'
 import { LIMITS, type TabMeta } from '@athome/protocol'
 import { useComposerPopup, useDraft, usePromptHistory } from '../composerHooks.ts'
@@ -28,7 +28,8 @@ const enterSends = () => matchMedia('(hover: hover)').matches
 // Two Esc presses within this time in an empty field open the rewind.
 const ESCAPE_TWICE_MS = 600
 
-type ComposerProps = { meta: TabMeta; running: boolean; requestOpen: boolean; onFocusField: () => void }
+// tab: shown as a tab sticking out of the input box's top left edge (the working time while its line is out of view).
+type ComposerProps = { meta: TabMeta; running: boolean; requestOpen: boolean; onFocusField: () => void; tab?: ReactNode }
 
 // Ring of the countdown around Stop (SVG units, a 44×44 box).
 const RING_RADIUS = 20
@@ -72,7 +73,7 @@ function QueuedCountdown({ text, images, until, onStop }: { text: string; images
 // commands, `@` files; `!` runs a shell command; long pastes collapse. Files that are not photos go to allegati/ and
 // are mentioned.
 // A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.
-export function TouchComposer({ meta, running, requestOpen, onFocusField }: ComposerProps) {
+export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }: ComposerProps) {
   const { connection, backendId, openSheet, toast, snack, fail, inserts, clearInsert, go } = useTouch()
   const tabId = meta.tabId
   const input = useRef<HTMLTextAreaElement>(null)
@@ -330,6 +331,7 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField }: Comp
       )}
       {shellMode && <div className="shell-hint">{t('shellHintShort')}</div>}
       <div className="input-box">
+        {tab}
         {waiting && countdown && <QueuedCountdown text={waiting.text} images={waiting.images} until={countdown.until} onStop={hold} />}
         <textarea
           key={undoReset}

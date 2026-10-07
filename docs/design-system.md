@@ -165,9 +165,10 @@ stops it), so Claude's streaming never jerks the view. With the keyboard open, a
 0.6 px/ms) closes it; a slow one, to read, leaves it open.
 The working line (`.working-line`, dot + "Claude is working · 1 min 20 s") is plain scroll content: the last element of the
 conversation's text, before the cards ([Conversation.tsx:375](../packages/ui/src/touch/Conversation.tsx#L375)), so it moves with the text.
-Once it is out of view (scrolled below the visible area, or hidden behind the floating dock), `.working-mini` shows over
-the chat on the left, above the input bar (the jump button is on the right): dot and time only, the full text as its
-accessible label, not interactive ([ChatScreen.tsx:348](../packages/ui/src/touch/ChatScreen.tsx#L348)); it leaves when the line is back in view or
+Once it is out of view (scrolled below the visible area, or hidden behind the floating dock), `.working-mini` shows as a
+tab sticking out of the input box's top left edge (same surface and border colour as the box, open at the bottom; passed to
+`TouchComposer` as `tab` and rendered inside `.input-box`): it slides out from under the box, no fade. Dot and time only, the full
+text as its accessible label, not interactive ([ChatScreen.tsx](../packages/ui/src/touch/ChatScreen.tsx), `tab=` on `TouchComposer`); it leaves when the line is back in view or
 the turn ends. The chat finds out with an `IntersectionObserver` rooted on `.conversation` whose bottom edge is pulled
 up by the dock's height, re-created when the line appears or the dock changes height
 ([ChatScreen.tsx:224](../packages/ui/src/touch/ChatScreen.tsx#L224)); it never writes `scrollTop`. Both read the same timer and text
