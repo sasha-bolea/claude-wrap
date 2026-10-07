@@ -64,7 +64,7 @@ Rows and methods refer to the addendum.
 | `/goal` | D | ✓b | prompt; indicator from `active_goal` |
 | `/heapdump` | N | ? | CLI process diagnostics; DevTools are enough for the app |
 | `/help` | U | ✗ | palette from `supportedCommands()` + shortcuts |
-| `/hooks` | U\* | ✗ | `getHooksListing()` |
+| `/hooks` | U\* | ✓ PWA | `getHooksListing()` + `includeHookEvents` → `tab.hooks`: configured hooks and the last 50 runs, read-only (HooksScreen; chat ⋯ menu, or Settings → "Choose a session") |
 | `/ide` | N | ✗ | IDE integration out of scope |
 | `/import` | D | ✓b | prompt |
 | `/init` | D | ✓b | prompt |
@@ -76,7 +76,7 @@ Rows and methods refer to the addendum.
 | `/login` | R | ✗ | `claude auth login` in a subprocess (personal use; ToS constraint in architecture) |
 | `/logout` | R | ✗ | `claude auth logout` |
 | `/loop` (`/proactive`) | D | ✓s | prompt (the session stays open) |
-| `/mcp` | U | ✓b | `mcpServerStatus`/`reconnectMcpServer`/`toggleMcpServer`; OAuth with `mcpAuthenticate()`\* |
+| `/mcp` | U | ✓ PWA | `mcpServerStatus`/`reconnectMcpServer`/`toggleMcpServer`; OAuth with `mcpAuthenticate()`\* → `tab.mcp*`: list, reconnect, enable/disable, sign-in (phone: paste the failed localhost address back) and sign-out (McpScreen) |
 | `/memory` | U\* | ✗ | `getMemoryDialog()` + reading/writing CLAUDE.md from the main process |
 | `/mobile` (`/ios`, `/android`) | N | ✗ | links to the stores |
 | `/model` | D | ✓b | `setModel()`, `supportedModels()` |
@@ -98,7 +98,7 @@ Rows and methods refer to the addendum.
 | `/remote-env` | B | ✗ | cloud |
 | `/rename` | D | ✓b | `renameSession()` (function on file) / prompt |
 | `/resume` (`/continue`) | D | ✗ | `listSessions()` + `getSessionMessages()` + `Options.resume/continue` |
-| `/rewind` (`/checkpoint`, `/undo`) | D | ✗ | code: `rewindFiles(uuid,{dryRun})` with `enableFileCheckpointing`; conversation: `resume` + `resumeSessionAt`/`forkSession`. "Summarize from/up to here" = **missing** (see B9.5) |
+| `/rewind` (`/checkpoint`, `/undo`) | D | ✓ PWA | `tab.rewindPoints`/`rewindPreview`/`rewind`: code via `rewindFiles` (dry-run preview), conversation via `resume` + `resumeSessionAt` on the same session, or both; RewindScreen, also Esc Esc ([architettura.md](../architettura.md) §9.11). "Summarize from/up to here" = **missing** (see B9.5) |
 | `/run` | D | ✓s | prompt |
 | `/run-skill-generator` | D | ✓s | prompt |
 | `/sandbox` | U\* | ? | `getSandboxDialog()` + `Options.sandbox`; **not supported on native Windows** |
@@ -111,7 +111,7 @@ Rows and methods refer to the addendum.
 | `/skill-doctor` | D | ✓b | prompt |
 | `/skills` | U\* | ✗ | `getSkillsDialog()` + `supportedCommands()`; visibility via `skillOverrides` in settings |
 | `/slides` | D | ✓s | prompt |
-| `/status` | U\* | ✗ | `getStatus()` + `accountInfo()` + `system/init` |
+| `/status` | U\* | ✓ PWA | `getStatus()` + `accountInfo()` + `system/init` → `tab.status`: sections with rows, plus the settings files (StatusScreen) |
 | `/statusline` | N | ? | native status bar (model, cost, context); the user's `statusLine` script is optional (Phase 7) |
 | `/stickers` | N | ✗ | link |
 | `/stop` | N | ✓b | no attached background sessions; `stopTask()` is used for tasks |
@@ -157,7 +157,7 @@ Rows and methods refer to the addendum.
 | 14 | Tab autocomplete | R | commands from `supportedCommands()`; files via `git ls-files` + fuzzy matching in the main process (`file_suggestions` has no method) |
 | 15 | Up/Down history | R | same as #7 |
 | 16 | Esc `chat:cancel` | D | `interrupt()` |
-| 17 | Esc Esc → rewind | R | opens the Rewind panel |
+| 17 | Esc Esc → rewind | R | ✓ on an empty composer, opens RewindScreen |
 | 18 | Ctrl+Enter `chat:sendNow` | D | `SDKUserMessage.priority:'now'` (6170) [D: semantics] |
 | 19 | Shift+Tab `chat:cycleMode` | D | `setPermissionMode()` |
 | 20 | Alt+P model picker | D | `setModel()` + `supportedModels()` |
@@ -190,8 +190,8 @@ Rows and methods refer to the addendum.
 | 47 | §9.3 auto-continue timeout | R | UI timer from `askUserQuestionTimeout` |
 | 48 | §9.4 plan approval | D | `canUseTool('ExitPlanMode')` → `allow` + `setPermissionMode(choice)`; `getPlan()`\* |
 | 49 | §9.4 plan editing / "clear context" | R | editor + `updatedInput` [D]; new session with the plan as the prompt |
-| 50 | §9.5 Restore code | D | `rewindFiles(uuid,{dryRun})` for preview and apply |
-| 51 | §9.5 Restore conversation | D | new query with `resume` + `resumeSessionAt` (+ `resumeDropsTurn`) or `forkSession({upToMessageId})` |
+| 50 | §9.5 Restore code | D | ✓ `rewindFiles(uuid,{dryRun})` for preview and apply (the applied call lists no files: the list comes from the dry run) |
+| 51 | §9.5 Restore conversation | D | ✓ new query with `resume` + `resumeSessionAt` on the same session (no fork: it loses the undo history) |
 | 52 | §9.5 Summarize from here / up to here | B | no API; `/compact` with instructions only applies to the whole conversation |
 | 53 | §9.5 "previous session" entry | U | `conversation_reset` + `listSessions()` |
 | 54 | §9.6 diff viewer / panel | R | see `/diff` |
@@ -280,8 +280,8 @@ Rows and methods refer to the addendum.
 | 53 | §7.5 output style | D | see `/output-style` |
 | 54 | §7.6 status line | N | native bar |
 | 55 | §7.7 MCP runtime (status, reconnect, toggle, set, UI resources) | U | `mcp*` methods, `readMcpResource()` in a sandboxed iframe |
-| 56 | §7.7 MCP OAuth | D\* | `mcpAuthenticate()` / `mcpSubmitOAuthCallbackUrl()` / `mcpClearAuth()` |
-| 57 | §7.8 checkpoint | D | `enableFileCheckpointing` + `rewindFiles()` |
+| 56 | §7.7 MCP OAuth | D\* | ✓ `mcpAuthenticate()` / `mcpSubmitOAuthCallbackUrl()` / `mcpClearAuth()` (McpScreen, `inspect.ts`) |
+| 57 | §7.8 checkpoint | D | ✓ `enableFileCheckpointing` + `rewindFiles()` |
 | 58 | §7.9 sessions (storage and resume) | D | `listSessions`… `forkSession` functions |
 | 59 | §7.10 sandbox | B | not available on native Windows (WSL2 only); `Options.sandbox` elsewhere |
 | 60 | §7.11 built-in tools (~38) | U | one renderer per tool, `ToolInputSchemas`/`ToolOutputSchemas` types (`sdk-tools` 11/56) |

@@ -101,6 +101,34 @@ not "Back". Dates in fake data must be relative to now or far ahead (a fixed dat
   `/context` and `/usage` in the terminal when in doubt.
 - If the SDK renamed the usage call: update `readUsage` in `usage.ts` (and the fake in `testing/fakeQuery.ts`).
 
+## Real-CLI rewind smoke (`npm run smoke:rewind`, a few haiku tokens)
+**When:** after changes to the rewind (`Tab.rewind*`, `Transcript.truncateAt`, `resumeAt`) or an SDK bump.
+- Through core + client in a temp folder: a file edited by two turns ("one" → "two"), then code, conversation and
+  both rewinds. Checks the phase's done criterion (a.txt "two" → "one"), that the session id stays the same, that
+  `getSessionMessages` follows the new branch, that file checkpoints survive the resume, and that a code-only rewind
+  works on a reopened dormant session. The **applied** `rewindFiles` lists no files (CLI 2.1.287): only the dry run does.
+  Prints `OK: …` or the problems, deletes its sessions.
+
+## Real-CLI inspect smoke (`npm run smoke:inspect`, zero tokens)
+**When:** after changes to `packages/core/src/inspect.ts` (Status, MCP servers, Hooks panels) and at every SDK bump:
+the methods behind it (`getStatus`, `getHooksListing`, `mcpAuthenticate`, `mcpSubmitOAuthCallbackUrl`, `mcpClearAuth`)
+are outside the SDK's types.
+- No message is sent: a tab starts its process and the script checks `tab.status` (sections with label/value rows),
+  `tab.mcp` list, toggle (persisted in `~/.claude.json` `projects[cwd].disabledMcpServers`) and reconnect, the OAuth
+  steps (`authUrl`, `callbackExpected`, a pasted callback URL accepted or refused) and `tab.hooks` (listing, and a
+  `SessionStart` hook's run). Each run leaves a `projects[/tmp/…]` entry in `~/.claude.json` (harmless).
+
+## Which account the real-CLI scripts use
+`smoke:rewind`, `smoke:composer`, `smoke:usage`, `smoke:inspect` and `npm run chat` run on the account of the AtHome
+session that launched them, not on Claude Code's own login of the server (which may be at its usage limit).
+- How: `appAccounts()` ([smokeAccounts.ts](../packages/core/scripts/smokeAccounts.ts)) finds, in the app's `state.json`
+  (`$CLAUDE_WRAP_STATE_DIR` or `~/.local/state/claude-wrap`), the tab whose `sessionId` is `CLAUDE_CODE_SESSION_ID` and
+  calls `tab.setAccount` after each `tab.create`; `CoreConfig.accountsFile` makes core read the app's `accounts.json`
+  read-only (the CLI token is not in a Claude session's Bash environment). The script prints which account it uses
+  (an id, never a token); outside an AtHome session, or for a session on the login, it uses Claude Code's own login.
+- To run them from a session without permission prompts: a local `.claude/settings.local.json` (git-excluded through
+  `.git/info/exclude`) with `{"permissions": {"allow": ["Bash(npm run smoke:*)"]}}`.
+
 ## Splash screens and icons of the PWA (and the default palette)
 **When:** the default palette changes, or a new iPhone size appears. The icons a device sees in its own palette's
 accent are drawn by the server at request time (`packages/server/src/tinted.ts`): nothing to generate for them.

@@ -2,6 +2,73 @@
 
 _Append-only archive of session entries that left [STATO.md](STATO.md), newest on top._
 
+## 2026-10-07 11:43 — Native rewind, Status/MCP/Hooks panels, shared browser built and reverted (phone session, server dev clone)
+Sasha on the iPhone, from the afternoon of 2026-10-06 to the morning of 2026-10-07, in the server dev clone (another
+session worked in the same tree on the splash screens and the design system). Every change pushed over SSH.
+- **Native rewind (sub-phase D), done and verified on the real CLI.** Conversation rewind is `resume` +
+  `resumeSessionAt` on the same session (a fork would lose the undo history); files through `rewindFiles`. Sasha's
+  decisions: first message → a new empty session in the same folder; queue paused; an extra "Are you sure?"; only messages
+  after the last `/compact`; Esc Esc on an empty composer. The list follows the CLI's own filter (found in the binary):
+  prompts, slash commands and `!` commands; not tool results, meta, summaries, command output, task notifications or
+  messages whose `origin.kind` is not human. `npm run smoke:rewind` (CLI 2.1.287): a.txt "two" → "one", same session id,
+  `getSessionMessages` follows the new branch, checkpoints survive the resume, code-only rewind works on a reopened
+  dormant session. The **applied** `rewindFiles` returns `filesChanged: []` — only the dry run lists files, so the toast
+  list comes from a dry run just before (bug-risolti).
+- **Smokes on the launching session's account.** The real-CLI scripts failed with "weekly limit": they ran on the
+  server's default login. They now find the AtHome tab whose `sessionId` is `CLAUDE_CODE_SESSION_ID` and use its account
+  (the CLI token is not in a session's Bash environment, so core reads the app's `accounts.json` read-only). A local
+  `.claude/settings.local.json` (git-excluded) allows `Bash(npm run smoke:*)`.
+- **Shared browser, built and reverted.** One Chromium per server, CDP screencast live view, AtHome sessions' Playwright
+  MCP attached over CDP; reverted the same evening (`50f48d3`, `6d0de8b`): Sasha realised Claude already has its native
+  Playwright MCP and he does not need to watch it. Port 3013 freed (claude-config `963587d`), profile deleted, flag
+  removed. Lessons: headless Chrome sends no `Target.targetInfoChanged` on title changes (poll); a Playwright MCP
+  attached over CDP stays broken after Chromium restarts until reconnected.
+- **Status, MCP servers and Hooks panels** (was "later"). `smoke:inspect` (zero tokens) matched CLI 2.1.287:
+  `get_status` works in SDK mode with `sections {title, rows:[{label, value}]}`; the MCP toggle persists per folder in
+  `~/.claude.json` `projects[cwd].disabledMcpServers`; OAuth: `mcpAuthenticate` gives `authUrl` + `callbackExpected`, the
+  callback URL pasted back is accepted or refused by the CLI; the hooks listing is `/hooks`; `SessionStart` `hook_response`
+  arrives. Sasha's decisions (2026-10-07): Status like `/status` plus the settings files; MCP and Hooks are session panels
+  from Settings via "Choose a session"; phone sign-in by pasting the failed localhost address; hooks read-only, last 50 runs.
+- **Bug:** Files and Terminal of a chat in a folder not trusted yet (a nested git repo under trusted `/srv/progetti`, e.g.
+  `jellyfin`, does not inherit trust, like the CLI) showed the raw toast "folder not trusted" (bug-risolti).
+- Tests at the end: `npm test` 294 passed + 2 skipped, PWA e2e 66/66, desktop e2e 36/36 (one known flaky rerun).
+
+### Cambiamenti al codice
+- **Rewind:** `packages/protocol/src/commands.ts` (`tab.rewindPoints`, `tab.rewindPreview`, `tab.rewind`);
+  `packages/core/src/tab.ts` (`rewindPoints`/`rewindPreview`/`rewind`, `resumeAt` persisted, cut history on load, `!`
+  commands as points), `transcript.ts` (`truncateAt`), `state.ts` (`resumeAt`), `commands.ts`;
+  `packages/core/src/testing/fakeQuery.ts` (`rewindFiles`, `resumeSessionAt`), `rewind.test.ts`;
+  `packages/core/scripts/smoke-rewind.ts` + `npm run smoke:rewind`; UI `packages/ui/src/touch/RewindScreen.tsx`,
+  `TouchComposer.tsx` (Esc Esc, prompt back), `ChatScreen.tsx`, `TouchApp.tsx`, `context.tsx`, i18n, `touch.css`; e2e
+  `apps/mobile/e2e/rewind.e2e.ts`, `apps/desktop/e2e/rewind.e2e.ts`, `testing/scenarios.ts`.
+- **Smokes on the session's account:** `packages/core/scripts/smokeAccounts.ts` (`appAccounts()`), `config.ts`
+  (`CoreConfig.accountsFile`), `workspace.ts` and `accounts.ts` (read-only accounts), used by `smoke-rewind.ts`,
+  `smoke-composer.ts`, `smoke-usage.ts`, `smoke-inspect.ts`, `chat.ts`; test in `core.test.ts`.
+- **Shared browser (built, then reverted):** BrowserHost in core, minimal CDP client, browser protocol and screen,
+  Playwright MCP over CDP, `smoke:browser`; all removed by `50f48d3` / `6d0de8b`; nothing of it remains in the code.
+- **Status / MCP / Hooks:** `packages/protocol/src/commands.ts` (`tab.status`, `tab.mcp`, `tab.mcpReconnect`,
+  `tab.mcpToggle`, `tab.mcpAuth`, `tab.mcpAuthCallback`, `tab.mcpClearAuth`, `tab.hooks`);
+  `packages/core/src/inspect.ts` (runtime-only SDK methods behind casts, normalization), `tab.ts` (hook runs, last 50;
+  `includeHookEvents` on), `commands.ts`, `testing/fakeQuery.ts`, `inspect.test.ts`; `packages/core/scripts/smoke-inspect.ts`
+  + `npm run smoke:inspect`; UI `StatusScreen.tsx`, `McpScreen.tsx` (sign-in sheet), `HooksScreen.tsx`, `inspect.tsx`,
+  `SettingsScreen.tsx` (session picker), `ChatScreen.tsx` (⋯ menu), `LaterScreen.tsx`, i18n, `touch.css`; e2e
+  `apps/mobile/e2e/inspect.e2e.ts`, `apps/desktop/e2e/inspect.e2e.ts`.
+- **Trust fix:** `packages/ui/src/touch/sessions.tsx` (`needsTrust`), `parts.tsx` (`useQuery` `own`),
+  `TerminalScreen.tsx`, `FilesScreen.tsx`, i18n `filesNeedTrust`, `apps/mobile/e2e/trust.e2e.ts`.
+
+### Decisions moved out of STATO.md (still valid)
+| 2026-10-06 | Kept, as not team-specific: automatic session name from the first prompt, "Nuova sessione con nome…", messages between sessions across folders ("Da @nome") | Sasha, multiple-choice answers |
+| 2026-10-06 | Messages from another session (native `SendMessage`) shown with their sender before the answer; live frames held ≤ 1.5 s while the stored message is read | The CLI emits no user message for them; the history showed the raw envelope as if typed by Sasha |
+| 2026-10-06 | No light/dark theme: palettes only. 17 presets (9 light, 8 dark) added once to the backend, editable and deletable; a device without a palette gets the default | Sasha |
+| 2026-10-06 | The app icon takes the palette's accent: the server draws icons and manifest per device; iOS keeps the icon taken when the app was added | Sasha; drawing on the server needs no image library |
+| 2026-10-06 | "Aggiungi dispositivo": two links for one code — browser (pairs at once) and install the app (setup page with every palette, then the steps); palette and code travel in the start address, the installed app pairs by itself | Sasha: all palettes, one code, automatic pairing |
+| 2026-10-06 | Settings → "Nuove sessioni": default effort and permission mode kept by the backend, applied in `tab.create` only; every mode can be the default, no warning | Sasha |
+| 2026-10-06 | Terminal: node-pty 1.2 beta, shells in core, one `terminal:<id>` stream each, max 5; a running command counts as work for the automatic update | No build tools on the server; an update must not kill a running command |
+| 2026-10-06 | The queue button queues what is written at once (filled circle like Send and Stop); 10 s queue countdown; bin on the queue card without confirmation | Sasha |
+| 2026-10-05 | The desktop runs the touch app; the three-column arrangement is the same app from 1024 px | NOTE-CONSEGNA §5: one codebase |
+| 2026-10-05 | One phone notification for every chat, with the counts of chats waiting and finished | Sasha |
+| 2026-10-05 | Terminal in the app after C2, shared browser after D | Sasha: "teniamo l'ordine" |
+
 ## 2026-10-06 15:46 — Finished chats not looked at yet get an accent badge (phone session, server dev clone)
 Sasha on the iPhone first asked for an extra dot on unseen finished chats and their folders, then changed it: the
 existing state badge takes the "waiting" colour (accent), the words stay the same, grey again once the chat is

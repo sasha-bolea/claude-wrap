@@ -473,3 +473,31 @@ These were solved in the first attempt. Files refer to that repository. Each ent
   cleared when the turn ends. The UI shows `now - workingSince`. Test in `core.test.ts` ("the work time of a turn").
 - **Files:** `packages/protocol/src/model.ts`, `packages/core/src/tab.ts`, `packages/core/src/core.test.ts`,
   `packages/ui/src/touch/Conversation.tsx`.
+
+### 2026-10-06 — The rewind toast would have said "0 files restored"
+- **Symptom:** after "Restore code" the toast listed no files, although the files were restored.
+- **Cause:** the CLI's *applied* `rewindFiles` returns `filesChanged: []`; only the dry run lists the files
+  (found with `npm run smoke:rewind` on CLI 2.1.287).
+- **Fix:** `597eb6d` — `Tab.rewindCode` runs a dry run just before applying and reports its `filesChanged`.
+- **Files:** `packages/core/src/tab.ts`, `packages/core/src/rewind.test.ts`, `packages/core/src/testing/fakeQuery.ts`.
+
+### 2026-10-06 — Real-CLI smokes failed with "weekly limit"
+- **Symptom:** `smoke:rewind` and the other real-CLI scripts stopped with the usage limit, while the session that
+  launched them worked.
+- **Cause:** the scripts ran on the server's default Claude login (at its weekly limit), not on the account of the
+  session that launched them; the CLI token is not in a session's Bash environment.
+- **Fix:** `597eb6d` — `appAccounts()` finds the AtHome tab whose `sessionId` is `CLAUDE_CODE_SESSION_ID` in the app's
+  `state.json` (account ids only) and calls `tab.setAccount`; `CoreConfig.accountsFile` makes core read the app's
+  `accounts.json` read-only (changes stay in memory). Used by every real-CLI script.
+- **Files:** `packages/core/scripts/smokeAccounts.ts`, `smoke-rewind.ts`, `smoke-composer.ts`, `smoke-usage.ts`,
+  `smoke-inspect.ts`, `chat.ts`, `packages/core/src/config.ts`, `workspace.ts`, `accounts.ts`, `core.test.ts`.
+
+### 2026-10-07 — Files and Terminal of a chat in a folder not trusted yet showed "folder not trusted"
+- **Symptom:** opening Files or Terminal of a chat in `/srv/progetti/jellyfin` showed the raw toast "Azione non
+  riuscita: folder not trusted".
+- **Cause:** a nested git repo under a trusted folder does not inherit trust (as in the CLI); the file and terminal
+  commands are trust-gated and the screens treated the refusal as a failure.
+- **Fix:** `eb83684` — Terminal opens the trust sheet and retries; Files shows a notice with "Decide…" and reloads after
+  the decision. PWA e2e `trust.e2e.ts`.
+- **Files:** `packages/ui/src/touch/sessions.tsx` (`needsTrust`), `parts.tsx` (`useQuery` `own`), `TerminalScreen.tsx`,
+  `FilesScreen.tsx`, `packages/ui/src/i18n/{en,it}.ts` (`filesNeedTrust`), `apps/mobile/e2e/trust.e2e.ts`.

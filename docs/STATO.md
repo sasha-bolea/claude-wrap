@@ -1,30 +1,27 @@
 # STATO — AtHome
 
-_Last updated: 2026-10-06 15:46 CEST_
+_Last updated: 2026-10-07 11:43 CEST_
 
 ## Current state
-**Phases 0–3 and sub-phases A, B, C1 and C2 of the realigned plan are done** ([piano.md](piano.md) §4): the remote
+**Phases 0–3, sub-phases A, B, C1, C2 and D's native rewind of the realigned plan are done** ([piano.md](piano.md) §4): the remote
 server on the home server, the PWA on the iPhone and the desktop all run the same touch app — one screen at a time on
 a phone, three columns from 1024 px. C2 was closed by Sasha on 2026-10-05 ("c2 ok"). Details per session:
 [storico-sessioni.md](storico-sessioni.md).
-- **Live:** `192c5c2` (messages from other sessions); `214f10f` (no capo/operai names in the code) is built and
-  goes live when no session works. The update timer keeps only current, previous and the newest failed release. Desktop
-  installed on the PC (Start menu → claude-wrap, the `win-unpacked` build of C2).
-- **Since the 11:16 buonanotte:** the app is **AtHome** with the "@~" mark (other session, `0192a0b`); **colour
-  palettes** saved on the backend and picked per device (other session, `6ab0a83`), then 17 preset palettes, a default
-  one and no more light/dark theme; the **app icon** in the palette's accent; **"Aggiungi dispositivo" with two links**
-  (use it in the browser, or install the app with a palette); **session names** = tab titles; **messages between
-  sessions** shown as "Da @nome"; open sessions ordered by last use (other session, `353cebc`); answered questions kept
-  in the chat (`9d9bf10`). At 15:41 the **"working for" timer** is kept by core (`6c3dfd1`): it survives reopening the app and
-  stops while Claude waits for an answer (bug-risolti). At 15:46 a chat **finished but not looked at yet** has its badge in the
-  accent colour (not pulsing), its folder too (`465e27c`). The team-mode plan (capo/operai inside AtHome) was **cancelled**: AtHome shows only native
-  Claude Code features. Details in the 15:32 entry of [storico-sessioni.md](storico-sessioni.md).
+- **Live:** `main` deploys itself on the home server when no session works (the update timer keeps current, previous
+  and the newest failed release). Desktop installed on the PC (Start menu → claude-wrap, the `win-unpacked` build of C2).
+- **Since the 2026-10-06 15:46 entry:** **native rewind** (`/rewind`, `/checkpoint`, `/undo`, Esc Esc) done and verified
+  on the real CLI: code, conversation or both, file preview, extra confirmation, the prompt back in the composer
+  ([architettura.md](architettura.md) §9.11). **Status, MCP servers and Hooks panels** (native `/status`, `/mcp`,
+  `/hooks`) done (§9.12). Files and Terminal of a not-yet-trusted folder ask for trust (bug-risolti). The real-CLI smokes
+  run on the launching session's account ([procedure.md](procedure.md)). The **shared browser** was built and reverted
+  the same evening (decisions). Palettes, app icon, pairing links, session names, messages between sessions, the "working
+  for" timer and the unseen-chat badge: earlier entries of [storico-sessioni.md](storico-sessioni.md).
 - **Repo:** public on GitHub (`main` only). Several Claude sessions push to `main` (the PC one and the ones in the
   server dev clone `/srv/progetti/claude-wrap`, which push over SSH): pull before working and before committing, and
   commit only your own paths.
-- **Tests (2026-10-06 15:20, home server):** `npm test` 255 passed (+2 skipped, 15:32), including `sdkContract.test.ts` (the
-  real `getSessionMessages` on a sample session file); PWA e2e 46/46 (Playwright's Chromium); desktop e2e 33/33
-  (Electron under `xvfb-run`). `smoke:composer` has not run since: the server's default login hit its weekly limit.
+- **Tests (2026-10-07, home server):** `npm test` 294 passed (+2 skipped), including `sdkContract.test.ts` (the real
+  `getSessionMessages` on a sample session file); PWA e2e 66/66 (Playwright's Chromium); desktop e2e 36/36 (Electron under
+  `xvfb-run`, one known flaky rerun). Real CLI: `smoke:rewind` and `smoke:inspect` pass.
 - **Touch app:** the chat, queue with countdown, gauge, context/usage panels, accounts, terminal, wide arrangement,
   backend switch, palettes (Settings → Palette colori) and pairing as described in the history and in
   [design-system.md](design-system.md).
@@ -32,7 +29,7 @@ a phone, three columns from 1024 px. C2 was closed by Sasha on 2026-10-05 ("c2 o
   link on the iPhone (does iOS keep the start address with the palette and the code?).
 - **Waiting for the PC session:** the packaged desktop on Windows with the terminal (procedure.md "Packaged build",
   step 5) and `npm test` there; `git pull` in its `claude-config` (lean reviewers).
-- **Next:** D (native rewind, cleanup, prototype deletion), then the shared browser.
+- **Next:** Settings → Permissions and Claude Code settings, then the other "later" panels (backlog).
 
 ## Open problems
 - **Background subagents end with the process:** the automatic update waits only for sessions in a turn (or terminals
@@ -41,8 +38,6 @@ a phone, three columns from 1024 px. C2 was closed by Sasha on 2026-10-05 ("c2 o
   an option offered to Sasha (not asked yet).
 - **Not verified for real:** the iOS start address (palette + pairing code) of the installed app; messages between
   sessions end-to-end after the 192c5c2 deploy (the CLI shapes were checked with probes, the flow with the fake SDK).
-- The server's default Claude login is at its weekly limit until 2026-10-09 22:00: real-CLI smokes wait until then
-  (`smoke:composer` now also checks the session name).
 - Not verifiable from the PC: edge swipe and keyboard on a real iPhone.
 - Auto-update trust model (raised by linux stup, accepted by Sasha): a push to `main` runs on the server without a
   manual step, and the server holds a GitHub key that can push to the account. Restrict or remove that key.
@@ -61,8 +56,13 @@ a phone, three columns from 1024 px. C2 was closed by Sasha on 2026-10-05 ("c2 o
 - Accounts added with `claude setup-token` cannot read the plan limits through `/usage`: their gauge fills only from
   `rate_limit_event`s, after a turn.
 - The composer gauge's context share is the CLI's quick estimate, which can differ from the Contesto panel.
-- The Playwright MCP of the server user is loaded by AtHome sessions too and reaches local services: to weigh in the
-  shared-browser design.
+- The Playwright MCP of the server user is loaded by AtHome sessions too and reaches local services (Claude's native
+  browser; the shared browser was dropped).
+- **Status / MCP / Hooks in a folder not trusted yet** show the raw error in their card instead of the trust prompt;
+  "Sign out" shows for every MCP server that has a url.
+- Each `smoke:inspect` / smoke run leaves a `projects[/tmp/…]` entry in `~/.claude.json` (harmless; not cleaned, to
+  avoid racing other sessions).
+- **Rewind:** a core restart between the new process start and its first record shows the uncut history (rare).
 - **Flaky e2e:** passed on rerun — PWA "wide window", desktop "a deny reason reaches Claude" and "Up/Down … Ctrl+R".
 - **Terminals:** they end with core (restart, update); two devices on one terminal fight over its size; a server left
   running in a terminal holds the automatic update; node-pty is a beta.
@@ -73,26 +73,19 @@ a phone, three columns from 1024 px. C2 was closed by Sasha on 2026-10-05 ("c2 o
 ## Recent decisions
 | Date | Decision | Reason |
 |------|----------|--------|
+| 2026-10-07 | Status panel like `/status` plus the settings files; MCP servers and Hooks are session panels, reached from Settings with "Choose a session"; MCP sign-in on a phone by pasting the failed localhost address back (the CLI's own fallback); hooks read-only with the last 50 runs | Sasha; the CLI does the same |
+| 2026-10-06 | Rewind = `resume` + `resumeSessionAt` on the same session (not `forkSession`: forks lose the undo history); first message → a new empty session in the same folder; queue paused; an extra "Are you sure?"; only messages after the last `/compact`; Esc Esc on an empty composer; the list follows the CLI's filter (prompts, slash and `!` commands) | Sasha; native behaviour |
+| 2026-10-06 | Real-CLI scripts run on the launching session's account (`appAccounts`, `CoreConfig.accountsFile` read-only), not the server's default login | Smokes failed on the default login's weekly limit, a server fact, not a project constraint |
+| 2026-10-06 | The shared browser (one Chromium per server, live view, Playwright MCP over CDP) was built and reverted the same evening | Sasha: Claude already has its native Playwright MCP, he does not need to watch it |
 | 2026-10-06 | A chat finished (or stopped with an error) while nobody looked: its idle badge takes the accent colour, not pulsing, words unchanged; same on its folder; grey again once opened on any device. The mark is `TabMeta.unseen`, kept and saved by core | Sasha: same colour as "waiting", no extra dot; shared state belongs to core |
 | 2026-10-06 | AtHome shows only native Claude Code features: the team-mode plan (capo/operai inside the app, AtHome tools for sessions, agent cards, team view) is cancelled; the code stays at `192c5c2` plus `214f10f`, which only removes the capo/operai names | Sasha: "non voglio aggiungere funzionalità che non native di claude"; subagents stay as Claude makes them |
-| 2026-10-06 | Kept, as not team-specific: automatic session name from the first prompt, "Nuova sessione con nome…", messages between sessions across folders ("Da @nome") | Sasha, multiple-choice answers |
 | 2026-10-06 | A session's name for the other sessions is its tab's title: the CLI's title after the first prompt (else its first 3 words), a name given at creation, or a rename, which stays | Sasha: "come l'app di Claude" |
-| 2026-10-06 | Messages from another session (native `SendMessage`) shown with their sender before the answer; live frames held ≤ 1.5 s while the stored message is read | The CLI emits no user message for them; the history showed the raw envelope as if typed by Sasha |
-| 2026-10-06 | No light/dark theme: palettes only. 17 presets (9 light, 8 dark) added once to the backend, editable and deletable; a device without a palette gets the default | Sasha |
-| 2026-10-06 | The app icon takes the palette's accent: the server draws icons and manifest per device; iOS keeps the icon taken when the app was added | Sasha; drawing on the server needs no image library |
-| 2026-10-06 | "Aggiungi dispositivo": two links for one code — browser (pairs at once) and install the app (setup page with every palette, then the steps); palette and code travel in the start address, the installed app pairs by itself | Sasha: all palettes, one code, automatic pairing |
-| 2026-10-06 | Settings → "Nuove sessioni": default effort and permission mode kept by the backend, applied in `tab.create` only; every mode can be the default, no warning | Sasha |
-| 2026-10-06 | Terminal: node-pty 1.2 beta, shells in core, one `terminal:<id>` stream each, max 5; a running command counts as work for the automatic update | No build tools on the server; an update must not kill a running command |
-| 2026-10-06 | The queue button queues what is written at once (filled circle like Send and Stop); 10 s queue countdown; bin on the queue card without confirmation | Sasha |
-| 2026-10-05 | The desktop runs the touch app; the three-column arrangement is the same app from 1024 px | NOTE-CONSEGNA §5: one codebase |
-| 2026-10-05 | One phone notification for every chat, with the counts of chats waiting and finished | Sasha |
-| 2026-10-05 | Terminal in the app after C2, shared browser after D | Sasha: "teniamo l'ordine" |
 
 ## Backlog
-1. **D** — native rewind (code / conversation / both, with preview), then cleanup: delete the prototype (server
-   folder, `cw-prototipo` service, port 3013 in `~/.claude/porte.md`, local copy) after the final comparison.
-2. **Shared browser** — after D: who has control, touch and keyboard from the phone, where it opens, one per session
-   or one per server (memory), isolated profile (see open problems).
+1. **Settings → Permissions and Claude Code settings** (next), then Memory/Skills/Agents/Styles and Plugins; chat panels
+   Tasks/subagents, Todo and Diff.
+2. **D cleanup** — delete the prototype (server folder, `cw-prototipo` service, port 3013 in `~/.claude/porte.md`, local
+   copy) after the final comparison.
 3. **Default palette** — Sasha picks it: `DEFAULT_PALETTE_ID` and its colours in
    [presets.ts](../packages/protocol/src/presets.ts), `touch.css` base tokens, then the splash screens
    ([procedure.md](procedure.md) "Splash screens and icons").
@@ -100,6 +93,6 @@ a phone, three columns from 1024 px. C2 was closed by Sasha on 2026-10-05 ("c2 o
 5. Server heartbeat for WebSockets (dead connections; "visible" only with recent signs of life).
 6. Terminal follow-ups proposed, not asked yet: one size per terminal shared by devices, text size, names.
 7. Restrict the server's GitHub key (read-only deploy key, or push only from a dev clone Sasha accepts).
-8. Phase 4+ — data panels (tasks, todo, diff, MCP, hooks, status; context and usage done), config pages, advanced editor.
-9. Move the desktop/packaged real-CLI smoke scripts into the repo; rerun `smoke:composer` after 2026-10-09 22:00.
+8. Phase 4+ — config pages and advanced editor (the data panels are in item 1).
+9. Move the desktop/packaged real-CLI smoke scripts into the repo; rerun `smoke:composer` on the session's account.
 10. Undo for the queue card's bin; split `dragToClose` in `SheetHost.tsx` (~40 lines).
