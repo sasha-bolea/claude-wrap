@@ -3,12 +3,13 @@
 // icons in a palette's accent with it too).
 // - Icons public/icon-180.png, -192, -512: the "@~" mark ("at home") in a blocky face on the accent colour (iOS
 //   rounds the corners).
-// - iPhone splash screens public/splash/<w>x<h>.png: the mark (88 points, radius 24, as on the app's start screen)
-//   on the background colour. iOS shows one only when its size matches the screen exactly.
-// Colours: the default palette's (there is no light/dark theme; a device's own palette comes once the app runs).
+// - iPhone splash screens public/splash/<w>x<h>.png: one flat neutral grey (LAUNCH) with nothing on it. iOS caches
+//   them at install, so they cannot follow a palette; the app's own launch screen (ui/touch/Splash.tsx) continues
+//   the same grey and the page behind it is that grey too. iOS shows one only when its size matches the screen exactly.
+// Icon colour: the default palette's accent.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { DEFAULT_PALETTE_ID, PRESET_PALETTES } from '@athome/protocol'
-import { canvas, drawMark, markIcon, png, type Rgb } from '@athome/server/markIcon'
+import { canvas, markIcon, png, type Rgb } from '@athome/server/markIcon'
 
 // A #rrggbb colour as red, green, blue.
 function rgb(hex: string): Rgb {
@@ -17,17 +18,14 @@ function rgb(hex: string): Rgb {
 }
 
 const DEFAULT = PRESET_PALETTES.find((preset) => preset.paletteId === DEFAULT_PALETTE_ID)!.colors
-const BACKGROUND = rgb(DEFAULT.background)
+// The iOS launch image's colour (also --launch-colour in touch.css and the manifest's background_color).
+const LAUNCH = rgb('#8e8e93')
 const ACCENT = rgb(DEFAULT.accent)
 // iPhone screens in portrait: width and height in CSS points, pixel ratio (SE 2nd gen … 17 Pro Max, Air).
 const IPHONES = [
   [375, 667, 2], [414, 736, 3], [375, 812, 3], [414, 896, 2], [414, 896, 3], [390, 844, 3],
   [428, 926, 3], [393, 852, 3], [430, 932, 3], [402, 874, 3], [440, 956, 3], [420, 912, 3]
 ] as const
-// Splash mark: size and corner radius in points; its top sits where the start screen's centred group puts it.
-const MARK = 88
-const MARK_RADIUS = 24
-const MARK_ABOVE_CENTRE = 93.5
 const PUBLIC = new URL('../public/', import.meta.url)
 const INDEX = new URL('../index.html', import.meta.url)
 
@@ -39,9 +37,7 @@ rmSync(new URL('splash/', PUBLIC), { recursive: true, force: true })
 mkdirSync(new URL('splash/', PUBLIC), { recursive: true })
 const links: string[] = []
 for (const [width, height, ratio] of IPHONES) {
-  const splash = canvas(width * ratio, height * ratio, BACKGROUND)
-  const size = MARK * ratio
-  drawMark(splash, Math.floor((width * ratio - size) / 2), Math.round((height / 2 - MARK_ABOVE_CENTRE) * ratio), size, MARK_RADIUS * ratio, ACCENT)
+  const splash = canvas(width * ratio, height * ratio, LAUNCH)
   const file = `${width * ratio}x${height * ratio}.png`
   writeFileSync(new URL(`splash/${file}`, PUBLIC), png(splash))
   const media = `screen and (device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait)`

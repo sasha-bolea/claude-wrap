@@ -1192,6 +1192,29 @@ describe('PWA (fake SDK)', () => {
     }
   })
 
+  it('the launch screen is the iOS launch image\'s flat grey, blank for the first second of connecting, with the page behind it the same grey until connected', async () => {
+    const context = await newPhone()
+    await (await pairedPage(context, backend)).close()
+    let page = await context.newPage()
+    // The socket opens but never answers: the app stays connecting.
+    await page.routeWebSocket(/.*/, () => {})
+    await page.goto(backend.url)
+    const splash = page.locator('section.splash')
+    await splash.waitFor()
+    expect(await splash.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(142, 142, 147)')
+    expect(await page.evaluate(() => [getComputedStyle(document.documentElement).backgroundColor, getComputedStyle(document.body).backgroundColor])).toEqual(['rgb(142, 142, 147)', 'rgb(142, 142, 147)'])
+    expect(await splash.innerText()).toBe('')
+    expect(await page.getByText('AtHome', { exact: true }).count()).toBe(0)
+    await expect.poll(() => splash.innerText(), { timeout: 5000 }).toContain('Connecting to the server')
+    // Connected: the page takes the palette's colour back.
+    await page.close()
+    page = await context.newPage()
+    await page.goto(backend.url)
+    await home(page).waitFor()
+    expect(await page.evaluate(() => document.documentElement.classList.contains('launching'))).toBe(false)
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).not.toBe('rgb(142, 142, 147)')
+  })
+
   it('a newer build on the server shows the update bar; Update reloads; Settings shows the version', async () => {
     const page = await pairedPage(await newPhone(), backend)
     const bar = page.getByRole('status').filter({ hasText: 'New version available' })

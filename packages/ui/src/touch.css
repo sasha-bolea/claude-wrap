@@ -44,6 +44,8 @@ code { font-family: var(--font-mono); }
   html, body { overflow: hidden; overscroll-behavior: none; }
   /* The page behind the keyboard and its translucent tool bar is the app's own colour, not the wide window's frame */
   html, body { background: var(--background); }
+  /* Until the launch screen goes (class set by index.html, cleared by TouchApp / the pairing page) */
+  html.launching, html.launching body { background: var(--launch-colour); }
   body { padding: 0; }
   .device { position: fixed; top: 0; left: 0; max-width: none; height: var(--app-h, 100%); border-radius: 0; box-shadow: none; }
 }
@@ -307,17 +309,17 @@ svg.ghost-thumb { width: 22px; height: 22px; color: var(--text-muted); }
 .q-sheet-item .q-line { flex: 1; min-width: 0; }
 
 /* Launch screen */
-.splash { justify-content: space-between; align-items: center; padding: env(safe-area-inset-top, 0px) 24px calc(16px + env(safe-area-inset-bottom, 0px)); }
+/* --launch-colour: the iOS launch image's grey (apps/mobile/scripts/icons.ts); fixed, not palette-driven, so the two screens look like one */
+:root { --launch-colour: #8e8e93; }
+.splash { justify-content: space-between; align-items: center; background: var(--launch-colour); color: #fff; padding: env(safe-area-inset-top, 0px) 24px calc(16px + env(safe-area-inset-bottom, 0px)); }
 .splash-main { flex: 1; display: grid; align-content: center; justify-items: center; gap: 14px; width: 100%; max-width: 320px; }
-.hero-mark.big { width: 88px; height: 88px; border-radius: 24px; font-size: 34px; }
-.splash-name { font-size: 20px; }
-.splash-state { margin: 0; min-height: 44px; display: flex; align-items: center; gap: 10px; color: var(--text-muted); text-align: center; }
-.splash-state.bad { color: var(--danger); }
+.splash-state { margin: 0; min-height: 44px; display: flex; align-items: center; gap: 10px; text-align: center; font-weight: 600; }
+.splash .button.primary { background: #fff; color: #1c1c1e; }
 .dots { display: inline-flex; gap: 4px; }
 .dots i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 1s ease-in-out infinite; }
 .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
 .splash-actions { display: grid; gap: 8px; width: 100%; }
-.splash-foot { margin: 0; font-size: 12px; color: var(--text-muted); text-align: center; }
+.splash-foot { margin: 0; font-size: 12px; color: rgba(255,255,255,.85); text-align: center; }
 /* "Nuova versione" bar (Home and chat) */
 .update-bar { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 600; }
 .update-bar span { flex: 1; }

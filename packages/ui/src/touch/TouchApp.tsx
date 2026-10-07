@@ -389,6 +389,11 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
         </ScreenContext.Provider>
       ))
   const settingsOpen = wide && Boolean(shownIn('window'))
+  // The page behind the app keeps the launch image's grey (class set by the PWA's index.html) while the launch screen shows.
+  const launching = !touch || !regionTouch
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('launching', launching)
+  }, [launching])
 
   return (
     <div className={`device${wide ? ` wide${panelEntries.length ? ' with-panel' : ''}` : ''}`} ref={device}>

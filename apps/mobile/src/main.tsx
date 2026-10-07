@@ -125,6 +125,7 @@ async function pair(code: string): Promise<void> {
 function showPairing(notice?: string): void {
   const code = /#pair=([\w-]+)/.exec(location.hash)?.[1]
   const forHomeScreen = new URLSearchParams(location.search).has('accent')
+  document.documentElement.classList.remove('launching')
   root.render(<PairScreen installed={standalone || !isIos} initialCode={code} forHomeScreen={forHomeScreen} notice={notice} onPair={pair} />)
 }
 
@@ -198,6 +199,7 @@ function showSetup(code: string): void {
     history.replaceState(null, '', addressWithPalette(code, palette))
     applyPalette(palette.colors)
   }
+  document.documentElement.classList.remove('launching')
   root.render(<SetupScreen ios={isIos} initial={carried?.paletteId} load={load} onPick={pick} />)
 }
 
