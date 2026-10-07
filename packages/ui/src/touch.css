@@ -44,8 +44,7 @@ code { font-family: var(--font-mono); }
   html, body { overflow: hidden; overscroll-behavior: none; }
   /* The page behind the keyboard and its translucent tool bar is the app's own colour, not the wide window's frame */
   html, body { background: var(--background); }
-  /* Until the launch screen goes (class set by index.html, cleared by TouchApp / the pairing page) */
-  html.launching, html.launching body { background: var(--launch-colour); }
+  /* Never the launch grey here: iOS keeps the page colour it sees at launch under the status bar for the whole run */
   body { padding: 0; }
   .device { position: fixed; top: 0; left: 0; max-width: none; height: var(--app-h, 100%); border-radius: 0; box-shadow: none; }
 }

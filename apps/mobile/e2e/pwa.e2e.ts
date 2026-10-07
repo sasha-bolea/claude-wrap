@@ -1264,7 +1264,8 @@ describe('PWA (fake SDK)', () => {
     const splash = page.locator('section.splash')
     await splash.waitFor()
     expect(await splash.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(142, 142, 147)')
-    expect(await page.evaluate(() => [getComputedStyle(document.documentElement).backgroundColor, getComputedStyle(document.body).backgroundColor])).toEqual(['rgb(142, 142, 147)', 'rgb(142, 142, 147)'])
+    // The page itself is never grey: iOS would keep that colour under the status bar.
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).not.toBe('rgb(142, 142, 147)')
     expect(await splash.innerText()).toBe('')
     expect(await page.getByText('AtHome', { exact: true }).count()).toBe(0)
     await expect.poll(() => splash.innerText(), { timeout: 5000 }).toContain('Connecting to the server')
@@ -1273,7 +1274,6 @@ describe('PWA (fake SDK)', () => {
     page = await context.newPage()
     await page.goto(backend.url)
     await home(page).waitFor()
-    expect(await page.evaluate(() => document.documentElement.classList.contains('launching'))).toBe(false)
     expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).not.toBe('rgb(142, 142, 147)')
   })
 
