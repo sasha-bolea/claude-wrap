@@ -1086,6 +1086,8 @@ describe('PWA (fake SDK)', () => {
     await page.keyboard.type('echo cw-"mark"er')
     await page.keyboard.press('Enter')
     await expect.poll(() => rows.textContent(), { timeout: 10_000 }).toContain('cw-marker')
+    // Only xterm's own scrollbar: the viewport's native one (iOS's indicator) is hidden.
+    expect(await terminal.locator('.xterm-viewport').evaluate((element) => [getComputedStyle(element).scrollbarWidth, getComputedStyle(element, '::-webkit-scrollbar').display])).toEqual(['none', 'none'])
     // The terminal takes the app's colours, under the app's CSP (no inline styles).
     expect(refused).toEqual([])
     expect(await terminal.locator('.xterm-rows').evaluate((element) => getComputedStyle(element).color)).toBe(await page.evaluate(() => getComputedStyle(document.querySelector('.screen')!).color))

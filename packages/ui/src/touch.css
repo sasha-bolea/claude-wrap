@@ -653,6 +653,10 @@ svg.ghost-thumb { width: 22px; height: 22px; color: var(--text-muted); }
 .terminal-host { flex: 1; min-height: 0; padding: 6px 4px 0 8px; overflow: clip; background: var(--background); }
 .terminal-host .xterm { height: 100%; }
 .terminal-host .xterm-viewport { background: var(--background) !important; }
+/* xterm draws its own scrollbar; its viewport is also a native scroller, whose iOS indicator showed beside it (iOS scrolls
+   it to keep the typing cursor in view with the keyboard open): the native one is hidden. */
+.terminal-host .xterm-viewport { scrollbar-width: none; }
+.terminal-host .xterm-viewport::-webkit-scrollbar { display: none; }
 .terminal-ended { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; background: var(--surface-2); border-top: 1px solid var(--border); color: var(--text-muted); }
 .key-bar { display: flex; gap: 6px; padding: 6px 8px; padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); overflow-x: auto; background: var(--surface); border-top: 1px solid var(--border); scrollbar-width: none; }
 .key { flex: none; min-width: 40px; height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); color: var(--text); font: 15px var(--font-mono); touch-action: manipulation; }
