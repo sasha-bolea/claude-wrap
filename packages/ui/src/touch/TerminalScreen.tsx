@@ -6,6 +6,7 @@ import { useBackHandler, useScreen, useTouch, type Screen } from './context.tsx'
 import { Icon } from './icons.tsx'
 import { baseName } from './model.ts'
 import { IconButton, Title } from './parts.tsx'
+import { needsTrust, useTrustPrompt } from './sessions.tsx'
 
 // xterm.js, its fit and links addons, loaded with the first terminal opened (its stylesheet comes with touch.css).
 const loadXterm = () => Promise.all([import('@xterm/xterm'), import('@xterm/addon-fit'), import('@xterm/addon-web-links')])
@@ -42,14 +43,19 @@ function themeOf(element: HTMLElement) {
 }
 
 // Opens a terminal: the live one of a session if it has one, otherwise a new one in the session's folder or in a
-// folder of the Home. show: how to show it (default: go to its screen).
+// folder of the Home. show: how to show it (default: go to its screen). A session's folder that is not trusted yet
+// asks for the trust first, then opens it.
 export function useOpenTerminal() {
   const { state, connection, go, closeSheets, fail } = useTouch()
+  const askTrust = useTrustPrompt()
   return (place: { tabId: string } | { folder: string }, show: (screen: Screen) => void = go) => {
     const live = 'tabId' in place ? state.terminals.find((terminal) => terminal.tabId === place.tabId && terminal.exitCode === undefined) : undefined
     const open = (terminalId: string) => (closeSheets(), show({ name: 'terminal', terminalId }))
     if (live) return open(live.terminalId)
-    connection.request('terminal.open', { ...place, cols: 80, rows: 24 }).then(({ terminalId }) => open(terminalId), fail)
+    const folder = 'tabId' in place ? state.tabs.find((tab) => tab.tabId === place.tabId)?.cwd : place.folder
+    const start = (): void =>
+      void connection.request('terminal.open', { ...place, cols: 80, rows: 24 }).then(({ terminalId }) => open(terminalId), (error: unknown) => (needsTrust(error) && folder ? askTrust(folder, start) : fail(error)))
+    start()
   }
 }
 

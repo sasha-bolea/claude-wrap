@@ -402,6 +402,7 @@ export const en = {
   sendToClaude: 'Send to Claude',
   folderNotTrusted: 'This folder is not trusted yet: Claude cannot start here.',
   decideTrust: 'Decide…',
+  filesNeedTrust: 'This folder is not trusted yet: its files stay closed until you decide.',
   writeToClaude: 'Write to Claude…',
   addToQueue: 'Add to the queue',
   attachPhotoOrFile: 'Attach photos or files',

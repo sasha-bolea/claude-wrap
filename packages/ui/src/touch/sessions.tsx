@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ClientError } from '@athome/client'
 import type { CommandResult, SessionInfo, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { readDraft } from '../viewState.ts'
@@ -24,6 +25,9 @@ export function useTrustPrompt() {
   return (cwd: string, onTrusted: () => void) =>
     connection.request('trust.check', { cwd }).then((check) => (check.trusted ? onTrusted() : openSheet({ title: t('trustTitle'), path: cwd, body: <TrustSheet cwd={cwd} check={check} onTrusted={onTrusted} /> })), fail)
 }
+
+// Whether an error is core refusing a folder that is not trusted yet (code needs_trust). error: whatever was thrown.
+export const needsTrust = (error: unknown): boolean => error instanceof ClientError && error.code === 'needs_trust'
 
 // Starts a session in a folder: trust first if the folder is not trusted yet, then the new chat.
 export function useStartSession() {

@@ -8,21 +8,24 @@ import { badgeClass, sessionState, type SessionState } from './model.ts'
 
 // Small pieces shared by the touch screens.
 
-// Loads data when deps change (latest answer wins). reload() asks again; failures go to the toast.
-export function useQuery<T>(load: () => Promise<T>, deps: DependencyList): { data?: T; reload: () => void } {
+// Loads data when deps change (latest answer wins). reload() asks again; failures go to the toast, except those that
+// `own` claims (e.g. needs_trust): they are kept in `caught` (cleared by the next ask) for the screen to explain.
+export function useQuery<T>(load: () => Promise<T>, deps: DependencyList, own?: (error: unknown) => boolean): { data?: T; caught?: unknown; reload: () => void } {
   const { fail } = useTouch()
   const [data, setData] = useState<T>()
+  const [caught, setCaught] = useState<unknown>()
   const latest = useRef(0)
   const run = useCallback(() => {
     const request = ++latest.current
+    setCaught(undefined)
     load().then(
       (value) => request === latest.current && setData(value),
-      (error: unknown) => request === latest.current && fail(error)
+      (error: unknown) => request === latest.current && (own?.(error) ? setCaught(error) : fail(error))
     )
     // load is a fresh function every render: deps decide when to ask again.
   }, deps)
   useEffect(run, [run])
-  return { data, reload: run }
+  return { data, caught, reload: run }
 }
 
 type IconButtonProps = { icon: IconName; label: string; onClick: () => void; dot?: boolean; count?: string; countIcon?: IconName; className?: string; disabled?: boolean; expanded?: boolean }

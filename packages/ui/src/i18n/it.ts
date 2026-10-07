@@ -404,6 +404,7 @@ export const it: Record<MessageKey, string> = {
   sendToClaude: 'Manda a Claude',
   folderNotTrusted: 'Questa cartella non è ancora fidata: Claude non può partire qui.',
   decideTrust: 'Decidi…',
+  filesNeedTrust: 'Questa cartella non è ancora fidata: i suoi file restano chiusi finché non decidi.',
   writeToClaude: 'Scrivi a Claude…',
   addToQueue: 'Aggiungi alla coda',
   attachPhotoOrFile: 'Allega foto o file',

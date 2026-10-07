@@ -7,7 +7,7 @@ import { useBackHandler, useScreen, useTouch } from './context.tsx'
 import { Icon, type IconName } from './icons.tsx'
 import { baseName, filesChanged, freeName, htmlLines, sizeLabel, spanNodes } from './model.ts'
 import { Crumbs, IconButton, Title, useQuery } from './parts.tsx'
-import { when } from './sessions.tsx'
+import { needsTrust, useTrustPrompt, when } from './sessions.tsx'
 
 type FileData = CommandResult<'files.read'>
 type Changes = { created: string[]; modified: string[] }
@@ -122,7 +122,10 @@ export function FilesScreen({ tabId, folder: home }: FilePlace) {
   const before = useRef<{ path: string; entries: FileEntry[] } | undefined>(undefined)
   const place: FilePlace = tabId ? { tabId } : { folder: home }
   const { systemTrash, cwd } = useFileActions(place)
-  const listing = useQuery(() => connection.request('files.list', { ...place, path }), [connection, tabId, home, path])
+  const askTrust = useTrustPrompt()
+  // A folder not trusted yet is explained by a notice (with the way to decide), not by an error toast.
+  const listing = useQuery(() => connection.request('files.list', { ...place, path }), [connection, tabId, home, path], needsTrust)
+  const untrusted = listing.caught !== undefined
   const trash = useQuery(() => (systemTrash || !cwd ? Promise.resolve(undefined) : connection.request('trash.list', { under: cwd })), [connection, systemTrash, cwd])
   useBackHandler(path !== '', () => setPath(parentOf(path)))
   const busy = meta ? meta.status === 'running' || meta.status === 'starting' || meta.status === 'requires_action' : false
@@ -219,7 +222,7 @@ export function FilesScreen({ tabId, folder: home }: FilePlace) {
       <header className="topbar">
         <IconButton icon="back" label={path ? t('upTo', { name: parts.at(-2) ?? root }) : t(tabId ? 'chat' : 'back')} onClick={back} />
         <Title text={t('files')} sub={fullPath(cwd, path)} />
-        <IconButton icon="plus" label={t('addFilesLabel')} onClick={openAdd} />
+        <IconButton icon="plus" label={t('addFilesLabel')} onClick={openAdd} disabled={untrusted} />
         {!systemTrash && <IconButton icon="trash" label={t('recentlyDeleted')} count={trash.data?.items.length ? String(trash.data.items.length) : undefined} onClick={() => go({ name: 'trash', under: cwd })} />}
       </header>
       <Crumbs parts={[root, ...parts]} onJump={(index) => setPath(parts.slice(0, index).join('/'))} />
@@ -229,6 +232,14 @@ export function FilesScreen({ tabId, folder: home }: FilePlace) {
             <p className="refresh-note" role="status">
               {note}
             </p>
+          )}
+          {untrusted && (
+            <div className="card">
+              <span>{t('filesNeedTrust')}</span>
+              <button className="button" onClick={() => askTrust(cwd, listing.reload)}>
+                {t('decideTrust')}
+              </button>
+            </div>
           )}
           <ul className="list">
             {entries.map((entry) => {
