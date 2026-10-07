@@ -230,6 +230,8 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
    edge (left -1px: the box's border); open at the bottom, it sits on the box's top border, which stays visible under it.
    It slides out from under the box (mini-out), no fade */
 .working-mini { position: absolute; left: -1px; bottom: 100%; margin-bottom: 1px; z-index: 1; height: 26px; padding: 0 10px; gap: 6px; border-radius: 12px 12px 0 0; border: 1px solid var(--border); border-bottom: 0; background: var(--surface); color: var(--text-muted); pointer-events: none; display: flex; align-items: center; font-size: 13px; font-variant-numeric: tabular-nums; animation: mini-out .22s ease-out; }
+/* While it shows, the box's top left corner is square: the tab's left side runs straight on into the box's left edge. */
+.input-box:has(> .working-mini) { border-top-left-radius: 0; }
 /* It comes out from under the box (behind it while it slides: z-index -1), then sits on its border. */
 @keyframes mini-out { from { transform: translateY(100%); z-index: -1; } to { z-index: -1; } }
 .msg-ai table, .msg-peer table { border-collapse: collapse; font-size: 13px; margin: 6px 0; width: 100%; table-layout: fixed; }

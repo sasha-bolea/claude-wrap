@@ -355,6 +355,8 @@ describe('PWA (fake SDK)', () => {
     const box = (await page.locator('.input-box').boundingBox())!
     expect(Math.abs(label.y + label.height - box.y)).toBeLessThan(1)
     expect(Math.abs(label.x - box.x)).toBeLessThan(1)
+    // The box's top left corner is square while the tab shows: the tab's left side runs on into the box's edge.
+    expect(await page.locator('.input-box').evaluate((element) => getComputedStyle(element).borderTopLeftRadius)).toBe('0px')
     const jump = (await page.locator('.jump').boundingBox())!
     expect(label.x + label.width).toBeLessThan(jump.x)
     // Back at the bottom: the line is in view again and the label goes.
