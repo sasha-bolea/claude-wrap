@@ -100,6 +100,8 @@ export class FakeSession {
   ]
   // Methods that reject when called (name -> error), and the account accountInfo() answers.
   readonly rejectMethods = new Map<string, Error>()
+  // Side effects of inspection calls (method -> function of the call's arguments; may throw): scenarios use them to make toggles and sign-ins change the fake's state.
+  readonly inspectEffects = new Map<string, (args: unknown[]) => void>()
   account: AccountInfo = { email: 'me@example.com', subscriptionType: 'max' }
   // Results of rewindFiles calls, keyed by userMessageId (default: no file checkpoint found).
   rewindResults = new Map<string, RewindFilesResult>()
@@ -253,6 +255,7 @@ export class FakeSession {
     this.calls.push({ method, args })
     const error = this.rejectMethods.get(method)
     if (error) throw error
+    this.inspectEffects.get(method)?.(args)
     return answer()
   }
 

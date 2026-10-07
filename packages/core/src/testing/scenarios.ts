@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { Options, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { McpServerStatus, Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import { createFakeSdk, type FakeSdk, type FakeSession } from './fakeQuery.ts'
 import { sdk, stored } from './messages.ts'
 
@@ -20,12 +20,14 @@ import { sdk, stored } from './messages.ts'
 //   anything else → streams "Echo: <text>" word by word (" [N images]" appended when images came along)
 // Every turn ends with a result; an interrupt ends it as aborted, like the CLI. Transcript-only messages
 // (shouldQuery: false, the `!` shell output) are stored and get only an empty result (num_turns 0), like the CLI.
+// Every process also has data for the Status / MCP servers / Hooks panels (see scriptInspection).
 // Like CLI 2.1.287, every message gets command_lifecycle frames (queued on arrival, started when read, completed at
 // the end of its turn), and one sent with priority 'next' while a turn streams is read before that turn ends: its
 // echo is added to the same answer.
 
 export type ScenarioOptions = { wordDelayMs: number }
 
+const as = (message: object) => message as unknown as SDKMessage
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // Commands the scripted CLI offers in the palette.
@@ -156,12 +158,55 @@ async function respond(turn: Turn, text: string, images: number): Promise<void> 
   return stream(turn, `Echo: ${text}${images ? ` [${images} images]` : ''}`)
 }
 
+// Gives a process the data the Status / MCP servers / Hooks panels show: status sections, three MCP servers (tiny
+// connected, remote waiting for sign-in, off disabled) whose toggles, reconnects and sign-in change their state, the
+// hooks listing, and one finished SessionStart hook run (hook_response) that the Hooks panel lists as a run.
+// Sign-in: a callback address with `code=` connects `remote`, one with `error=` is refused with "OAuth error: access_denied".
+// Parameters: the fake process and its folder.
+function scriptInspection(session: FakeSession, cwd: string | undefined): void {
+  session.statusAnswer = {
+    sections: [
+      { title: 'Session', rows: [{ label: 'Version', value: '2.1.287' }, { label: 'Working directory', value: cwd ?? '' }] },
+      { title: 'Environment', rows: [{ label: 'Model', value: 'fake-model' }] }
+    ]
+  }
+  session.mcpServers = [
+    { name: 'tiny', status: 'connected', scope: 'project', source: 'project', config: { type: 'stdio', command: 'tiny-mcp' }, tools: [{ name: 'ping' }] },
+    { name: 'remote', status: 'needs-auth', scope: 'project', source: 'project', config: { type: 'http', url: 'https://example.test/mcp' } },
+    { name: 'off', status: 'disabled', scope: 'project', source: 'project', config: { type: 'stdio', command: 'off-mcp' } }
+  ]
+  const setStatus = (name: unknown, status: McpServerStatus['status']) => {
+    session.mcpServers = session.mcpServers.map((server) => (server.name === name ? { ...server, status, error: undefined } : server))
+  }
+  session.inspectEffects.set('toggleMcpServer', ([name, enabled]) => setStatus(name, enabled ? 'connected' : 'disabled'))
+  session.inspectEffects.set('reconnectMcpServer', ([name]) => session.mcpServers.find((server) => server.name === name)?.status === 'failed' && setStatus(name, 'connected'))
+  session.inspectEffects.set('mcpClearAuth', ([name]) => setStatus(name, 'needs-auth'))
+  session.inspectEffects.set('mcpSubmitOAuthCallbackUrl', ([name, url]) => {
+    if (String(url).includes('error=')) throw new Error('OAuth error: access_denied')
+    if (String(url).includes('code=')) setStatus(name, 'connected')
+  })
+  session.authAnswer = { authUrl: 'https://example.test/authorize?x=1', requiresUserAction: true, callbackExpected: true }
+  session.hooksListing = {
+    events: [],
+    hooks: [
+      { event: 'SessionStart', source: 'projectSettings', sourceLabel: 'Project settings', type: 'command', displayText: 'echo hello-hook', commandText: 'echo hello-hook', contentLabel: 'Command' },
+      { event: 'PreToolUse', matcher: 'Bash', source: 'projectSettings', sourceLabel: 'Project settings', type: 'command', displayText: 'echo guard', commandText: 'echo guard', contentLabel: 'Command', timeout: 30 }
+    ],
+    eventCatalog: [],
+    policy: { disabledByPolicy: false, managedOnly: false, pluginOnly: false, allDisabled: false, policyHookCount: 0 }
+  }
+  session.emit(
+    as({ type: 'system', subtype: 'hook_response', hook_id: randomUUID(), hook_name: 'SessionStart:startup', hook_event: 'SessionStart', output: 'hello-hook\n', stdout: 'hello-hook\n', stderr: '', exit_code: 0, outcome: 'success', uuid: randomUUID(), session_id: 's' })
+  )
+}
+
 // Drives one fake process: init at the first message (a resumed session keeps its id), then one scripted turn
 // per user message (those read in the middle of a turn excepted), recorded in the fake session store.
 async function drive(fake: FakeSdk, session: FakeSession, options: ScenarioOptions): Promise<void> {
   const sessionId = session.options.resume ?? randomUUID()
   const cwd = session.options.cwd
   session.commands = COMMANDS
+  scriptInspection(session, cwd)
   let initialized = false
   let interrupted = false
   let next = 0
