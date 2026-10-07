@@ -233,6 +233,8 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
    It slides out from under the box (mini-out), no fade */
 .working-mini { position: absolute; left: -1px; bottom: 100%; margin-bottom: 1px; z-index: 1; height: 26px; padding: 0 10px; gap: 6px; border-radius: 12px 12px 0 0; border: 1px solid var(--border); border-bottom: 0; background: var(--surface); color: var(--text-muted); pointer-events: none; display: flex; align-items: center; font-size: 13px; font-variant-numeric: tabular-nums; animation: mini-out .22s ease-out; }
 /* While it shows, the box's top left corner is square: the tab's left side runs straight on into the box's left edge. */
+/* The corner rounds back softly when the tab goes (and squares as it slides out). */
+.input-box { transition: border-top-left-radius .3s ease-out; }
 .input-box:has(> .working-mini) { border-top-left-radius: 0; }
 /* It comes out from under the box (behind it while it slides: z-index -1), then sits on its border. */
 @keyframes mini-out { from { transform: translateY(100%); z-index: -1; } to { z-index: -1; } }
