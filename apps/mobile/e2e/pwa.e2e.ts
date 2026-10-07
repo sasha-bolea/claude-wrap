@@ -294,6 +294,23 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).not.toContain('oops')
   })
 
+  it('the ghost of a message with images shows the first one as a thumbnail and +N for the others (no emoji)', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    const file = page.locator('.composer input[type=file]')
+    await file.setInputFiles([{ name: 'a.png', mimeType: 'image/png', buffer: PNG }, { name: 'b.png', mimeType: 'image/png', buffer: PNG }])
+    await page.getByRole('img', { name: 'Image 2' }).waitFor()
+    await send(page, 'slow')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('word399')
+    const conversation = page.locator('.conversation')
+    await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight - box.clientHeight - 300))
+    const ghost = page.locator('.ghost')
+    await ghost.locator('img.ghost-thumb').waitFor()
+    expect(await ghost.locator('.ghost-more').textContent()).toBe('+1')
+    expect(await ghost.textContent()).not.toContain('🖼')
+    expect(await ghost.locator('.clamp-2').textContent()).toBe('slow')
+  })
+
   it('the ghost of my message: hidden at the bottom of the chat, shown as soon as I scroll up, hidden back at the bottom', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)

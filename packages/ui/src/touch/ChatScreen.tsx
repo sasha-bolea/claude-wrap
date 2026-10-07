@@ -36,7 +36,8 @@ const SESSION_PANELS: LaterKey[] = ['tasks', 'todo', 'diff']
 // (that message's own ghost comes in once it has scrolled off the top).
 // Parameters: the conversation and the ghost's element. Returns the ghost, `update` (on scroll and new content), `dismiss`.
 function useGhost(conversation: React.RefObject<HTMLDivElement | null>, element: React.RefObject<HTMLButtonElement | null>) {
-  const [ghost, setGhost] = useState<{ id: string; text: string }>()
+  // thumb: the first image's thumbnail once loaded; images: how many the message has.
+  const [ghost, setGhost] = useState<{ id: string; text: string; thumb?: string; images: number }>()
   const dismissed = useRef<string | undefined>(undefined)
   // Bottom of the ghost from the top of the conversation (px), kept from the last time it was on screen.
   const ghostBottom = useRef(GHOST_BOTTOM)
@@ -57,9 +58,10 @@ function useGhost(conversation: React.RefObject<HTMLDivElement | null>, element:
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < FOLLOW
     if (!found || touching || atBottom || found.dataset.msg === dismissed.current || keyboard) return setGhost(undefined)
     const text = [...found.childNodes].filter((node) => !(node instanceof HTMLElement && (node.classList.contains('thumbs') || node.classList.contains('pending-note')))).map((node) => node.textContent).join('').trim()
-    const label = `${found.querySelector('.thumbs') ? '🖼 ' : ''}${text}`
+    const images = found.querySelectorAll('.thumbs > *').length
+    const thumb = found.querySelector<HTMLImageElement>('.thumbs img')?.src
     const id = found.dataset.msg!
-    setGhost((current) => (current?.id === id && current.text === label ? current : { id, text: label }))
+    setGhost((current) => (current?.id === id && current.text === text && current.thumb === thumb && current.images === images ? current : { id, text, thumb, images }))
   }, [conversation, element])
   const dismiss = () => {
     dismissed.current = ghost?.id
@@ -350,6 +352,8 @@ export function ChatScreen({ tabId }: { tabId: string }) {
           <>
             <button className={`ghost${ghost ? '' : ' leaving'}`} ref={ghostElement} aria-hidden={ghost ? undefined : true} tabIndex={ghost ? undefined : -1} aria-label={t('ghostLabel', { text: shownGhost.text })} onClick={onGhostClick} onTouchStart={onGhostStart} onTouchMove={onGhostMove} onTouchEnd={onGhostEnd}>
               <span className="ghost-bubble">
+                {shownGhost.images > 0 && (shownGhost.thumb ? <img className="ghost-thumb" src={shownGhost.thumb} alt="" /> : <Icon name="image" className="ghost-thumb" />)}
+                {shownGhost.images > 1 && <span className="ghost-more">+{shownGhost.images - 1}</span>}
                 <span className="clamp-2">{shownGhost.text}</span>
               </span>
             </button>

@@ -270,6 +270,11 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .clamp-2, .clamp-4 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
 .clamp-2 { -webkit-line-clamp: 2; } .clamp-4 { -webkit-line-clamp: 4; }
 /* Slides down from under the chat's top bar, and back up when it goes away */
+/* A message with images: the first one's thumbnail (the image icon until it loads) and +N for the others. */
+.ghost-bubble { gap: 8px; }
+.ghost-thumb { flex: none; width: 32px; height: 32px; border-radius: 8px; object-fit: cover; }
+svg.ghost-thumb { width: 22px; height: 22px; color: var(--text-muted); }
+.ghost-more { flex: none; margin-left: -4px; font-size: 12px; font-variant-numeric: tabular-nums; }
 .ghost:not([hidden]) { animation: ghost-in .26s cubic-bezier(.2, .8, .3, 1); }
 .ghost.leaving { animation: ghost-out .18s ease-in forwards; pointer-events: none; }
 @keyframes ghost-in { from { transform: translateY(calc(-100% - 12px)); } }
