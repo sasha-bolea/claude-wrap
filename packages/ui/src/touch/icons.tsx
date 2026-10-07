@@ -56,6 +56,7 @@ const SHAPES = {
   rewind: <path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H10" />,
   unsend: <path d="M10 6L5 11l5 5M5 11h9a5 5 0 0 1 0 10h-4" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,
+  refresh: <path d="M20 12a8 8 0 1 1-2.4-5.7L20 8.6M20 4v4.6h-4.6" />,
   'mode-default': <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6zM10 10a2 2 0 1 1 2.7 1.9c-.5.2-.7.6-.7 1.1M12 16h.01" />,
   'mode-acceptEdits': <path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" />,
   'mode-plan': <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />,

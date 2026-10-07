@@ -28,7 +28,7 @@ const GHOST_AWAY = 28
 // Bottom of a one-line ghost under the top of the conversation (px: .ghost top 12 + bubble 44), until one is measured.
 const GHOST_BOTTOM = 56
 // Panels of a session that come later (🔜), in the session menu.
-const SESSION_PANELS: LaterKey[] = ['tasks', 'todo', 'diff', 'mcp', 'hooks', 'status']
+const SESSION_PANELS: LaterKey[] = ['tasks', 'todo', 'diff']
 
 // The ghost of your message whose answer you are reading, once it has scrolled off the top and you scroll up from the
 // bottom: a tap goes back to it, a drag up puts it away until that message is on screen again. Gone at the bottom of
@@ -460,7 +460,7 @@ function SessionMenu({ tabId }: { tabId: string }) {
         )}
       </ul>
       <ul className="menu">
-        {(['context', 'usage'] as const).map((name) => (
+        {(['context', 'usage', 'status', 'mcp', 'hooks'] as const).map((name) => (
           <li key={name}>
             <button onClick={() => go({ name, tabId })}>
               {t(`later_${name}`)}

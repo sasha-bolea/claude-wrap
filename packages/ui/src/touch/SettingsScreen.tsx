@@ -7,6 +7,7 @@ import { activePaletteId, subscribeActivePalette } from '../palette.ts'
 import { AccountsGroup } from './accounts.tsx'
 import { useTouch, type LaterKey, type Touch } from './context.tsx'
 import { Icon } from './icons.tsx'
+import { SessionPickSheet } from './inspect.tsx'
 import { tokenLabel } from './model.ts'
 import { ModeMenu, effortLabel } from './modelSheets.tsx'
 import { IconButton, Title } from './parts.tsx'
@@ -21,7 +22,7 @@ export type PushCapability = {
 }
 
 // The settings pages of Claude Code to come (🔜), in the prototype's order.
-const CONFIG_LATER: LaterKey[] = ['mcp', 'hooks', 'config', 'permissions', 'memory', 'skills', 'agents', 'styles', 'plugins']
+const CONFIG_LATER: LaterKey[] = ['config', 'permissions', 'memory', 'skills', 'agents', 'styles', 'plugins']
 
 // Subscribes this device to the server's push notifications (from a tap: iOS asks the permission then).
 async function subscribePush(connection: Touch['connection'], push: PushCapability): Promise<void> {
@@ -78,8 +79,16 @@ export function SettingsScreen() {
             </div>
           </div>
           <div className="group">
-            <p className="label">{t('claudeCodeLater')}</p>
+            <p className="label">{t('claudeCode')}</p>
             <ul className="list">
+              {(['mcp', 'hooks'] as const).map((panel) => (
+                <li key={panel} className="row">
+                  <button className="row-main" onClick={() => openSheet({ title: t('chooseSession'), body: <SessionPickSheet panel={panel} /> })}>
+                    <span className="row-title plain">{t(`later_${panel}`)}</span>
+                  </button>
+                  <Icon name="chevron" className="chevron" />
+                </li>
+              ))}
               {CONFIG_LATER.map((key) => (
                 <li key={key} className="row">
                   <button className="row-main" onClick={() => go({ name: 'later', key })}>

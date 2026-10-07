@@ -420,6 +420,13 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 .row .ficon { color: var(--text-muted); flex: none; }
 .row .ficon.dir { color: var(--accent); }
 .chip.changed { background: none; border: 1px solid var(--accent); color: var(--accent); }
+/* Status, MCP and Hooks panels */
+.chip.accent { background: none; border: 1px solid var(--accent); color: var(--accent); }
+.chip.bad { background: none; border: 1px solid var(--danger); color: var(--danger); }
+.selectable { -webkit-user-select: text; user-select: text; }
+.row-sub.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.row.dim { opacity: .55; }
+.local-output.tall { max-height: 40vh; overflow: auto; }
 .at { font: 600 17px var(--font-mono); width: 22px; text-align: center; flex: none; }
 .refresh-note { margin: 0; padding: 8px 12px; border-radius: 12px; background: var(--surface-2); font-size: 13px; }
 .row.uploading .row-sub { color: var(--accent); }
