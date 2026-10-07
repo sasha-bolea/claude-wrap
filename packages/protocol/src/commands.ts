@@ -10,6 +10,57 @@ const terminalSize = z.number().int().min(2).max(1000)
 // A path inside the session's folder, relative to it ('' = the folder itself).
 const relativePath = z.string()
 
+// Inspection panels (/status, /mcp, /hooks). Strings come from the CLI or from configuration files (untrusted): core
+// caps their length, the caps are part of the contract.
+export const INSPECT_LIMITS = { text: 2000, name: 200, output: 4000, url: 4096, hooks: 50 } as const
+const shortText = z.string().max(INSPECT_LIMITS.text)
+const serverName = z.string().min(1).max(INSPECT_LIMITS.name)
+export const statusSchema = z.object({
+  sections: z.array(z.object({ title: z.string().max(INSPECT_LIMITS.name), rows: z.array(z.object({ label: z.string().max(INSPECT_LIMITS.name), value: shortText })) })),
+  settingsFiles: z.array(z.object({ source: z.string().max(INSPECT_LIMITS.name), path: shortText }))
+})
+export const mcpServerSchema = z.object({
+  name: serverName,
+  status: z.enum(['connected', 'failed', 'needs-auth', 'pending', 'disabled']),
+  error: shortText.optional(),
+  scope: z.string().max(INSPECT_LIMITS.name).optional(),
+  source: z.string().max(INSPECT_LIMITS.name).optional(),
+  tools: z.number(),
+  url: shortText.optional()
+})
+export const hookEntrySchema = z.object({
+  event: z.string().max(INSPECT_LIMITS.name),
+  matcher: shortText.optional(),
+  source: z.string().max(INSPECT_LIMITS.name),
+  sourceLabel: shortText.optional(),
+  type: z.string().max(INSPECT_LIMITS.name),
+  commandText: shortText.optional(),
+  timeout: z.number().optional(),
+  disabled: z.boolean().optional()
+})
+export const hookRunSchema = z.object({
+  at: z.number(),
+  event: z.string().max(INSPECT_LIMITS.name),
+  name: z.string().max(INSPECT_LIMITS.text),
+  outcome: z.enum(['success', 'error', 'cancelled']),
+  exitCode: z.number().optional(),
+  stdout: z.string().max(INSPECT_LIMITS.output).optional(),
+  stderr: z.string().max(INSPECT_LIMITS.output).optional()
+})
+export const hooksSchema = z.object({
+  listing: z.object({
+    hooks: z.array(hookEntrySchema),
+    policy: z.object({ allDisabled: z.boolean(), managedOnly: z.boolean(), disabledByPolicy: z.boolean(), pluginOnly: z.boolean() }).optional(),
+    safeMode: z.object({ exitHint: shortText.optional() }).optional()
+  }),
+  runs: z.array(hookRunSchema)
+})
+export type Status = z.infer<typeof statusSchema>
+export type McpServer = z.infer<typeof mcpServerSchema>
+export type HookEntry = z.infer<typeof hookEntrySchema>
+export type HookRun = z.infer<typeof hookRunSchema>
+export type Hooks = z.infer<typeof hooksSchema>
+
 // supportedEffortLevels: the effort levels the model offers (none: no effort selector).
 export const modelInfoSchema = z.looseObject({
   value: z.string(),
@@ -127,6 +178,18 @@ export const COMMANDS = {
   // tab starts its process to answer (no message is sent).
   'tab.context': { args: z.object({ tabId }), result: contextUsageSchema },
   'tab.usage': { args: z.object({ tabId }), result: usageSchema },
+  // Native panels. tab.status: /status sections + the settings files in effect; tab.mcp: MCP servers and their state;
+  // reconnect / toggle / auth act on one server by name; mcpAuth returns the http(s) page to open (the user signs in
+  // there), mcpAuthCallback hands back the redirect URL when the callback cannot reach core; tab.hooks: configured
+  // hooks and the last runs of this tab (newest last). Like tab.context, a dormant tab starts its process (no message).
+  'tab.status': { args: z.object({ tabId }), result: statusSchema },
+  'tab.mcp': { args: z.object({ tabId }), result: z.object({ servers: z.array(mcpServerSchema) }) },
+  'tab.mcpReconnect': { args: z.object({ tabId, name: serverName }), result: empty },
+  'tab.mcpToggle': { args: z.object({ tabId, name: serverName, enabled: z.boolean() }), result: empty },
+  'tab.mcpAuth': { args: z.object({ tabId, name: serverName }), result: z.object({ authUrl: z.string().max(INSPECT_LIMITS.url), callbackExpected: z.boolean() }) },
+  'tab.mcpAuthCallback': { args: z.object({ tabId, name: serverName, url: z.string().max(INSPECT_LIMITS.url) }), result: empty },
+  'tab.mcpClearAuth': { args: z.object({ tabId, name: serverName }), result: empty },
+  'tab.hooks': { args: z.object({ tabId }), result: hooksSchema },
   // Points where a conversation can be rewound to: a message and its text summary.
   'tab.rewindPoints': { args: z.object({ tabId }), result: z.object({ points: z.array(z.object({ itemId: z.string(), text: z.string(), images: z.number().optional() })) }) },
   // Preview of what a rewind would do: whether it's possible and what files would change.

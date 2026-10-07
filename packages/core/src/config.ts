@@ -1,4 +1,4 @@
-import type { Options, SDKSessionInfo, SessionMessage, query } from '@anthropic-ai/claude-agent-sdk'
+import type { Options, ResolvedSettings, SDKSessionInfo, SessionMessage, SettingSource, query } from '@anthropic-ai/claude-agent-sdk'
 import type { BackendKind } from '@athome/protocol'
 import type { HostCommands } from './commands.ts'
 import type { RingLimits } from './stream.ts'
@@ -15,6 +15,8 @@ export type SdkApi = {
   listSessions(options: { dir?: string; limit?: number }): Promise<SDKSessionInfo[]>
   renameSession(sessionId: string, title: string, options: Dir): Promise<void>
   deleteSession(sessionId: string, options: Dir): Promise<void>
+  // The settings files in effect (absent in a fake SDK: the status panel lists none).
+  resolveSettings?(options: { cwd?: string; settingSources?: SettingSource[] }): Promise<ResolvedSettings>
   forkSession(sessionId: string, options: Dir & { title?: string; upToMessageId?: string }): Promise<{ sessionId: string }>
 }
 

@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import type { CanUseTool, ModelInfo, Options, PermissionResult, Query, RewindFilesResult, SDKControlGetContextUsageResponse, SDKControlGetUsageResponse, SDKMessage, SDKSessionInfo, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { AccountInfo, CanUseTool, McpServerStatus, ModelInfo, Options, PermissionResult, Query, RewindFilesResult, SDKControlGetContextUsageResponse, SDKControlGetUsageResponse, SDKMessage, SDKSessionInfo, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
 
 // Scriptable stand-in for the SDK's query(): messages are pushed by hand with emit(), control methods are
 // recorded. Plain code (no vitest) so the hosts can also drive it for deterministic e2e runs.
 
 export type ControlCall = { method: string; args: unknown[] }
+type NonNull<T> = Exclude<T, undefined>
 export type RewindCall = { userMessageId: string; dryRun?: boolean }
 
 // A /context answer: 48.5k of a 200k window, two MCP tools of one server, one memory file.
@@ -77,6 +78,29 @@ export class FakeSession {
   // Answers of getContextUsage and of the /usage call (set to change them; a usage of undefined rejects).
   contextUsage: SDKControlGetContextUsageResponse = FAKE_CONTEXT
   usage: SDKControlGetUsageResponse | undefined = FAKE_USAGE
+  // Answers of the inspection panels (set to change them). getStatus / getHooksListing / mcpAuthenticate are runtime-only
+  // SDK methods: undefined = the CLI has no such request (a call rejects "not available"). mcpServers answers
+  // mcpServerStatus.
+  statusAnswer: unknown = {
+    sections: [
+      { title: 'Session', rows: [{ label: 'Version', value: '2.1.287' }, ['Model', 'fake-model'], 'Cwd: /work'] },
+      { title: 'Empty', rows: [] }
+    ]
+  }
+  hooksListing: unknown = {
+    events: [{ name: 'PreToolUse', summary: '', supportsMatcher: true, hookCount: 1 }],
+    hooks: [{ event: 'PreToolUse', matcher: 'Bash', source: 'userSettings', sourceLabel: 'User settings', type: 'command', displayText: 'lint', commandText: 'npm run lint', contentLabel: 'Command', timeout: 30 }],
+    eventCatalog: [],
+    policy: { disabledByPolicy: false, managedOnly: false, pluginOnly: false, allDisabled: false, policyHookCount: 0 }
+  }
+  authAnswer: unknown = { authUrl: 'https://auth.example/authorize?state=x', requiresUserAction: true, callbackExpected: true, redirectScheme: 'http', state: 'x' }
+  mcpServers: McpServerStatus[] = [
+    { name: 'docs', status: 'connected', scope: 'project', source: 'project', config: { type: 'http', url: 'https://docs.example/mcp' }, tools: [{ name: 'search' }, { name: 'read' }] },
+    { name: 'broken', status: 'failed', error: 'spawn ENOENT' }
+  ]
+  // Methods that reject when called (name -> error), and the account accountInfo() answers.
+  readonly rejectMethods = new Map<string, Error>()
+  account: AccountInfo = { email: 'me@example.com', subscriptionType: 'max' }
   // Results of rewindFiles calls, keyed by userMessageId (default: no file checkpoint found).
   rewindResults = new Map<string, RewindFilesResult>()
   // The resumeSessionAt option received when this session was created.
@@ -200,6 +224,16 @@ export class FakeSession {
         if (!this.usage) throw new Error('usage unavailable')
         return this.usage
       },
+      // Inspection panels: recorded, answered from the fields above, rejected when listed in rejectMethods.
+      accountInfo: async () => this.inspect('accountInfo', [], () => this.account),
+      mcpServerStatus: async () => this.inspect('mcpServerStatus', [], () => this.mcpServers),
+      reconnectMcpServer: async (name: string) => this.inspect('reconnectMcpServer', [name], () => undefined),
+      toggleMcpServer: async (name: string, enabled: boolean) => this.inspect('toggleMcpServer', [name, enabled], () => undefined),
+      getStatus: async () => this.inspect('getStatus', [], () => this.runtimeAnswer('getStatus', this.statusAnswer)),
+      getHooksListing: async () => this.inspect('getHooksListing', [], () => this.runtimeAnswer('getHooksListing', this.hooksListing)),
+      mcpAuthenticate: async (name: string, redirectUri?: string) => this.inspect('mcpAuthenticate', [name, redirectUri], () => this.runtimeAnswer('mcpAuthenticate', this.authAnswer)),
+      mcpSubmitOAuthCallbackUrl: async (name: string, url: string) => this.inspect('mcpSubmitOAuthCallbackUrl', [name, url], () => ({})),
+      mcpClearAuth: async (name: string) => this.inspect('mcpClearAuth', [name], () => ({})),
       // Like the real CLI (smoke:rewind), only the dry run lists the files: the applied rewind reports none.
       rewindFiles: async (userMessageId: string, options?: { dryRun?: boolean }) => {
         this.rewindCalls.push({ userMessageId, dryRun: options?.dryRun })
@@ -212,6 +246,20 @@ export class FakeSession {
         this.exit()
       }
     }) as unknown as Query
+  }
+
+  // An inspection call: recorded, rejected when its method is in rejectMethods, else answered by `answer`.
+  private inspect<T>(method: string, args: unknown[], answer: () => T): T {
+    this.calls.push({ method, args })
+    const error = this.rejectMethods.get(method)
+    if (error) throw error
+    return answer()
+  }
+
+  // The answer of a runtime-only method, or the CLI's "not available" when the answer was set to undefined.
+  private runtimeAnswer<T>(method: string, answer: T): NonNull<T> {
+    if (answer === undefined) throw new Error(`${method} is not available`)
+    return answer as NonNull<T>
   }
 
   private wakeUp(): void {
@@ -259,6 +307,8 @@ export function createFakeSdk() {
     const index = history?.findIndex((message) => message.uuid === uuid) ?? -1
     if (history && index >= 0) history.splice(index + 1)
   }
+  // Settings files in effect (set to change them): the user's and the project's.
+  const settingsSources: { source: 'user' | 'project' | 'local' | 'managed' | 'flag'; path?: string }[] = [{ source: 'user', path: '/home/user/.claude/settings.json' }, { source: 'project', path: '/work/.claude/settings.json' }]
   // Results of rewindFiles for the sessions created from now on (see FakeSession.rewindResults).
   const rewindResults = new Map<string, RewindFilesResult>()
   return {
@@ -276,6 +326,8 @@ export function createFakeSdk() {
     }) as unknown as typeof import('@anthropic-ai/claude-agent-sdk').query,
     getSessionMessages: async (sessionId: string) => histories.get(sessionId) ?? [],
     getSessionInfo: async (sessionId: string) => info(sessionId),
+    settingsSources,
+    resolveSettings: async () => ({ effective: {}, provenance: {}, sources: settingsSources.map((entry) => ({ ...entry, settings: {} })) }),
     // dir absent: the sessions of every folder (most recent first, like the SDK).
     listSessions: async ({ dir }: { dir?: string } = {}) =>
       [...histories.keys()]

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { basename, isAbsolute, relative } from 'node:path'
-import type { Options, SDKMessage, SDKResultMessage, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { Options, Query, SDKMessage, SDKResultMessage, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
 import {
   EFFORT_LEVELS,
   tabStream,
@@ -17,11 +17,15 @@ import {
   type StreamPosition,
   type TabMeta,
   type TabStatus,
+  type Hooks,
+  type McpServer,
+  type Status,
   type Usage
 } from '@athome/protocol'
 import type { Notice, SdkApi } from './config.ts'
 import { CoreError, messageOf } from './errors.ts'
 import { suggestFiles } from './fileSuggestions.ts'
+import { HookRuns, clearMcpAuth, readHookListing, readMcp, readStatus, startMcpAuth, submitMcpCallback, type InitInfo } from './inspect.ts'
 import { Normalizer, peerOf, storedPeer } from './normalize.ts'
 import { runShell } from './process.ts'
 import { Requests, modeSetBy, type Answer } from './requests.ts'
@@ -34,6 +38,8 @@ import { planLimitsFromEvent, readUsage, toContextGauge, toContextUsage, toPlanL
 // Options every session gets (architettura.md; same as the first attempt).
 const BASE_OPTIONS: Options = {
   includePartialMessages: true,
+  // hook_response messages feed the Hooks panel (the normalizer ignores them).
+  includeHookEvents: true,
   enableFileCheckpointing: true,
   settingSources: ['user', 'project', 'local'],
   systemPrompt: { type: 'preset', preset: 'claude_code' }
@@ -197,6 +203,9 @@ export class Tab {
   sessionId?: string
   model?: string
   activeModel?: string
+  // What the last init message told (the status panel's fallback) and the last hook runs (the Hooks panel).
+  private initInfo: InitInfo = {}
+  private readonly hookRuns = new HookRuns()
   effort?: Effort
   mode: PermissionMode
   private confirmedMode: PermissionMode
@@ -747,6 +756,61 @@ export class Tab {
     return toUsage(await readUsage(session.query).catch((error: unknown) => this.sdkFailure('Usage failed', error)))
   }
 
+  // /status of the session (live session, else starts the process): the CLI's sections and the settings files in effect.
+  async statusPanel(): Promise<Status> {
+    const session = await this.ensureSession()
+    const resolve = this.env.sdk.resolveSettings
+    const files = resolve ? () => resolve({ cwd: this.cwd, settingSources: BASE_OPTIONS.settingSources }) : undefined
+    return readStatus(session.query, this.initInfo, files).catch((error: unknown) => this.sdkFailure('Status failed', error))
+  }
+
+  // MCP servers of the session and their state (live session, else starts the process).
+  async mcpServers(): Promise<{ servers: McpServer[] }> {
+    const session = await this.ensureSession()
+    return readMcp(session.query).catch((error: unknown) => this.sdkFailure('MCP status failed', error))
+  }
+
+  // One action on an MCP server (reconnect, toggle, sign-in, callback, clear), then core reads the servers again so the
+  // CLI settles its state before the client asks. Returns what the action answered.
+  async mcpAction<T>(what: string, act: (query: Query) => Promise<T>): Promise<T> {
+    const session = await this.ensureSession()
+    const result = await act(session.query).catch((error: unknown) => (error instanceof CoreError ? Promise.reject(error) : this.sdkFailure(what, error)))
+    await session.query.mcpServerStatus().catch(() => undefined)
+    return result
+  }
+
+  // Sign-in of an MCP server: the page to open.
+  mcpAuth(name: string): Promise<{ authUrl: string; callbackExpected: boolean }> {
+    return this.mcpAction('MCP sign-in failed', (query) => startMcpAuth(query, name))
+  }
+
+  // The redirect URL of an MCP sign-in, handed to the CLI.
+  mcpAuthCallback(name: string, url: string): Promise<void> {
+    return this.mcpAction('MCP sign-in callback failed', (query) => submitMcpCallback(query, name, url))
+  }
+
+  // Forgets the stored sign-in of an MCP server.
+  mcpClearAuth(name: string): Promise<void> {
+    return this.mcpAction('MCP sign-out failed', (query) => clearMcpAuth(query, name))
+  }
+
+  // Reconnects an MCP server.
+  mcpReconnect(name: string): Promise<void> {
+    return this.mcpAction('MCP reconnect failed', (query) => query.reconnectMcpServer(name))
+  }
+
+  // Enables or disables an MCP server.
+  mcpToggle(name: string, enabled: boolean): Promise<void> {
+    return this.mcpAction('MCP toggle failed', (query) => query.toggleMcpServer(name, enabled))
+  }
+
+  // Hooks configured for the session and the last runs of this tab (live session, else starts the process).
+  async hooks(): Promise<Hooks> {
+    const session = await this.ensureSession()
+    const listing = await readHookListing(session.query).catch((error: unknown) => this.sdkFailure('Hooks failed', error))
+    return { listing, runs: this.hookRuns.list() }
+  }
+
   // The auto-compact window changed in the app. The CLI reads it only at spawn (a live applyFlagSettings does not
   // move it, checked on CLI 2.1.287), so a live process restarts on the same stored session: an idle one now, one at
   // work at the end of its turn. A dormant one gets it at spawn.
@@ -1080,8 +1144,10 @@ export class Tab {
     if (message.type === 'result' && this.silentResults > 0 && message.num_turns === 0) return void this.silentResults--
     if (message.type === 'result') this.peerFromResult(message)
     this.normalizer.live(message)
+    this.hookRuns.add(message)
     if (message.type === 'system' && message.subtype === 'init') {
       this.setSessionId(message.session_id)
+      this.initInfo = { version: message.claude_code_version, model: message.model, cwd: message.cwd, permissionMode: message.permissionMode }
       // The new process runs on the cut conversation: its own records continue from there.
       this.resumeAt = undefined
       this.activeModel = message.model
