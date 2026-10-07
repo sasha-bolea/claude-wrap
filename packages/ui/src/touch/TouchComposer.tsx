@@ -13,7 +13,7 @@ import { useTouch } from './context.tsx'
 import { GaugeButton } from './gauge.tsx'
 import { Icon, modeIcon } from './icons.tsx'
 import { sizeLabel } from './model.ts'
-import { ModeSheet } from './modelSheets.tsx'
+import { ModelSheet, ModeSheet, modelLabel, useModels } from './modelSheets.tsx'
 import { IconButton, noteTitle } from './parts.tsx'
 import { useUndoReset } from './keyboard.ts'
 import { pauseWords, QueueTray, waitingQueue } from './queue.tsx'
@@ -69,13 +69,14 @@ function QueuedCountdown({ text, images, until, onStop }: { text: string; images
 
 // The composer of the touch layout: one box floating over the chat — the text on top; under it + (photos and
 // files), permissions and the context gauge on the left; on the right Stop and Coda while Claude responds (Coda puts
-// what is written straight into the queue), then Send (the model is in the chat's top bar, the effort in the mode sheet). `/` suggests
+// what is written straight into the queue), then Send (the model and effort sheet is the brain button after the mode button). `/` suggests
 // commands, `@` files; `!` runs a shell command; long pastes collapse. Files that are not photos go to allegati/ and
 // are mentioned.
 // A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.
 export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }: ComposerProps) {
   const { connection, backendId, openSheet, toast, snack, fail, inserts, clearInsert, go } = useTouch()
   const tabId = meta.tabId
+  const models = useModels(tabId)
   const input = useRef<HTMLTextAreaElement>(null)
   const picker = useRef<HTMLInputElement>(null)
   const undoReset = useUndoReset()
@@ -356,6 +357,9 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }:
           <IconButton icon="plus" label={t('attachPhotoOrFile')} onClick={() => picker.current?.click()} />
           <button className="icon-btn mode-btn" data-mode={meta.mode} aria-label={t('modeButtonLabel', { mode: t(modeLabel(meta.mode)) })} onClick={() => openSheet({ title: t('modeTitle'), body: <ModeSheet tabId={tabId} /> })}>
             <Icon name={modeIcon(meta.mode)} />
+          </button>
+          <button className="icon-btn model-tool" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
+            <Icon name="brain" />
           </button>
           <GaugeButton meta={meta} />
           {(running || requestOpen) && (

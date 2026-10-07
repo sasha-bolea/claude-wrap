@@ -368,6 +368,7 @@ export const it: Record<MessageKey, string> = {
   folderFiles: 'File della cartella',
   folderNotes: 'Note della cartella',
   model: 'Modello',
+  modelAndEffort: 'Modello e impegno',
   modelAnnounce: 'Modello: {model}',
   modelButtonLabel: 'Modello: {model}',
   effort: 'Impegno',

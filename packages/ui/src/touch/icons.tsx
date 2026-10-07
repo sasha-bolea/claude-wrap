@@ -19,6 +19,8 @@ const SHAPES = {
     </>
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  // Brain: two lobes split by a centre line, with a fold on each side.
+  brain: <path d="M12 5v14M12 5a3.2 3.2 0 0 0-6 1.2A3.4 3.4 0 0 0 4.5 12 3.4 3.4 0 0 0 6 16.5 3.2 3.2 0 0 0 12 19M12 5a3.2 3.2 0 0 1 6 1.2A3.4 3.4 0 0 1 19.5 12a3.4 3.4 0 0 1-1.5 4.5A3.2 3.2 0 0 1 12 19M8 10.5h1.5M14.5 13.5H16" />,
   terminal: <path d="M4 5h16v14H4zM7.5 9.5l3 2.5-3 2.5M12.5 15h4" />,
   photo: (
     <>

@@ -366,6 +366,7 @@ export const en = {
   folderFiles: 'Folder files',
   folderNotes: 'Folder notes',
   model: 'Model',
+  modelAndEffort: 'Model and effort',
   modelAnnounce: 'Model: {model}',
   modelButtonLabel: 'Model: {model}',
   effort: 'Effort',

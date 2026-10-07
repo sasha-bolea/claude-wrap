@@ -40,16 +40,20 @@ function useOfferedModels(tabId: string) {
   return list
 }
 
-// "Modello": every model with its version and a line about it. Changes apply at once; the sheet stays open.
+// "Modello e impegno": every model with its version and a line about it, and under them the effort levels of the
+// chosen model (none: no selector). Changes apply at once; the sheet stays open.
 export function ModelSheet({ tabId }: { tabId: string }) {
   const { state, connection, announce, fail } = useTouch()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
   const list = useOfferedModels(tabId)
   if (!meta) return null
   const current = meta.model ?? 'default'
+  const levels = list?.find((model) => model.value === current)?.supportedEffortLevels ?? []
   const pickModel = (model: ModelInfo) =>
     connection.request('tab.setModel', { tabId, model: model.value }).then(() => announce(t('modelAnnounce', { model: model.displayName })), fail)
+  const pickEffort = (effort: Effort) => connection.request('tab.setEffort', { tabId, effort }).then(() => announce(t('effortAnnounce', { effort: effortLabel(effort) })), fail)
   return (
+    <>
     <ul className="menu" role="radiogroup" aria-label={t('model')}>
       {!list && (
         <li className="muted" role="status">
@@ -67,42 +71,35 @@ export function ModelSheet({ tabId }: { tabId: string }) {
         </li>
       ))}
     </ul>
+    {levels.length > 0 && (
+      <div className="group">
+        <p className="label" id={`effort-${tabId}`}>
+          {t('effort')}
+        </p>
+        <div className={`segmented effort cols-${levels.length}`} role="radiogroup" aria-labelledby={`effort-${tabId}`}>
+          {levels.map((level) => (
+            <label key={level}>
+              <input type="radio" name={`effort-${tabId}`} value={level} checked={meta.effort === level} onChange={() => void pickEffort(level)} />
+              <span>{effortLabel(level)}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 
-// "Modalità permessi": at the top the effort levels of the session's model (none: no selector; changes apply at
-// once and the sheet stays open), under them the modes of the CLI, each with its icon; picking a mode closes the sheet.
+// "Modalità permessi": the modes of the CLI, each with its icon; picking a mode closes the sheet.
 export function ModeSheet({ tabId }: { tabId: string }) {
   const { state, connection, closeSheet, announce, fail } = useTouch()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
-  const list = useOfferedModels(tabId)
   if (!meta) return null
-  const levels = list?.find((model) => model.value === (meta.model ?? 'default'))?.supportedEffortLevels ?? []
-  const pickEffort = (effort: Effort) => connection.request('tab.setEffort', { tabId, effort }).then(() => announce(t('effortAnnounce', { effort: effortLabel(effort) })), fail)
   const pick = (mode: PermissionMode) => {
     closeSheet()
     connection.request('tab.setMode', { tabId, mode }).then(() => announce(t('announceMode', { mode: t(modeLabel(mode)) })), fail)
   }
-  return (
-    <>
-      {levels.length > 0 && (
-        <div className="group">
-          <p className="label" id={`effort-${tabId}`}>
-            {t('effort')}
-          </p>
-          <div className={`segmented effort cols-${levels.length}`} role="radiogroup" aria-labelledby={`effort-${tabId}`}>
-            {levels.map((level) => (
-              <label key={level}>
-                <input type="radio" name={`effort-${tabId}`} value={level} checked={meta.effort === level} onChange={() => void pickEffort(level)} />
-                <span>{effortLabel(level)}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-      <ModeMenu current={meta.mode} onPick={pick} />
-    </>
-  )
+  return <ModeMenu current={meta.mode} onPick={pick} />
 }
 
 // The modes of the CLI as a radio menu, each with its icon.

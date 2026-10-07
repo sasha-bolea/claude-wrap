@@ -9,7 +9,7 @@ import { AccountPickSheet, accountName } from './accounts.tsx'
 import { Conversation, WorkingMini } from './Conversation.tsx'
 import { Icon } from './icons.tsx'
 import { sessionState } from './model.ts'
-import { ModeSheet, ModelSheet, currentEffort, modelLabel, useModels } from './modelSheets.tsx'
+import { ModelSheet, currentEffort, modelLabel, useModels } from './modelSheets.tsx'
 import { Badge, ConnectionBanner, IconButton, UpdateBar, useQuery } from './parts.tsx'
 import { CloseButton, RenameSheet, useTrustPrompt } from './sessions.tsx'
 import { useOpenTerminal } from './TerminalScreen.tsx'
@@ -153,7 +153,7 @@ function useScrollThumb(conversation: React.RefObject<HTMLDivElement | null>, do
   return { thumb, place }
 }
 
-// The chat of a session: top bar (back; on its right the state and title as plain text over model, Torna indietro, ⋯), the conversation with
+// The chat of a session: one-row top bar (back, state and title as plain text, Torna indietro, ⋯; the model is in the composer), the conversation with
 // Claude's request inside it, the ghost of your message and "Torna giù", and the floating dock (composer + queue).
 export function ChatScreen({ tabId }: { tabId: string }) {
   const touch = useTouch()
@@ -161,7 +161,6 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const { top } = useScreen()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
   const view = state.transcripts[tabId]
-  const models = useModels(tabId)
   useTabSubscription(connection, tabId, fail)
   const [follow, setFollow] = useState(true)
   // follow for the dock's observer, which lives as long as the chat.
@@ -372,29 +371,19 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   return (
     <section className="screen chat-screen" ref={screen} aria-label={t('chat')}>
       <header className="topbar chat-bar">
-        {/* Back, centred on both rows; on its right the title (plain text, not a button) over the model and the tools */}
         {!touch.wide && <IconButton icon="back" label={otherWaiting ? t('backWaiting') : t('back')} dot={otherWaiting} onClick={back} />}
-        <div className="bar-main">
-          <div className="bar-row title-row">
-            <Badge state={sessionState(meta)} />
-            <h1 className="chat-title">{meta.title}</h1>
-          </div>
-          <div className="bar-row tools-row">
-          <button className="model-btn" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('model'), body: <ModelSheet tabId={tabId} /> })}>
-            <span>{modelLabel(meta, models)}</span>
-            <Icon name="down" />
-          </button>
-          <span className="bar-spacer" />
-          {touch.wide && (
-            <>
-              <IconButton icon="files" className={touch.panel?.name === 'files' ? 'on' : undefined} label={t('folderFiles')} expanded={touch.panel?.name === 'files'} onClick={() => touch.togglePanel({ name: 'files', tabId })} />
-              <IconButton icon="note" className={touch.panel?.name === 'notes' ? 'on' : undefined} label={t('folderNotes')} expanded={touch.panel?.name === 'notes'} onClick={() => touch.togglePanel({ name: 'notes', tabId })} />
-            </>
-          )}
-          <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'rewind', tabId }))} />
-          <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />
-          </div>
+        <div className="chat-head">
+          <Badge state={sessionState(meta)} />
+          <h1 className="chat-title">{meta.title}</h1>
         </div>
+        {touch.wide && (
+          <>
+            <IconButton icon="files" className={touch.panel?.name === 'files' ? 'on' : undefined} label={t('folderFiles')} expanded={touch.panel?.name === 'files'} onClick={() => touch.togglePanel({ name: 'files', tabId })} />
+            <IconButton icon="note" className={touch.panel?.name === 'notes' ? 'on' : undefined} label={t('folderNotes')} expanded={touch.panel?.name === 'notes'} onClick={() => touch.togglePanel({ name: 'notes', tabId })} />
+          </>
+        )}
+        <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'rewind', tabId }))} />
+        <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />
       </header>
       <UpdateBar />
       <ConnectionBanner />
@@ -434,7 +423,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   )
 }
 
-// The session menu (⋯): where it runs and with what; File, Note, Torna indietro, model, effort,
+// The session menu (⋯): where it runs and with what; File, Note, Torna indietro, model and effort,
 // account, rename, fork, restart, the panels to come, close.
 function SessionMenu({ tabId }: { tabId: string }) {
   const { state, connection, go, openSheet, closeSheets, toast, fail } = useTouch()
@@ -444,8 +433,6 @@ function SessionMenu({ tabId }: { tabId: string }) {
   const notes = useQuery(() => (meta ? connection.request('notes.list', { cwd: meta.cwd }) : Promise.resolve(undefined)), [connection, meta?.cwd, state.notesVersion[meta?.cwd ?? '']])
   if (!meta) return null
   const busy = meta.status === 'running' || meta.status === 'starting' || meta.status === 'requires_action'
-  // No "Impegno" item for a model known to have no effort levels (unknown until a sheet asked: assume it has them).
-  const levels = models?.find((model) => model.value === (meta.model ?? 'default'))?.supportedEffortLevels
   const effort = currentEffort(meta, models)
   const stopped = meta.status === 'error'
   const fork = () =>
@@ -484,19 +471,11 @@ function SessionMenu({ tabId }: { tabId: string }) {
           </button>
         </li>
         <li>
-          <button onClick={() => openSheet({ title: t('model'), body: <ModelSheet tabId={tabId} /> })}>
-            {t('model')}
-            <span className="right">{modelLabel(meta, models)} ›</span>
+          <button onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
+            {t('modelAndEffort')}
+            <span className="right">{[modelLabel(meta, models), effort].filter(Boolean).join(' · ')} ›</span>
           </button>
         </li>
-        {!(models && !levels?.length) && (
-          <li>
-            <button onClick={() => openSheet({ title: t('modeTitle'), body: <ModeSheet tabId={tabId} /> })}>
-              {t('effort')}
-              <span className="right">{effort ?? t('defaultEffortModel')} ›</span>
-            </button>
-          </li>
-        )}
         <li>
           <button onClick={() => openSheet({ title: t('account'), body: <AccountPickSheet tabId={tabId} /> })}>
             {t('account')}

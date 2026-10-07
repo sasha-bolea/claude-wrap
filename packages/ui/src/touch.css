@@ -534,21 +534,10 @@ svg.ghost-thumb { width: 22px; height: 22px; color: var(--text-muted); }
 .composer textarea:focus-visible { outline: none; }
 .input-tools { display: flex; align-items: center; gap: 2px; padding: 0 4px 2px; }
 .input-tools .icon-btn { color: var(--text-muted); }
-.model-btn { min-width: 0; min-height: 44px; display: inline-flex; align-items: center; gap: 2px; border: 0; background: none; border-radius: 12px; padding: 0 8px; color: var(--text-muted); font-size: 14px; }
-.model-btn:active { background: var(--surface-2); }
-.model-btn span { text-align: left; line-height: 1.2; }
-.model-btn svg.i { width: 16px; height: 16px; flex: none; }
-/* Chat top bar: back on the left, centred on both rows; on its right a short row with the state and the chat's title
-   (plain text, cut with "…") over the model and, on the right, the tools. */
-.topbar.chat-bar { align-items: center; gap: 0; padding-top: calc(2px + env(safe-area-inset-top, 0px)); padding-bottom: 2px; }
-.chat-bar .bar-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.chat-bar .bar-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
-.chat-bar .title-row { gap: 6px; min-height: 22px; padding: 2px 8px 0; }
-.chat-bar .tools-row { min-height: 44px; }
-.chat-bar .bar-spacer { flex: 1; }
-.chat-bar .chat-title { flex: 1; min-width: 0; margin: 0; font-size: 14px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
-.chat-bar .model-btn { min-height: 44px; max-width: 50%; padding: 0 8px; font-size: 13px; }
-.chat-bar .model-btn span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* Chat top bar: one row, like the other screens' (52 px + safe area): back, the state and the chat's title (plain text,
+   cut with "…"), then the tools on the right. */
+.chat-bar .chat-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 0 8px; }
+.chat-bar .chat-title { flex: 1; min-width: 0; margin: 0; font-size: 15px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
 .input-tools .gauge-btn { margin-right: auto; }
 /* The composer's gauge: a ring filled to the highest of context, 5-hour and weekly use (no number beside it) */
 .gauge-btn { flex: none; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; border-radius: 12px; padding: 0; color: var(--text-muted); }

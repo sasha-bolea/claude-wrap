@@ -170,40 +170,52 @@ describe('PWA (fake SDK)', () => {
     await page.getByRole('button', { name: /^project project/ }).waitFor()
   })
 
-  it('the permission mode sheet and the photo picker of the composer work; + is first, the model sits under the title', async () => {
+  it('the permission mode sheet and the photo picker of the composer work; + is first, the brain (model and effort) follows the mode button, the top bar is one row', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
     const box = async (name: string | RegExp) => (await button(page, name).boundingBox())!
-    expect((await box('Attach photos or files')).x).toBeLessThan((await box('Permission mode: Ask for permissions')).x)
+    const plus = await box('Attach photos or files')
+    const modeBtn = await box('Permission mode: Ask for permissions')
+    const brain = await box(/^Model: /)
+    expect(plus.x).toBeLessThan(modeBtn.x)
+    expect(brain.x).toBeGreaterThan(modeBtn.x)
+    expect(Math.abs(brain.y - modeBtn.y)).toBeLessThan(2)
+    expect(await page.locator('.composer .input-tools .mode-btn + .model-tool').count()).toBe(1)
+    // The top bar is one row: back, title, rewind and ⋯ on the same line, with no model button.
     const title = (await page.locator('.chat-title').boundingBox())!
-    const model = await box(/^Model: /)
-    expect(model.y).toBeGreaterThanOrEqual(title.y + title.height - 1)
-    expect(model.x).toBeLessThan(title.x + title.width / 2)
-    // Back is centred on the bar's height, the title and the model on its right; the title is the chat's name only (no
-    // folder), plain text: tapping it opens nothing.
     const back = await box('Back')
+    const rewind = await box('Go back to one of your messages')
+    const more = await box('More actions')
     const bar = (await page.locator('.chat-screen .topbar').boundingBox())!
-    expect(Math.abs(back.y + back.height / 2 - (bar.y + bar.height / 2))).toBeLessThan(4)
+    expect(bar.height).toBeLessThan(60)
+    const mid = bar.y + bar.height / 2
+    for (const item of [back, title, rewind, more]) expect(Math.abs(item.y + item.height / 2 - mid)).toBeLessThan(4)
     expect(title.x).toBeGreaterThan(back.x + back.width - 1)
-    expect(model.x).toBeGreaterThan(back.x + back.width - 1)
+    expect(title.x + title.width).toBeLessThanOrEqual(rewind.x + 1)
+    expect(await page.locator('.topbar .model-btn').count()).toBe(0)
+    // The title is the chat's name only (no folder), plain text: tapping it opens nothing.
     expect(await page.locator('.chat-title').textContent()).not.toContain(' / ')
     expect(await page.locator('.chat-title').evaluate((el) => el.closest('button') === null)).toBe(true)
     await page.locator('.chat-title').click()
     expect(await page.getByRole('dialog').count()).toBe(0)
-    // The model sheet lists models only; the ⋯ menu has separate Model and Effort items; the effort is chosen in the mode sheet.
-    await page.locator('.topbar .model-btn').click()
-    const modelSheet = page.getByRole('dialog', { name: 'Model', exact: true })
+    // The brain opens the sheet with the models and, under them, the effort; the mode sheet has no effort.
+    await button(page, /^Model: /).click()
+    const modelSheet = page.getByRole('dialog', { name: 'Model and effort' })
     await modelSheet.getByText('Haiku').waitFor()
-    expect(await modelSheet.getByRole('radiogroup', { name: 'Effort' }).count()).toBe(0)
-    await page.keyboard.press('Escape')
-    await button(page, 'More actions').click()
-    const menu = page.getByRole('dialog').last()
-    await menu.getByRole('button', { name: /^Model/ }).waitFor()
-    await menu.getByRole('button', { name: /^Effort/ }).click()
-    const modeSheet = page.getByRole('dialog', { name: 'Permission mode' })
-    const effort = modeSheet.getByRole('radiogroup', { name: 'Effort' })
+    const effort = modelSheet.getByRole('radiogroup', { name: 'Effort' })
     await effort.getByRole('radio', { name: 'High', exact: true }).click()
     await expect.poll(() => effort.getByRole('radio', { name: 'High', exact: true }).isChecked()).toBe(true)
+    await page.keyboard.press('Escape')
+    // The ⋯ menu has one "Model and effort" item (model · effort on its right).
+    await button(page, 'More actions').click()
+    const menu = page.getByRole('dialog').last()
+    expect(await menu.getByRole('button', { name: /^Model and effort/ }).count()).toBe(1)
+    expect(await menu.getByRole('button', { name: /^Effort/ }).count()).toBe(0)
+    expect(await menu.getByRole('button', { name: /^Model and effort/ }).textContent()).toContain('high')
+    await page.keyboard.press('Escape')
+    await button(page, /^Permission mode/).click()
+    const modeSheet = page.getByRole('dialog', { name: 'Permission mode' })
+    expect(await modeSheet.getByRole('radiogroup', { name: 'Effort' }).count()).toBe(0)
     await modeSheet.getByRole('radio', { name: 'Plan' }).click()
     await page.keyboard.press('Escape')
     await button(page, 'Permission mode: Plan').waitFor()
@@ -897,16 +909,16 @@ describe('PWA (fake SDK)', () => {
     await page.locator('.col-right').getByRole('button', { name: 'New note' }).waitFor()
     await button(page, 'Folder notes').click()
     await page.locator('.col-right').waitFor({ state: 'detached' })
-    // Menus are popovers by their button: below one at the top (the model's too), above the composer's.
+    // Menus are popovers by their button: below one at the top, above the composer's (the model's too).
     await button(page, 'More actions').click()
     const menu = page.locator('.sheet.popover')
     const more = (await button(page, 'More actions').boundingBox())!
     expect((await menu.boundingBox())!.y).toBeGreaterThanOrEqual(more.y + more.height)
     await page.keyboard.press('Escape')
-    await page.locator('.topbar .model-btn').click()
-    await page.getByRole('dialog', { name: 'Model' }).getByText('Haiku').waitFor()
-    const model = (await page.locator('.model-btn').boundingBox())!
-    expect((await menu.boundingBox())!.y).toBeGreaterThanOrEqual(model.y + model.height)
+    await page.locator('.model-tool').click()
+    await page.getByRole('dialog', { name: 'Model and effort' }).getByText('Haiku').waitFor()
+    const model = (await page.locator('.model-tool').boundingBox())!
+    expect((await menu.boundingBox())!.y + (await menu.boundingBox())!.height).toBeLessThanOrEqual(model.y)
     await page.keyboard.press('Escape')
     await page.locator('.mode-btn').click()
     await page.getByRole('dialog', { name: 'Permission mode' }).waitFor()
@@ -947,7 +959,7 @@ describe('PWA (fake SDK)', () => {
     await field.fill('slow')
     await field.press('Enter')
     await page.locator('.working-line').waitFor()
-    await page.locator('.model-btn').click()
+    await page.locator('.model-tool').click()
     await page.locator('.sheet.popover').waitFor()
     await page.keyboard.press('Escape')
     await page.locator('.sheet.popover').waitFor({ state: 'detached' })
