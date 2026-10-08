@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 //   CLAUDE_WRAP_PUBLIC_URL      URL the clients use (required; the Tailscale Serve address, e.g. https://<host>.<tailnet>.ts.net:8443)
 //   CLAUDE_WRAP_PORT / _HOST    listen address (default 3012 on 127.0.0.1)
 //   CLAUDE_WRAP_STATE_DIR       state, devices, pairing codes (default ~/.local/state/claude-wrap)
+//   CLAUDE_WRAP_TERMINAL_SOCKET the athome command's socket (default <state dir>/terminal/athome.sock)
 //   CLAUDE_WRAP_TAILSCALE_LOGIN owner's Tailscale login; when set, requests without it are refused
 //   CLAUDE_WRAP_STATIC_DIR      PWA build to serve (default apps/mobile/dist)
 //   CLAUDE_WRAP_FAKE_SDK=1      scripted fake SDK (tests, zero quota)
@@ -17,9 +18,21 @@ export type ServerConfig = {
   port: number
   host: string
   stateDir: string
+  terminalSocket: string
   tailscaleLogin?: string
   staticDir: string
   fakeSdk: boolean
+}
+
+// The state folder from the environment (default ~/.local/state/claude-wrap).
+function stateDirOf(env: NodeJS.ProcessEnv): string {
+  return env.CLAUDE_WRAP_STATE_DIR ?? join(homedir(), '.local', 'state', 'claude-wrap')
+}
+
+// Where the terminal socket is: what the server listens on and the athome command connects to. Needs none of the
+// server's required settings (the command runs anywhere on the machine, e.g. from a Claude session's shell).
+export function terminalSocketPath(env: NodeJS.ProcessEnv = process.env): string {
+  return env.CLAUDE_WRAP_TERMINAL_SOCKET ?? join(stateDirOf(env), 'terminal', 'athome.sock')
 }
 
 // Reads the configuration; throws with a readable message when the root is missing.
@@ -31,7 +44,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     publicUrl: new URL(env.CLAUDE_WRAP_PUBLIC_URL),
     port: Number(env.CLAUDE_WRAP_PORT ?? 3012),
     host: env.CLAUDE_WRAP_HOST ?? '127.0.0.1',
-    stateDir: env.CLAUDE_WRAP_STATE_DIR ?? join(homedir(), '.local', 'state', 'claude-wrap'),
+    stateDir: stateDirOf(env),
+    terminalSocket: terminalSocketPath(env),
     tailscaleLogin: env.CLAUDE_WRAP_TAILSCALE_LOGIN || undefined,
     staticDir: env.CLAUDE_WRAP_STATIC_DIR ?? fileURLToPath(new URL('../../../apps/mobile/dist', import.meta.url)),
     fakeSdk: env.CLAUDE_WRAP_FAKE_SDK === '1'

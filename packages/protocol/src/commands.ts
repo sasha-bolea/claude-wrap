@@ -296,9 +296,11 @@ export const COMMANDS = {
   // widgets on); a widget's HTML.
   'widgets.list': { args: empty, result: z.object({ widgets: z.array(widgetInfoSchema), guideTokens: z.number().int() }) },
   'widgets.read': { args: z.object({ name: widgetNameSchema }), result: z.object({ html: z.string() }) },
-  // Runs an action of the action API (actions.ts) for a chat: tabId is the chat it comes from. Heavy actions wait for
-  // the user's answer to a confirmation opened in that chat (action_denied when refused or cancelled).
-  'actions.run': { args: z.object({ tabId, action: coreActionNameSchema, args: z.record(z.string(), z.unknown()), source: actionSourceSchema }), result: z.object({ value: z.unknown().optional() }) },
+  // Runs an action of the action API (actions.ts). tabId: the chat it comes from (a widget's; the AtHome session that
+  // ran the athome command); heavy actions wait for the user's answer to a confirmation opened there (action_denied
+  // when refused or cancelled). interactive: the athome command runs in a terminal a person types in (see the terminal
+  // policy in core actions.ts).
+  'actions.run': { args: z.object({ tabId: tabId.optional(), action: coreActionNameSchema, args: z.record(z.string(), z.unknown()), source: actionSourceSchema, interactive: z.boolean().optional() }), result: z.object({ value: z.unknown().optional() }) },
   // Claude Code's own settings (/config) of the user's settings file; a change is saved there and every live session
   // takes it at once. file: the settings file shown to the user.
   'settings.claudeCode': { args: empty, result: z.object({ values: claudeSettingsSchema, file: z.string() }) },

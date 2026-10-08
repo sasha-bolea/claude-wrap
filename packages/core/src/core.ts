@@ -1,5 +1,7 @@
 import { join } from 'node:path'
-import { LIMITS, PROTOCOL_VERSION, WORKSPACE_STREAM, clientFrameSchema, type Channel, type Cmd, type CoreFrame, type ErrorCode, type Hello, type Palette, type Welcome } from '@athome/protocol'
+import { LIMITS, PROTOCOL_VERSION, WORKSPACE_STREAM, clientFrameSchema, type Channel, type Cmd, type CommandName, type CoreFrame, type ErrorCode, type Hello, type Palette, type Welcome } from '@athome/protocol'
+import type { ActionLogEntry } from './actionLog.ts'
+import { TERMINAL_COMMANDS } from './actions.ts'
 import { createHandlers, execute, type Connection, type Handlers } from './commands.ts'
 import type { CoreConfig } from './config.ts'
 import { sweepOrphans } from './process.ts'
@@ -11,8 +13,9 @@ import { Workspace } from './workspace.ts'
 
 export type { CoreConfig, Notice, SdkApi } from './config.ts'
 
-// Who is on the other end of a channel, when the host knows (the remote server after token authentication).
-export type Identity = { deviceId: string; label: string }
+// Who is on the other end of a channel, when the host knows (the remote server after token authentication, or its
+// terminal socket: terminal, limited to the action API).
+export type Identity = { deviceId: string; label: string; terminal?: boolean }
 
 export interface Core {
   // Resolves once the state is loaded and a previous crash's orphans are swept; hello is answered only after.
@@ -22,6 +25,8 @@ export interface Core {
   closeAll(): Promise<void>
   // The saved colour palettes (the remote host shows them to a device being set up, before it is paired).
   palettes(): Promise<Palette[]>
+  // The log of the action API, oldest first.
+  actionLog(): Promise<ActionLogEntry[]>
 }
 
 type Runtime = { workspace: Workspace; handlers: Handlers }
@@ -49,6 +54,9 @@ export function createCore(config: CoreConfig): Core {
   // Runs a command once per (clientId, id): a retried id gets the first reply.
   function runCommand({ handlers }: Runtime, cmd: Cmd, connection: Connection): void {
     let reply = replies.get(connection.clientId, cmd.id)
+    if (!reply && connection.terminal && !TERMINAL_COMMANDS.has(cmd.name as CommandName)) {
+      reply = Promise.resolve({ t: 'reply', id: cmd.id, ok: false, error: { code: 'unauthorized', message: `the terminal cannot send ${cmd.name}` } })
+    }
     if (!reply) {
       reply = execute(handlers, cmd, connection)
       replies.set(connection.clientId, cmd.id, reply)
@@ -87,7 +95,7 @@ export function createCore(config: CoreConfig): Core {
         if (frame.protocolVersion !== PROTOCOL_VERSION) {
           return refuse('incompatible_protocol', `core speaks protocol ${PROTOCOL_VERSION}, client ${frame.protocolVersion}`)
         }
-        connection = { clientId: frame.clientId, send, label: identity?.label ?? frame.clientId, deviceId: identity?.deviceId, visible: frame.visible }
+        connection = { clientId: frame.clientId, send, label: identity?.label ?? frame.clientId, deviceId: identity?.deviceId, visible: frame.visible, ...(identity?.terminal ? { terminal: true } : {}) }
         greeted.add(connection)
         send(welcome)
         return void resumeStreams(started, frame, connection)
@@ -109,5 +117,6 @@ export function createCore(config: CoreConfig): Core {
   }
 
   const palettes = () => runtime.then(async ({ workspace }) => (await workspace.palettes.loaded, workspace.palettes.list()))
-  return { ready: runtime.then(() => undefined), attach, closeAll: () => runtime.then(({ workspace }) => workspace.closeAll()), palettes }
+  const actionLog = () => runtime.then(({ workspace }) => workspace.actionLog.list())
+  return { ready: runtime.then(() => undefined), attach, closeAll: () => runtime.then(({ workspace }) => workspace.closeAll()), palettes, actionLog }
 }

@@ -6,6 +6,7 @@ import { DeviceStore } from './devices.ts'
 import { PushService } from './push.ts'
 import { startServer, type RunningServer } from './server.ts'
 import { loadStaticFiles } from './staticFiles.ts'
+import { startTerminalSocket, type TerminalSocket } from './terminalSocket.ts'
 
 // Entry of the remote server (`npm run dev:server`, systemd unit in Phase 3d): one core confined to the root,
 // served over HTTP + WebSocket. SIGTERM closes every session first (the unit gives it 15 s).
@@ -41,9 +42,15 @@ async function main(): Promise<void> {
     socketOrigin: `wss://${config.publicUrl.host}`
   })
   console.log(`AtHome server on ${config.host}:${server.port}, root ${config.root}, ${devices.list().length} paired devices`)
+  // The athome command's way in; the app works without it, so a failure is only reported.
+  const terminal: TerminalSocket | undefined = await startTerminalSocket(config.terminalSocket, core.attach).then(
+    (started) => (console.log(`terminal socket on ${config.terminalSocket}`), started),
+    (error: unknown) => void console.log(`terminal socket not started: ${error instanceof Error ? error.message : String(error)}`)
+  )
 
   const stop = async () => {
     await core.closeAll()
+    await terminal?.close()
     await server?.close()
     process.exit(0)
   }

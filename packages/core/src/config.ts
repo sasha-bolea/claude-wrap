@@ -1,4 +1,5 @@
 import type { Options, ResolvedSettings, SDKSessionInfo, SessionMessage, SettingSource, query } from '@anthropic-ai/claude-agent-sdk'
+import type { TerminalPolicy } from './actions.ts'
 import type { BackendKind } from '@athome/protocol'
 import type { HostCommands } from './commands.ts'
 import type { RingLimits } from './stream.ts'
@@ -55,6 +56,8 @@ export interface CoreConfig {
   // trash in <stateDir>/trash, 7 days (remote server).
   trashItem?: (path: string) => Promise<void>
   maxLiveSessions?: number
+  // What the athome command may do, over the defaults (DEFAULT_TERMINAL_POLICY in actions.ts).
+  terminalPolicy?: Partial<TerminalPolicy>
   coalesceMs?: number
   snapshotItems?: number
   ring?: RingLimits

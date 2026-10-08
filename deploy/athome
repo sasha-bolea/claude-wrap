@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# `athome …`: use AtHome from a terminal (projects, sessions), over the server's terminal socket.
+set -euo pipefail
+if [ -f "$HOME/.config/claude-wrap/env" ]; then
+  set -a
+  . "$HOME/.config/claude-wrap/env"
+  set +a
+fi
+exec node /srv/apps/claude-wrap/current/packages/server/src/athome.ts "$@"

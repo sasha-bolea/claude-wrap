@@ -76,7 +76,7 @@ function readBody(req: IncomingMessage, max: number): Promise<string | undefined
 }
 
 // A WebSocket as a protocol Channel; deliver() hands core a frame read before it attached (the hello).
-function socketChannel(socket: WebSocket): { channel: Channel; deliver(frame: unknown): void } {
+export function socketChannel(socket: WebSocket): { channel: Channel; deliver(frame: unknown): void } {
   const listeners: ((frame: unknown) => void)[] = []
   const deliver = (frame: unknown) => listeners.forEach((listener) => listener(frame))
   socket.on('message', (data: RawData) => deliver(parseFrame(data)))

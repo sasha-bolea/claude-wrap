@@ -2,6 +2,8 @@ import { homedir } from 'node:os'
 import { basename, join, relative } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
 import { WORKSPACE_STREAM, tabStream, type ClaudeSettingChange, type ClaudeSettings, type Effort, type Home, type PermissionBehavior, type PermissionMode, type PlanLimits, type SettingsDestination, type WidgetInfo } from '@athome/protocol'
+import { ActionLog } from './actionLog.ts'
+import { DEFAULT_TERMINAL_POLICY, type TerminalPolicy } from './actions.ts'
 import { AccountStore } from './accounts.ts'
 import { ActivityFile } from './activity.ts'
 import type { CoreConfig, Notice, SdkApi } from './config.ts'
@@ -48,6 +50,8 @@ export class Workspace {
   readonly prompts: PromptHistory
   // Claude Code's config folder (its prompt history, the user settings file).
   readonly claudeDir: string
+  readonly terminalPolicy: TerminalPolicy
+  readonly actionLog: ActionLog
   readonly notes: NoteStore
   readonly accounts: AccountStore
   readonly palettes: PaletteStore
@@ -76,6 +80,8 @@ export class Workspace {
     this.trust = new TrustGate(store)
     this.allowedRoots = config.allowedRoots ?? 'any'
     this.claudeDir = config.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude')
+    this.terminalPolicy = { ...DEFAULT_TERMINAL_POLICY, ...config.terminalPolicy }
+    this.actionLog = new ActionLog(config.stateDir && join(config.stateDir, 'actions.jsonl'))
     this.prompts = new PromptHistory(config.stateDir && join(config.stateDir, 'history.jsonl'), join(this.claudeDir, 'history.jsonl'))
     this.notes = new NoteStore(config.stateDir && join(config.stateDir, 'notes.json'))
     this.stream = new Stream(

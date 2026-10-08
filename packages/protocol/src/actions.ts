@@ -18,8 +18,9 @@ export const ACTION_TEXT_MAX = 20_000
 // Screens a widget may open in its chat's session.
 export const ACTION_SCREENS = ['files', 'notes', 'settings', 'context', 'usage', 'status', 'mcp', 'hooks', 'permissions', 'memory'] as const
 
-// Who asked for an action.
-export const actionSourceSchema = z.enum(['widget'])
+// Who asked for an action: a chat widget (an app client, for its chat) or the athome command (the server's terminal
+// socket; core checks the connection really is that socket).
+export const actionSourceSchema = z.enum(['widget', 'terminal'])
 
 // Actions core runs, with their arguments. request.answer answers the chat's first open request (allow, with the
 // answers of a question, or deny).

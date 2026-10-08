@@ -14,7 +14,7 @@ import {
   type ResetFrame,
   type StreamPosition
 } from '@athome/protocol'
-import type { Core } from '../core.ts'
+import type { Core, Identity } from '../core.ts'
 
 // Protocol-level test client: speaks raw frames to a core and records everything it receives.
 export class RawClient {
@@ -24,8 +24,9 @@ export class RawClient {
   private listeners: (() => void)[] = []
   readonly clientId: string
 
-  // core: the core to attach to; clientId: identity sent in hello.
-  constructor(core: Core, clientId = 'client-a') {
+  // core: the core to attach to; clientId: identity sent in hello; identity: who the host says it is (e.g. the
+  // server's terminal socket).
+  constructor(core: Core, clientId = 'client-a', identity?: Identity) {
     this.clientId = clientId
     const [mine, coreEnd] = createChannelPair()
     this.channel = mine
@@ -34,7 +35,7 @@ export class RawClient {
       this.listeners.splice(0).forEach((listener) => listener())
     })
     mine.onClose(() => (this.closed = true))
-    core.attach(coreEnd)
+    core.attach(coreEnd, identity)
   }
 
   // Sends hello and waits for welcome. resume: stream positions to resume.

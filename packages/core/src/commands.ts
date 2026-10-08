@@ -17,7 +17,8 @@ const ALL_SESSIONS_LIMIT = 200
 // One attached client. label: how other clients see it (device name on the server, else the clientId);
 // deviceId: the paired device (remote only); visible: its page is on screen.
 // watching: the tab whose chat it shows on screen.
-export type Connection = { clientId: string; send: Send; label: string; deviceId?: string; visible: boolean; watching?: string }
+// terminal: the server's terminal socket (the athome command): it may send only TERMINAL_COMMANDS.
+export type Connection = { clientId: string; send: Send; label: string; deviceId?: string; visible: boolean; watching?: string; terminal?: boolean }
 type Handler<N extends CommandName> = (args: CommandArgs<N>, connection: Connection, cmdId: string) => Promise<CommandResult<N>> | CommandResult<N>
 export type Handlers = { [N in CommandName]: Handler<N> }
 // Commands the host implements itself (the remote server's device management).
@@ -187,7 +188,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'settings.setWidgets': async ({ on }) => (await workspace.setWidgets(on), {}),
     'widgets.list': () => workspace.listWidgets(),
     'widgets.read': async ({ name }) => ({ html: await readWidget(workspace.claudeDir, name) }),
-    'actions.run': async (args, connection) => ({ value: await runAction(workspace, args, connection.label) }),
+    'actions.run': async (args, connection) => ({ value: await runAction(workspace, args, connection) }),
     'settings.claudeCode': () => workspace.claudeSettings(),
     'settings.setClaudeCode': async ({ change }) => (await workspace.setClaudeSetting(change), {}),
     'tab.refreshGauges': async ({ tabId }) => (await workspace.refreshGauges(tabId), {}),

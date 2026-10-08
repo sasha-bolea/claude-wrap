@@ -8,7 +8,8 @@
     "./markIcon": "./src/markIcon.ts"
   },
   "bin": {
-    "claude-wrap": "./src/cli.ts"
+    "claude-wrap": "./src/cli.ts",
+    "athome": "./src/athome.ts"
   },
   "dependencies": {
     "@athome/core": "*",

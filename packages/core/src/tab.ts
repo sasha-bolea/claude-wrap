@@ -1033,8 +1033,9 @@ export class Tab {
     return {
       ...BASE_OPTIONS,
       ...this.env.sdkOptions,
-      // The session's name for the other sessions (ListAgents, SendMessage) is the tab's title.
-      env: { ...(this.env.sdkOptions.env ?? process.env), CLAUDE_CODE_SESSION_NAME: this.title, ...(token ? { CLAUDE_CODE_OAUTH_TOKEN: token } : {}) },
+      // The session's name for the other sessions (ListAgents, SendMessage) is the tab's title; CLAUDE_WRAP_TAB_ID
+      // tells the athome command run by Claude which chat to ask in.
+      env: { ...(this.env.sdkOptions.env ?? process.env), CLAUDE_CODE_SESSION_NAME: this.title, CLAUDE_WRAP_TAB_ID: this.tabId, ...(token ? { CLAUDE_CODE_OAUTH_TOKEN: token } : {}) },
       cwd: this.cwd,
       resume: this.sessionId,
       ...(this.resumeAt ? { resumeSessionAt: this.resumeAt } : {}),

@@ -138,3 +138,77 @@ describe('request.answer', () => {
     expect(await client.fails('actions.run', { tabId: 't1', action: 'request.answer', args: { decision: 'deny' }, source: 'widget' })).toMatchObject({ code: 'not_found' })
   })
 })
+
+describe('from the terminal (athome command)', () => {
+  let terminal: RawClient
+  beforeEach(async () => {
+    terminal = new RawClient(core, 'athome-cli', { deviceId: 'terminal', label: 'terminal', terminal: true })
+    await terminal.hello()
+  })
+  const fromTerminal = (action: string, args: object, extra: object = {}) => terminal.cmd('actions.run', { action, args, source: 'terminal', ...extra })
+
+  it('you at a terminal: a project and a session at once, no confirmation', async () => {
+    expect(await fromTerminal('project.create', { name: 'test' }, { interactive: true })).toMatchObject({ ok: true, result: { value: { path: join(root, 'test') } } })
+    const started = await fromTerminal('session.start', { folder: cwd, prompt: 'ciao' }, { interactive: true })
+    expect(started).toMatchObject({ ok: true })
+    await client.waitFor(() => fake.sessions.length === 1)
+    await fake.last().waitForInput(1)
+    expect(opened()).toHaveLength(0)
+  })
+
+  it('a Claude session of AtHome: the confirmation opens in its chat; the new session asks for permissions', async () => {
+    await client.ok('settings.setDefaultMode', { mode: 'acceptEdits' })
+    const reply = fromTerminal('session.start', { folder: cwd }, { tabId: 't1' })
+    const request = await confirmation()
+    expect(request.input).toMatchObject({ action: 'session.start', source: 'terminal' })
+    await client.ok('request.answer', { tabId: 't1', requestId: request.requestId, decision: 'allow' })
+    const answer = (await reply) as { ok: true; result: { value: { tabId: string } } }
+    expect(tabs().find((tab) => tab.tabId === answer.result.value.tabId)).toMatchObject({ mode: 'default' })
+  })
+
+  it("every session's process knows its chat, for the athome command Claude runs", async () => {
+    await client.ok('tab.send', { tabId: 't1', text: 'hello' })
+    await client.waitFor(() => fake.sessions.length === 1)
+    expect(fake.last().options.env).toMatchObject({ CLAUDE_WRAP_TAB_ID: 't1' })
+  })
+
+  it('any other program: refused', async () => {
+    expect(await fromTerminal('project.create', { name: 'test' })).toMatchObject({ ok: false, error: { code: 'action_denied' } })
+    expect(existsSync(join(root, 'test'))).toBe(false)
+  })
+
+  it('only what the policy lets through: no messages to open sessions, no answers', async () => {
+    expect(await fromTerminal('prompt.send', { text: 'x' }, { tabId: 't1', interactive: true })).toMatchObject({ ok: false, error: { code: 'action_denied' } })
+    expect(await fromTerminal('request.answer', { decision: 'deny' }, { tabId: 't1', interactive: true })).toMatchObject({ ok: false, error: { code: 'action_denied' } })
+  })
+
+  it('a terminal connection reaches only the action API and the folder list', async () => {
+    expect(await terminal.fails('tab.send', { tabId: 't1', text: 'x' })).toMatchObject({ code: 'unauthorized' })
+    expect(await terminal.fails('trust.grant', { cwd: root })).toMatchObject({ code: 'unauthorized' })
+    expect((await terminal.ok('folders.list', { path: root })).folders.map((folder) => folder.name)).toContain('demo')
+  })
+
+  it('the source must match the connection: a client of the app cannot claim to be the terminal, nor the terminal a widget', async () => {
+    expect(await client.fails('actions.run', { action: 'project.create', args: { name: 'x' }, source: 'terminal', interactive: true })).toMatchObject({ code: 'unauthorized' })
+    expect(await terminal.fails('actions.run', { tabId: 't1', action: 'prompt.send', args: { text: 'x' }, source: 'widget' })).toMatchObject({ code: 'unauthorized' })
+  })
+
+  it('at most sessionsPerHour new sessions an hour from the terminal', async () => {
+    const limited = createCore({ backendId: 'test', backendKind: 'remote', sdk: createFakeSdk(), allowedRoots: [root], terminalPolicy: { sessionsPerHour: 1 } })
+    const raw = new RawClient(limited, 'athome-cli', { deviceId: 'terminal', label: 'terminal', terminal: true })
+    await raw.hello()
+    const start = () => raw.cmd('actions.run', { action: 'session.start', args: { folder: cwd }, source: 'terminal', interactive: true })
+    expect(await start()).toMatchObject({ ok: true })
+    expect(await start()).toMatchObject({ ok: false, error: { code: 'limit_reached' } })
+    await limited.closeAll()
+  })
+
+  it('every action is in the log with its source and outcome', async () => {
+    await fromTerminal('project.create', { name: 'test' }, { interactive: true })
+    await fromTerminal('project.create', { name: 'other' })
+    expect((await core.actionLog()).map(({ action, source, outcome }) => ({ action, source, outcome }))).toEqual([
+      { action: 'project.create', source: 'terminal', outcome: 'done' },
+      { action: 'project.create', source: 'terminal', outcome: 'refused' }
+    ])
+  })
+})

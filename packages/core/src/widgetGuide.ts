@@ -50,7 +50,11 @@ or failed; one action at a time per widget.
 - athome.startSession(folder, prompt) * — opens a new session in that folder (absolute path), optionally sending a
   first prompt; the app moves to it; resolves with {tabId}.
 - athome.do(action, args) — the same actions by name: prompt.send, composer.insert, request.answer, open.file,
-  open.screen, project.create, session.start.`
+  open.screen, project.create, session.start.
+
+## Without a widget
+The \`athome\` shell command lists projects and sessions, creates projects and starts sessions (\`athome --help\`); run
+from here it asks the user to confirm in this chat and waits for the answer.`
 
 // The /creawidget command (~/.claude/commands/creawidget.md): makes a library widget together with the user.
 export const CREATE_COMMAND = `---

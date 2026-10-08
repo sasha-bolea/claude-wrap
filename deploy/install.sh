@@ -63,10 +63,11 @@ if [ "$WHEN_IDLE" = 1 ] && [ "$(working_sessions)" != 0 ]; then
   exit 0
 fi
 
-# First install: units, `claude-wrap` command, environment file to fill in.
+# First install: units, `claude-wrap` and `athome` commands, environment file to fill in.
 mkdir -p "$HOME/.config/systemd/user" "$HOME/.config/claude-wrap" "$HOME/.local/bin"
 cp "$RELEASE/deploy/claude-wrap.service" "$RELEASE/deploy/claude-wrap-update.service" "$RELEASE/deploy/claude-wrap-update.timer" "$HOME/.config/systemd/user/"
 cp "$RELEASE/deploy/claude-wrap" "$HOME/.local/bin/claude-wrap" && chmod 755 "$HOME/.local/bin/claude-wrap"
+cp "$RELEASE/deploy/athome" "$HOME/.local/bin/athome" && chmod 755 "$HOME/.local/bin/athome"
 if [ ! -f "$ENV_FILE" ]; then
   install -m 600 "$RELEASE/deploy/env.example" "$ENV_FILE"
   echo "Fill in $ENV_FILE, then run this script again."
