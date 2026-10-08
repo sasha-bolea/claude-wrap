@@ -371,8 +371,9 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('.input-box').evaluate((element) => getComputedStyle(element).borderTopLeftRadius)).toBe('0px')
     const jump = (await page.locator('.jump').boundingBox())!
     expect(label.x + label.width).toBeLessThan(jump.x)
-    // Back at the bottom: the line is in view again and the label goes.
+    // Back at the bottom: the line is in view again and the label goes, sliding back under the box first (no sudden cut).
     await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight))
+    await page.locator('.working-mini.leaving').waitFor()
     await mini.waitFor({ state: 'detached' })
     // The turn ends: both are gone.
     await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight - box.clientHeight - 600))

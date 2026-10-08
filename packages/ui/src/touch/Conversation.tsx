@@ -1,13 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { TabView } from '@athome/client'
 import type { Image, ImageRef, Item, Request, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { dataUrl } from '../images.ts'
-import { Markdown } from '../Markdown.tsx'
+import { Markdown, type FencedBlock } from '../Markdown.tsx'
 import type { Answer } from '../chatHooks.ts'
 import { ContinueCard, LimitCard } from './accounts.tsx'
 import { useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
+import { WidgetBlock } from './WidgetBlock.tsx'
+import { widgetSpec } from './widget.ts'
+import { useWidgetActions } from './widgetActions.ts'
 import { answeredQuestions, durationLabel } from './model.ts'
 
 type LoadImage = (imageId: string) => Promise<Image>
@@ -234,6 +237,21 @@ function entries(items: Item[]): Entry[] {
   return out
 }
 
+// A reply of Claude: markdown, with its widget blocks shown as widgets acting on this chat.
+function AssistantText({ tabId, text }: { tabId: string; text: string }) {
+  const { capabilities } = useTouch()
+  const onAction = useWidgetActions(tabId)
+  const renderBlock = useCallback(({ className, body, closed }: FencedBlock) => {
+    const spec = widgetSpec(className, body)
+    return spec && <WidgetBlock spec={spec} closed={closed} onAction={onAction} />
+  }, [onAction])
+  return (
+    <div className="msg-ai">
+      <Markdown text={text} openExternal={capabilities.openExternal} renderBlock={renderBlock} />
+    </div>
+  )
+}
+
 // A message another Claude session sent here: its sender on top ("Da un'altra sessione" when it gave no name), its
 // text as markdown like Claude's (never as HTML).
 function PeerMessage({ item }: { item: PeerItem }) {
@@ -250,17 +268,13 @@ function PeerMessage({ item }: { item: PeerItem }) {
 }
 
 // One transcript item, as the prototype shows it.
-function ItemView({ item, readAt, loadImage, onActions, onSendNow, onUnsend }: { item: Item; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown>; onUnsend: (item: UserItem) => Promise<unknown> }) {
+function ItemView({ tabId, item, readAt, loadImage, onActions, onSendNow, onUnsend }: { tabId: string; item: Item; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown>; onUnsend: (item: UserItem) => Promise<unknown> }) {
   const { capabilities } = useTouch()
   switch (item.kind) {
     case 'user':
       return <UserMessage item={item} readAt={readAt} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} onUnsend={onUnsend} />
     case 'assistantText':
-      return (
-        <div className="msg-ai">
-          <Markdown text={item.text} openExternal={capabilities.openExternal} />
-        </div>
-      )
+      return <AssistantText tabId={tabId} text={item.text} />
     case 'thinking':
       return (
         <details className="think">
@@ -343,10 +357,29 @@ function WorkingLine({ since, lineRef }: { since?: number; lineRef?: React.Ref<H
 }
 
 // The working line's mini label while the line is out of view: only the dot and the time, the words for screen readers.
-export function WorkingMini({ since }: { since?: number }) {
+// show: the line is out of view during a turn; when it turns false the label stays a moment (.leaving) to slide back
+// under the box, with its last time, then unmounts. since: when the turn started. Returns null once gone.
+export function WorkingMini({ show, since }: { show: boolean; since?: number }) {
+  const [shown, setShown] = useState(show)
+  const [lastSince, setLastSince] = useState(since)
+  if (show && !shown) setShown(true)
+  if (show && since !== undefined && since !== lastSince) setLastSince(since)
+  useEffect(() => {
+    if (show || !shown) return
+    const timer = setTimeout(() => setShown(false), LEAVE_MS)
+    return () => clearTimeout(timer)
+  }, [show, shown])
+  return shown ? <MiniLabel since={lastSince} leaving={!show} /> : null
+}
+
+// How long the mini label takes to slide back under the box (as mini-in in touch.css).
+const LEAVE_MS = 220
+
+// The mini label itself. since: when the turn started; leaving: it is sliding back under the box.
+function MiniLabel({ since, leaving }: { since?: number; leaving: boolean }) {
   const { time, text } = useWorkingText(since)
   return (
-    <div className="working-mini" role="img" aria-label={text}>
+    <div className={leaving ? 'working-mini leaving' : 'working-mini'} role="img" aria-label={text}>
       <span className="badge working" />
       {time && <span aria-hidden="true">{time}</span>}
     </div>
@@ -365,7 +398,7 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
     <>
       {entries(items).map((entry) =>
         'item' in entry ? (
-          <ItemView key={entry.item.itemId} item={entry.item} readAt={readAt[entry.item.itemId]} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} onUnsend={onUnsend} />
+          <ItemView key={entry.item.itemId} tabId={meta.tabId} item={entry.item} readAt={readAt[entry.item.itemId]} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} onUnsend={onUnsend} />
         ) : entry.tools.length === 1 ? (
           <ToolCard key={entry.tools[0]!.itemId} item={entry.tools[0]!} />
         ) : (

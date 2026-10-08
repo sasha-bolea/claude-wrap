@@ -417,7 +417,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
         )}
       </div>
       <div className="dock" ref={dock}>
-        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} onFocusField={() => (setFollow(true), settleBottom())} tab={running && lineOut ? <WorkingMini since={meta.status === 'running' ? meta.workingSince : undefined} /> : undefined} />
+        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} onFocusField={() => (setFollow(true), settleBottom())} tab={<WorkingMini show={running && lineOut} since={meta.status === 'running' ? meta.workingSince : undefined} />} />
       </div>
     </section>
   )

@@ -186,6 +186,11 @@ input, textarea, select { font-size: 16px; }
 .msg-ai pre code, .msg-peer pre code { background: none; padding: 0; }
 /* A code block of the markdown with its copy button in the top right corner (the text keeps clear of it). */
 .code-block { position: relative; }
+/* Chat widgets (WidgetBlock.tsx): the frame takes the height its content reports (--widget-height), transparent on
+   the reply; a dashed placeholder while the block streams; a muted line when it cannot be shown. */
+.widget-frame { display: block; width: 100%; height: var(--widget-height, 44px); margin: 6px 0; border: 0; background: transparent; color-scheme: inherit; }
+.widget-pending { margin: 6px 0; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-muted); font-size: 13px; }
+.widget-error { margin: 6px 0; color: var(--text-muted); font-size: 13px; }
 .code-block > pre { padding-right: 40px; }
 .copy-code { position: absolute; top: 2px; right: 2px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: none; color: var(--text-muted); }
 .copy-code .i { width: 18px; height: 18px; }
@@ -236,9 +241,12 @@ details.tool > summary::-webkit-details-marker, details.think > summary::-webkit
 /* While it shows, the box's top left corner is square: the tab's left side runs straight on into the box's left edge. */
 /* The corner rounds back softly when the tab goes (and squares as it slides out). */
 .input-box { transition: border-top-left-radius .3s ease-out; }
-.input-box:has(> .working-mini) { border-top-left-radius: 0; }
+.input-box:has(> .working-mini:not(.leaving)) { border-top-left-radius: 0; }
 /* It comes out from under the box (behind it while it slides: z-index -1), then sits on its border. */
 @keyframes mini-out { from { transform: translateY(100%); z-index: -1; } to { z-index: -1; } }
+/* When it goes it slides back under the box the same way (mini-in, 220 ms as LEAVE_MS in Conversation.tsx). */
+.working-mini.leaving { animation: mini-in .22s ease-in forwards; }
+@keyframes mini-in { from { z-index: -1; } to { transform: translateY(100%); z-index: -1; } }
 .msg-ai table, .msg-peer table { border-collapse: collapse; font-size: 13px; margin: 6px 0; width: 100%; table-layout: fixed; }
 .msg-ai th, .msg-ai td, .msg-peer th, .msg-peer td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; vertical-align: top; }
 .msg-ai th, .msg-peer th { background: var(--surface-2); }
