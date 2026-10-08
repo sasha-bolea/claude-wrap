@@ -93,7 +93,7 @@ export function useSessionSub(tabId: string): string {
 // Settings → a per-session panel: the open sessions, most recently used first (title and folder); a tap opens the
 // panel for that session. With none open, says how to start one.
 // Parameters: the panel to open (without its tabId). Returns the sheet body.
-export function SessionPickSheet({ panel }: { panel: 'mcp' | 'hooks' | 'status' }) {
+export function SessionPickSheet({ panel }: { panel: 'mcp' | 'hooks' | 'permissions' | 'status' }) {
   const { state, go } = useTouch()
   const tabs = recentFirst(state.tabs)
   if (!tabs.length) return <p className="muted flat">{t('pickNoSession')}</p>

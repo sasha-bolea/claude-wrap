@@ -10,7 +10,6 @@ const COMMANDS: Partial<Record<LaterKey, string>> = {
   todo: '/todos',
   diff: '/diff',
   config: '/config',
-  permissions: '/permissions',
   memory: '/memory',
   skills: '/skills',
   agents: '/agents',

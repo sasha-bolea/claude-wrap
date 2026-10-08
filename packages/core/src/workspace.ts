@@ -1,7 +1,7 @@
 import { homedir } from 'node:os'
 import { basename, join, relative } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
-import { WORKSPACE_STREAM, tabStream, type Effort, type Home, type PermissionMode, type PlanLimits } from '@athome/protocol'
+import { WORKSPACE_STREAM, tabStream, type Effort, type Home, type PermissionBehavior, type PermissionMode, type PlanLimits, type SettingsDestination } from '@athome/protocol'
 import { AccountStore } from './accounts.ts'
 import { ActivityFile } from './activity.ts'
 import type { CoreConfig, Notice, SdkApi } from './config.ts'
@@ -10,6 +10,7 @@ import { NoteStore } from './notes.ts'
 import { PaletteStore } from './palettes.ts'
 import { waitForCleanups } from './process.ts'
 import { PromptHistory } from './promptHistory.ts'
+import { changeDirectory, changeRule, settingsPath } from './settingsFiles.ts'
 import type { PersistedState, StateStore } from './state.ts'
 import { DEFAULT_RING, Stream } from './stream.ts'
 import { MAX_AUTO_TITLE, Tab, type TabEnvironment, type TabInit } from './tab.ts'
@@ -41,6 +42,8 @@ export class Workspace {
   readonly trust: TrustGate
   readonly sdk: SdkApi
   readonly prompts: PromptHistory
+  // Claude Code's config folder (its prompt history, the user settings file).
+  readonly claudeDir: string
   readonly notes: NoteStore
   readonly accounts: AccountStore
   readonly palettes: PaletteStore
@@ -68,8 +71,8 @@ export class Workspace {
     this.sdk = { ...claudeSdk, ...config.sdk }
     this.trust = new TrustGate(store)
     this.allowedRoots = config.allowedRoots ?? 'any'
-    const claudeDir = config.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude')
-    this.prompts = new PromptHistory(config.stateDir && join(config.stateDir, 'history.jsonl'), join(claudeDir, 'history.jsonl'))
+    this.claudeDir = config.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude')
+    this.prompts = new PromptHistory(config.stateDir && join(config.stateDir, 'history.jsonl'), join(this.claudeDir, 'history.jsonl'))
     this.notes = new NoteStore(config.stateDir && join(config.stateDir, 'notes.json'))
     this.stream = new Stream(
       WORKSPACE_STREAM,
@@ -292,6 +295,27 @@ export class Workspace {
   limitedUntil(account: string | undefined): number | undefined {
     const limit = this.limits.get(account ?? '')
     return limit && limit.until > Date.now() ? limit.until : undefined
+  }
+
+  // Adds or removes a permission rule in a settings file of a tab's folder (or the user's), then every live session
+  // takes the files again.
+  async changePermissionRule(tabId: string, op: 'add' | 'remove', behavior: PermissionBehavior, rule: string, destination: SettingsDestination): Promise<void> {
+    const cwd = await this.tabOf(tabId).settingsFolder()
+    await changeRule(settingsPath(destination, cwd, this.claudeDir), op, behavior, rule)
+    await this.reloadSettings()
+  }
+
+  // Adds or removes an extra working folder in a settings file of a tab's folder (or the user's), then every live
+  // session takes the files again.
+  async changePermissionDirectory(tabId: string, op: 'add' | 'remove', path: string, destination: SettingsDestination): Promise<void> {
+    const cwd = await this.tabOf(tabId).settingsFolder()
+    await changeDirectory(op, path, destination, cwd, this.claudeDir)
+    await this.reloadSettings()
+  }
+
+  // Every live session reads the settings files again (dormant ones read them at their next start).
+  private async reloadSettings(): Promise<void> {
+    await Promise.all([...this.tabs.values()].map((tab) => tab.reloadSettings()))
   }
 
   // Claude Code's auto-compact window for every session (undefined: Claude Code's own setting): saved, announced,

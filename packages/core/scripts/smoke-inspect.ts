@@ -1,10 +1,11 @@
-// The inspect commands on the real CLI (`npm run smoke:inspect`; no message is sent, zero tokens): tab.status,
-// tab.mcp, tab.mcpToggle / mcpReconnect, tab.mcpAuth / mcpAuthCallback / mcpClearAuth and tab.hooks answer and pass
-// the protocol. Runs in a temp folder with a project .mcp.json (a tiny stdio MCP server and an http server behind a
-// fake OAuth endpoint) and a SessionStart hook. The runtime-only SDK calls (getStatus, getHooksListing) are also
-// printed raw, to compare with what inspect.ts maps. The only change outside the temp folder is the CLI's own
-// toggle in ~/.claude.json (projects[<temp folder>]), toggled back at the end. Runs directly on Node 24.
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+// The inspect commands on the real CLI (`npm run smoke:inspect`; no message is sent, zero tokens): tab.status, tab.mcp,
+// tab.mcpToggle / mcpReconnect, tab.mcpAuth / mcpAuthCallback / mcpClearAuth, tab.hooks and tab.permissions (rules and
+// folders added to and removed from the temp folder's settings files) answer and pass the protocol. Runs in a temp
+// folder with a project .mcp.json (a tiny stdio MCP server and an http server behind a fake OAuth endpoint) and a
+// SessionStart hook. The runtime-only SDK calls (getStatus, getHooksListing) are also printed raw, to compare with what
+// inspect.ts maps. The only change outside the temp folder is the CLI's own toggle in ~/.claude.json (projects[<temp
+// folder>]), toggled back at the end. Runs directly on Node 24.
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { homedir, tmpdir } from 'node:os'
@@ -216,7 +217,34 @@ async function main(): Promise<void> {
     for (const run of hooks.runs) show('  run', { event: run.event, name: run.name, outcome: run.outcome, exitCode: run.exitCode, stdout: run.stdout })
     check(hooks.runs.some((run) => run.event === 'SessionStart' && run.stdout?.includes('hello-hook')), 'the SessionStart hook_response arrived with hello-hook')
 
-    console.log('\n== 7. raw answers')
+    console.log('\n== 7. tab.permissions / permissionRule / permissionDirectory (temp folder files only)')
+    const rulesOf = async () => (await connection.request('tab.permissions', { tabId: TAB_ID })).rules
+    let permissions = await connection.request('tab.permissions', { tabId: TAB_ID })
+    show('permissions', permissions)
+    check(permissions.cwd === realpathSync(cwd), 'permissions cwd is the session folder')
+    await connection.request('tab.permissionRule', { tabId: TAB_ID, op: 'add', behavior: 'allow', rule: 'Bash(git status:*)', destination: 'localSettings' })
+    await connection.request('tab.permissionRule', { tabId: TAB_ID, op: 'add', behavior: 'deny', rule: 'Read(./secret.txt)', destination: 'projectSettings' })
+    const added = await rulesOf()
+    show('  rules after add', added)
+    const allowed = added.find((rule) => rule.rule === 'Bash(git status:*)')
+    check(allowed?.behavior === 'allow' && allowed.source === 'localSettings' && allowed.editable === 'persistent', 'the live session lists the added local allow rule at once')
+    check(Boolean(allowed?.description?.prefix), 'the added rule has the CLI plain-language reading')
+    check(added.some((rule) => rule.behavior === 'deny' && rule.source === 'projectSettings' && rule.rule === 'Read(./secret.txt)'), 'the live session lists the added project deny rule')
+    const project = JSON.parse(readFileSync(join(cwd, '.claude', 'settings.json'), 'utf8')) as Record<string, unknown>
+    check(Boolean(project.hooks), 'the project settings file keeps its hooks')
+    mkdirSync(join(cwd, 'extra'))
+    await connection.request('tab.permissionDirectory', { tabId: TAB_ID, op: 'add', path: 'extra', destination: 'localSettings' })
+    permissions = await connection.request('tab.permissions', { tabId: TAB_ID })
+    show('  directories after add', permissions.directories)
+    check(permissions.directories.some((folder) => folder.path === join(realpathSync(cwd), 'extra')), 'the live session lists the added folder')
+    await connection.request('tab.permissionRule', { tabId: TAB_ID, op: 'remove', behavior: 'allow', rule: 'Bash(git status:*)', destination: 'localSettings' })
+    await connection.request('tab.permissionRule', { tabId: TAB_ID, op: 'remove', behavior: 'deny', rule: 'Read(./secret.txt)', destination: 'projectSettings' })
+    await connection.request('tab.permissionDirectory', { tabId: TAB_ID, op: 'remove', path: join(realpathSync(cwd), 'extra'), destination: 'localSettings' })
+    permissions = await connection.request('tab.permissions', { tabId: TAB_ID })
+    check(!permissions.rules.some((rule) => rule.rule === 'Bash(git status:*)' || rule.rule === 'Read(./secret.txt)'), 'the removed rules are gone from the live session')
+    check(!permissions.directories.some((folder) => folder.path.endsWith('/extra')), 'the removed folder is gone from the live session')
+
+    console.log('\n== 8. raw answers')
     const rawStatus = (await raw.getStatus().catch((error: unknown) => ({ failed: String(error) }))) as Record<string, unknown>
     console.log(`  getStatus top-level keys: ${Object.keys(rawStatus).join(',')}`)
     const rawSections = rawStatus.sections as { rows?: unknown[] }[] | undefined

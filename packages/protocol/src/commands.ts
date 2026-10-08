@@ -55,11 +55,36 @@ export const hooksSchema = z.object({
   }),
   runs: z.array(hookRunSchema)
 })
+// /permissions: the session's live rules (settings files, session approvals, flags, policy) with their source and the
+// CLI's plain-language reading, plus the extra working folders. editable: persistent = saved in a settings file (core
+// can remove it), session = in memory for this session only, readonly = policy or flag.
+export const PERMISSION_BEHAVIORS = ['allow', 'ask', 'deny'] as const
+export const SETTINGS_DESTINATIONS = ['localSettings', 'projectSettings', 'userSettings'] as const
+const permissionBehavior = z.enum(PERMISSION_BEHAVIORS)
+const settingsDestination = z.enum(SETTINGS_DESTINATIONS)
+export const permissionRuleSchema = z.object({
+  behavior: permissionBehavior,
+  source: z.string().max(INSPECT_LIMITS.name),
+  rule: shortText,
+  description: z.object({ prefix: shortText, emphasis: shortText.optional(), suffix: shortText.optional() }).optional(),
+  editable: z.enum(['persistent', 'session', 'readonly']),
+  notInEffect: z.boolean().optional()
+})
+export const permissionsSchema = z.object({
+  rules: z.array(permissionRuleSchema),
+  directories: z.array(z.object({ path: shortText, source: z.string().max(INSPECT_LIMITS.name) })),
+  cwd: shortText,
+  managedOnly: z.boolean()
+})
 export type Status = z.infer<typeof statusSchema>
 export type McpServer = z.infer<typeof mcpServerSchema>
 export type HookEntry = z.infer<typeof hookEntrySchema>
 export type HookRun = z.infer<typeof hookRunSchema>
 export type Hooks = z.infer<typeof hooksSchema>
+export type PermissionRule = z.infer<typeof permissionRuleSchema>
+export type Permissions = z.infer<typeof permissionsSchema>
+export type PermissionBehavior = (typeof PERMISSION_BEHAVIORS)[number]
+export type SettingsDestination = (typeof SETTINGS_DESTINATIONS)[number]
 
 // supportedEffortLevels: the effort levels the model offers (none: no effort selector).
 export const modelInfoSchema = z.looseObject({
@@ -190,6 +215,12 @@ export const COMMANDS = {
   'tab.mcpAuthCallback': { args: z.object({ tabId, name: serverName, url: z.string().max(INSPECT_LIMITS.url) }), result: empty },
   'tab.mcpClearAuth': { args: z.object({ tabId, name: serverName }), result: empty },
   'tab.hooks': { args: z.object({ tabId }), result: hooksSchema },
+  // /permissions. permissionRule / permissionDirectory add to or remove from one settings file (local = this folder,
+  // only for you; project = this folder, checked in; user = every folder), then every live session takes the files
+  // again. Removing looks for the exact stored text; adding something already there changes nothing.
+  'tab.permissions': { args: z.object({ tabId }), result: permissionsSchema },
+  'tab.permissionRule': { args: z.object({ tabId, op: z.enum(['add', 'remove']), behavior: permissionBehavior, rule: shortText.min(1), destination: settingsDestination }), result: empty },
+  'tab.permissionDirectory': { args: z.object({ tabId, op: z.enum(['add', 'remove']), path: shortText.min(1), destination: settingsDestination }), result: empty },
   // Points where a conversation can be rewound to: a message and its text summary.
   'tab.rewindPoints': { args: z.object({ tabId }), result: z.object({ points: z.array(z.object({ itemId: z.string(), text: z.string(), images: z.number().optional() })) }) },
   // Preview of what a rewind would do: whether it's possible and what files would change.

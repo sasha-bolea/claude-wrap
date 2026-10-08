@@ -15,6 +15,7 @@ import { LaterScreen } from './LaterScreen.tsx'
 import { RewindScreen } from './RewindScreen.tsx'
 import { ContextScreen, UsageScreen } from './UsageScreens.tsx'
 import { HooksScreen } from './HooksScreen.tsx'
+import { PermissionsScreen } from './PermissionsScreen.tsx'
 import { McpScreen } from './McpScreen.tsx'
 import { StatusScreen } from './StatusScreen.tsx'
 import { NoteScreen, NotesScreen } from './NotesScreen.tsx'
@@ -45,7 +46,7 @@ function regionOf(screen: Screen): Region {
   }
 }
 // The right panel's first screens (opened from the chat's top bar or its menu); the others go on top of one.
-const PANEL_ROOTS = new Set<Screen['name']>(['files', 'notes', 'terminal', 'later', 'context', 'usage', 'status', 'mcp', 'hooks', 'rewind'])
+const PANEL_ROOTS = new Set<Screen['name']>(['files', 'notes', 'terminal', 'later', 'context', 'usage', 'status', 'mcp', 'hooks', 'permissions', 'rewind'])
 // Width from which the wide arrangement is used.
 const WIDE_QUERY = '(min-width: 1024px)'
 
@@ -108,6 +109,8 @@ function ScreenView({ screen }: { screen: Screen }): ReactNode {
       return <McpScreen tabId={screen.tabId} />
     case 'hooks':
       return <HooksScreen tabId={screen.tabId} />
+    case 'permissions':
+      return <PermissionsScreen tabId={screen.tabId} />
     case 'rewind':
       return <RewindScreen tabId={screen.tabId} itemId={screen.itemId} />
   }

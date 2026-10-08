@@ -495,7 +495,7 @@ function SessionMenu({ tabId }: { tabId: string }) {
         )}
       </ul>
       <ul className="menu">
-        {(['context', 'usage', 'status', 'mcp', 'hooks'] as const).map((name) => (
+        {(['context', 'usage', 'status', 'mcp', 'hooks', 'permissions'] as const).map((name) => (
           <li key={name}>
             <button onClick={() => go({ name, tabId })}>
               {t(`later_${name}`)}

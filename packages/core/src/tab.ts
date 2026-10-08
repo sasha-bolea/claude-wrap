@@ -19,13 +19,14 @@ import {
   type TabStatus,
   type Hooks,
   type McpServer,
+  type Permissions,
   type Status,
   type Usage
 } from '@athome/protocol'
 import type { Notice, SdkApi } from './config.ts'
 import { CoreError, messageOf } from './errors.ts'
 import { suggestFiles } from './fileSuggestions.ts'
-import { HookRuns, clearMcpAuth, readHookListing, readMcp, readStatus, startMcpAuth, submitMcpCallback, type InitInfo } from './inspect.ts'
+import { HookRuns, clearMcpAuth, readHookListing, readMcp, readPermissions, readStatus, startMcpAuth, submitMcpCallback, type InitInfo } from './inspect.ts'
 import { Normalizer, peerOf, storedPeer } from './normalize.ts'
 import { runShell } from './process.ts'
 import { Requests, modeSetBy, type Answer } from './requests.ts'
@@ -809,6 +810,24 @@ export class Tab {
     const session = await this.ensureSession()
     const listing = await readHookListing(session.query).catch((error: unknown) => this.sdkFailure('Hooks failed', error))
     return { listing, runs: this.hookRuns.list() }
+  }
+
+  // The session's permission rules and extra working folders (live session, else starts the process).
+  async permissions(): Promise<Permissions> {
+    const session = await this.ensureSession()
+    return readPermissions(session.query).catch((error: unknown) => this.sdkFailure('Permissions failed', error))
+  }
+
+  // The folder whose settings files the session reads: the canonical cwd, after the trust gate (starts the process).
+  async settingsFolder(): Promise<string> {
+    await this.ensureSession()
+    return this.cwd
+  }
+
+  // A settings file changed: a live process takes the files again (an empty applyFlagSettings makes the CLI reload
+  // every settings source; it does not watch them, checked on 2.1.287). A dormant tab reads them at its next start.
+  async reloadSettings(): Promise<void> {
+    await this.session?.query.applyFlagSettings({}).catch(() => undefined)
   }
 
   // The auto-compact window changed in the app. The CLI reads it only at spawn (a live applyFlagSettings does not

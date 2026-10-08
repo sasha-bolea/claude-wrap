@@ -1,10 +1,11 @@
 import type { Query, ResolvedSettings, SDKMessage } from '@anthropic-ai/claude-agent-sdk'
-import { INSPECT_LIMITS, type HookEntry, type HookRun, type Hooks, type McpServer, type Status } from '@athome/protocol'
+import { INSPECT_LIMITS, PERMISSION_BEHAVIORS, type HookEntry, type HookRun, type Hooks, type McpServer, type PermissionRule, type Permissions, type Status } from '@athome/protocol'
 import { CoreError, messageOf } from './errors.ts'
 
-// Data for the Status / MCP servers / Hooks panels. Typed SDK methods are used as they are; the runtime-only ones
-// (getStatus, getHooksListing, mcpAuthenticate, mcpSubmitOAuthCallbackUrl, mcpClearAuth: present in sdk.mjs, missing
-// from sdk.d.ts) stay behind the casts in this file and are covered by the zero-token probe.
+// Data for the Status / MCP servers / Hooks / Permissions panels. Typed SDK methods are used as they are; the
+// runtime-only ones (getStatus, getHooksListing, mcpAuthenticate, mcpSubmitOAuthCallbackUrl, mcpClearAuth,
+// listPermissionRules: present in sdk.mjs, missing from sdk.d.ts) stay behind the casts in this file and are covered by
+// the zero-token smoke.
 
 // The Query methods the SDK ships without types.
 type RuntimeMethods = {
@@ -13,6 +14,7 @@ type RuntimeMethods = {
   mcpAuthenticate(name: string, redirectUri?: string): Promise<unknown>
   mcpSubmitOAuthCallbackUrl(name: string, url: string): Promise<unknown>
   mcpClearAuth(name: string): Promise<unknown>
+  listPermissionRules(): Promise<unknown>
 }
 
 // What the init message told, for the status panel when the CLI cannot report it (see readStatus).
@@ -170,6 +172,36 @@ export async function readHookListing(query: Query): Promise<Hooks['listing']> {
     hooks,
     ...(policy ? { policy: { allDisabled: policy.allDisabled === true, managedOnly: policy.managedOnly === true, disabledByPolicy: policy.disabledByPolicy === true, pluginOnly: policy.pluginOnly === true } } : {}),
     ...(safeMode ? { safeMode: typeof safeMode.exitHint === 'string' ? { exitHint: cap(safeMode.exitHint, INSPECT_LIMITS.text) } : {} } : {})
+  }
+}
+
+// One rule of a list_permission_rules answer as the panel shows it; an unknown behavior or editability drops the rule.
+function toRule(entry: Record<string, unknown>): PermissionRule | undefined {
+  const { behavior, editability, description } = entry
+  if (!PERMISSION_BEHAVIORS.includes(behavior as PermissionRule['behavior'])) return undefined
+  if (editability !== 'persistent' && editability !== 'session' && editability !== 'readonly') return undefined
+  const words = description && typeof description === 'object' ? (description as Record<string, unknown>) : undefined
+  return {
+    behavior: behavior as PermissionRule['behavior'],
+    source: cap(textOf(entry.source), INSPECT_LIMITS.name),
+    rule: cap(textOf(entry.rule), INSPECT_LIMITS.text),
+    ...(words ? { description: { prefix: cap(textOf(words.prefix), INSPECT_LIMITS.text), ...(words.emphasis ? { emphasis: cap(textOf(words.emphasis), INSPECT_LIMITS.text) } : {}), ...(words.suffix ? { suffix: cap(textOf(words.suffix), INSPECT_LIMITS.text) } : {}) } } : {}),
+    editable: editability,
+    ...(entry.notInEffect === true ? { notInEffect: true } : {})
+  }
+}
+
+// The session's live permission rules and extra working folders (as /permissions lists them).
+export async function readPermissions(query: Query): Promise<Permissions> {
+  const answer = (await runtime(query, 'listPermissionRules')) as { state?: Record<string, unknown> } | null
+  const state = answer?.state
+  if (!state || !Array.isArray(state.rules)) throw new Error('list_permission_rules answered without rules')
+  const folders = Array.isArray(state.workspaceDirectories) ? (state.workspaceDirectories as Record<string, unknown>[]) : []
+  return {
+    rules: state.rules.map((entry) => (entry && typeof entry === 'object' ? toRule(entry as Record<string, unknown>) : undefined)).filter((rule): rule is PermissionRule => rule !== undefined),
+    directories: folders.map((folder) => ({ path: cap(textOf(folder.path), INSPECT_LIMITS.text), source: cap(textOf(folder.source), INSPECT_LIMITS.name) })),
+    cwd: cap(textOf(state.originalCwd), INSPECT_LIMITS.text),
+    managedOnly: state.managedOnly === true
   }
 }
 

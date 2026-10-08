@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { AccountInfo, CanUseTool, McpServerStatus, ModelInfo, Options, PermissionResult, Query, RewindFilesResult, SDKControlGetContextUsageResponse, SDKControlGetUsageResponse, SDKMessage, SDKSessionInfo, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
 
 // Scriptable stand-in for the SDK's query(): messages are pushed by hand with emit(), control methods are
@@ -103,6 +105,12 @@ export class FakeSession {
   // Side effects of inspection calls (method -> function of the call's arguments; may throw): scenarios use them to make toggles and sign-ins change the fake's state.
   readonly inspectEffects = new Map<string, (args: unknown[]) => void>()
   account: AccountInfo = { email: 'me@example.com', subscriptionType: 'max' }
+  // Answer of listPermissionRules (runtime-only SDK method). undefined: built from the settings files (see
+  // readPermissionFiles), read at spawn and again at each applyFlagSettings, like the real CLI that does not watch them.
+  permissionsAnswer: unknown
+  // Folder of the userSettings file the fake reads (undefined: none).
+  userSettingsDir?: string
+  private filePermissions: unknown
   // Results of rewindFiles calls, keyed by userMessageId (default: no file checkpoint found).
   rewindResults = new Map<string, RewindFilesResult>()
   // The resumeSessionAt option received when this session was created.
@@ -217,7 +225,12 @@ export class FakeSession {
       },
       setModel: async (model?: string) => (record('setModel', [model]), maybeReject()),
       setPermissionMode: async (mode: string) => (record('setPermissionMode', [mode]), maybeReject()),
-      applyFlagSettings: async (settings: object) => (record('applyFlagSettings', [settings]), maybeReject()),
+      applyFlagSettings: async (settings: object) => {
+        record('applyFlagSettings', [settings])
+        await maybeReject()
+        this.readPermissionFiles()
+      },
+      listPermissionRules: async () => this.inspect('listPermissionRules', [], () => this.runtimeAnswer('listPermissionRules', this.permissionsAnswer ?? this.filePermissions)),
       supportedModels: async () => (record('supportedModels', []), this.models),
       supportedCommands: async () => (record('supportedCommands', []), this.commands),
       getContextUsage: async (opts?: object) => (record('getContextUsage', opts ? [opts] : []), this.contextUsage),
@@ -248,6 +261,30 @@ export class FakeSession {
         this.exit()
       }
     }) as unknown as Query
+  }
+
+  // Reads the permission rules and extra folders of the user, project and local settings files (absent or invalid
+  // files count as empty) plus the allowedTools / additionalDirectories options, as list_permission_rules shows them.
+  readPermissionFiles(): void {
+    const cwd = this.options.cwd ?? ''
+    const files = [
+      ['userSettings', this.userSettingsDir && join(this.userSettingsDir, 'settings.json')],
+      ['projectSettings', join(cwd, '.claude', 'settings.json')],
+      ['localSettings', join(cwd, '.claude', 'settings.local.json')]
+    ] as const
+    const rules: object[] = (this.options.allowedTools ?? []).map((rule) => ({ behavior: 'allow', source: 'cliArg', rule, editability: 'session' }))
+    const workspaceDirectories: object[] = (this.options.additionalDirectories ?? []).map((path) => ({ path, source: 'cliArg' }))
+    for (const [source, file] of files) {
+      let permissions: Record<string, unknown> = {}
+      try {
+        permissions = (file && JSON.parse(readFileSync(file, 'utf8')).permissions) || {}
+      } catch {}
+      for (const behavior of ['allow', 'ask', 'deny']) {
+        for (const rule of (permissions[behavior] as string[] | undefined) ?? []) rules.push({ behavior, source, rule, editability: 'persistent' })
+      }
+      for (const path of (permissions.additionalDirectories as string[] | undefined) ?? []) workspaceDirectories.push({ path, source })
+    }
+    this.filePermissions = { state: { rules, workspaceDirectories, originalCwd: cwd, managedOnly: false } }
   }
 
   // An inspection call: recorded, rejected when its method is in rejectMethods, else answered by `answer`.
@@ -314,15 +351,20 @@ export function createFakeSdk() {
   const settingsSources: { source: 'user' | 'project' | 'local' | 'managed' | 'flag'; path?: string }[] = [{ source: 'user', path: '/home/user/.claude/settings.json' }, { source: 'project', path: '/work/.claude/settings.json' }]
   // Results of rewindFiles for the sessions created from now on (see FakeSession.rewindResults).
   const rewindResults = new Map<string, RewindFilesResult>()
+  // Folder of the userSettings file the sessions created from now on read (see FakeSession.userSettingsDir).
+  const settings: { userDir?: string } = {}
   return {
     sessions,
     histories,
     rewindResults,
+    settings,
     infos,
     query: ((params: { prompt: AsyncIterable<SDKUserMessage>; options?: Options }) => {
       const session = new FakeSession(params.options ?? {}, params.prompt)
       sessions.push(session)
       for (const [id, result] of rewindResults) session.rewindResults.set(id, result)
+      session.userSettingsDir = settings.userDir
+      session.readPermissionFiles()
       const { resume, resumeSessionAt } = params.options ?? {}
       if (resume && resumeSessionAt) truncateAt(resume, resumeSessionAt)
       return session.asQuery()
