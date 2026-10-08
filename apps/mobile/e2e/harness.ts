@@ -13,13 +13,15 @@ const DIST = join(import.meta.dirname, '..', 'dist')
 const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
 
 // files: what the server serves (a test may swap one, e.g. a newer /version.json).
-export type Backend = { url: string; root: string; stateDir: string; core: Core; server: RunningServer; devices: DeviceStore; files: StaticFiles; stop(): Promise<void> }
+export type Backend = { url: string; root: string; stateDir: string; claudeDir: string; core: Core; server: RunningServer; devices: DeviceStore; files: StaticFiles; stop(): Promise<void> }
 
-// Starts core + server; the session root holds a `project` folder.
+// Starts core + server; the session root holds a `project` folder. Claude Code's config folder (user settings file,
+// prompt history) is a temp folder, never the real ~/.claude.
 export async function startBackend(): Promise<Backend> {
   const root = mkdtempSync(join(tmpdir(), 'cw-pwa-root-'))
   mkdirSync(join(root, 'project'))
   const stateDir = mkdtempSync(join(tmpdir(), 'cw-pwa-state-'))
+  const claudeDir = mkdtempSync(join(tmpdir(), 'cw-pwa-claude-'))
   const devices = await DeviceStore.load(stateDir)
   let server: RunningServer | undefined
   const core = createCore({
@@ -27,6 +29,7 @@ export async function startBackend(): Promise<Backend> {
     backendKind: 'remote',
     sdk: createScriptedSdk({ wordDelayMs: 20 }),
     stateDir,
+    claudeConfigDir: claudeDir,
     allowedRoots: [root],
     hostCommands: deviceCommands(devices, (ids) => server?.disconnect(ids), 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U')
   })
@@ -37,7 +40,7 @@ export async function startBackend(): Promise<Backend> {
   const url = `http://127.0.0.1:${server.port}`
   hosts.push(`127.0.0.1:${server.port}`)
   origins.push(url)
-  return { url, root, stateDir, core, server, devices, files, stop: async () => (await core.closeAll(), await server!.close()) }
+  return { url, root, stateDir, claudeDir, core, server, devices, files, stop: async () => (await core.closeAll(), await server!.close()) }
 }
 
 // The system Chrome, or the browser at CLAUDE_WRAP_E2E_CHROME (e.g. Playwright's Chromium on the home server, which has

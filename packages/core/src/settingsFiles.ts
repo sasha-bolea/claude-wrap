@@ -30,7 +30,7 @@ export function checkRule(text: string): string {
 
 // Reads a settings file as an object ({} when absent or empty). invalid_args when it is not a JSON object: a file
 // Claude Code cannot read either is never overwritten.
-async function readSettings(file: string): Promise<Record<string, unknown>> {
+export async function readSettings(file: string): Promise<Record<string, unknown>> {
   const text = await readFile(file, 'utf8').catch((error: NodeJS.ErrnoException) => (error.code === 'ENOENT' ? '' : Promise.reject(error)))
   if (!text.trim()) return {}
   let value: unknown

@@ -76,11 +76,35 @@ export const permissionsSchema = z.object({
   cwd: shortText,
   managedOnly: z.boolean()
 })
+// /config: the Claude Code settings that change Claude in AtHome too, under their /config names, as saved in the user's
+// settings file (absent = Claude Code's default). Not here: the permission mode and effort (AtHome has its own defaults
+// for new sessions), checkpoints (rewind needs them), the output style (per folder), keys kept in ~/.claude.json and
+// terminal-only ones.
+export const CLAUDE_MODELS = ['default', 'sonnet', 'opus', 'haiku', 'fable', 'best', 'sonnet[1m]', 'opus[1m]', 'fable[1m]', 'opusplan'] as const
+export const claudeSettingsSchema = z.object({
+  model: z.enum(CLAUDE_MODELS),
+  thinking: z.boolean(),
+  language: z.string().max(100),
+  autoCompact: z.boolean(),
+  useAutoModeDuringPlan: z.boolean(),
+  workflows: z.boolean(),
+  workflowKeywordTriggerEnabled: z.boolean(),
+  worktreeBaseRef: z.enum(['fresh', 'head'])
+})
+// One change: a key and its new value ('' language = Claude Code's default).
+export const claudeSettingChangeSchema = z.discriminatedUnion('key', [
+  z.object({ key: z.literal('model'), value: z.enum(CLAUDE_MODELS) }),
+  z.object({ key: z.literal('language'), value: z.string().trim().max(100).regex(/^[^\u0000-\u001f\u007f]*$/) }),
+  z.object({ key: z.literal('worktreeBaseRef'), value: z.enum(['fresh', 'head']) }),
+  ...(['thinking', 'autoCompact', 'useAutoModeDuringPlan', 'workflows', 'workflowKeywordTriggerEnabled'] as const).map((key) => z.object({ key: z.literal(key), value: z.boolean() }))
+])
 export type Status = z.infer<typeof statusSchema>
 export type McpServer = z.infer<typeof mcpServerSchema>
 export type HookEntry = z.infer<typeof hookEntrySchema>
 export type HookRun = z.infer<typeof hookRunSchema>
 export type Hooks = z.infer<typeof hooksSchema>
+export type ClaudeSettings = z.infer<typeof claudeSettingsSchema>
+export type ClaudeSettingChange = z.infer<typeof claudeSettingChangeSchema>
 export type PermissionRule = z.infer<typeof permissionRuleSchema>
 export type Permissions = z.infer<typeof permissionsSchema>
 export type PermissionBehavior = (typeof PERMISSION_BEHAVIORS)[number]
@@ -237,6 +261,10 @@ export const COMMANDS = {
   // effort given at creation wins. undefined = the model's effort, the 'default' mode.
   'settings.setDefaultEffort': { args: z.object({ effort: effortSchema.optional() }), result: empty },
   'settings.setDefaultMode': { args: z.object({ mode: permissionModeSchema.optional() }), result: empty },
+  // Claude Code's own settings (/config) of the user's settings file; a change is saved there and every live session
+  // takes it at once. file: the settings file shown to the user.
+  'settings.claudeCode': { args: empty, result: z.object({ values: claudeSettingsSchema, file: z.string() }) },
+  'settings.setClaudeCode': { args: z.object({ change: claudeSettingChangeSchema }), result: empty },
   'tab.refreshGauges': { args: z.object({ tabId }), result: empty },
   // Stored sessions of a folder, or (no cwd) of every folder inside the backend's roots, newest first.
   // rename/delete are refused with session_busy while a tab references the session.

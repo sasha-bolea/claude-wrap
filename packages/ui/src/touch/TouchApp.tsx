@@ -15,6 +15,7 @@ import { LaterScreen } from './LaterScreen.tsx'
 import { RewindScreen } from './RewindScreen.tsx'
 import { ContextScreen, UsageScreen } from './UsageScreens.tsx'
 import { HooksScreen } from './HooksScreen.tsx'
+import { ClaudeSettingsScreen } from './ClaudeSettingsScreen.tsx'
 import { PermissionsScreen } from './PermissionsScreen.tsx'
 import { McpScreen } from './McpScreen.tsx'
 import { StatusScreen } from './StatusScreen.tsx'
@@ -40,6 +41,7 @@ function regionOf(screen: Screen): Region {
     case 'settings':
     case 'palettes':
     case 'palette':
+    case 'claudeSettings':
       return 'window'
     default:
       return 'right'
@@ -97,6 +99,8 @@ function ScreenView({ screen }: { screen: Screen }): ReactNode {
       return <PalettesScreen />
     case 'palette':
       return <PaletteScreen paletteId={screen.paletteId} />
+    case 'claudeSettings':
+      return <ClaudeSettingsScreen />
     case 'later':
       return <LaterScreen which={screen.key} tabId={screen.tabId} />
     case 'context':

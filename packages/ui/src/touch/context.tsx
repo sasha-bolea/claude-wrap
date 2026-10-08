@@ -4,7 +4,7 @@ import type { Home, Image, TabMeta, Welcome } from '@athome/protocol'
 import type { Capabilities } from '../App.tsx'
 
 // The 🔜 panels and settings pages (a placeholder that says what they will show and the / command to use meanwhile).
-export type LaterKey = 'context' | 'usage' | 'tasks' | 'todo' | 'diff' | 'config' | 'memory' | 'skills' | 'agents' | 'styles' | 'plugins'
+export type LaterKey = 'context' | 'usage' | 'tasks' | 'todo' | 'diff' | 'memory' | 'skills' | 'agents' | 'styles' | 'plugins'
 
 // Screens of the touch layout, one at a time; the stack keeps them mounted, so going back finds them as they were.
 export type Screen =
@@ -23,6 +23,8 @@ export type Screen =
   | { name: 'palettes' }
   | { name: 'palette'; paletteId?: string }
   | { name: 'later'; key: LaterKey; tabId?: string }
+  // Claude Code's own settings (as /config): global, no session.
+  | { name: 'claudeSettings' }
   | { name: 'context'; tabId: string }
   | { name: 'usage'; tabId: string }
   | { name: 'status'; tabId: string }
