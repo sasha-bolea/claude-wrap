@@ -1038,12 +1038,18 @@ describe('PWA (fake SDK)', () => {
     await block.getByRole('button', { name: 'Copy the code' }).waitFor()
   })
 
-  it("on a phone the page behind the app (seen through iOS's keyboard tool bar) has the app's own colour, not the frame's", async () => {
-    const page = await pairedPage(await newPhone(), backend)
-    const colours = () => page.evaluate(() => [document.documentElement, document.body, document.querySelector('.device')!].map((element) => getComputedStyle(element).backgroundColor))
-    const [html, body, device] = await colours()
-    expect(html).toBe(device)
-    expect(body).toBe(device)
+  it("on a phone the page (under iOS's status bar, behind the keyboard's tool bar) has the top bar's colour, from the saved palette before the first paint", async () => {
+    const context = await newPhone()
+    const page = await pairedPage(context, backend)
+    const colours = () => page.evaluate(() => [document.documentElement, document.body, document.querySelector('.topbar')!].map((element) => getComputedStyle(element).backgroundColor))
+    const [html, body, bar] = await colours()
+    expect(html).toBe(bar)
+    expect(body).toBe(bar)
+    // A saved palette's surface is on the page before the app's code runs.
+    await page.evaluate(() => localStorage.setItem('claude-wrap:palette', JSON.stringify({ paletteId: 'x', colors: { background: '#101820', surface: '#203040', text: '#eeeeee', accent: '#0f766e', danger: '#ff5555', success: '#55ff55' } })))
+    await page.route('**/assets/*.js', (route) => route.abort())
+    await page.reload()
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe('rgb(32, 48, 64)')
   })
 
   it('with a palette on, the Home screen icon and the manifest take its accent; "Icon in this colour" copies a link that gives them to a browser not paired', async () => {
