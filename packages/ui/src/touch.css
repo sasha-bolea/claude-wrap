@@ -534,9 +534,9 @@ svg.ghost-thumb { width: 22px; height: 22px; color: var(--text-muted); }
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px); mask-image: linear-gradient(to bottom, transparent, #000 14px); }
 .kb-open .input-box::before, .kb-open .input-box::after { bottom: -120px; }
 /* Keyboard open: iOS's bar over the keyboard shows the page colour (--surface), so the veil reaches it, fully
-   opaque, by the box's bottom edge (same start, steeper rise; no dark tint left at the edge) and nothing shows through. */
+   opaque, 10 px above the box's bottom edge (same start, steeper rise; no dark tint left at the edge) and nothing shows through. */
 .kb-open .input-box::before { background:
-    linear-gradient(to bottom, transparent calc(100% - 134px), var(--surface) calc(100% - 120px)),
+    linear-gradient(to bottom, transparent calc(100% - 134px), var(--surface) calc(100% - 124px)),
     linear-gradient(to bottom, rgba(0,0,0,.02), rgba(0,0,0,.14) calc(100% - 112px)); }
 .input-box:focus-within, .input-box:focus-within > .working-mini { border-color: var(--text-muted); }
 .composer.shell-mode .input-box, .composer.shell-mode .working-mini { border-color: var(--accent); }

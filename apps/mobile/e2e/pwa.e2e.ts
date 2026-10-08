@@ -502,7 +502,7 @@ describe('PWA (fake SDK)', () => {
     await page.evaluate(() => document.querySelector('.device')!.classList.add('kb-open'))
     // With the keyboard open the veil ends in the plain page colour, opaque, at the box's bottom edge.
     const veil = await page.locator('.input-box').evaluate((element) => [getComputedStyle(element, '::before').backgroundImage, getComputedStyle(document.body).backgroundColor])
-    expect(veil[0]).toContain(`${veil[1]} calc(100% - 120px)`)
+    expect(veil[0]).toContain(`${veil[1]} calc(100% - 124px)`)
     await conversation.evaluate((box) => {
       const native = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')!
       const counted = box as HTMLElement & { writes?: number }
