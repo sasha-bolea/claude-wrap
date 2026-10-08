@@ -136,9 +136,12 @@ accent are drawn by the server at request time (`packages/server/src/tinted.ts`)
    `packages/protocol/src/presets.ts`; copy its tokens into `touch.css`'s `:root` (the `palette.test.ts` test fails
    until they match).
 2. `node apps/mobile/scripts/icons.ts` — writes `apps/mobile/public/icon-*.png`, one splash PNG per iPhone size in
-   `public/splash/` (the default palette's colours, no light/dark) and the `<link rel="apple-touch-startup-image">`
-   block of `apps/mobile/index.html` (between its two comments). The mark is drawn by `@athome/server/markIcon`.
+   `public/splash/` (flat `#8e8e93` with the white pixel glyph — `drawGlyph`, geometry in `@athome/protocol` `brand.ts`,
+   the same as the app's launch screen) and the `<link rel="apple-touch-startup-image">` block of
+   `apps/mobile/index.html` (between its two comments). The tile mark of the icons is drawn by `@athome/server/markIcon`.
 3. `npm test`, then `npm run e2e:mobile` (the splash test checks every link is served as PNG).
+**Warning:** iOS caches the launch image when the app is added to the Home Screen: a changed splash shows only after
+removing the app and adding it again from Safari (then pair again).
 **Warning:** the presets are added to a backend only once (`palettes-presets.json`): a changed preset reaches existing
 backends only by editing the palette in the app.
 

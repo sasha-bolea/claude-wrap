@@ -1,6 +1,6 @@
 # STATO — AtHome
 
-_Last updated: 2026-10-07 11:43 CEST_
+_Last updated: 2026-10-08 13:07 CEST_
 
 ## Current state
 **Phases 0–3, sub-phases A, B, C1, C2 and D's native rewind of the realigned plan are done** ([piano.md](piano.md) §4): the remote
@@ -16,6 +16,11 @@ a phone, three columns from 1024 px. C2 was closed by Sasha on 2026-10-05 ("c2 o
   run on the launching session's account ([procedure.md](procedure.md)). The **shared browser** was built and reverted
   the same evening (decisions). Palettes, app icon, pairing links, session names, messages between sessions, the "working
   for" timer and the unseen-chat badge: earlier entries of [storico-sessioni.md](storico-sessioni.md).
+- **Since the 2026-10-07 11:43 entry (phone UI-details session, 2026-10-06/08):** many small touch-UI changes — chat top
+  bar one row, model and effort from a brain button in the composer, working-time tab on the composer, copy button on
+  code blocks, cancel a message not read yet, folder notes from the folder screen, launch screens grey with the white
+  glyph, status bar = top bar with a dark palette; fixes for iPhone scroll lock, selection handles, device revoke
+  cascade. Details: [storico-sessioni.md](storico-sessioni.md) 2026-10-08 13:07, [bug-risolti.md](bug-risolti.md).
 - **Repo:** public on GitHub (`main` only). Several Claude sessions push to `main` (the PC one and the ones in the
   server dev clone `/srv/progetti/claude-wrap`, which push over SSH): pull before working and before committing, and
   commit only your own paths.
@@ -38,7 +43,10 @@ a phone, three columns from 1024 px. C2 was closed by Sasha on 2026-10-05 ("c2 o
   an option offered to Sasha (not asked yet).
 - **Not verified for real:** the iOS start address (palette + pairing code) of the installed app; messages between
   sessions end-to-end after the 192c5c2 deploy (the CLI shapes were checked with probes, the flow with the fake SDK).
-- Not verifiable from the PC: edge swipe and keyboard on a real iPhone.
+- Not verifiable from the PC: edge swipe and keyboard on a real iPhone. **Waiting for Sasha's try on the iPhone:** the
+  scroll-lock and selection-handle fixes, the "Undo Typing" attempt (fields remounted in the background; if it shows
+  again, only iOS's Shake to Undo setting helps), the status bar style chosen at launch (`palette-early.js`), the
+  draggable chat scroll indicator. The new launch image needs the app re-added to the Home Screen (iOS caches it).
 - Auto-update trust model (raised by linux stup, accepted by Sasha): a push to `main` runs on the server without a
   manual step, and the server holds a GitHub key that can push to the account. Restrict or remove that key.
 - A change of the build command (e.g. the workspace rename) makes the first automatic update fail: the live release's
@@ -73,13 +81,15 @@ a phone, three columns from 1024 px. C2 was closed by Sasha on 2026-10-05 ("c2 o
 ## Recent decisions
 | Date | Decision | Reason |
 |------|----------|--------|
+| 2026-10-08 | Removing a device keeps the cascade (devices paired with codes it made) but never removes the asking device nor what it created; self-revoke refused; the confirmation lists who else goes | Sasha; the phone in use fell in the cascade |
+| 2026-10-08 | Launch screens (iOS image and the app's) = flat #8e8e93 with the white pixel `@~`, same place, no tile, no orange; the page is never grey (iOS keeps the launch colour under the status bar) | Sasha: one screen, no old orange |
+| 2026-10-08 | With a dark saved palette the status bar style is `black-translucent` (the top bar is its background); `default` otherwise (its text would be white on light colours) | Sasha: status bar the same colour as the chat header |
 | 2026-10-07 | Status panel like `/status` plus the settings files; MCP servers and Hooks are session panels, reached from Settings with "Choose a session"; MCP sign-in on a phone by pasting the failed localhost address back (the CLI's own fallback); hooks read-only with the last 50 runs | Sasha; the CLI does the same |
 | 2026-10-06 | Rewind = `resume` + `resumeSessionAt` on the same session (not `forkSession`: forks lose the undo history); first message → a new empty session in the same folder; queue paused; an extra "Are you sure?"; only messages after the last `/compact`; Esc Esc on an empty composer; the list follows the CLI's filter (prompts, slash and `!` commands) | Sasha; native behaviour |
 | 2026-10-06 | Real-CLI scripts run on the launching session's account (`appAccounts`, `CoreConfig.accountsFile` read-only), not the server's default login | Smokes failed on the default login's weekly limit, a server fact, not a project constraint |
 | 2026-10-06 | The shared browser (one Chromium per server, live view, Playwright MCP over CDP) was built and reverted the same evening | Sasha: Claude already has its native Playwright MCP, he does not need to watch it |
 | 2026-10-06 | A chat finished (or stopped with an error) while nobody looked: its idle badge takes the accent colour, not pulsing, words unchanged; same on its folder; grey again once opened on any device. The mark is `TabMeta.unseen`, kept and saved by core | Sasha: same colour as "waiting", no extra dot; shared state belongs to core |
 | 2026-10-06 | AtHome shows only native Claude Code features: the team-mode plan (capo/operai inside the app, AtHome tools for sessions, agent cards, team view) is cancelled; the code stays at `192c5c2` plus `214f10f`, which only removes the capo/operai names | Sasha: "non voglio aggiungere funzionalità che non native di claude"; subagents stay as Claude makes them |
-| 2026-10-06 | A session's name for the other sessions is its tab's title: the CLI's title after the first prompt (else its first 3 words), a name given at creation, or a rename, which stays | Sasha: "come l'app di Claude" |
 
 ## Backlog
 1. **Settings → Permissions and Claude Code settings** (next), then Memory/Skills/Agents/Styles and Plugins; chat panels

@@ -2,6 +2,49 @@
 
 _Append-only archive of session entries that left [STATO.md](STATO.md), newest on top._
 
+## 2026-10-08 13:07 — Small touch-UI details from the phone (phone session, server dev clone)
+Sasha on the iPhone, from 2026-10-06 evening to 2026-10-08, in the server dev clone while another session worked on
+the main plan in the same tree (its staged work was never included: from 2026-10-08 commits were built from a
+temporary index, see the memory note on shared clones). Work delegated to subagents (sonnet, opus for the scroll-lock
+investigation). Every change pushed over SSH, one commit per detail.
+- **Chat top bar:** "folder / title" tried in two rows, then one row: back, state, chat name only (no folder, not a
+  button), Torna indietro, ⋯. The model moved to a **brain button** in the composer's tools; its sheet has the effort
+  levels at the top and the models under them; the mode sheet only modes; ⋯ has one "Model and effort" item.
+- **Working line:** tried detached from the text, then back attached; kept its mini label, now a **tab resting on the
+  composer's left edge** (slides out from under it; the box's top left corner squares while it shows and rounds back
+  softly).
+- **Composer:** sent messages lose the blank lines before and after; no card for a linked note; with the keyboard open
+  the veil under the composer ends opaque in the page colour 10 px after it starts.
+- **Messages:** cancel a message sent while Claude works and not read yet (the CLI's `cancel_async_message`; text and
+  images back in the composer); copy button on code blocks; the ghost of a message with images shows a thumbnail.
+- **Queue:** the message counting down is out of the queue's stack, sheet and count.
+- **Notes:** the folder's notes from the top of its sessions screen (notes screens take `tabId` or `folder`).
+- **Launch and status bar:** one launch screen (grey #8e8e93, white pixel glyph, same in the iOS image and the app);
+  the page is never grey; `palette-early.js` sets the saved palette's surface before the first paint and the status bar
+  style (`black-translucent` with a dark palette).
+- **Fixes:** iPhone chat scroll lock, selection handles in a short message, "Undo Typing" alert (attempt), terminal's
+  two scroll indicators, draggable chat scroll indicator, device revoke cascade (all in bug-risolti).
+- **Decision moved from STATO:** 2026-10-06 — a session's name for the other sessions is its tab's title (the CLI's
+  title after the first prompt, else its first 3 words; a name given at creation or a rename stays). Sasha: "come l'app
+  di Claude".
+
+### Cambiamenti al codice
+- Folder notes: `f63f89b` — `context.tsx`, `NotesScreen.tsx`, `HomeScreen.tsx`, `TouchApp.tsx`.
+- Effort/model placement: `7f8ae6e`, `5635300`, `176ac15` — `modelSheets.tsx`, `ChatScreen.tsx`, `TouchComposer.tsx`, `icons.tsx` (`brain`), i18n.
+- Scroll lock and selection: `4c22fe7`, `a94a467` — `TouchApp.tsx` (`useEdgeSwipe` axis lock), `ChatScreen.tsx` (`settleBottom`, blur on touch end, dock touchmove).
+- Undo Typing: `cf1186f` — `keyboard.ts` (`useUndoReset`), `TouchComposer.tsx`, `NotesScreen.tsx`.
+- Cancel send: `861e9c6` — protocol `tab.unsendPending`, `tab.ts` (`unsendPending`), `transcript.ts` (`remove`), fake SDK, `Conversation.tsx`, `ChatScreen.tsx` (`useUnsend`).
+- Working line and tab: `a031a5e`, `3d7fffa`, `389b09b`, `b986a37`, `83c6910`, `42d5a26` — `Conversation.tsx` (`useWorkingText`, `WorkingMini`), `ChatScreen.tsx`, `TouchComposer.tsx` (`tab` prop), `touch.css`.
+- Composer text and note card: `c36ea97` (`composerText.ts` `trimBlankLines`), `9f89f08`.
+- Top bar: `36c6626`, `c588a27`, `5635300` — `ChatScreen.tsx`, `touch.css`.
+- Code copy: `7458ff2`, `c0a8ce9` — `Markdown.tsx` (`CodeBlock`), `icons.tsx` (`copy`, `check`).
+- Ghost thumbnail: `635114c`; queue countdown: `426c211` (`queue.tsx` `waitingQueue`).
+- Launch screens: `f921de6`, `e2d3cbb`, `073fac1` — `icons.ts`, `public/splash/*`, `Splash.tsx`, `protocol/src/brand.ts`, `server/src/markIcon.ts` (`drawGlyph`), manifest.
+- Page and status bar colour: `0a5970f`, `9603aa3`, `dabbbe5` — `touch.css`, `public/palette-early.js`, `index.html`.
+- Veil with keyboard: `bb85266`, `798b4d9` — `touch.css`.
+- Scroll indicator: `8535b28` (draggable, `useScrollThumb`), `10b7de6` (terminal native scrollbar hidden).
+- Device revoke: `1291edb` — protocol `revokeCascade` + `createdBy`, `server/src/devices.ts`, `deviceCommands.ts`, `SettingsScreen.tsx`.
+
 ## 2026-10-07 11:43 — Native rewind, Status/MCP/Hooks panels, shared browser built and reverted (phone session, server dev clone)
 Sasha on the iPhone, from the afternoon of 2026-10-06 to the morning of 2026-10-07, in the server dev clone (another
 session worked in the same tree on the splash screens and the design system). Every change pushed over SSH.

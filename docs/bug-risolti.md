@@ -501,3 +501,56 @@ These were solved in the first attempt. Files refer to that repository. Each ent
   the decision. PWA e2e `trust.e2e.ts`.
 - **Files:** `packages/ui/src/touch/sessions.tsx` (`needsTrust`), `parts.tsx` (`useQuery` `own`), `TerminalScreen.tsx`,
   `FilesScreen.tsx`, `packages/ui/src/i18n/{en,it}.ts` (`filesNeedTrust`), `apps/mobile/e2e/trust.e2e.ts`.
+
+### 2026-10-06 — iPhone: the chat sometimes did not scroll at all
+- **Symptom:** a finger drag on the chat left it still, "at random".
+- **Cause:** (1) a vertical drag starting within 24 px of the left edge armed the edge swipe-back, which wrote a
+  transform on the chat screen mid-pan and iOS cancelled the pan; (2) a fast drag with the keyboard open blurred the
+  field mid-pan, the viewport and dock resized and the chat wrote `scrollTop` with the finger down.
+- **Fix:** `4c22fe7` — the swipe decides the axis first (only a horizontal one moves the screen) and resets on cleanup;
+  the keyboard closes and the jump to the bottom happens on touch end (`settleBottom`).
+- **Files:** `packages/ui/src/touch/TouchApp.tsx`, `ChatScreen.tsx`, `apps/mobile/e2e/pwa.e2e.ts`.
+
+### 2026-10-06 — iPhone: selection handles did not move in a short message
+- **Symptom:** in the composer, with few words, the selection could not be lengthened or shortened.
+- **Cause:** the dock blocked every touchmove unless the field overflowed (to keep the page still).
+- **Fix:** `a94a467` — nothing is blocked while the focused field has a selection.
+- **Files:** `packages/ui/src/touch/ChatScreen.tsx`, `apps/mobile/e2e/pwa.e2e.ts`.
+
+### 2026-10-06 — iPhone: "Undo Typing" alert when opening the app (attempt)
+- **Symptom:** the alert often showed when picking up the phone and opening the app.
+- **Cause:** iOS Shake to Undo with typing history still in the composer / note editor.
+- **Fix:** `cf1186f` — the fields are remounted (`key`) when the app goes to the background; the text is React state.
+  Not verifiable in Chrome; if it persists, only the iOS setting helps.
+- **Files:** `packages/ui/src/touch/keyboard.ts`, `TouchComposer.tsx`, `NotesScreen.tsx`, `apps/mobile/e2e/undoReset.e2e.ts`.
+
+### 2026-10-07 — Commit `7458ff2` broke the type check (shared clone)
+- **Symptom:** `main` failed the type check for a few minutes.
+- **Cause:** the other session committed between this session's staging and commit; its commit dropped the staged
+  hunks of this session from the index, so only half the change went out.
+- **Fix:** `c0a8ce9` with the missing strings, icons and styles; from then on stage and commit in one command, check
+  `git show --stat HEAD`, and when the other session has staged work build the commit from a temporary index.
+- **Files:** `packages/ui/src/Markdown.tsx`, `icons.tsx`, i18n, `touch.css`.
+
+### 2026-10-07 — iPhone: status bar stayed launch grey, then white
+- **Symptom:** the strip with time and battery had a colour different from the app (grey, later white).
+- **Cause:** iOS keeps the page colour it sees at launch under the status bar for the whole run: the page was grey for
+  the launch screen, then the base colours before the palette was applied.
+- **Fix:** `e2d3cbb` (the page is never grey), `9603aa3` + `dabbbe5` (`palette-early.js` sets the saved palette's
+  surface before the first paint, and `black-translucent` with a dark palette so the top bar is the status bar's
+  background). To verify on the iPhone.
+- **Files:** `apps/mobile/public/palette-early.js`, `apps/mobile/index.html`, `packages/ui/src/touch.css`, `TouchApp.tsx`, `apps/mobile/src/main.tsx`.
+
+### 2026-10-07 — Terminal: two scroll indicators with the keyboard open
+- **Symptom:** in the terminal, iOS's indicator showed beside xterm's own scrollbar.
+- **Cause:** xterm's viewport is a native scroller too; iOS scrolls it to keep the cursor in view.
+- **Fix:** `10b7de6` — the viewport's native scrollbar is hidden.
+- **Files:** `packages/ui/src/touch.css`, `apps/mobile/e2e/pwa.e2e.ts`.
+
+### 2026-10-08 — Removing a device disconnected the device doing it
+- **Symptom:** removing another device from Settings disconnected the phone in use.
+- **Cause:** revoke cascades to devices paired with codes the revoked one created; the phone had been paired with a
+  code from the removed device (server log 12:02–12:04).
+- **Fix:** `1291edb` — the cascade skips the asking device and what it created (its `createdBy` cleared); self-revoke
+  refused; the confirmation lists the others that go (`revokeCascade`, shared by server and UI).
+- **Files:** `packages/protocol/src/commands.ts`, `packages/server/src/devices.ts`, `deviceCommands.ts`, `server.test.ts`, `packages/ui/src/touch/SettingsScreen.tsx`, i18n.
