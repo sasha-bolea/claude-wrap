@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { COMMANDS } from './commands.ts'
+import { COMMANDS, revokeCascade } from './commands.ts'
 
 // Test that rewind commands exist and have correct schemas
 describe('rewind commands', () => {
@@ -66,4 +66,12 @@ describe('rewind commands', () => {
     const resultWithNewTabResult = schema.result.safeParse(resultWithNewTab)
     expect(resultWithNewTabResult.success).toBe(true)
   })
+})
+
+// The devices a revoke removes: the root and what it created, never the asker nor what the asker created.
+describe('revokeCascade', () => {
+  const devices = [{ deviceId: 'a' }, { deviceId: 'b', createdBy: 'a' }, { deviceId: 'c', createdBy: 'b' }, { deviceId: 'd', createdBy: 'c' }, { deviceId: 'e', createdBy: 'd' }]
+  it('walks through every descendant', () => expect([...revokeCascade(devices, 'a')]).toEqual(['a', 'b', 'c', 'd', 'e']))
+  it('skips the asker and the branch under it', () => expect([...revokeCascade(devices, 'a', 'c')]).toEqual(['a', 'b']))
+  it('a leaf alone', () => expect([...revokeCascade(devices, 'e', 'a')]).toEqual(['e']))
 })

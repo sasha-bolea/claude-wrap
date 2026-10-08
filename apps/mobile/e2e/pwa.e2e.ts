@@ -1320,6 +1320,33 @@ describe('PWA (fake SDK)', () => {
     await button(page, 'Reload').waitFor()
   })
 
+  it('revoking a device lists what goes with it, and never removes the phone doing it', async () => {
+    // boss created the phone and helper; the phone created gadget.
+    const pairBy = async (name: string, createdBy?: string) => {
+      const { code } = await createPairingCode(backend.stateDir, name, createdBy)
+      return (await backend.devices.completePairing(code))!.deviceId
+    }
+    const boss = await pairBy('boss')
+    await pairBy('helper', boss)
+    const { code } = await createPairingCode(backend.stateDir, 'phone', boss)
+    const page = await (await newPhone()).newPage()
+    await page.goto(`${backend.url}/#pair=${code}`)
+    await page.getByRole('button', { name: 'Pair' }).click()
+    await page.getByRole('button', { name: 'Not now' }).click()
+    await home(page).waitFor()
+    const phoneId = backend.devices.list().find((device) => device.name === 'phone')!.deviceId
+    await pairBy('gadget', phoneId)
+    await button(page, 'Settings').click()
+    await page.getByRole('listitem').filter({ hasText: 'boss' }).getByRole('button', { name: 'Revoke' }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByText('Also removes: helper', { exact: true }).waitFor()
+    await dialog.getByRole('button', { name: 'Revoke' }).click()
+    await page.getByText('Revoked and disconnected').waitFor()
+    await expect.poll(() => backend.devices.list().map((device) => device.name)).toEqual(['phone', 'gadget'])
+    expect(backend.devices.list()[0]!.createdBy).toBeUndefined()
+    await page.getByRole('listitem').filter({ hasText: 'gadget' }).waitFor()
+  })
+
   it('a device revoked from another one goes back to pairing', async () => {
     const first = await pairedPage(await newPhone(), backend, 'phone')
     const second = await pairedPage(await newPhone(), backend, 'tablet')

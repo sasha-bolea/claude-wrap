@@ -124,7 +124,19 @@ export const slashCommandSchema = z.looseObject({ name: z.string(), description:
 export const imageSchema = z.object({ mediaType: z.enum(IMAGE_TYPES), data: z.string().min(1) })
 export const promptSchema = z.object({ text: z.string(), timestamp: z.number() })
 // A paired device of the remote server; current = the device asking.
-export const deviceSchema = z.object({ deviceId: z.string(), name: z.string(), createdAt: z.number(), lastSeenAt: z.number().optional(), current: z.boolean() })
+export const deviceSchema = z.object({ deviceId: z.string(), name: z.string(), createdAt: z.number(), lastSeenAt: z.number().optional(), current: z.boolean(), createdBy: z.string().optional() })
+// The devices a revoke of rootId removes: rootId and, recursively, the devices created by a removed one. The device
+// asking (requesterId) is never removed and the walk does not pass through it, so its own devices stay too.
+export function revokeCascade(devices: { deviceId: string; createdBy?: string }[], rootId: string, requesterId?: string): Set<string> {
+  const removed = new Set([rootId])
+  for (let grew = true; grew; ) {
+    grew = false
+    for (const device of devices) {
+      if (device.createdBy && removed.has(device.createdBy) && !removed.has(device.deviceId) && device.deviceId !== requesterId) grew = Boolean(removed.add(device.deviceId))
+    }
+  }
+  return removed
+}
 // A folder name to create: no separators or characters Windows forbids, not `.` or `..`.
 const folderName = z
   .string()
@@ -336,7 +348,9 @@ export const COMMANDS = {
   // message of the user (its queue goes on after it). Without text the marks are only cleared.
   'tabs.continue': { args: z.object({ text: z.string().trim().min(1).optional() }), result: empty },
   // Paired devices (remote server only; other backends answer not_found). pairStart returns a one-time code
-  // for a new device; revoke also removes the devices and codes the revoked one created.
+  // for a new device; revoke also removes the devices and codes the revoked one created, recursively (revokeCascade),
+  // except the asking device and what it created; the asking device cannot revoke itself (invalid_args), and when its
+  // creator goes it loses createdBy.
   'devices.list': { args: empty, result: z.object({ devices: z.array(deviceSchema) }) },
   'devices.pairStart': { args: z.object({ name: z.string().trim().min(1).max(60) }), result: z.object({ code: z.string(), expiresAt: z.number() }) },
   'devices.revoke': { args: z.object({ deviceId: z.string() }), result: empty },

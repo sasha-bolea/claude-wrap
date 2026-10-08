@@ -143,6 +143,8 @@ sessione con nome…": a sheet with the name `.field` and Crea): the name is the
 the other sessions, kept; without one the tab takes the title the CLI gives after the first prompt.
 Examples: [SheetHost.tsx:49](../packages/ui/src/touch/SheetHost.tsx#L49), [ChatScreen.tsx:350](../packages/ui/src/touch/ChatScreen.tsx#L350), [HomeScreen.tsx:298](../packages/ui/src/touch/HomeScreen.tsx#L298), [HomeScreen.tsx:252](../packages/ui/src/touch/HomeScreen.tsx#L252).
 
+Revoke confirmation (Settings → Devices, `RevokeSheet`, [SettingsScreen.tsx](../packages/ui/src/touch/SettingsScreen.tsx)): a `.flat` hint, then, only when others fall with the device, a second `.flat` line "Also removes: names" (computed with `revokeCascade`: never the device in use nor what it created), then `.two-buttons` Cancel / danger Revoke.
+
 ### Buttons and fields — `.button` (`.primary`, `.danger`, `.block`), `.link-btn`, `.field` (`.mono`), `.check-row`, `.segmented` (`.effort`, `.cols-N`), `.toggle-input`
 Same roles as on the desktop; `.link-btn`: the light text actions under a list ("Sessioni passate · + Nuova
 sessione"); `.segmented`: a radio group as one control (effort levels — `.cols-N` for N levels).

@@ -156,6 +156,7 @@ export const en = {
   revoke: 'Revoke',
   confirmRevoke: 'Confirm revoke',
   revokeHint: 'Revoking disconnects it at once, together with the devices it added.',
+  revokeAlso: 'Also removes: {names}',
   addDevice: 'Add device',
   deviceName: 'Name of the new device',
   createCode: 'Create code',

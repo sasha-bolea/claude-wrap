@@ -206,6 +206,32 @@ describe('remote server: pairing and devices', () => {
     expect((await laptop.request('devices.list', {})).devices.map((device) => device.name)).toEqual(['laptop'])
   })
 
+  it('devices.revoke never removes the asking device, nor what it created; it refuses to revoke itself', async () => {
+    const phone = connect(await pairDevice('phone'))
+    await until(phone, (s) => s.status === 'connected')
+    // Pairs a device made by `by` and connects it.
+    const addFrom = async (by: Connection, name: string) => {
+      const { code } = await by.request('devices.pairStart', { name })
+      const paired = JSON.parse((await http('POST', '/pair', PROXY_HEADERS, JSON.stringify({ code }))).body) as { token: string }
+      const client = connect(paired.token)
+      await until(client, (s) => s.status === 'connected')
+      return client
+    }
+    const tablet = await addFrom(phone, 'tablet')
+    const laptop = await addFrom(phone, 'laptop')
+    const watch = await addFrom(laptop, 'watch')
+    const ids = Object.fromEntries((await laptop.request('devices.list', {})).devices.map((device) => [device.name, device.deviceId]))
+    await expect(laptop.request('devices.revoke', { deviceId: ids.laptop! })).rejects.toThrow()
+    // The laptop removes the phone, which created it: the tablet goes, the laptop and its watch stay.
+    await laptop.request('devices.revoke', { deviceId: ids.phone! })
+    await until(phone, (s) => s.status === 'unauthorized')
+    await until(tablet, (s) => s.status === 'unauthorized')
+    const left = (await laptop.request('devices.list', {})).devices
+    expect(left.map((device) => [device.name, device.createdBy])).toEqual([['laptop', undefined], ['watch', ids.laptop]])
+    expect(laptop.store.getSnapshot().status).toBe('connected')
+    expect(watch.store.getSnapshot().status).toBe('connected')
+  })
+
   it('the device name is what other devices see on its messages', async () => {
     const phone = connect(await pairDevice('phone'))
     await phone.request('trust.grant', { cwd: join(ROOT, 'project') })

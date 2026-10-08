@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { EFFORT_LEVELS, type Device, type Effort, type PermissionMode } from '@athome/protocol'
+import { EFFORT_LEVELS, revokeCascade, type Device, type Effort, type PermissionMode } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { modeLabel } from '../modes.ts'
 import { useAvailableUpdate } from '../appUpdate.ts'
@@ -296,7 +296,7 @@ function DevicesGroup() {
               <span className="row-sub">{t('lastSeen', { when: device.lastSeenAt ? when(device.lastSeenAt) : '—' })}</span>
             </div>
             {!device.current && (
-              <button className="button danger" onClick={() => openSheet({ title: t('revokeTitle', { name: device.name }), body: <RevokeSheet device={device} onDone={load} /> })}>
+              <button className="button danger" onClick={() => openSheet({ title: t('revokeTitle', { name: device.name }), body: <RevokeSheet device={device} devices={devices} onDone={load} /> })}>
                 {t('revoke')}
               </button>
             )}
@@ -311,8 +311,12 @@ function DevicesGroup() {
   )
 }
 
-function RevokeSheet({ device, onDone }: { device: Device; onDone: () => void }) {
+// Confirms revoking a device; lists the other devices that go with it (never this one, nor what it created).
+function RevokeSheet({ device, devices, onDone }: { device: Device; devices: Device[]; onDone: () => void }) {
   const { connection, closeSheet, closeSheets, toast, fail } = useTouch()
+  const requester = devices.find((candidate) => candidate.current)?.deviceId
+  const cascade = revokeCascade(devices, device.deviceId, requester)
+  const also = devices.filter((candidate) => cascade.has(candidate.deviceId) && candidate.deviceId !== device.deviceId).map((candidate) => candidate.name)
   const revoke = () =>
     connection.request('devices.revoke', { deviceId: device.deviceId }).then(() => {
       closeSheets()
@@ -322,6 +326,7 @@ function RevokeSheet({ device, onDone }: { device: Device; onDone: () => void })
   return (
     <>
       <p className="flat">{t('revokeHint')}</p>
+      {also.length > 0 && <p className="flat">{t('revokeAlso', { names: also.join(', ') })}</p>}
       <div className="two-buttons">
         <button className="button" onClick={closeSheet}>
           {t('cancel')}

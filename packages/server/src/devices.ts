@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { revokeCascade } from '@athome/protocol'
 
 // Paired devices of the server (devices.json, written only by the server) and one-time pairing codes
 // (pairing/<sha256(code)>.json, written by the `claude-wrap pair` CLI or by devices.pairStart, consumed once).
@@ -104,18 +105,14 @@ export class DeviceStore {
     await this.save()
   }
 
-  // Revokes a device and, recursively, the devices and pending codes it created. Returns the revoked ids
-  // (empty when the device does not exist).
-  async revoke(deviceId: string): Promise<string[]> {
+  // Revokes a device and, recursively, the devices and pending codes it created (revokeCascade), except the device
+  // asking (requesterId) and what it created; the asker loses createdBy when its creator is removed. Returns the
+  // revoked ids (empty when the device does not exist).
+  async revoke(deviceId: string, requesterId?: string): Promise<string[]> {
     if (!this.devices.some((device) => device.deviceId === deviceId)) return []
-    const revoked = new Set([deviceId])
-    for (let grew = true; grew; ) {
-      grew = false
-      for (const device of this.devices) {
-        if (device.createdBy && revoked.has(device.createdBy) && !revoked.has(device.deviceId)) grew = Boolean(revoked.add(device.deviceId))
-      }
-    }
+    const revoked = revokeCascade(this.devices, deviceId, requesterId)
     this.devices = this.devices.filter((device) => !revoked.has(device.deviceId))
+    for (const device of this.devices) if (device.createdBy && revoked.has(device.createdBy)) device.createdBy = undefined
     await Promise.all([this.save(), this.dropCodesOf(revoked)])
     return [...revoked]
   }

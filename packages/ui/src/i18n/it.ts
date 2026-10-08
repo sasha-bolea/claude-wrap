@@ -158,6 +158,7 @@ export const it: Record<MessageKey, string> = {
   revoke: 'Revoca',
   confirmRevoke: 'Conferma revoca',
   revokeHint: 'La revoca lo scollega subito, insieme ai dispositivi che ha aggiunto.',
+  revokeAlso: 'Rimuove anche: {names}',
   addDevice: 'Aggiungi dispositivo',
   deviceName: 'Nome del nuovo dispositivo',
   createCode: 'Crea codice',
