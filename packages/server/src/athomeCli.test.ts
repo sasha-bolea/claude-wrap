@@ -101,8 +101,15 @@ describe('athome with a key (a caller such as Petra)', () => {
   let key: string
   let app: RawClient
   const asPetra = (argv: string[], plan?: string, extra: Partial<CliIo> = {}) => run(argv, { interactive: false, key, ...(plan ? { plan } : {}), ...extra })
-  // The plans the app sees now.
-  const plans = () => (app.events('workspace').filter((ev) => ev.type === 'plans.updated').at(-1) as { plans: { planId: string; status: string }[] } | undefined)?.plans ?? []
+  // The plans the app sees now (the latest of the last plans.updated event and the last workspace reset).
+  const plans = (): { planId: string; status: string; cursor?: number }[] => {
+    for (let index = app.frames.length - 1; index >= 0; index--) {
+      const frame = app.frames[index]!
+      if (frame.t === 'ev' && frame.stream === 'workspace' && frame.ev.type === 'plans.updated') return frame.ev.plans
+      if (frame.t === 'reset' && frame.stream === 'workspace') return ((frame.snapshot as { plans?: { planId: string; status: string }[] }).plans ?? [])
+    }
+    return []
+  }
 
   beforeEach(async () => {
     expect(await run(['key', 'create', 'petra', '--json'])).toBe(0)

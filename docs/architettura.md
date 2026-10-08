@@ -345,8 +345,9 @@ in [widget-frame.html](../packages/ui/widget-frame.html): an iframe `sandbox="al
 to the app, its storage or its connection) served under its own CSP (`WIDGET_FRAME_CSP`: inline scripts and styles,
 data:/blob: images, nothing on the network; WebRTC removed by the runtime) — the app's CSPs gain only `frame-src 'self'`.
 The frame gets the app's tokens as CSS variables, a base stylesheet, the data, and `window.athome` (actions). Actions
-travel on a private `MessagePort` the chat hands to the frame's runtime before any widget code runs, and only after a
-tap inside the frame (`navigator.userActivation`); the chat runs one at a time per widget. Opt-in: `PersistedState.widgets`
+are plain window messages checked against the frame's own window on the chat side (a private `MessagePort` was tried
+first and stayed silent on iOS Safari, 2026-10-09); the frame's runtime sends one only after a tap inside the frame
+(`navigator.userActivation`), the chat checks the tap again and runs one at a time per widget. Opt-in: `PersistedState.widgets`
 → `widgetGuide` appended to the system prompt at spawn (live processes restart at the end of their turn, like the
 auto-compact window) and `~/.claude/commands/creawidget.md` installed (removed when off, unless edited).
 **Action API:** [protocol/actions.ts](../packages/protocol/src/actions.ts) is the one vocabulary; `CORE_ACTIONS` run in

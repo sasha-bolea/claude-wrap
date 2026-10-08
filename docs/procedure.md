@@ -68,6 +68,13 @@ In a `.segmented` group the invisible radio covers its label: click the radio by
 not `check()`, when the radio turns on only after the backend answers. A folder screen goes up with "Up: <parent>",
 not "Back". Dates in fake data must be relative to now or far ahead (a fixed date that passes breaks the test later).
 
+## Widget round trip on WebKit (Safari's engine) — not runnable yet on the server
+`apps/mobile/e2e/widgets-webkit.e2e.ts` repeats the widget tap test on Playwright's WebKit, to catch Safari-only
+behaviour (the 2026-10-09 silent MessagePort). `npx playwright install webkit` downloads it into `~/.cache/ms-playwright`
+(our playwright-core 1.63 expects `webkit-2359`; another build can be passed as `CLAUDE_WRAP_E2E_WEBKIT=<…/pw_run.sh>`),
+but the binary needs system libraries (gstreamer and the GTK/WPE stack): `apt` by Sasha, recorded in the inventory,
+before the test can run. Until then: `CLAUDE_WRAP_E2E_WEBKIT=1 npx vitest run --config apps/mobile/vitest.e2e.config.ts apps/mobile/e2e/widgets-webkit.e2e.ts` is skipped without the variable.
+
 ## Core and server tests on Linux (WSL)
 **When:** before a push that touches core, server or deploy (the server runs the same tests before switching).
 1. From **PowerShell** (Git Bash would expand `$` in the command): `wsl bash <scratchpad>/linux-test-local.sh`.

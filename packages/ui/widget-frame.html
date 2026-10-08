@@ -4,9 +4,10 @@
   the widget ({html, data, theme, scheme, lang}) by postMessage; the page's own CSP (WIDGET_FRAME_CSP in
   packages/protocol/src/widgetFrame.ts) allows inline scripts and nothing that reaches the network.
   Runtime for the widget: window.athome (data, actions), the app's colours as CSS variables and a base stylesheet.
-  Messages to the chat: athome.ready, athome.height {height}; from the chat: athome.render {html, data, theme, scheme,
-  lang} with a MessagePort, athome.theme. Actions go only through that private port (athome.action {id, action, args}
-  → athome.result {id, ok, value | error}), and only after a tap inside this frame: widget code never sees the port.
+  Messages to the chat: athome.ready, athome.height {height}, athome.action {id, action, args}; from the chat:
+  athome.render {html, data, theme, scheme, lang}, athome.theme, athome.result {id, ok, value | error}. Plain window
+  messages (a private MessagePort was tried first and stayed silent on iOS Safari); an action goes out only after a
+  tap inside this frame, and the chat checks the tap again on its side.
 -->
 <html>
   <head>
@@ -46,15 +47,15 @@
         'use strict'
         // Captured before any widget code runs, so a widget cannot fake them by patching globals.
         const apply = Reflect.apply
-        const portPost = MessagePort.prototype.postMessage
         const toJson = JSON.stringify
         const fromJson = JSON.parse
         const activation = navigator.userActivation
         const activeGetter = activation && Object.getOwnPropertyDescriptor(Object.getPrototypeOf(activation), 'isActive')?.get
         const parent = window.parent
+        const parentPost = parent.postMessage
         const pending = new Map()
         let nextId = 0
-        let port = null
+        let ready = false
 
         // No way out through WebRTC either (the CSP does not cover it).
         for (const name of ['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel', 'RTCSessionDescription', 'RTCIceCandidate']) {
@@ -64,28 +65,27 @@
         }
 
         // Sends a message to the chat (the frame's origin is opaque, so the target cannot be named).
-        const post = (message) => parent.postMessage(message, '*')
+        const post = (message) => apply(parentPost, parent, [message, '*'])
 
         // Whether the user has just tapped inside this frame (a tap in the app around it does not count).
         const tapped = () => Boolean(activeGetter && apply(activeGetter, activation, []))
 
-        // Asks the chat for an action on the private port; resolves with its value, rejects with an Error when
-        // refused or failed. Refused here without a fresh tap inside the widget.
+        // Asks the chat for an action; resolves with its value, rejects with an Error when refused or failed. Refused
+        // here without a fresh tap inside the widget.
         function call(action, args) {
-          if (!port) return Promise.reject(new Error('the widget is not ready'))
+          if (!ready) return Promise.reject(new Error('the widget is not ready'))
           if (!tapped()) return Promise.reject(new Error('a widget can act only when the user taps it'))
           return new Promise((resolve, reject) => {
             const id = ++nextId
             pending.set(id, { resolve, reject })
             const plain = args && typeof args === 'object' ? fromJson(toJson(args)) : {}
-            apply(portPost, port, [{ type: 'athome.action', id, action: String(action), args: plain }])
+            post({ type: 'athome.action', id, action: String(action), args: plain })
           })
         }
 
-        // The chat's answers to the actions, on the private port.
-        function onResult(event) {
-          const message = event.data
-          if (!message || message.type !== 'athome.result' || !pending.has(message.id)) return
+        // The chat's answer to an action.
+        function onResult(message) {
+          if (!pending.has(message.id)) return
           const { resolve, reject } = pending.get(message.id)
           pending.delete(message.id)
           if (message.ok) resolve(message.value)
@@ -135,21 +135,21 @@
           report()
         }
 
-        // Registered first and in the capture phase: the render message (and its port) never reaches widget code.
+        // Registered first and in the capture phase: the chat's messages never reach widget code.
         window.addEventListener(
           'message',
           (event) => {
             if (event.source !== parent || !event.data || typeof event.data !== 'object') return
             const message = event.data
-            if (message.type === 'athome.render' && !port && typeof message.html === 'string' && event.ports[0]) {
-              event.stopImmediatePropagation()
-              port = event.ports[0]
-              port.onmessage = onResult
+            event.stopImmediatePropagation()
+            if (message.type === 'athome.render' && !ready && typeof message.html === 'string') {
+              ready = true
               applyTheme(message.theme, message.scheme, message.lang)
               Object.defineProperty(window, 'athome', { value: runtime(message.data), configurable: false, writable: false })
               mount(message.html)
               watchHeight()
             } else if (message.type === 'athome.theme') applyTheme(message.theme, message.scheme)
+            else if (message.type === 'athome.result') onResult(message)
           },
           true
         )

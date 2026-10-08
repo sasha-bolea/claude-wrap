@@ -36,11 +36,15 @@ async function petra(of: Core = core): Promise<RawClient> {
   return client
 }
 
-// The plans the app sees now (the last plans.updated, else the snapshot).
+// The plans the app sees now: from the latest of the last plans.updated event and the last workspace reset (a client
+// that fell behind gets a reset with a fresh snapshot instead of the events).
 function plans(of: RawClient = app): Plan[] {
-  const updates = of.events(WORKSPACE_STREAM).filter((ev) => ev.type === 'plans.updated')
-  if (updates.length) return (updates.at(-1) as { plans: Plan[] }).plans
-  return (of.lastReset(WORKSPACE_STREAM)?.snapshot as WorkspaceSnapshot).plans ?? []
+  for (let index = of.frames.length - 1; index >= 0; index--) {
+    const frame = of.frames[index]!
+    if (frame.t === 'ev' && frame.stream === WORKSPACE_STREAM && frame.ev.type === 'plans.updated') return frame.ev.plans
+    if (frame.t === 'reset' && frame.stream === WORKSPACE_STREAM) return (frame.snapshot as WorkspaceSnapshot).plans ?? []
+  }
+  return []
 }
 
 // Proposes a plan as the caller and returns its id.
