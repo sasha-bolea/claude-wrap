@@ -1,10 +1,8 @@
 // Runs before the first paint (a blocking script in index.html's <head>), with the palette saved on this device (same
 // storage key as packages/ui/src/palette.ts, ACTIVE_KEY):
 // - the page takes the palette's surface colour (the top bar's) at once;
-// - iOS's status bar style, read once at launch: with a dark palette "black-translucent", so the app runs under the
-//   status bar and the top bar itself (padded by the safe area) is the status bar's background, the same colour;
-//   with a light palette or none "default" (black-translucent's text is always white, unreadable on light colours).
-var statusBar = 'default'
+// - a dark palette marks the page "dark-palette" (as applyPalette does later): iOS's status bar (black-translucent,
+//   white text) then shows the top bar itself; otherwise touch.css puts a dark strip under the status bar's text.
 try {
   var saved = JSON.parse(localStorage.getItem('claude-wrap:palette') || 'null')
   var colors = (saved && saved.colors) || {}
@@ -17,12 +15,8 @@ try {
       var c = channel / 255
       return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
     })
-    if (0.2126 * light[0] + 0.7152 * light[1] + 0.0722 * light[2] < 0.4) statusBar = 'black-translucent'
+    if (0.2126 * light[0] + 0.7152 * light[1] + 0.0722 * light[2] < 0.4) document.documentElement.classList.add('dark-palette')
   }
 } catch (error) {
-  // No storage: the base colours of touch.css and the default status bar.
+  // No storage: the base colours of touch.css (light).
 }
-var meta = document.createElement('meta')
-meta.name = 'apple-mobile-web-app-status-bar-style'
-meta.content = statusBar
-document.head.appendChild(meta)

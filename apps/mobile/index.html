@@ -6,7 +6,11 @@
     <meta name="theme-color" content="#c96442" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="AtHome" />
-    <!-- before the first paint: the saved palette's top bar colour on the page and iOS's status bar style (read once) -->
+    <!-- iOS reads the status bar style only from the page's own markup (one added by a script is ignored): the app runs
+         under the status bar, so the top bar itself is its background (white text; with a light palette a dark strip
+         sits under it, see touch.css) -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- before the first paint: the saved palette's top bar colour on the page, and whether it is dark -->
     <script src="/palette-early.js"></script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icon-180.png" />

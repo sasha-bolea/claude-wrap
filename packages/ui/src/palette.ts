@@ -107,7 +107,8 @@ export function pointIcons(accent?: string): void {
   }
 }
 
-// Puts a palette's colours on the page; none: back to touch.css's base colours (the default palette's).
+// Puts a palette's colours on the page; none: back to touch.css's base colours (the default palette's). A dark one also
+// marks the page "dark-palette" (iOS's status bar text is white: touch.css puts a dark strip under it otherwise).
 export function applyPalette(colors?: PaletteColors): void {
   const style = document.documentElement.style
   const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
@@ -116,12 +117,14 @@ export function applyPalette(colors?: PaletteColors): void {
   if (!colors) {
     for (const token of TOKENS) style.removeProperty(token)
     style.removeProperty('color-scheme')
+    document.documentElement.classList.remove('dark-palette')
     if (meta?.dataset.original) meta.content = meta.dataset.original
     return
   }
   const { tokens, scheme } = paletteTokens(colors)
   for (const [token, value] of Object.entries(tokens)) style.setProperty(token, value)
   style.setProperty('color-scheme', scheme)
+  document.documentElement.classList.toggle('dark-palette', scheme === 'dark')
   if (meta) meta.content = colors.accent
 }
 

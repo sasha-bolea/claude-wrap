@@ -46,6 +46,9 @@ code { font-family: var(--font-mono); }
      (the saved palette's, set before the first paint by palette-early.js; iOS keeps the colour it sees at launch), not
      the wide window's frame */
   html, body { background: var(--surface); }
+  /* iOS's status bar is black-translucent (index.html): white text over the top bar. With a light palette a dark strip
+     sits under the text (the safe area's height), or it would be unreadable */
+  html:not(.dark-palette) body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; z-index: 1000; height: env(safe-area-inset-top, 0px); background: var(--text); pointer-events: none; }
   /* Never the launch grey here: iOS keeps the page colour it sees at launch under the status bar for the whole run */
   body { padding: 0; }
   .device { position: fixed; top: 0; left: 0; max-width: none; height: var(--app-h, 100%); border-radius: 0; box-shadow: none; }

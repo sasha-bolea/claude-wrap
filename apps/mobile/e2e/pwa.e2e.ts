@@ -1051,13 +1051,18 @@ describe('PWA (fake SDK)', () => {
     await page.route('**/assets/*.js', (route) => route.abort())
     await page.reload()
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe('rgb(32, 48, 64)')
-    // A dark palette: the app runs under iOS's status bar, so the top bar is its background.
-    const statusBar = () => page.evaluate(() => document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-status-bar-style"]')?.content)
-    expect(await statusBar()).toBe('black-translucent')
-    // A light one: the default status bar (its text would be white on light colours otherwise).
+    // The status bar style is in the page's markup (iOS ignores one a script adds): the app runs under the status bar,
+    // so the top bar is its background.
+    const markup = await (await page.request.get(backend.url + '/')).text()
+    expect(markup).toContain('<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />')
+    // A dark palette is marked before the app's code runs: no strip under the status bar.
+    const dark = () => page.evaluate(() => document.documentElement.classList.contains('dark-palette'))
+    expect(await dark()).toBe(true)
+    // A light one: not marked, so a dark strip sits under the status bar's white text.
     await page.evaluate(() => localStorage.setItem('claude-wrap:palette', JSON.stringify({ paletteId: 'y', colors: { background: '#faf9f7', surface: '#ffffff', text: '#1f1e1c', accent: '#0f766e', danger: '#c62828', success: '#2e7d32' } })))
     await page.reload()
-    expect(await statusBar()).toBe('default')
+    expect(await dark()).toBe(false)
+    expect(await page.evaluate(() => getComputedStyle(document.body, '::before').content)).toBe('""')
   })
 
   it('with a palette on, the Home screen icon and the manifest take its accent; "Icon in this colour" copies a link that gives them to a browser not paired', async () => {
