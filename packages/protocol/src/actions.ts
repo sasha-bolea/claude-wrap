@@ -28,8 +28,18 @@ export const CORE_ACTIONS = {
   'prompt.send': z.object({ text: z.string().trim().min(1).max(ACTION_TEXT_MAX) }),
   'request.answer': z.object({ decision: z.enum(['allow', 'deny']), answers: z.record(z.string(), z.string()).optional() }),
   'project.create': z.object({ name: folderNameSchema, parent: z.string().min(1).optional() }),
-  'session.start': z.object({ folder: z.string().min(1), prompt: z.string().trim().min(1).max(ACTION_TEXT_MAX).optional() })
+  'session.start': z.object({ folder: z.string().min(1), prompt: z.string().trim().min(1).max(ACTION_TEXT_MAX).optional() }),
+  // Plans only (a caller with a key, inside an approved plan): the rest of the app.
+  // session.follow: while the chat's turn is under way, the caller may answer its requests; the step ends with the turn.
+  'session.follow': z.object({}),
+  'folder.create': z.object({ parent: z.string().min(1), name: folderNameSchema }),
+  'project.mark': z.object({ path: z.string().min(1), project: z.boolean() }),
+  'queue.add': z.object({ text: z.string().trim().min(1).max(ACTION_TEXT_MAX) }),
+  'queue.remove': z.object({ queueId: z.string().min(1) }),
+  'session.stop': z.object({}),
+  'session.close': z.object({})
 } as const
+
 
 // Actions the client runs on its own screen.
 export const CLIENT_ACTIONS = {
@@ -43,6 +53,8 @@ export type ClientActionName = keyof typeof CLIENT_ACTIONS
 export type CoreActionArgs<Name extends CoreActionName> = z.infer<(typeof CORE_ACTIONS)[Name]>
 export type ClientActionArgs<Name extends ClientActionName> = z.infer<(typeof CLIENT_ACTIONS)[Name]>
 export const coreActionNameSchema = z.enum(Object.keys(CORE_ACTIONS) as [CoreActionName, ...CoreActionName[]])
+// Actions only a plan may run (never a widget, never a person at the terminal).
+export const PLAN_ONLY_ACTIONS = new Set<CoreActionName>(['session.follow', 'folder.create', 'project.mark', 'queue.add', 'queue.remove', 'session.stop', 'session.close'])
 
 // What a confirmation request (kind 'action') carries as its input: the action, its arguments, who asked, and for
 // request.answer the request it would answer.

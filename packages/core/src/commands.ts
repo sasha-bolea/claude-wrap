@@ -17,8 +17,9 @@ const ALL_SESSIONS_LIMIT = 200
 // One attached client. label: how other clients see it (device name on the server, else the clientId);
 // deviceId: the paired device (remote only); visible: its page is on screen.
 // watching: the tab whose chat it shows on screen.
-// terminal: the server's terminal socket (the athome command): it may send only TERMINAL_COMMANDS.
-export type Connection = { clientId: string; send: Send; label: string; deviceId?: string; visible: boolean; watching?: string; terminal?: boolean }
+// terminal: the server's terminal socket (the athome command): it may send only TERMINAL_COMMANDS; caller: the
+// caller its key names (Petra), whose actions run only inside its approved plans.
+export type Connection = { clientId: string; send: Send; label: string; deviceId?: string; visible: boolean; watching?: string; terminal?: boolean; caller?: string }
 type Handler<N extends CommandName> = (args: CommandArgs<N>, connection: Connection, cmdId: string) => Promise<CommandResult<N>> | CommandResult<N>
 export type Handlers = { [N in CommandName]: Handler<N> }
 // Commands the host implements itself (the remote server's device management).
@@ -189,6 +190,16 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'widgets.list': () => workspace.listWidgets(),
     'widgets.read': async ({ name }) => ({ html: await readWidget(workspace.claudeDir, name) }),
     'actions.run': async (args, connection) => ({ value: await runAction(workspace, args, connection) }),
+    'callers.create': async ({ name }, connection) => (personAtTerminal(connection), { key: await workspace.callers.create(name) }),
+    'callers.list': (_args, connection) => (personAtTerminal(connection), { callers: workspace.callers.list() }),
+    'callers.revoke': async ({ name }, connection) => (personAtTerminal(connection), await workspace.callers.revoke(name), {}),
+    'plans.propose': (proposal, connection) => ({ planId: workspace.planStore.propose(callerOf(connection), proposal).planId }),
+    'plans.answer': ({ planId, decision }, connection) => {
+      if (connection.terminal) throw new CoreError('unauthorized', 'only the app answers a plan')
+      workspace.planStore.answer(planId, decision)
+      return {}
+    },
+    'plans.cancel': ({ planId }, connection) => (workspace.planStore.cancel(planId, connection.terminal ? callerOf(connection) : undefined), {}),
     'settings.claudeCode': () => workspace.claudeSettings(),
     'settings.setClaudeCode': async ({ change }) => (await workspace.setClaudeSetting(change), {}),
     'tab.refreshGauges': async ({ tabId }) => (await workspace.refreshGauges(tabId), {}),
@@ -263,6 +274,17 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'trust.grant': async ({ cwd }) => (await workspace.grantTrust(cwd), {}),
     'request.answer': ({ tabId, requestId, ...answer }, connection) => (tabOf(tabId).answer(requestId, answer, connection.label), {})
   }
+}
+
+// The connection must be a person at the terminal socket (no key): keys are made and revoked by hand only.
+function personAtTerminal(connection: Connection): void {
+  if (!connection.terminal || connection.caller) throw new CoreError('unauthorized', 'only a person at the terminal can do this')
+}
+
+// The caller a connection's key names; unauthorized without one.
+function callerOf(connection: Connection): string {
+  if (!connection.caller) throw new CoreError('unauthorized', 'this needs a caller key')
+  return connection.caller
 }
 
 // Validates and runs one command. Returns its reply frame (errors included).

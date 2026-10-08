@@ -1,8 +1,10 @@
 import { homedir } from 'node:os'
 import { basename, join, relative } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
-import { WORKSPACE_STREAM, tabStream, type ClaudeSettingChange, type ClaudeSettings, type Effort, type Home, type PermissionBehavior, type PermissionMode, type PlanLimits, type SettingsDestination, type WidgetInfo } from '@athome/protocol'
+import { PLAN_LIMITS, WORKSPACE_STREAM, tabStream, type ClaudeSettingChange, type ClaudeSettings, type Effort, type Home, type PermissionBehavior, type PermissionMode, type PlanLimits, type SettingsDestination, type WidgetInfo } from '@athome/protocol'
 import { ActionLog } from './actionLog.ts'
+import { CallerStore } from './callers.ts'
+import { PlanStore } from './plans.ts'
 import { DEFAULT_TERMINAL_POLICY, type TerminalPolicy } from './actions.ts'
 import { AccountStore } from './accounts.ts'
 import { ActivityFile } from './activity.ts'
@@ -52,6 +54,9 @@ export class Workspace {
   readonly claudeDir: string
   readonly terminalPolicy: TerminalPolicy
   readonly actionLog: ActionLog
+  // The terminal's callers with a key and their plans (Petra).
+  readonly callers: CallerStore
+  readonly planStore: PlanStore
   readonly notes: NoteStore
   readonly accounts: AccountStore
   readonly palettes: PaletteStore
@@ -82,6 +87,8 @@ export class Workspace {
     this.claudeDir = config.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude')
     this.terminalPolicy = { ...DEFAULT_TERMINAL_POLICY, ...config.terminalPolicy }
     this.actionLog = new ActionLog(config.stateDir && join(config.stateDir, 'actions.jsonl'))
+    this.callers = new CallerStore(config.stateDir && join(config.stateDir, 'callers.json'))
+    this.planStore = new PlanStore(config.stateDir && join(config.stateDir, 'plans.json'), config.planTtlMs ?? PLAN_LIMITS.ttlMs, () => this.stream.emit({ type: 'plans.updated', plans: this.planStore.open() }), (plan) => config.notifier?.({ kind: 'plan', tabId: '', title: plan.caller, detail: plan.summary, waiting: 0, finished: 0 }))
     this.prompts = new PromptHistory(config.stateDir && join(config.stateDir, 'history.jsonl'), join(this.claudeDir, 'history.jsonl'))
     this.notes = new NoteStore(config.stateDir && join(config.stateDir, 'notes.json'))
     this.stream = new Stream(
@@ -97,6 +104,7 @@ export class Workspace {
         defaultEffort: this.store.data.defaultEffort,
         defaultMode: this.store.data.defaultMode,
         widgets: this.store.data.widgets,
+        plans: this.planStore.open(),
         terminals: this.terminals.list(),
         palettes: this.palettes.list()
       }),
@@ -553,7 +561,7 @@ export class Workspace {
         this.stream.emit({ type: 'tab.updated', tab: tab.meta() })
         this.persist()
       },
-      turnFinished: (tab) => this.stream.emit({ type: 'turn.finished', tabId: tab.tabId }),
+      turnFinished: (tab) => (this.stream.emit({ type: 'turn.finished', tabId: tab.tabId }), this.planStore.onTurnFinished(tab.tabId)),
       sessionIdChanged: (tab, previous) => {
         if (previous && this.sessionIndex.get(previous) === tab.tabId) this.sessionIndex.delete(previous)
         if (tab.sessionId) this.sessionIndex.set(tab.sessionId, tab.tabId)

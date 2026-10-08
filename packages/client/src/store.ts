@@ -1,4 +1,4 @@
-import type { Account, Effort, Home, Item, Palette, PermissionMode, ProtocolError, Request, TabEvent, TabMeta, TabSnapshot, TerminalMeta, Welcome, WorkspaceEvent, WorkspaceSnapshot } from '@athome/protocol'
+import type { Account, Effort, Home, Item, Palette, PermissionMode, ProtocolError, Request, TabEvent, TabMeta, TabSnapshot, TerminalMeta, Welcome, WorkspaceEvent, WorkspaceSnapshot, Plan } from '@athome/protocol'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'offline' | 'incompatible' | 'unauthorized'
 
@@ -25,6 +25,8 @@ export type StoreState = {
   defaultMode?: PermissionMode
   // Chat widgets on (the guide in every new session's system prompt).
   widgets?: boolean
+  // The plans to answer or under way (a caller's, e.g. Petra's).
+  plans: Plan[]
   // The saved colour palettes of the backend (shared by every device).
   palettes: Palette[]
   // The backend's terminals (shared by every client).
@@ -38,7 +40,7 @@ export type StoreState = {
 // Client-side copy of the core state the UI displays. Every change produces a new state object
 // (useSyncExternalStore-ready: getSnapshot/subscribe).
 export class Store {
-  private state: StoreState = { status: 'connecting', palettes: [], terminals: [], transcripts: {}, notesVersion: {} }
+  private state: StoreState = { status: 'connecting', palettes: [], plans: [], terminals: [], transcripts: {}, notesVersion: {} }
   private readonly listeners = new Set<() => void>()
 
   getSnapshot = (): StoreState => this.state
@@ -54,7 +56,7 @@ export class Store {
   }
 
   applyWorkspaceReset(snapshot: WorkspaceSnapshot): void {
-    this.set({ ...this.state, tabs: snapshot.tabs, home: snapshot.home, projects: snapshot.projects, accounts: snapshot.accounts, defaultAccount: snapshot.defaultAccount, autoCompactWindow: snapshot.autoCompactWindow, defaultEffort: snapshot.defaultEffort, defaultMode: snapshot.defaultMode, widgets: snapshot.widgets, terminals: snapshot.terminals, palettes: snapshot.palettes ?? [] })
+    this.set({ ...this.state, tabs: snapshot.tabs, home: snapshot.home, projects: snapshot.projects, accounts: snapshot.accounts, defaultAccount: snapshot.defaultAccount, autoCompactWindow: snapshot.autoCompactWindow, defaultEffort: snapshot.defaultEffort, defaultMode: snapshot.defaultMode, widgets: snapshot.widgets, plans: snapshot.plans ?? [], terminals: snapshot.terminals, palettes: snapshot.palettes ?? [] })
   }
 
   applyTabReset(tabId: string, snapshot: TabSnapshot): void {
@@ -79,6 +81,7 @@ export class Store {
     if (ev.type === 'folders.updated') this.set({ ...this.state, home: ev.home, projects: ev.projects })
     if (ev.type === 'accounts.updated') this.set({ ...this.state, accounts: ev.accounts, defaultAccount: ev.defaultAccount })
     if (ev.type === 'palettes.updated') this.set({ ...this.state, palettes: ev.palettes })
+    if (ev.type === 'plans.updated') this.set({ ...this.state, plans: ev.plans })
     if (ev.type === 'settings.updated') this.set({ ...this.state, autoCompactWindow: ev.autoCompactWindow, defaultEffort: ev.defaultEffort, defaultMode: ev.defaultMode, widgets: ev.widgets })
     const { terminals } = this.state
     if (ev.type === 'terminal.added') this.set({ ...this.state, terminals: [...terminals.filter((one) => one.terminalId !== ev.terminal.terminalId), ev.terminal] })

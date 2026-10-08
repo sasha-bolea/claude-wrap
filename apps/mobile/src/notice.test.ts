@@ -27,6 +27,10 @@ describe('the single notification', () => {
     expect(view({ kind: 'request', title: 'x', tabId: 't2', waiting: 2, finished: 0 }, 'en')).toEqual({ title: 'AtHome', body: '2 chats are waiting for you' })
   })
 
+  it("a caller's plan: who proposes it, no chat to open", () => {
+    expect(view({ kind: 'plan', title: 'petra', tabId: '', waiting: 0, finished: 0 }, 'en')).toEqual({ title: 'petra', body: 'proposes a plan: approve it in AtHome', tabId: '' })
+  })
+
   it('a payload without counts (older server) still names its chat', () => {
     expect(view({ kind: 'error', title: 'Old', tabId: 't9' }, 'en')).toEqual({ title: 'Old', body: 'Claude stopped with an error', tabId: 't9' })
   })

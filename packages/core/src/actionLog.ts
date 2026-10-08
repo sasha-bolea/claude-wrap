@@ -6,8 +6,9 @@ import type { ActionConfirmation, CoreActionName } from '@athome/protocol'
 // MAX_ENTRIES) and appended to <stateDir>/actions.jsonl when there is a state folder.
 
 export type ActionOutcome = 'done' | 'denied' | 'refused' | 'failed'
-// One action: when (ms), what, its arguments, who asked (source, the client's name), the chat, how it ended.
-export type ActionLogEntry = { at: number; action: CoreActionName; args: Record<string, unknown>; source: ActionConfirmation['source']; by: string; tabId?: string; outcome: ActionOutcome }
+// One action: when (ms), what, its arguments, who asked (source, the client's name), the chat, the plan it ran under,
+// how it ended.
+export type ActionLogEntry = { at: number; action: CoreActionName; args: Record<string, unknown>; source: ActionConfirmation['source']; by: string; tabId?: string; plan?: string; outcome: ActionOutcome }
 
 const MAX_ENTRIES = 500
 

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { planSchema } from './plans.ts'
 
 // Data shared by core and clients: transcript items, tab metadata, requests, stream events and snapshots.
 
@@ -162,6 +163,8 @@ export const workspaceEventSchema = z.discriminatedUnion('type', [
   // Backend settings changed, all of them as they now are (autoCompactWindow undefined = Claude Code's own setting;
   // defaultEffort undefined = the model's; defaultMode undefined = 'default'; widgets undefined = off).
   z.object({ type: z.literal('settings.updated'), autoCompactWindow: z.number().int().optional(), defaultEffort: effortSchema.optional(), defaultMode: permissionModeSchema.optional(), widgets: z.boolean().optional() }),
+  // The open plans changed (all of them as they now are).
+  z.object({ type: z.literal('plans.updated'), plans: z.array(planSchema) }),
   z.object({ type: z.literal('terminal.added'), terminal: terminalMetaSchema }),
   z.object({ type: z.literal('terminal.updated'), terminal: terminalMetaSchema }),
   z.object({ type: z.literal('terminal.removed'), terminalId: z.string() })
@@ -197,6 +200,8 @@ export const workspaceSnapshotSchema = z.object({
   defaultMode: permissionModeSchema.optional(),
   // Chat widgets on (the guide in every new session's system prompt); undefined = off.
   widgets: z.boolean().optional(),
+  // The plans to answer or under way (plans.ts); absent from an older backend: none.
+  plans: z.array(planSchema).optional(),
   // Absent from an older backend: none.
   terminals: z.array(terminalMetaSchema).default([]),
   // The saved colour palettes; absent from an older backend: none.

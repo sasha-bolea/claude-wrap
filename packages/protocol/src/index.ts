@@ -8,6 +8,7 @@ export * from './presets.ts'
 export * from './brand.ts'
 export * from './widgets.ts'
 export * from './actions.ts'
+export * from './plans.ts'
 
 // Major version of the client↔core protocol: a different value on the two sides is incompatible.
 export const PROTOCOL_VERSION = 1

@@ -26,7 +26,8 @@ export type SdkApi = {
 // waiting / finished: how many chats wait for an answer, and how many finished (or stopped with an error) since anyone
 // last looked at them — the phone shows one notification with these numbers.
 // visibleDevices: paired devices with a client on screen right now (the server skips their push).
-export type Notice = { kind: 'request' | 'turnFinished' | 'error'; tabId: string; title: string; detail?: string; waiting: number; finished: number; visibleDevices?: string[] }
+// plan: a caller proposed a plan (title: the caller; no chat: tabId '').
+export type Notice = { kind: 'request' | 'turnFinished' | 'error' | 'plan'; tabId: string; title: string; detail?: string; waiting: number; finished: number; visibleDevices?: string[] }
 
 export interface CoreConfig {
   backendId: string
@@ -58,6 +59,8 @@ export interface CoreConfig {
   maxLiveSessions?: number
   // What the athome command may do, over the defaults (DEFAULT_TERMINAL_POLICY in actions.ts).
   terminalPolicy?: Partial<TerminalPolicy>
+  // How long a plan may live (ms; default PLAN_LIMITS.ttlMs; tests shorten it).
+  planTtlMs?: number
   coalesceMs?: number
   snapshotItems?: number
   ring?: RingLimits

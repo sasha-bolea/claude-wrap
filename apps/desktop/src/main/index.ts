@@ -24,8 +24,8 @@ const MIME_TYPES: Record<string, string> = {
 }
 // Notification texts, by UI language (the renderer's dictionaries live in the page).
 const NOTICE_TEXT = {
-  en: { request: 'Claude needs you', turnFinished: 'Claude has finished', error: 'The Claude process stopped' },
-  it: { request: 'Claude ha bisogno di te', turnFinished: 'Claude ha finito', error: 'Il processo di Claude si è fermato' }
+  en: { request: 'Claude needs you', turnFinished: 'Claude has finished', error: 'The Claude process stopped', plan: 'proposes a plan: approve it in AtHome' },
+  it: { request: 'Claude ha bisogno di te', turnFinished: 'Claude ha finito', error: 'Il processo di Claude si è fermato', plan: 'propone un piano: approvalo in AtHome' }
 }
 // Dev server URL set by electron-vite in `npm run dev:desktop`; absent in built runs.
 const DEV_URL = process.env.ELECTRON_RENDERER_URL

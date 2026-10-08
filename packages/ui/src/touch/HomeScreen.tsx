@@ -8,6 +8,7 @@ import { ConnectionBanner, Crumbs, IconButton, Title, UpdateBar, useQuery } from
 import { BackendSwitch } from './backends.tsx'
 import { OpenSessions, pastOnly, SessionLists, useStartSession } from './sessions.tsx'
 import { OpenTerminals, useOpenTerminal } from './TerminalScreen.tsx'
+import { PlanCards } from './PlanCard.tsx'
 
 const VIEW_KEY = 'claude-wrap:homeView'
 type View = 'projects' | 'sessions'
@@ -79,7 +80,8 @@ export function HomeScreen({ view: asked }: { view?: View }) {
   const current = trail.at(-1) ?? root
   useBackHandler(trail.length > 0 && view === 'projects', () => setTrail((path) => path.slice(0, -1)))
 
-  const listing = useQuery(() => (current ? connection.request('folders.list', { path: current }) : Promise.resolve(undefined)), [connection, current])
+  // Listed again when the project marks change: a project made elsewhere (a plan, a widget, another device) shows up.
+  const listing = useQuery(() => (current ? connection.request('folders.list', { path: current }) : Promise.resolve(undefined)), [connection, current, state.projects])
   const stored = useQuery(() => (current ? connection.request('sessions.list', { cwd: current }) : Promise.resolve(undefined)), [connection, current, state.tabs.length])
   const trash = useQuery(() => connection.request('trash.list', {}), [connection])
   const everySession = useQuery(() => (view === 'sessions' ? connection.request('sessions.list', {}) : Promise.resolve(undefined)), [connection, view, state.tabs.length])
@@ -134,6 +136,7 @@ export function HomeScreen({ view: asked }: { view?: View }) {
       {view === 'projects' && trail.length > 0 && <Crumbs parts={[root ? baseName(root) : t('thisComputer'), ...trail.map(baseName)]} onJump={(index) => setTrail((path) => path.slice(0, index))} />}
       <div className="scroll">
         <div className="pad tight">
+          <PlanCards />
           {view === 'sessions' ? (
             <>
               <OpenTerminals />

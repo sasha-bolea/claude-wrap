@@ -71,7 +71,7 @@ describe('PWA chat widgets (fake SDK)', () => {
     const card = page.getByRole('region', { name: 'A widget asks' })
     await card.getByText(`Create the project “idea” in ${backend.root}?`).waitFor()
     await card.getByRole('button', { name: 'No', exact: true }).click()
-    await widget.getByText('refused').waitFor()
+    await widget.getByText('refused', { exact: true }).waitFor()
     expect(existsSync(join(backend.root, 'idea'))).toBe(false)
     await widget.getByRole('button', { name: 'Nuovo progetto' }).click()
     await card.getByRole('button', { name: 'Yes', exact: true }).click()

@@ -38,10 +38,16 @@ export class RawClient {
     core.attach(coreEnd, identity)
   }
 
-  // Sends hello and waits for welcome. resume: stream positions to resume.
-  async hello(resume: Record<string, StreamPosition> = {}): Promise<void> {
-    this.channel.send({ t: 'hello', protocolVersion: PROTOCOL_VERSION, clientId: this.clientId, visible: true, resume })
-    await this.waitFor(() => this.frames.some((frame) => frame.t === 'welcome'))
+  // Sends hello and waits for welcome (or a fatal refusal). resume: stream positions to resume; token: a device token
+  // or a caller's key (terminal connections).
+  async hello(resume: Record<string, StreamPosition> = {}, token?: string): Promise<void> {
+    this.channel.send({ t: 'hello', protocolVersion: PROTOCOL_VERSION, clientId: this.clientId, visible: true, resume, ...(token ? { token } : {}) })
+    await this.waitFor(() => this.frames.some((frame) => frame.t === 'welcome' || frame.t === 'fatal'))
+  }
+
+  // The fatal frame received, if any.
+  get fatal(): ProtocolError | undefined {
+    return this.frames.find((frame): frame is Extract<CoreFrame, { t: 'fatal' }> => frame.t === 'fatal')?.error
   }
 
   // Sends a raw command and waits for its reply. Returns the reply frame.

@@ -441,15 +441,16 @@ function RequestCard({ request, onAnswer }: { request: Request; onAnswer: (answe
   )
 }
 
-// A heavy action a widget asked for (action API), to allow or deny: what it would do, in plain words, and the widget
-// as its source. Its arguments come from a widget Claude wrote: React text only.
+// A heavy action asked for through the action API (a widget of this chat, or the athome command run by Claude in this
+// chat), to allow or deny: what it would do, in plain words, and who asks. Its arguments come from a widget Claude
+// wrote or from a command line: React text only.
 function ActionCard({ request, onAnswer }: { request: Request; onAnswer: (answer: Answer) => void }) {
   const { title, detail } = actionWords(request.input)
   return (
     <>
       <h2>{title}</h2>
       {detail && <pre className="preview">{detail}</pre>}
-      <span className="muted">{t('actionFromWidget')}</span>
+      <span className="muted">{t(request.input.source === 'terminal' ? 'actionFromTerminal' : 'actionFromWidget')}</span>
       <div className="grant-row">
         <button className="button primary" onClick={() => onAnswer({ decision: 'allow' })}>
           {t('yes')}

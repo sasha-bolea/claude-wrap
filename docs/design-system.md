@@ -283,6 +283,19 @@ A row "Compatta quando la conversazione arriva a" with five segments: Standard (
 it. A change restarts the live processes (idle now, working at the end of their turn) with the conversations kept.
 Examples: [SettingsScreen.tsx:215](../packages/ui/src/touch/SettingsScreen.tsx#L215).
 
+### Plan card (a caller's plan, on the Home) — `.card.plan-card`, `.plan-summary`, `.plan-steps`, `.chip.free`; existing `.card`, `.card-actions`, `.chip.accent`, `.button` (`.primary`, `.danger`, `.quiet`)
+A plan proposed by a caller with a key (Petra, through the `athome` command) sits on top of the Home, in both views,
+until answered or finished: a `.card.plan-card` (region "Piano di <caller>") with the heading ("petra propone un piano",
+then "Piano di petra · passo N di M"), the caller's summary as it wrote it (`.plan-summary`, React text only), the
+line "Se approvi, potrà fare, in quest'ordine:" and the steps as a numbered `.plan-steps` list **in the app's own words**
+([plans.ts](../packages/ui/src/touch/plans.ts): what the core will enforce, never the caller's wording). In a step,
+free text the caller decides later is a dashed `.chip.free` ("testo libero"); a folder, chat (its title) or message
+that exists already is a `.chip.accent` with "· esistente", so the user sees where the plan touches what is there;
+steps already run are `.muted`. `.card-actions`: Approva (primary) / Rifiuta (danger) while proposed; "Annulla il piano"
+(quiet) while running. Every answer gives a toast; a refusal goes through `fail`. The phone's notification for a new
+proposal says "<caller> propone un piano: approvalo in AtHome" and opens the app (no chat).
+Examples: [PlanCard.tsx:22](../packages/ui/src/touch/PlanCard.tsx#L22), [plans.ts:58](../packages/ui/src/touch/plans.ts#L58), [HomeScreen.tsx:135](../packages/ui/src/touch/HomeScreen.tsx#L135).
+
 ### Settings → chat widgets (existing `.list`, `SwitchRow`)
 "Widget in chat": one `SwitchRow` ("Claude può mostrare widget") whose hint says what widgets are, that /creawidget
 makes new ones, what turning them on costs (the guide's tokens in every new session, from `widgets.list`) and how many

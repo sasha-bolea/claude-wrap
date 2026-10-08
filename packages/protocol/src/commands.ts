@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { AUTO_COMPACT_WINDOW, EFFORT_LEVELS, IMAGE_TYPES, contextUsageSchema, effortSchema, itemSchema, paletteColorsSchema, paletteSchema, permissionModeSchema, projectConfigSchema, sessionInfoSchema, usageSchema } from './model.ts'
 import { actionSourceSchema, coreActionNameSchema, folderNameSchema } from './actions.ts'
+import { callerNameSchema, planProposalSchema } from './plans.ts'
 import { widgetInfoSchema, widgetNameSchema } from './widgets.ts'
 
 // Commands a client can send (`{t:'cmd', id, name, args}`), with the schema of their args and result.
@@ -300,7 +301,16 @@ export const COMMANDS = {
   // ran the athome command); heavy actions wait for the user's answer to a confirmation opened there (action_denied
   // when refused or cancelled). interactive: the athome command runs in a terminal a person types in (see the terminal
   // policy in core actions.ts).
-  'actions.run': { args: z.object({ tabId: tabId.optional(), action: coreActionNameSchema, args: z.record(z.string(), z.unknown()), source: actionSourceSchema, interactive: z.boolean().optional() }), result: z.object({ value: z.unknown().optional() }) },
+  'actions.run': { args: z.object({ tabId: tabId.optional(), action: coreActionNameSchema, args: z.record(z.string(), z.unknown()), source: actionSourceSchema, interactive: z.boolean().optional(), plan: z.string().optional() }), result: z.object({ value: z.unknown().optional() }) },
+  // Keys of the terminal's callers (Petra): only from a terminal a person types in (interactive). The key is shown
+  // once; core keeps its hash.
+  'callers.create': { args: z.object({ name: callerNameSchema, interactive: z.literal(true) }), result: z.object({ key: z.string() }) },
+  'callers.list': { args: z.object({ interactive: z.literal(true) }), result: z.object({ callers: z.array(z.object({ name: callerNameSchema, createdAt: z.number() })) }) },
+  'callers.revoke': { args: z.object({ name: callerNameSchema, interactive: z.literal(true) }), result: empty },
+  // Plans (plans.ts): a caller with a key proposes one; an app client approves or rejects it; either cancels it.
+  'plans.propose': { args: planProposalSchema, result: z.object({ planId: z.string() }) },
+  'plans.answer': { args: z.object({ planId: z.string(), decision: z.enum(['approve', 'reject']) }), result: empty },
+  'plans.cancel': { args: z.object({ planId: z.string() }), result: empty },
   // Claude Code's own settings (/config) of the user's settings file; a change is saved there and every live session
   // takes it at once. file: the settings file shown to the user.
   'settings.claudeCode': { args: empty, result: z.object({ values: claudeSettingsSchema, file: z.string() }) },

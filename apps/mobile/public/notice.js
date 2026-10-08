@@ -7,6 +7,7 @@ const NOTICE_TEXT = {
     request: 'Claude is waiting for your answer',
     turnFinished: 'Claude finished',
     error: 'Claude stopped with an error',
+    plan: 'proposes a plan: approve it in AtHome',
     waiting: (count) => (count === 1 ? '1 chat is waiting for you' : `${count} chats are waiting for you`),
     finished: (count) => (count === 1 ? '1 chat finished' : `${count} chats finished`)
   },
@@ -14,6 +15,7 @@ const NOTICE_TEXT = {
     request: 'Claude aspetta una tua risposta',
     turnFinished: 'Claude ha finito',
     error: 'Claude si è fermato con un errore',
+    plan: 'propone un piano: approvalo in AtHome',
     waiting: (count) => (count === 1 ? '1 chat aspetta te' : `${count} chat aspettano te`),
     finished: (count) => (count === 1 ? '1 chat ha finito' : `${count} chat hanno finito`)
   }

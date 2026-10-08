@@ -194,6 +194,13 @@ input, textarea, select { font-size: 16px; }
 .widget-frame { display: block; width: 100%; height: var(--widget-height, 44px); margin: 6px 0; border: 0; background: transparent; color-scheme: inherit; }
 .widget-pending { margin: 6px 0; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-muted); font-size: 13px; }
 .widget-error { margin: 6px 0; color: var(--text-muted); font-size: 13px; }
+/* A caller's plan on the Home (PlanCard.tsx): the steps as a numbered list; free text and existing targets as chips. */
+.plan-card { margin-bottom: 12px; }
+.plan-card h2 { margin: 0; font-size: 16px; }
+.plan-summary { margin: 0; white-space: pre-wrap; }
+.plan-steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 14px; }
+.plan-steps .chip { vertical-align: 1px; margin: 0 2px; }
+.plan-steps .chip.free { background: none; border: 1px dashed var(--accent); color: var(--accent); }
 .code-block > pre { padding-right: 40px; }
 .copy-code { position: absolute; top: 2px; right: 2px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: none; color: var(--text-muted); }
 .copy-code .i { width: 18px; height: 18px; }
