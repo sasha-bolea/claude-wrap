@@ -160,3 +160,32 @@ backends only by editing the palette in the app.
 - The typecheck catches missing keys, not `{placeholders}`: for every `t('key', { … })` compare the param names with
   the `{x}` in `en.ts` and `it.ts` (done on 2026-10-03 with a throwaway script: depth-aware parse of the object
   literal after `t('key',`). Dynamic keys (`t(cond ? 'a' : 'b')`, template keys) need a manual look.
+
+## A key for a caller of the `athome` command (Petra)
+**When:** a program on the server must use AtHome through plans ([reference/athome-command.md](reference/athome-command.md)).
+1. Over SSH, in a real terminal (not from a Claude session): `athome key create petra` — the key is printed once.
+2. Give it to the program as `ATHOME_KEY`; make sure `CLAUDE_WRAP_TAB_ID` is not in its environment.
+3. `athome key list` shows the callers; `athome key revoke petra` takes the key back (its open plans stay until they
+   expire or the app cancels them).
+**Warning:** the "person at a terminal" check is the TTY: a program can fake it with `script` (STATO, backlog 1).
+
+## Smoke of the `athome` command on a temporary server (zero tokens)
+**When:** after a change to the terminal socket, the command or the policy; never against the live server.
+1. Write a script (the Write tool, not a `&` chain in the shell: a background chain loses its variables and a command
+   then reaches the **live** socket, as happened on 2026-10-08) that starts `node packages/server/src/main.ts` with
+   `env -u CLAUDE_WRAP_TAB_ID CLAUDE_WRAP_ROOT=<tmp>/root CLAUDE_WRAP_PUBLIC_URL=http://127.0.0.1:3998 CLAUDE_WRAP_PORT=3998
+   CLAUDE_WRAP_STATE_DIR=<tmp>/state CLAUDE_WRAP_FAKE_SDK=1` and keeps its PID (`SRV=$!` right after the single `node`
+   command).
+2. Run `node packages/server/src/athome.ts …` with the same `env`; a person is simulated with
+   `script -qfc "<command>" /dev/null`.
+3. End with `kill $SRV` by PID (never `pkill -f` on a pattern that matches the live service) and remove the temp folder.
+4. The automated version of this is `packages/server/src/athomeCli.test.ts` and `terminalSocket.test.ts`.
+
+## Committing from the shared server clone while another session has staged work
+**When:** `git status` shows `MM` files you did not touch (another session's staged hunks) in `/srv/progetti/claude-wrap`.
+1. List your files: `git status --short | grep -v '^MM' | awk '{print $2}' > /tmp/mine.txt`; a file you both touched
+   (e.g. `touch.css`) needs only your unstaged hunks: `git diff -- <file> | git apply --cached` inside the temporary index.
+2. `export GIT_INDEX_FILE=/tmp/my-index && git read-tree HEAD && xargs git add -- < /tmp/mine.txt && git commit -F msg`
+   then `unset GIT_INDEX_FILE`.
+3. Put the real index back for your files only: `xargs git reset -q -- < /tmp/mine.txt` (their staged files stay).
+4. `git push git@github.com:sasha-bolea/claude-wrap.git main` (the clone's `origin` is HTTPS without credentials).

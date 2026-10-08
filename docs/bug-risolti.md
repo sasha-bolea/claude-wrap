@@ -554,3 +554,24 @@ These were solved in the first attempt. Files refer to that repository. Each ent
 - **Fix:** `1291edb` — the cascade skips the asking device and what it created (its `createdBy` cleared); self-revoke
   refused; the confirmation lists the others that go (`revokeCascade`, shared by server and UI).
 - **Files:** `packages/protocol/src/commands.ts`, `packages/server/src/devices.ts`, `deviceCommands.ts`, `server.test.ts`, `packages/ui/src/touch/SettingsScreen.tsx`, i18n.
+
+### 2026-10-08 — A streaming reply remounted every block of its markdown
+- **Symptom:** (found while building widgets) the markdown components of a reply were recreated at every streamed
+  word, so an iframe in a reply would have reloaded continuously; code blocks lost state too.
+- **Cause:** `Markdown` built its `components` map inline on every render.
+- **Fix:** `9989278` — the map is memoised on `openExternal` and `renderBlock`; widget frames are also memoised on
+  their content.
+- **Files:** `packages/ui/src/Markdown.tsx`, `packages/ui/src/touch/WidgetBlock.tsx`.
+
+### 2026-10-08 — `session.start` accepted a folder that does not exist
+- **Symptom:** a plan step `session.start` on a missing folder "succeeded", creating a chat that would fail at its
+  first message.
+- **Cause:** the action only checked the roots; the folder is checked at spawn (`prepareStart`).
+- **Fix:** `79c843d` — `canonicalFolder` first: `not_found` at once; a failed step does not advance the plan.
+- **Files:** `packages/core/src/actions.ts`, `plans.test.ts`.
+
+### 2026-10-08 — A project created by a plan did not show on the Home
+- **Symptom:** after Petra's `project.create`, the Home kept the old folder list until the user navigated.
+- **Cause:** `folders.list` was queried only on the current folder and when the screen came back on top.
+- **Fix:** `79c843d` — the listing is queried again when `state.projects` changes (`folders.updated`).
+- **Files:** `packages/ui/src/touch/HomeScreen.tsx`.

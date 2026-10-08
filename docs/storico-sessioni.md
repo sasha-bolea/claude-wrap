@@ -2,6 +2,57 @@
 
 _Append-only archive of session entries that left [STATO.md](STATO.md), newest on top._
 
+## 2026-10-08 21:01 — Chat widgets, the action API, the `athome` command and plans (phone session, server dev clone)
+Sasha on the iPhone, 2026-10-08 afternoon and evening, in the server dev clone while another session worked in the
+same tree (its staged work never included: commits built from a temporary index). Planned in plan mode, then four
+commits on `main`, each verified by typecheck, unit tests, PWA and desktop e2e, and a smoke on a temporary fake server.
+- **Decision first:** the "native features only" rule gets one explicit exception, chat widgets; then, for Petra, the
+  action API, the terminal command and plans. Risks of each step laid out and the safest mix chosen (STATO decisions).
+- **Chat widgets** (`9989278`): a ```` ```widget ```` block (HTML) or ```` ```widget:<name> ```` (JSON data for
+  `~/.claude/widgets/<name>.html`) in a reply shows in `widget-frame.html`, an iframe sandboxed without
+  `allow-same-origin`, with its own CSP (inline scripts and styles, data:/blob: images, nothing on the network) and
+  WebRTC removed; the app's tokens and a base stylesheet; the frame grows to its content. Settings → Chat widgets
+  (off by default) appends `widgetGuide` to the system prompt (token cost shown) and installs `/creawidget` as a native
+  custom command; live sessions restart at the end of their turn. Markdown components memoised so a streaming reply no
+  longer remounts its blocks. Widget actions: a tap inside the frame, a private `MessagePort` the widget code never
+  sees, one action at a time; heavy ones open an "A widget asks" confirmation (request kind `action`).
+- **Action API and terminal** (`73e07f3`): `actions.run` with a vocabulary in `protocol/actions.ts`; the policy per
+  caller in `core/actions.ts` (`DEFAULT_TERMINAL_POLICY`); the terminal socket (`<state>/terminal/athome.sock`, 0700 /
+  0600) in `server/terminalSocket.ts`, its connections limited to `TERMINAL_COMMANDS`; the `athome` command
+  (`server/athomeCli.ts`, `deploy/athome` installed by `install.sh`); `CLAUDE_WRAP_TAB_ID` in every session's env;
+  `actions.jsonl` log.
+- **Plans** (`79c843d`): `protocol/plans.ts`, `core/callers.ts` (hashed keys, `callers.json`), `core/plans.ts`
+  (lifecycle proposed → running → done / rejected / cancelled / expired, step check with references `{$step, field}` and
+  free text `{$free: true}`, `session.follow`, `plans.json`, 24 h); the plan-only actions (folder.create, project.mark,
+  queue.add/remove, session.stop/close/follow); terminal reads (`tab.subscribe`, `tab.history`); `PlanCard` on the Home
+  with the words in `touch/plans.ts`; the `plan` push notice; `athome key|plan|…`, `session read`, `session wait`.
+- **Live test:** key made with a pseudo-terminal (`script`, on purpose: shows the TTY hole), plan proposed → push →
+  approved on the phone → wrong step refused → 4 steps run → Claude's real reply read with `session wait`; clean-up
+  through the app with a temporary device (to revoke by Sasha). An earlier manual smoke went wrong: a `&` chain lost
+  its variables and an `athome project create prova` reached the **live** server, opening a confirmation in this very
+  chat (Sasha tapped Yes; the folder was later deleted). Lesson: scripts for smokes, never `&` chains in the shell.
+- **Docs:** [reference/athome-command.md](reference/athome-command.md) (Petra's guide), design-system (widget frame,
+  settings switch, action card, plan card), architettura §9.13–9.14, procedure, deploy, bug-risolti.
+
+### Cambiamenti al codice
+- Widgets: `packages/protocol/src/widgets.ts`, `widgetFrame.ts`; `packages/core/src/widgets.ts`, `widgetGuide.ts`,
+  `widgets.test.ts`; `packages/ui/widget-frame.html`, `widgetFramePlugin.ts`, `src/Markdown.tsx` (memoised
+  components, `renderBlock`), `src/touch/WidgetBlock.tsx`, `widget.ts`, `widgetActions.ts`, `SettingsScreen.tsx`
+  (`WidgetsGroup`), `Conversation.tsx` (`AssistantText`, `ActionCard`); CSP `frame-src 'self'` in
+  `apps/desktop/src/main/index.ts` and `packages/server/src/server.ts`; fake SDK keywords `widget`, `widget <name>`.
+- Action API: `packages/protocol/src/actions.ts`; `packages/core/src/actions.ts`, `actionLog.ts`, `actions.test.ts`;
+  `requests.ts` (`confirm`), `tab.ts` (`confirmAction`, `openRequests`, `CLAUDE_WRAP_TAB_ID`, `systemPromptAppend`),
+  `commands.ts`, `core.ts` (terminal identity, `TERMINAL_COMMANDS` gate, caller keys), `state.ts` (`widgets`).
+- Terminal and command: `packages/server/src/terminalSocket.ts` (+ test), `athomeCli.ts` (+ test), `athome.ts`,
+  `config.ts` (`terminalSocketPath`), `main.ts`; `deploy/athome`, `deploy/install.sh`.
+- Plans: `packages/protocol/src/plans.ts`, `model.ts` (`plans`, `plans.updated`, request kind `action`);
+  `packages/core/src/callers.ts`, `plans.ts`, `plans.test.ts`, `config.ts` (`planTtlMs`, `terminalPolicy`),
+  `workspace.ts`; `packages/client/src/store.ts` (`plans`); `packages/ui/src/touch/PlanCard.tsx`, `plans.ts`
+  (+ test), `HomeScreen.tsx` (plan cards, folders listed again on project changes); `apps/mobile/public/notice.js`
+  (+ test), `apps/desktop/src/main/index.ts` (plan notice); e2e `apps/mobile/e2e/widgets.e2e.ts`, `plans.e2e.ts`,
+  `apps/desktop/e2e/widgets.e2e.ts`; `packages/core/src/testing/rawClient.ts` (identity, token), `testing/index.ts`.
+- Fixes on the way: `session.start` refuses a missing folder; the Home lists folders again when projects change.
+
 ## 2026-10-08 13:07 — Small touch-UI details from the phone (phone session, server dev clone)
 Sasha on the iPhone, from 2026-10-06 evening to 2026-10-08, in the server dev clone while another session worked on
 the main plan in the same tree (its staged work was never included: from 2026-10-08 commits were built from a

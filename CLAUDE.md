@@ -97,4 +97,5 @@ deploy/             install.sh (--when-idle), rollback.sh, systemd units (servic
 - [docs/note-rilascio.md](docs/note-rilascio.md) — licence and subscription constraints
 - [docs/reference/cli-census.md](docs/reference/cli-census.md) — every CLI feature (+ Part D: SDK control protocol)
 - [docs/reference/parity-map.md](docs/reference/parity-map.md) — each census entry → how the GUI covers it
+- [docs/reference/athome-command.md](docs/reference/athome-command.md) — the `athome` command and plans: how a program (Petra), a person or Claude uses AtHome from the server
 - First attempt (read-only reference): `personale/claude wrap/docs/handoff-ripartenza.md`

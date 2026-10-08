@@ -15,7 +15,8 @@ Sasha's request; the install script itself needs no sudo. Files: [deploy/](../de
 | `~/.config/systemd/user/claude-wrap-update.{service,timer}` | automatic update every 5 min ([deploy/claude-wrap-update.timer](../deploy/claude-wrap-update.timer)) |
 | `releases/<commit>/.failed` | that release never goes live by itself (tests failed, or `rollback.sh` left it) |
 | `~/.local/bin/claude-wrap` | `claude-wrap pair --name <device>` with the service environment |
-| `~/.local/state/claude-wrap/` | state: `state.json`, `devices.json`, `vapid.json`, `pairing/` (all owner-only), `activity.json` (sessions at work, read by the update) |
+| `~/.local/bin/athome` | the `athome` command ([reference/athome-command.md](reference/athome-command.md)) with the service environment |
+| `~/.local/state/claude-wrap/` | state: `state.json`, `devices.json`, `vapid.json`, `pairing/` (all owner-only), `activity.json` (sessions at work, read by the update), `callers.json` (hashed keys of the terminal's callers), `plans.json` (open plans), `actions.jsonl` (the action API's log), `terminal/athome.sock` (the `athome` command's socket, folder 0700) |
 | `/srv/progetti` | the only folder sessions may run in (and the phone may browse) |
 
 Port 3012 on 127.0.0.1 (registered in `personale/linux stup/docs/architettura.md` and `~/.claude/porte.md`);

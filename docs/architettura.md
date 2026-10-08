@@ -336,3 +336,42 @@ Import rule: `protocol` ← `core`, `client`; `client` ← `ui`; `core` ← `ser
   `tab.hooks` returns `{listing, runs}`. Read-only, as in the CLI.
 - Covered by the zero-token `npm run smoke:inspect` (matched CLI 2.1.287) and by `inspect.test.ts`. The panels need a
   live process; in a folder not trusted yet they show the raw error (open problem in [STATO.md](STATO.md)).
+
+### 9.13 Chat widgets and the action API (2026-10-08)
+The one deliberate exception to "native features only" (STATO decisions). **Widgets:** a ```` ```widget ```` block of a
+reply (an HTML fragment) or ```` ```widget:<name> ```` (JSON data for `~/.claude/widgets/<name>.html`, the library
+`/creawidget` fills) is shown by [WidgetBlock.tsx](../packages/ui/src/touch/WidgetBlock.tsx) once its fence is closed,
+in [widget-frame.html](../packages/ui/widget-frame.html): an iframe `sandbox="allow-scripts"` (opaque origin: no access
+to the app, its storage or its connection) served under its own CSP (`WIDGET_FRAME_CSP`: inline scripts and styles,
+data:/blob: images, nothing on the network; WebRTC removed by the runtime) — the app's CSPs gain only `frame-src 'self'`.
+The frame gets the app's tokens as CSS variables, a base stylesheet, the data, and `window.athome` (actions). Actions
+travel on a private `MessagePort` the chat hands to the frame's runtime before any widget code runs, and only after a
+tap inside the frame (`navigator.userActivation`); the chat runs one at a time per widget. Opt-in: `PersistedState.widgets`
+→ `widgetGuide` appended to the system prompt at spawn (live processes restart at the end of their turn, like the
+auto-compact window) and `~/.claude/commands/creawidget.md` installed (removed when off, unless edited).
+**Action API:** [protocol/actions.ts](../packages/protocol/src/actions.ts) is the one vocabulary; `CORE_ACTIONS` run in
+core through `actions.run` ([core/actions.ts](../packages/core/src/actions.ts)), `CLIENT_ACTIONS` (composer, open a file
+or a screen) in the UI. Heavy actions open a confirmation in the chat: a request of kind `action` (`Requests.confirm`),
+shown by the same card as Claude's requests. The caller's source (`widget` | `terminal`) must match the connection.
+Every action is logged (`ActionLog`, `<state>/actions.jsonl`).
+
+### 9.14 The `athome` command, callers and plans (2026-10-08)
+**Terminal socket** ([server/terminalSocket.ts](../packages/server/src/terminalSocket.ts)): a Unix socket
+(`<state>/terminal/athome.sock`, folder 0700, socket 0600 — the file system is the authentication) whose connections
+core attaches with identity `terminal`: only `TERMINAL_COMMANDS` (actions, folder list, a chat's subscribe/history,
+keys, plans). **Policy** (`DEFAULT_TERMINAL_POLICY`, each limit liftable by `CoreConfig.terminalPolicy`): a person in a
+terminal (`interactive`, self-declared from the TTY) acts at once; Claude in an AtHome session (`CLAUDE_WRAP_TAB_ID`,
+set in every session's env) gets a confirmation in that chat; other programs read only; no writes to open sessions
+from the terminal; 10 new sessions an hour; program-started sessions in `default` mode. **Callers with a key**
+([core/callers.ts](../packages/core/src/callers.ts)): made by a person at the terminal, hashed in `callers.json`, given
+as the `hello` token on the socket; a caller acts only inside its **plans** ([protocol/plans.ts](../packages/protocol/src/plans.ts),
+[core/plans.ts](../packages/core/src/plans.ts)): a summary and ordered steps whose arguments are literals, references to
+earlier results (`{$step, field}` for `path`, `tabId`, `queueId`) or free text (`{$free: true}`, only in `prompt.send.text`,
+`session.start.prompt`, `queue.add.text`); the user approves on the Home ([PlanCard.tsx](../packages/ui/src/touch/PlanCard.tsx),
+the steps worded by the app in [touch/plans.ts](../packages/ui/src/touch/plans.ts); a `plan` push notice); then `begin`
+lets only the next step run with the canonical arguments, `complete` advances (a `session.follow` step stays current
+while its chat's turn runs, letting the caller answer that chat's requests, and ends with `turn.finished`); plans are
+saved in `plans.json`, expire after 24 h, can be cancelled by the app or their caller. The plan-only actions
+(`PLAN_ONLY_ACTIONS`) are refused to widgets and to the plain terminal. The command
+([server/athomeCli.ts](../packages/server/src/athomeCli.ts)) is a thin client of all this; its guide for programs:
+[reference/athome-command.md](reference/athome-command.md).
