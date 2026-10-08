@@ -11,6 +11,10 @@ import { sdk, stored } from './messages.ts'
 //   plan       → asks to approve a plan, then reports the decision
 //   slow       → streams a long answer, word by word, until interrupted
 //   markdown   → answers with a remote image and a link (rendering safety checks)
+//   widget     → answers with an inline chat widget: a Vai button (athome.send), a Nuovo progetto button
+//                (athome.createProject('idea'), its outcome in #project) and a probe of its frame (runtime, theme,
+//                storage, network, an action tried on load) written in #probe; widget <name> → a ```widget:<name> block
+//                with {"text":"vai"}
 //   edit       → writes src/app.ts and src/util.ts (Write tool calls), then "Edited: done"; rewindFiles reports the files
 //                written by the turns from a message on (3 lines inserted per write), the dry run included
 //   tools      → runs three Bash commands in a row (ls, a long git log, npm test), then "Tools: done"
@@ -91,6 +95,22 @@ const QUESTIONS = {
   ]
 }
 const WRITE_RULE = [{ type: 'addRules', rules: [{ toolName: 'Write' }], behavior: 'allow', destination: 'localSettings' }]
+// The inline widget of the `widget` keyword. Its probe line: athome.send's type, whether the app's accent arrived,
+// what storage access gives, what a fetch gives and what an action tried without a tap gives (all once both settle).
+const WIDGET_HTML = [
+  '<div class="row"><button id="go" onclick="athome.send(\'vai\').then(() => (document.body.dataset.sent = \'yes\'), (e) => (document.body.dataset.error = e.message))">Vai</button>',
+  '<button class="secondary" onclick="athome.createProject(\'idea\').then((r) => (document.getElementById(\'project\').textContent = \'made \' + r.path), (e) => (document.getElementById(\'project\').textContent = \'refused\'))">Nuovo progetto</button></div>',
+  '<p id="project"></p>',
+  '<p id="probe"></p>',
+  '<script>',
+  "const storage = (() => { try { return typeof localStorage.length } catch { return 'blocked' } })()",
+  "const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() ? 'themed' : 'plain'",
+  "const auto = athome.send('auto').then(() => 'auto-sent', () => 'auto-refused')",
+  "const network = fetch('https://example.com/').then(() => 'fetched', () => 'offline')",
+  "Promise.all([network, auto]).then((outcomes) => (document.getElementById('probe').textContent = [typeof athome.send, accent, storage, ...outcomes].join(',')))",
+  '</script>'
+].join('\n')
+
 const SLOW_TEXT = Array.from({ length: 400 }, (_, n) => `word${n}`).join(' ')
 
 // A form of two questions, as the CLI runs it: the AskUserQuestion call, the request, then the call's result in the
@@ -141,6 +161,8 @@ async function respond(turn: Turn, text: string, images: number): Promise<void> 
     }
     return stream(turn, 'Tools: done')
   }
+  if (keyword === 'widget') return stream(turn, `Here it is:\n\n\`\`\`widget\n${WIDGET_HTML}\n\`\`\`\n\nTap it.`)
+  if (keyword.startsWith('widget ')) return stream(turn, `\`\`\`widget:${keyword.slice(7)}\n{"text":"vai"}\n\`\`\``)
   if (keyword === 'markdown') return stream(turn, 'Image: ![tracker](https://example.com/pixel.png) and a [link](https://example.com).')
   if (keyword === 'peer') {
     // After this answer, another session sends a message (SendMessage): the CLI starts a turn for it by itself.

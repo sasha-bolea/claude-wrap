@@ -6,6 +6,8 @@ export * from './model.ts'
 export * from './commands.ts'
 export * from './presets.ts'
 export * from './brand.ts'
+export * from './widgets.ts'
+export * from './actions.ts'
 
 // Major version of the client↔core protocol: a different value on the two sides is incompatible.
 export const PROTOCOL_VERSION = 1
@@ -34,6 +36,7 @@ export const ERROR_CODES = [
   'outside_root',
   'limit_reached',
   'request_resolved',
+  'action_denied',
   'unauthorized',
   'incompatible_protocol',
   'sdk_error',

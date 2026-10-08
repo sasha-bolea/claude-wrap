@@ -47,7 +47,8 @@ export const itemSchema = z.discriminatedUnion('kind', [
 
 export const requestSchema = z.object({
   requestId: z.string(),
-  kind: z.enum(['permission', 'question', 'plan']),
+  // action: a confirmation of a heavy action of the action API (input: an ActionConfirmation), not from Claude.
+  kind: z.enum(['permission', 'question', 'plan', 'action']),
   toolName: z.string(),
   input: z.record(z.string(), z.unknown()),
   toolUseId: z.string(),
@@ -159,8 +160,8 @@ export const workspaceEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('palettes.updated'), palettes: z.array(paletteSchema) }),
   z.object({ type: z.literal('accounts.updated'), accounts: z.array(accountSchema), defaultAccount: z.string().optional() }),
   // Backend settings changed, all of them as they now are (autoCompactWindow undefined = Claude Code's own setting;
-  // defaultEffort undefined = the model's; defaultMode undefined = 'default').
-  z.object({ type: z.literal('settings.updated'), autoCompactWindow: z.number().int().optional(), defaultEffort: effortSchema.optional(), defaultMode: permissionModeSchema.optional() }),
+  // defaultEffort undefined = the model's; defaultMode undefined = 'default'; widgets undefined = off).
+  z.object({ type: z.literal('settings.updated'), autoCompactWindow: z.number().int().optional(), defaultEffort: effortSchema.optional(), defaultMode: permissionModeSchema.optional(), widgets: z.boolean().optional() }),
   z.object({ type: z.literal('terminal.added'), terminal: terminalMetaSchema }),
   z.object({ type: z.literal('terminal.updated'), terminal: terminalMetaSchema }),
   z.object({ type: z.literal('terminal.removed'), terminalId: z.string() })
@@ -194,6 +195,8 @@ export const workspaceSnapshotSchema = z.object({
   // Effort and permission mode of new sessions; undefined = the model's effort, the 'default' mode.
   defaultEffort: effortSchema.optional(),
   defaultMode: permissionModeSchema.optional(),
+  // Chat widgets on (the guide in every new session's system prompt); undefined = off.
+  widgets: z.boolean().optional(),
   // Absent from an older backend: none.
   terminals: z.array(terminalMetaSchema).default([]),
   // The saved colour palettes; absent from an older backend: none.

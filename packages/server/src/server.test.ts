@@ -33,6 +33,7 @@ async function start(login?: string): Promise<void> {
   mkdirSync(join(web, 'assets'))
   writeFileSync(join(web, 'index.html'), '<!doctype html><title>app</title>')
   writeFileSync(join(web, 'assets', 'app.js'), 'console.log(1)')
+  writeFileSync(join(web, 'widget-frame.html'), '<!doctype html><title>frame</title>')
   stateDir = mkdtempSync(join(tmpdir(), 'cw-server-state-'))
   devices = await DeviceStore.load(stateDir)
   core = createCore({
@@ -257,6 +258,17 @@ describe('remote server: files, limits, root', () => {
       expect((await http('GET', path)).status, path).toBe(404)
     }
     expect((await http('GET', '/', { Host: 'evil.example' })).status).toBe(403)
+  })
+
+  it("the chat widgets' page has its own policy: inline scripts, no network, framed only by the app", async () => {
+    expect((await http('GET', '/')).headers['content-security-policy']).toContain("frame-src 'self'")
+    const frame = await http('GET', '/widget-frame.html')
+    expect(frame.body).toContain('<title>frame</title>')
+    const policy = frame.headers['content-security-policy']
+    expect(policy).toContain("script-src 'unsafe-inline'")
+    expect(policy).toContain("frame-ancestors 'self'")
+    expect(policy).not.toContain('connect-src')
+    expect(policy).toContain("default-src 'none'")
   })
 
   it('the icons and the manifest come in the accent of a palette when asked; the fixed ones otherwise', async () => {

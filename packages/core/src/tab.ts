@@ -4,6 +4,7 @@ import type { Options, Query, SDKMessage, SDKResultMessage, SDKUserMessage, Sess
 import {
   EFFORT_LEVELS,
   tabStream,
+  type ActionConfirmation,
   type ContextGauge,
   type ContextUsage,
   type Effort,
@@ -11,6 +12,7 @@ import {
   type Item,
   type ModelInfo,
   type PermissionMode,
+  type Request,
   type PlanLimits,
   type QueuePause,
   type SlashCommand,
@@ -84,6 +86,8 @@ export interface TabEnvironment {
   mergePlanLimits(account: string | undefined, limits: PlanLimits): void
   // Claude Code's auto-compact window set from the app (undefined: Claude Code's own setting).
   autoCompactWindow(): number | undefined
+  // Text appended to the system prompt at spawn (the widget guide when widgets are on; undefined: none).
+  systemPromptAppend(): Promise<string | undefined>
   // The token of an account (undefined for the login).
   accountToken(account: string | undefined): Promise<string | undefined>
 }
@@ -869,6 +873,17 @@ export class Tab {
     if (usage) this.env.setPlanLimits(account, toPlanLimits(toUsage(usage)) ?? this.env.planLimits(account))
   }
 
+  // The open requests (Claude's and the action API's confirmations), oldest first.
+  openRequests(): Request[] {
+    return this.requests.list()
+  }
+
+  // Asks the user, in this chat, to allow a heavy action of the action API. Resolves true when allowed.
+  confirmAction(input: ActionConfirmation): Promise<boolean> {
+    this.assertOpen()
+    return this.requests.confirm(input)
+  }
+
   // Answers an open request. by: the answering client. A mode set by the answer becomes the tab's mode.
   answer(requestId: string, answer: Answer, by: string): void {
     const mode = modeSetBy(this.requests.answer(requestId, answer, by))
@@ -988,8 +1003,9 @@ export class Tab {
       this.assertOpen()
       const account = this.account
       const token = await this.env.accountToken(account)
+      const append = await this.env.systemPromptAppend()
       this.processAccount = account
-      const session = new Session(this.env.sdk.query, this.sessionOptions(token), {
+      const session = new Session(this.env.sdk.query, this.sessionOptions(token, append), {
         message: (message) => this.onMessage(message),
         handlerError: (error) => this.notice('warning', `Internal error while reading the session: ${messageOf(error)}`),
         processStarted: (pid, startedAt) => this.env.processStarted(pid, startedAt),
@@ -1011,7 +1027,8 @@ export class Tab {
   }
 
   // token: the account's token (CLAUDE_CODE_OAUTH_TOKEN of the process); absent: Claude Code's own login.
-  private sessionOptions(token?: string): Options {
+  // append: text appended to the system prompt (absent: the plain preset).
+  private sessionOptions(token?: string, append?: string): Options {
     const autoCompactWindow = this.env.autoCompactWindow()
     return {
       ...BASE_OPTIONS,
@@ -1024,6 +1041,7 @@ export class Tab {
       model: this.model,
       effort: this.effort,
       ...(autoCompactWindow ? { settings: { autoCompactWindow } } : {}),
+      ...(append ? { systemPrompt: { type: 'preset', preset: 'claude_code', append } } : {}),
       permissionMode: this.mode,
       canUseTool: this.requests.ask
     }

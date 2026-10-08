@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type RawData, type WebSocket } from 'ws'
 import type { Identity } from '@athome/core'
-import type { Channel, Palette } from '@athome/protocol'
+import { WIDGET_FRAME_CSP, WIDGET_FRAME_PATH, type Channel, type Palette } from '@athome/protocol'
 import type { DeviceStore } from './devices.ts'
 import { findStatic, type StaticFiles } from './staticFiles.ts'
 import { createTinter } from './tinted.ts'
@@ -46,11 +46,12 @@ export type RunningServer = { port: number; disconnect(deviceIds: string[]): voi
 
 // Security headers of every HTTP answer; the CSP matches the desktop's, plus the WebSocket origin. Inline styles are
 // allowed for the terminal (xterm.js writes its measures and colours in <style> elements); scripts stay 'self' only,
-// and images, fonts and connections stay on this server, so an injected style could not carry anything out.
+// and images, fonts and connections stay on this server, so an injected style could not carry anything out. The only
+// frame is the chat widgets' page, which gets its own policy (widgetFrame.ts in protocol).
 function securityHeaders(socketOrigin?: string): Record<string, string> {
   const connect = ["'self'", socketOrigin].filter(Boolean).join(' ')
   return {
-    'Content-Security-Policy': `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src ${connect}; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
+    'Content-Security-Policy': `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src ${connect}; manifest-src 'self'; worker-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'no-referrer',
     'Cache-Control': 'no-cache'
@@ -156,7 +157,8 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     if (pathname === '/setup/palettes') return void setupPalettes(search, res).catch(() => answer(res, 500, 'error'))
     const file = options.files && (tinted(pathname, search) ?? findStatic(options.files, pathname))
     if (!file) return answer(res, 404, 'not found')
-    res.writeHead(200, { ...headers, 'Content-Type': file.type, 'Content-Length': file.body.length })
+    const policy = pathname === WIDGET_FRAME_PATH ? { 'Content-Security-Policy': WIDGET_FRAME_CSP } : {}
+    res.writeHead(200, { ...headers, ...policy, 'Content-Type': file.type, 'Content-Length': file.body.length })
     res.end(req.method === 'HEAD' ? undefined : file.body)
   }
 

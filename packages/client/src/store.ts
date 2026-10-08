@@ -23,6 +23,8 @@ export type StoreState = {
   // Effort and permission mode of new sessions; undefined = the model's effort, the 'default' mode.
   defaultEffort?: Effort
   defaultMode?: PermissionMode
+  // Chat widgets on (the guide in every new session's system prompt).
+  widgets?: boolean
   // The saved colour palettes of the backend (shared by every device).
   palettes: Palette[]
   // The backend's terminals (shared by every client).
@@ -52,7 +54,7 @@ export class Store {
   }
 
   applyWorkspaceReset(snapshot: WorkspaceSnapshot): void {
-    this.set({ ...this.state, tabs: snapshot.tabs, home: snapshot.home, projects: snapshot.projects, accounts: snapshot.accounts, defaultAccount: snapshot.defaultAccount, autoCompactWindow: snapshot.autoCompactWindow, defaultEffort: snapshot.defaultEffort, defaultMode: snapshot.defaultMode, terminals: snapshot.terminals, palettes: snapshot.palettes ?? [] })
+    this.set({ ...this.state, tabs: snapshot.tabs, home: snapshot.home, projects: snapshot.projects, accounts: snapshot.accounts, defaultAccount: snapshot.defaultAccount, autoCompactWindow: snapshot.autoCompactWindow, defaultEffort: snapshot.defaultEffort, defaultMode: snapshot.defaultMode, widgets: snapshot.widgets, terminals: snapshot.terminals, palettes: snapshot.palettes ?? [] })
   }
 
   applyTabReset(tabId: string, snapshot: TabSnapshot): void {
@@ -77,7 +79,7 @@ export class Store {
     if (ev.type === 'folders.updated') this.set({ ...this.state, home: ev.home, projects: ev.projects })
     if (ev.type === 'accounts.updated') this.set({ ...this.state, accounts: ev.accounts, defaultAccount: ev.defaultAccount })
     if (ev.type === 'palettes.updated') this.set({ ...this.state, palettes: ev.palettes })
-    if (ev.type === 'settings.updated') this.set({ ...this.state, autoCompactWindow: ev.autoCompactWindow, defaultEffort: ev.defaultEffort, defaultMode: ev.defaultMode })
+    if (ev.type === 'settings.updated') this.set({ ...this.state, autoCompactWindow: ev.autoCompactWindow, defaultEffort: ev.defaultEffort, defaultMode: ev.defaultMode, widgets: ev.widgets })
     const { terminals } = this.state
     if (ev.type === 'terminal.added') this.set({ ...this.state, terminals: [...terminals.filter((one) => one.terminalId !== ev.terminal.terminalId), ev.terminal] })
     if (ev.type === 'terminal.updated') this.set({ ...this.state, terminals: terminals.map((one) => (one.terminalId === ev.terminal.terminalId ? ev.terminal : one)) })

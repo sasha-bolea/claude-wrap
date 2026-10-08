@@ -1,0 +1,162 @@
+<!doctype html>
+<!--
+  The page that runs one chat widget. The chat loads it in an iframe sandboxed without allow-same-origin and sends it
+  the widget ({html, data, theme, scheme, lang}) by postMessage; the page's own CSP (WIDGET_FRAME_CSP in
+  packages/protocol/src/widgetFrame.ts) allows inline scripts and nothing that reaches the network.
+  Runtime for the widget: window.athome (data, actions), the app's colours as CSS variables and a base stylesheet.
+  Messages to the chat: athome.ready, athome.height {height}; from the chat: athome.render {html, data, theme, scheme,
+  lang} with a MessagePort, athome.theme. Actions go only through that private port (athome.action {id, action, args}
+  → athome.result {id, ok, value | error}), and only after a tap inside this frame: widget code never sees the port.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      html { font: 15px/1.45 var(--font, system-ui, sans-serif); color: var(--text, #1f1e1c); background: transparent; -webkit-text-size-adjust: 100%; }
+      body { margin: 0; padding: 1px 0; overflow-wrap: anywhere; }
+      *, *::before, *::after { box-sizing: border-box; }
+      p { margin: 0 0 var(--space, 8px); }
+      h1, h2, h3, h4 { margin: 0 0 var(--space, 8px); line-height: 1.25; }
+      h1 { font-size: 1.3em; } h2 { font-size: 1.15em; } h3, h4 { font-size: 1em; }
+      a { color: var(--accent); }
+      code, pre, kbd { font-family: var(--font-mono, monospace); font-size: .9em; }
+      pre { margin: 0; padding: 8px 10px; overflow-x: auto; background: var(--surface-2); border-radius: var(--radius, 8px); }
+      button { font: inherit; font-weight: 600; min-height: 40px; padding: 8px 16px; border-radius: var(--radius, 8px); border: 1px solid transparent; background: var(--accent); color: var(--accent-text); cursor: pointer; touch-action: manipulation; }
+      button.secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+      button.danger { background: var(--danger); color: #fff; }
+      button:disabled { opacity: .5; cursor: default; }
+      input, select, textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius, 8px); min-height: 40px; padding: 8px 10px; max-width: 100%; }
+      textarea { width: 100%; resize: vertical; }
+      input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+      th { color: var(--text-muted); font-weight: 600; }
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius, 8px); padding: 12px; }
+      .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: .85em; }
+      .row { display: flex; flex-wrap: wrap; gap: var(--space, 8px); align-items: center; }
+      .stack { display: flex; flex-direction: column; gap: var(--space, 8px); }
+      .muted { color: var(--text-muted); }
+      svg { max-width: 100%; height: auto; }
+      svg text { fill: var(--text); font-family: var(--font, sans-serif); }
+      img { max-width: 100%; }
+    </style>
+    <script>
+      ;(() => {
+        'use strict'
+        // Captured before any widget code runs, so a widget cannot fake them by patching globals.
+        const apply = Reflect.apply
+        const portPost = MessagePort.prototype.postMessage
+        const toJson = JSON.stringify
+        const fromJson = JSON.parse
+        const activation = navigator.userActivation
+        const activeGetter = activation && Object.getOwnPropertyDescriptor(Object.getPrototypeOf(activation), 'isActive')?.get
+        const parent = window.parent
+        const pending = new Map()
+        let nextId = 0
+        let port = null
+
+        // No way out through WebRTC either (the CSP does not cover it).
+        for (const name of ['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel', 'RTCSessionDescription', 'RTCIceCandidate']) {
+          try {
+            Object.defineProperty(window, name, { value: undefined, configurable: false, writable: false })
+          } catch {}
+        }
+
+        // Sends a message to the chat (the frame's origin is opaque, so the target cannot be named).
+        const post = (message) => parent.postMessage(message, '*')
+
+        // Whether the user has just tapped inside this frame (a tap in the app around it does not count).
+        const tapped = () => Boolean(activeGetter && apply(activeGetter, activation, []))
+
+        // Asks the chat for an action on the private port; resolves with its value, rejects with an Error when
+        // refused or failed. Refused here without a fresh tap inside the widget.
+        function call(action, args) {
+          if (!port) return Promise.reject(new Error('the widget is not ready'))
+          if (!tapped()) return Promise.reject(new Error('a widget can act only when the user taps it'))
+          return new Promise((resolve, reject) => {
+            const id = ++nextId
+            pending.set(id, { resolve, reject })
+            const plain = args && typeof args === 'object' ? fromJson(toJson(args)) : {}
+            apply(portPost, port, [{ type: 'athome.action', id, action: String(action), args: plain }])
+          })
+        }
+
+        // The chat's answers to the actions, on the private port.
+        function onResult(event) {
+          const message = event.data
+          if (!message || message.type !== 'athome.result' || !pending.has(message.id)) return
+          const { resolve, reject } = pending.get(message.id)
+          pending.delete(message.id)
+          if (message.ok) resolve(message.value)
+          else reject(new Error(typeof message.error === 'string' ? message.error : 'refused'))
+        }
+
+        // window.athome: the widget's data and the actions it can ask for (see the widget guide in core).
+        function runtime(data) {
+          return Object.freeze({
+            data,
+            do: call,
+            send: (text) => call('prompt.send', { text }),
+            compose: (text, options) => call('composer.insert', { text, replace: Boolean(options && options.replace) }),
+            answer: (answer) => call('request.answer', answer),
+            openFile: (path) => call('open.file', { path }),
+            openScreen: (name) => call('open.screen', { name }),
+            createProject: (name, parent) => call('project.create', parent ? { name, parent } : { name }),
+            startSession: (folder, prompt) => call('session.start', prompt ? { folder, prompt } : { folder })
+          })
+        }
+
+        // The app's colours and fonts as CSS variables, and its light/dark scheme (the frame stays transparent).
+        function applyTheme(theme, scheme, lang) {
+          const style = document.documentElement.style
+          for (const [name, value] of Object.entries(theme || {})) if (/^--[a-z0-9-]+$/.test(name)) style.setProperty(name, String(value))
+          if (scheme === 'light' || scheme === 'dark') style.setProperty('color-scheme', scheme)
+          if (typeof lang === 'string') document.documentElement.lang = lang
+        }
+
+        // Puts the widget's HTML in the page; its scripts run in order (scripts parsed by innerHTML would not).
+        function mount(html) {
+          const template = document.createElement('template')
+          template.innerHTML = html
+          document.body.append(template.content)
+          for (const old of document.body.querySelectorAll('script')) {
+            const script = document.createElement('script')
+            for (const attribute of old.attributes) script.setAttribute(attribute.name, attribute.value)
+            script.textContent = old.textContent
+            old.replaceWith(script)
+          }
+        }
+
+        // Tells the chat how tall the content is, now and whenever it changes.
+        function watchHeight() {
+          const report = () => post({ type: 'athome.height', height: document.documentElement.getBoundingClientRect().height })
+          new ResizeObserver(report).observe(document.documentElement)
+          report()
+        }
+
+        // Registered first and in the capture phase: the render message (and its port) never reaches widget code.
+        window.addEventListener(
+          'message',
+          (event) => {
+            if (event.source !== parent || !event.data || typeof event.data !== 'object') return
+            const message = event.data
+            if (message.type === 'athome.render' && !port && typeof message.html === 'string' && event.ports[0]) {
+              event.stopImmediatePropagation()
+              port = event.ports[0]
+              port.onmessage = onResult
+              applyTheme(message.theme, message.scheme, message.lang)
+              Object.defineProperty(window, 'athome', { value: runtime(message.data), configurable: false, writable: false })
+              mount(message.html)
+              watchHeight()
+            } else if (message.type === 'athome.theme') applyTheme(message.theme, message.scheme)
+          },
+          true
+        )
+        // Ready once the body exists: the widget goes in it.
+        document.addEventListener('DOMContentLoaded', () => post({ type: 'athome.ready' }))
+      })()
+    </script>
+  </head>
+  <body></body>
+</html>

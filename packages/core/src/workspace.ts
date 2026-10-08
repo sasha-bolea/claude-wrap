@@ -1,7 +1,7 @@
 import { homedir } from 'node:os'
 import { basename, join, relative } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
-import { WORKSPACE_STREAM, tabStream, type ClaudeSettingChange, type ClaudeSettings, type Effort, type Home, type PermissionBehavior, type PermissionMode, type PlanLimits, type SettingsDestination } from '@athome/protocol'
+import { WORKSPACE_STREAM, tabStream, type ClaudeSettingChange, type ClaudeSettings, type Effort, type Home, type PermissionBehavior, type PermissionMode, type PlanLimits, type SettingsDestination, type WidgetInfo } from '@athome/protocol'
 import { AccountStore } from './accounts.ts'
 import { ActivityFile } from './activity.ts'
 import type { CoreConfig, Notice, SdkApi } from './config.ts'
@@ -19,6 +19,8 @@ import { MAX_AUTO_TITLE, Tab, type TabEnvironment, type TabInit } from './tab.ts
 import { Terminals } from './terminals.ts'
 import { Trash } from './trash.ts'
 import { TrustGate, canonicalFolder, checkRoots, withinRoots } from './trustGate.ts'
+import { widgetGuide } from './widgetGuide.ts'
+import { listWidgets, setCreateCommand } from './widgets.ts'
 
 // Upper bound for closing everything on quit.
 const QUIT_CAP_MS = 8000
@@ -88,6 +90,7 @@ export class Workspace {
         autoCompactWindow: this.store.data.autoCompactWindow,
         defaultEffort: this.store.data.defaultEffort,
         defaultMode: this.store.data.defaultMode,
+        widgets: this.store.data.widgets,
         terminals: this.terminals.list(),
         palettes: this.palettes.list()
       }),
@@ -376,6 +379,26 @@ export class Workspace {
     this.announceSettings()
   }
 
+  // Chat widgets on or off: saved, announced, /creawidget installed or removed, and taken by every process at its next
+  // start (live ones restart, at the end of a running turn), like the auto-compact window.
+  async setWidgets(on: boolean): Promise<void> {
+    await this.store.update((data) => (data.widgets = on || undefined))
+    await setCreateCommand(this.claudeDir, on)
+    this.announceSettings()
+    await Promise.all([...this.tabs.values()].map((tab) => tab.applyAutoCompactWindow()))
+  }
+
+  // The widget library and the size of the guide that lists it (tokens, about 4 characters each).
+  async listWidgets(): Promise<{ widgets: WidgetInfo[]; guideTokens: number }> {
+    const widgets = await listWidgets(this.claudeDir)
+    return { widgets, guideTokens: Math.ceil(widgetGuide(widgets).length / 4) }
+  }
+
+  // The text appended to a new process's system prompt: the widget guide when widgets are on.
+  private async systemPromptAppend(): Promise<string | undefined> {
+    return this.store.data.widgets ? widgetGuide(await listWidgets(this.claudeDir)) : undefined
+  }
+
   // A new session's init with the default effort and mode filled in where the client gave none.
   withDefaults(init: TabInit): TabInit {
     const { defaultEffort, defaultMode } = this.store.data
@@ -384,8 +407,8 @@ export class Workspace {
 
   // Tells the clients every backend setting as it now is.
   private announceSettings(): void {
-    const { autoCompactWindow, defaultEffort, defaultMode } = this.store.data
-    this.stream.emit({ type: 'settings.updated', autoCompactWindow, defaultEffort, defaultMode })
+    const { autoCompactWindow, defaultEffort, defaultMode, widgets } = this.store.data
+    this.stream.emit({ type: 'settings.updated', autoCompactWindow, defaultEffort, defaultMode, widgets })
   }
 
   // The plan windows of an account as last read (composer gauges).
@@ -537,6 +560,7 @@ export class Workspace {
       planLimits: (account) => this.planLimits(account),
       mergePlanLimits: (account, limits) => this.mergePlanLimits(account, limits),
       autoCompactWindow: () => this.store.data.autoCompactWindow,
+      systemPromptAppend: () => this.systemPromptAppend(),
       planLimitsDue: (account) => this.planLimitsDue(account),
       setPlanLimits: (account, limits) => this.setPlanLimits(account, limits),
       accountToken: (account) => this.accounts.token(account),

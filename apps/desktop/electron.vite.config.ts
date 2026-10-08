@@ -1,5 +1,6 @@
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import { widgetFrame } from '../../packages/ui/widgetFramePlugin.ts'
 
 // Only `dependencies` stay external (the SDK, which locates its native CLI binary relative to its package, and
 // node-pty, whose native addon is loaded from its prebuilds folder);
@@ -17,7 +18,7 @@ export default defineConfig({
     build: { rollupOptions: { output: { format: 'cjs', entryFileNames: '[name].cjs' } } }
   },
   renderer: {
-    plugins: [react()],
+    plugins: [react(), widgetFrame()],
     server: { port: 5199, strictPort: true }
   }
 })

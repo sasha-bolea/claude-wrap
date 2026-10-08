@@ -42,7 +42,7 @@ the device):
 `--danger`, `--success`, `--frame` (around the device box on a wide screen), `--scrim`, `--radius`, `--space`, `--font`,
 `--font-mono`.
 `--danger` is a vivid red (`#c62828` on light presets, `#ff6b5e` on dark ones), never a pale one that reads as pink, with at least
-4.5:1 contrast on `--background`, `--surface` and `--surface-2` and for `--surface` text on it ([touch.css](../packages/ui/src/touch.css)).
+4.5:1 contrast on `--background`, `--surface` and `--surface-2` and for `--surface` text on it ([touch.css:191](../packages/ui/src/touch.css#L191)).
 
 **Touch rules** (binding, on top of the general ones):
 1. **One screen at a time from a stack** (`go` / `back` / `backTo` / `reset` in the `Touch` context); screens stay
@@ -201,6 +201,11 @@ question; choosing an answer of a single-choice question moves on, "Avanti" othe
 sends them all. A single question shows no steps. Once answered (or skipped) the form stays in the chat as `.answered`
 ("Le tue risposte": each question with its header chip, `.answered-q`, and the answer given, `.answered-a`; `.none`
 = "Nessuna risposta"), never inside a stack of tool calls. Examples: [Conversation.tsx:487](../packages/ui/src/touch/Conversation.tsx#L487), [Conversation.tsx:130](../packages/ui/src/touch/Conversation.tsx#L130).
+A heavy action a chat widget asked for (kind `action`, not Claude's) uses the same card, region "Un widget chiede":
+the action in plain words as its `h2` ("Creare il progetto «idea» in /srv?", from `actionWords` in
+[widget.ts](../packages/ui/src/touch/widget.ts)), the prompt it would send in a `.preview`, a muted "Lo chiede un widget
+di questa chat, dopo un tuo tocco." and a `.grant-row` with Sì / danger No (no reason field, no "always"). Its words come
+from a widget: React text only. Example: [Conversation.tsx:446](../packages/ui/src/touch/Conversation.tsx#L446).
 Examples: [Conversation.tsx:354](../packages/ui/src/touch/Conversation.tsx#L354), [Conversation.tsx:364](../packages/ui/src/touch/Conversation.tsx#L364).
 
 ### Conversation scroll indicator — `.scroll-thumb` (`.on`)
@@ -277,6 +282,23 @@ A row "Compatta quando la conversazione arriva a" with five segments: Standard (
 200k, 500k, 1M — Claude Code's `autoCompactWindow` (as /autocompact) for every session — and a wrapping hint under
 it. A change restarts the live processes (idle now, working at the end of their turn) with the conversations kept.
 Examples: [SettingsScreen.tsx:215](../packages/ui/src/touch/SettingsScreen.tsx#L215).
+
+### Settings → chat widgets (existing `.list`, `SwitchRow`)
+"Widget in chat": one `SwitchRow` ("Claude può mostrare widget") whose hint says what widgets are, that /creawidget
+makes new ones, what turning them on costs (the guide's tokens in every new session, from `widgets.list`) and how many
+the library holds. A change saves at once with a toast; live sessions take it at the end of their turn.
+Examples: [SettingsScreen.tsx:250](../packages/ui/src/touch/SettingsScreen.tsx#L250).
+
+### Chat widgets — `.widget-frame`, `.widget-pending`, `.widget-error`
+A ```` ```widget ```` / ```` ```widget:<name> ```` block of a reply of Claude (only there: not in peer messages, plans or
+files) shows as a borderless, transparent `.widget-frame` iframe as wide as the reply, as tall as its content reports
+(`--widget-height`, set from the frame's messages, max 4000 px). While the block streams, a dashed `.widget-pending`
+line ("Widget in arrivo…"); a bad name, bad JSON data or a library widget that does not exist give a muted
+`.widget-error` line. Inside the frame the widget gets the app's tokens as CSS variables and a base stylesheet
+(`button` with `.secondary` / `.danger`, fields, `table`, `.card`, `.chip`, `.row`, `.stack`, `.muted`, `svg text`) in
+[widget-frame.html](../packages/ui/widget-frame.html), so what Claude writes looks like the app. **Widget HTML is
+untrusted**: it runs only in the sandboxed frame (opaque origin, its own CSP without network), never in the app's page.
+Examples: [WidgetBlock.tsx:27](../packages/ui/src/touch/WidgetBlock.tsx#L27), [Conversation.tsx:241](../packages/ui/src/touch/Conversation.tsx#L241), [touch.css:191](../packages/ui/src/touch.css#L191).
 
 ### Settings → new sessions (existing `.list`, `.row.stacked`, `.segmented.effort`, `.menu` via `ModeMenu`)
 "Nuove sessioni": a row "Sforzo" with six segments in two rows of three (Del modello, then the five levels) and a

@@ -10,7 +10,7 @@ import { Icon } from './icons.tsx'
 import { SessionPickSheet } from './inspect.tsx'
 import { tokenLabel } from './model.ts'
 import { ModeMenu, effortLabel } from './modelSheets.tsx'
-import { IconButton, Title } from './parts.tsx'
+import { IconButton, SwitchRow, Title } from './parts.tsx'
 import { when } from './sessions.tsx'
 
 // Web Push of the host (the PWA's service worker): permission state, subscribe with the server's key, unsubscribe.
@@ -68,6 +68,7 @@ export function SettingsScreen() {
           <AccountsGroup />
           <NewSessionsGroup />
           <AutoCompactGroup />
+          <WidgetsGroup />
           {capabilities.push && <NotificationsGroup />}
           <DevicesGroup />
           <div className="group">
@@ -239,6 +240,23 @@ function AutoCompactGroup() {
           </div>
           <span className="row-sub wrap">{t('autoCompactHint')}</span>
         </li>
+      </ul>
+    </div>
+  )
+}
+
+// Settings → Widget in chat: Claude may put interactive widgets in its replies. The row says what turning them on
+// costs (the guide's tokens, in every new session) and how many widgets the library holds.
+function WidgetsGroup() {
+  const { state, connection, toast, fail } = useTouch()
+  const [library, setLibrary] = useState<{ count: number; tokens: number }>()
+  useEffect(() => void connection.request('widgets.list', {}).then(({ widgets, guideTokens }) => setLibrary({ count: widgets.length, tokens: guideTokens }), fail), [connection])
+  const toggle = (on: boolean) => connection.request('settings.setWidgets', { on }).then(() => toast(t(on ? 'widgetsOnToast' : 'widgetsOffToast')), fail)
+  return (
+    <div className="group">
+      <p className="label">{t('widgetsTitle')}</p>
+      <ul className="list">
+        <SwitchRow id="widgets-toggle" title={t('widgetsToggle')} hint={library && t('widgetsHint', { tokens: tokenLabel(library.tokens), count: String(library.count) })} checked={Boolean(state.widgets)} onChange={(on) => void toggle(on)} />
       </ul>
     </div>
   )

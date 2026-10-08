@@ -7,6 +7,8 @@ import type { Send } from './stream.ts'
 import { MAX_AUTO_TITLE, cliTitle } from './tab.ts'
 import { withinRoots } from './trustGate.ts'
 import type { Workspace } from './workspace.ts'
+import { readWidget } from './widgets.ts'
+import { runAction } from './actions.ts'
 
 const DEFAULT_HISTORY_PAGE = 200
 // How many sessions the list of every folder's sessions shows at most (newest first).
@@ -182,6 +184,10 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'settings.setAutoCompactWindow': async ({ tokens }) => (await workspace.setAutoCompactWindow(tokens), {}),
     'settings.setDefaultEffort': async ({ effort }) => (await workspace.setDefaultEffort(effort), {}),
     'settings.setDefaultMode': async ({ mode }) => (await workspace.setDefaultMode(mode), {}),
+    'settings.setWidgets': async ({ on }) => (await workspace.setWidgets(on), {}),
+    'widgets.list': () => workspace.listWidgets(),
+    'widgets.read': async ({ name }) => ({ html: await readWidget(workspace.claudeDir, name) }),
+    'actions.run': async (args, connection) => ({ value: await runAction(workspace, args, connection.label) }),
     'settings.claudeCode': () => workspace.claudeSettings(),
     'settings.setClaudeCode': async ({ change }) => (await workspace.setClaudeSetting(change), {}),
     'tab.refreshGauges': async ({ tabId }) => (await workspace.refreshGauges(tabId), {}),

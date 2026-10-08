@@ -1,15 +1,17 @@
 import { app, BrowserWindow, dialog, ipcMain, MessageChannelMain, Notification, protocol, session, shell, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join } from 'node:path'
+import { WIDGET_FRAME_CSP, WIDGET_FRAME_PATH } from '@athome/protocol'
 import { APP_ORIGIN, BackendStore } from './backends.ts'
 import { CoreProcess } from './coreProcess.ts'
 import { bridgeRemote } from './remoteBridge.ts'
 import { RemoteNotices, type DesktopNotice } from './remoteNotices.ts'
 
 const APP_ID = 'dev.claude-wrap'
-// Inline styles for the terminal (xterm.js), as on the server (packages/server/src/server.ts).
+// Inline styles for the terminal (xterm.js), as on the server (packages/server/src/server.ts); the only frame is the
+// chat widgets' page, served with its own policy.
 const CSP =
-  "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
+  "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'none'"
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
   '.js': 'text/javascript',
@@ -69,7 +71,7 @@ function serveAppProtocol(): void {
     const path = url.pathname === '/' ? '/index.html' : url.pathname
     const body = url.host === 'claude-wrap' ? files.get(path) : undefined
     if (!body) return new Response('Not found', { status: 404 })
-    const headers = { 'content-type': MIME_TYPES[extname(path)] ?? 'application/octet-stream', 'content-security-policy': CSP }
+    const headers = { 'content-type': MIME_TYPES[extname(path)] ?? 'application/octet-stream', 'content-security-policy': path === WIDGET_FRAME_PATH ? WIDGET_FRAME_CSP : CSP }
     return new Response(new Uint8Array(body), { headers })
   })
 }

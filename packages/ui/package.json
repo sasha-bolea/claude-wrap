@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./touch.css": "./src/touch.css"
+    "./touch.css": "./src/touch.css",
+    "./widget-frame.html": "./widget-frame.html"
   },
   "dependencies": {
     "@athome/client": "*",

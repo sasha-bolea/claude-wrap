@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { AUTO_COMPACT_WINDOW, EFFORT_LEVELS, IMAGE_TYPES, contextUsageSchema, effortSchema, itemSchema, paletteColorsSchema, paletteSchema, permissionModeSchema, projectConfigSchema, sessionInfoSchema, usageSchema } from './model.ts'
+import { actionSourceSchema, coreActionNameSchema, folderNameSchema } from './actions.ts'
+import { widgetInfoSchema, widgetNameSchema } from './widgets.ts'
 
 // Commands a client can send (`{t:'cmd', id, name, args}`), with the schema of their args and result.
 
@@ -148,14 +150,7 @@ export function revokeCascade(devices: { deviceId: string; createdBy?: string }[
   }
   return removed
 }
-// A folder name to create: no separators or characters Windows forbids, not `.` or `..`.
-const folderName = z
-  .string()
-  .trim()
-  .min(1)
-  .max(255)
-  .regex(/^[^\\/:*?"<>|]+$/)
-  .refine((name) => name !== '.' && name !== '..', 'invalid folder name')
+const folderName = folderNameSchema
 // A subfolder in the Home: project = marked as a project (same mark on every device).
 export const folderEntrySchema = z.object({ name: z.string(), path: z.string(), project: z.boolean() })
 // An entry of the file explorer; modified in ms.
@@ -294,6 +289,16 @@ export const COMMANDS = {
   // effort given at creation wins. undefined = the model's effort, the 'default' mode.
   'settings.setDefaultEffort': { args: z.object({ effort: effortSchema.optional() }), result: empty },
   'settings.setDefaultMode': { args: z.object({ mode: permissionModeSchema.optional() }), result: empty },
+  // Chat widgets on or off: on, every session spawned from now on gets the widget guide appended to its system prompt
+  // and /creawidget is installed in ~/.claude/commands (live sessions restart at the end of their turn).
+  'settings.setWidgets': { args: z.object({ on: z.boolean() }), result: empty },
+  // The widget library (~/.claude/widgets) by name, and the guide's approximate size in tokens (shown before turning
+  // widgets on); a widget's HTML.
+  'widgets.list': { args: empty, result: z.object({ widgets: z.array(widgetInfoSchema), guideTokens: z.number().int() }) },
+  'widgets.read': { args: z.object({ name: widgetNameSchema }), result: z.object({ html: z.string() }) },
+  // Runs an action of the action API (actions.ts) for a chat: tabId is the chat it comes from. Heavy actions wait for
+  // the user's answer to a confirmation opened in that chat (action_denied when refused or cancelled).
+  'actions.run': { args: z.object({ tabId, action: coreActionNameSchema, args: z.record(z.string(), z.unknown()), source: actionSourceSchema }), result: z.object({ value: z.unknown().optional() }) },
   // Claude Code's own settings (/config) of the user's settings file; a change is saved there and every live session
   // takes it at once. file: the settings file shown to the user.
   'settings.claudeCode': { args: empty, result: z.object({ values: claudeSettingsSchema, file: z.string() }) },

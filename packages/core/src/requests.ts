@@ -1,5 +1,6 @@
 import type { CanUseTool, PermissionResult, PermissionUpdate } from '@anthropic-ai/claude-agent-sdk'
-import type { CommandArgs, PermissionMode, Request } from '@athome/protocol'
+import { randomUUID } from 'node:crypto'
+import type { ActionConfirmation, CommandArgs, PermissionMode, Request } from '@athome/protocol'
 import { CoreError } from './errors.ts'
 
 export type Answer = Omit<CommandArgs<'request.answer'>, 'tabId' | 'requestId'>
@@ -15,7 +16,8 @@ export interface RequestEvents {
 const DEFAULT_DENY: Record<Request['kind'], string> = {
   permission: 'The user denied this action.',
   question: 'The user preferred not to answer.',
-  plan: 'The user wants to keep planning.'
+  plan: 'The user wants to keep planning.',
+  action: 'The user did not allow it.'
 }
 
 // Which dialog a canUseTool call needs.
@@ -81,6 +83,17 @@ export class Requests {
     return new Promise((resolve) => {
       this.pending.set(requestId, { request, suggestions, resolve })
       signal.addEventListener('abort', () => this.cancel(requestId, { behavior: 'deny', message: 'Request cancelled' }), { once: true })
+      this.events.opened(request)
+    })
+  }
+
+  // Opens a confirmation of a heavy action of the action API (not Claude's: no tool call waits on it). Resolves true
+  // when the user allows it, false when they deny it or it is cancelled (the chat closes, its process ends).
+  confirm(input: ActionConfirmation): Promise<boolean> {
+    const requestId = randomUUID()
+    const request: Request = { requestId, kind: 'action', toolName: 'AtHome', input, toolUseId: '', canAllowAlways: false, title: `Allow ${input.action}?` }
+    return new Promise((resolve) => {
+      this.pending.set(requestId, { request, resolve: (result) => resolve(result.behavior === 'allow') })
       this.events.opened(request)
     })
   }
