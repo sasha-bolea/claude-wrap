@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { TabView } from '@athome/client'
 import type { Image, ImageRef, Item, Request, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { dataUrl } from '../images.ts'
-import { Markdown, type FencedBlock } from '../Markdown.tsx'
+import { Markdown } from '../Markdown.tsx'
 import type { Answer } from '../chatHooks.ts'
 import { ContinueCard, LimitCard } from './accounts.tsx'
 import { useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
-import { WidgetBlock } from './WidgetBlock.tsx'
-import { widgetSpec } from './widget.ts'
-import { useWidgetActions } from './widgetActions.ts'
 import { answeredQuestions, durationLabel } from './model.ts'
 
 type LoadImage = (imageId: string) => Promise<Image>
@@ -237,21 +234,6 @@ function entries(items: Item[]): Entry[] {
   return out
 }
 
-// A reply of Claude: markdown, with its widget blocks shown as widgets acting on this chat.
-function AssistantText({ tabId, text }: { tabId: string; text: string }) {
-  const { capabilities } = useTouch()
-  const onAction = useWidgetActions(tabId)
-  const renderBlock = useCallback(({ className, body, closed }: FencedBlock) => {
-    const spec = widgetSpec(className, body)
-    return spec && <WidgetBlock spec={spec} closed={closed} onAction={onAction} />
-  }, [onAction])
-  return (
-    <div className="msg-ai">
-      <Markdown text={text} openExternal={capabilities.openExternal} renderBlock={renderBlock} />
-    </div>
-  )
-}
-
 // A message another Claude session sent here: its sender on top ("Da un'altra sessione" when it gave no name), its
 // text as markdown like Claude's (never as HTML).
 function PeerMessage({ item }: { item: PeerItem }) {
@@ -268,13 +250,17 @@ function PeerMessage({ item }: { item: PeerItem }) {
 }
 
 // One transcript item, as the prototype shows it.
-function ItemView({ tabId, item, readAt, loadImage, onActions, onSendNow, onUnsend }: { tabId: string; item: Item; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown>; onUnsend: (item: UserItem) => Promise<unknown> }) {
+function ItemView({ item, readAt, loadImage, onActions, onSendNow, onUnsend }: { item: Item; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown>; onUnsend: (item: UserItem) => Promise<unknown> }) {
   const { capabilities } = useTouch()
   switch (item.kind) {
     case 'user':
       return <UserMessage item={item} readAt={readAt} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} onUnsend={onUnsend} />
     case 'assistantText':
-      return <AssistantText tabId={tabId} text={item.text} />
+      return (
+        <div className="msg-ai">
+          <Markdown text={item.text} openExternal={capabilities.openExternal} />
+        </div>
+      )
     case 'thinking':
       return (
         <details className="think">
@@ -398,7 +384,7 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
     <>
       {entries(items).map((entry) =>
         'item' in entry ? (
-          <ItemView key={entry.item.itemId} tabId={meta.tabId} item={entry.item} readAt={readAt[entry.item.itemId]} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} onUnsend={onUnsend} />
+          <ItemView key={entry.item.itemId} item={entry.item} readAt={readAt[entry.item.itemId]} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} onUnsend={onUnsend} />
         ) : entry.tools.length === 1 ? (
           <ToolCard key={entry.tools[0]!.itemId} item={entry.tools[0]!} />
         ) : (
