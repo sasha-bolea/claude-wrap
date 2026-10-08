@@ -1,10 +1,10 @@
 // The inspect commands on the real CLI (`npm run smoke:inspect`; no message is sent, zero tokens): tab.status, tab.mcp,
-// tab.mcpToggle / mcpReconnect, tab.mcpAuth / mcpAuthCallback / mcpClearAuth, tab.hooks and tab.permissions (rules and
-// folders added to and removed from the temp folder's settings files) answer and pass the protocol. Runs in a temp
-// folder with a project .mcp.json (a tiny stdio MCP server and an http server behind a fake OAuth endpoint) and a
-// SessionStart hook. The runtime-only SDK calls (getStatus, getHooksListing) are also printed raw, to compare with what
-// inspect.ts maps. The only change outside the temp folder is the CLI's own toggle in ~/.claude.json (projects[<temp
-// folder>]), toggled back at the end. Runs directly on Node 24.
+// tab.mcpToggle / mcpReconnect, tab.mcpAuth / mcpAuthCallback / mcpClearAuth, tab.hooks, tab.permissions (rules and
+// folders added to and removed from the temp folder's settings files) and tab.memory (the temp folder's CLAUDE.md)
+// answer and pass the protocol. Runs in a temp folder with a project .mcp.json (a tiny stdio MCP server and an http
+// server behind a fake OAuth endpoint) and a SessionStart hook. The runtime-only SDK calls (getStatus, getHooksListing)
+// are also printed raw, to compare with what inspect.ts maps. The only change outside the temp folder is the CLI's own
+// toggle in ~/.claude.json (projects[<temp folder>]), toggled back at the end. Runs directly on Node 24.
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -244,7 +244,24 @@ async function main(): Promise<void> {
     check(!permissions.rules.some((rule) => rule.rule === 'Bash(git status:*)' || rule.rule === 'Read(./secret.txt)'), 'the removed rules are gone from the live session')
     check(!permissions.directories.some((folder) => folder.path.endsWith('/extra')), 'the removed folder is gone from the live session')
 
-    console.log('\n== 8. raw answers')
+    console.log('\n== 8. tab.memory / memoryRead / memoryWrite (the temp folder\'s CLAUDE.md only)')
+    const memory = await connection.request('tab.memory', { tabId: TAB_ID })
+    for (const file of memory.files) console.log(`  file ${file.kind} | ${file.label} | ${file.path} | exists=${file.exists}`)
+    show('  folder / memories / autoMemory', { folder: memory.folder, memories: memory.memories.length, autoMemory: memory.autoMemory })
+    const instructions = memory.files.find((file) => file.kind === 'project')
+    check(memory.files.some((file) => file.kind === 'user'), 'memory lists the user instructions file')
+    check(instructions?.path === join(realpathSync(cwd), 'CLAUDE.md') && !instructions.exists, 'memory lists the project CLAUDE.md not created yet')
+    if (instructions) {
+      const empty = await connection.request('tab.memoryRead', { tabId: TAB_ID, path: instructions.path })
+      check(!empty.exists && empty.version === '', 'a file not created yet reads empty')
+      await connection.request('tab.memoryWrite', { tabId: TAB_ID, path: instructions.path, text: '# Smoke\n', version: '' })
+      const written = await connection.request('tab.memoryRead', { tabId: TAB_ID, path: instructions.path })
+      check(written.exists && written.text === '# Smoke\n', 'the written CLAUDE.md reads back')
+      const refused = await connection.request('tab.memoryRead', { tabId: TAB_ID, path: join(cwd, '.mcp.json') }).then(() => 'read', (error: unknown) => String(error))
+      check(refused !== 'read', 'a file the CLI does not list is refused')
+    }
+
+    console.log('\n== 9. raw answers')
     const rawStatus = (await raw.getStatus().catch((error: unknown) => ({ failed: String(error) }))) as Record<string, unknown>
     console.log(`  getStatus top-level keys: ${Object.keys(rawStatus).join(',')}`)
     const rawSections = rawStatus.sections as { rows?: unknown[] }[] | undefined

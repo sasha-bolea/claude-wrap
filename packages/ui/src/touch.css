@@ -439,6 +439,7 @@ svg.ghost-thumb { width: 22px; height: 22px; color: var(--text-muted); }
 .note-card .note-actions .button { border: 0; background: none; color: var(--accent); font-weight: 600; }
 .note-editor { flex: 1; width: 100%; border: 0; resize: none; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--background); line-height: 1.5; }
 .note-editor:focus-visible { outline: none; }
+.note-editor.mono { font-family: var(--font-mono); border-top: 1px solid var(--border); }
 
 /* Files */
 .path-bar { flex-wrap: wrap; padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--border); }

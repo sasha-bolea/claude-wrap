@@ -1,10 +1,10 @@
 import type { Query, ResolvedSettings, SDKMessage } from '@anthropic-ai/claude-agent-sdk'
-import { INSPECT_LIMITS, PERMISSION_BEHAVIORS, type HookEntry, type HookRun, type Hooks, type McpServer, type PermissionRule, type Permissions, type Status } from '@athome/protocol'
+import { INSPECT_LIMITS, PERMISSION_BEHAVIORS, type HookEntry, type HookRun, type Hooks, type McpServer, type Memory, type PermissionRule, type Permissions, type Status } from '@athome/protocol'
 import { CoreError, messageOf } from './errors.ts'
 
 // Data for the Status / MCP servers / Hooks / Permissions panels. Typed SDK methods are used as they are; the
 // runtime-only ones (getStatus, getHooksListing, mcpAuthenticate, mcpSubmitOAuthCallbackUrl, mcpClearAuth,
-// listPermissionRules: present in sdk.mjs, missing from sdk.d.ts) stay behind the casts in this file and are covered by
+// listPermissionRules, getMemoryDialog, getSettings: present in sdk.mjs, missing from sdk.d.ts) stay behind the casts in this file and are covered by
 // the zero-token smoke.
 
 // The Query methods the SDK ships without types.
@@ -15,6 +15,8 @@ type RuntimeMethods = {
   mcpSubmitOAuthCallbackUrl(name: string, url: string): Promise<unknown>
   mcpClearAuth(name: string): Promise<unknown>
   listPermissionRules(): Promise<unknown>
+  getMemoryDialog(): Promise<unknown>
+  getSettings(): Promise<unknown>
 }
 
 // What the init message told, for the status panel when the CLI cannot report it (see readStatus).
@@ -202,6 +204,49 @@ export async function readPermissions(query: Query): Promise<Permissions> {
     directories: folders.map((folder) => ({ path: cap(textOf(folder.path), INSPECT_LIMITS.text), source: cap(textOf(folder.source), INSPECT_LIMITS.name) })),
     cwd: cap(textOf(state.originalCwd), INSPECT_LIMITS.text),
     managedOnly: state.managedOnly === true
+  }
+}
+
+// The paths a get_memory_dialog answer lists: instruction files and saved memories (what the Memory panel may open).
+export type MemoryPaths = { files: string[]; memories: string[] }
+
+// The CLI's memory dialog as raw records (files, folders, memories); throws when it answers without files.
+async function memoryDialog(query: Query): Promise<{ files: Record<string, unknown>[]; folders: Record<string, unknown>[]; memories: Record<string, unknown>[] }> {
+  const answer = (await runtime(query, 'getMemoryDialog')) as Record<string, unknown> | null
+  if (!answer || !Array.isArray(answer.files)) throw new Error('get_memory_dialog answered without files')
+  const records = (list: unknown) => (Array.isArray(list) ? list.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object') : [])
+  return { files: records(answer.files), folders: records(answer.folders), memories: records(answer.memories) }
+}
+
+// The paths the memory dialog lists now.
+export async function readMemoryPaths(query: Query): Promise<MemoryPaths> {
+  const dialog = await memoryDialog(query)
+  return { files: dialog.files.map((file) => textOf(file.path)), memories: dialog.memories.map((memory) => textOf(memory.path)) }
+}
+
+// /memory as the panel shows it: instruction files, the auto-memory folder, saved memories, and whether auto memory is
+// on (the session's effective autoMemoryEnabled; absent = on, Claude Code's default).
+export async function readMemory(query: Query): Promise<Memory> {
+  const dialog = await memoryDialog(query)
+  const settings = (await runtime(query, 'getSettings')) as { effective?: Record<string, unknown> } | null
+  const folder = dialog.folders.find((entry) => entry.kind === 'auto')?.path
+  return {
+    files: dialog.files.map((file) => ({
+      kind: cap(textOf(file.kind), INSPECT_LIMITS.name),
+      path: cap(textOf(file.path), INSPECT_LIMITS.text),
+      label: cap(textOf(file.label), INSPECT_LIMITS.text),
+      description: cap(textOf(file.description), INSPECT_LIMITS.text),
+      exists: file.exists === true
+    })),
+    ...(typeof folder === 'string' ? { folder: cap(folder, INSPECT_LIMITS.text) } : {}),
+    memories: dialog.memories.map((memory) => ({
+      name: cap(textOf(memory.name), INSPECT_LIMITS.text),
+      path: cap(textOf(memory.path), INSPECT_LIMITS.text),
+      description: cap(textOf(memory.description), INSPECT_LIMITS.text),
+      ...(typeof memory.type === 'string' && memory.type ? { type: cap(memory.type, INSPECT_LIMITS.name) } : {}),
+      ...(typeof memory.modified_ms === 'number' ? { modifiedAt: memory.modified_ms } : {})
+    })),
+    autoMemory: settings?.effective?.autoMemoryEnabled !== false
   }
 }
 

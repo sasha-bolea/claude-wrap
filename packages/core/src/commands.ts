@@ -167,6 +167,12 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'tab.mcpAuthCallback': async ({ tabId, name, url }) => (await tabOf(tabId).mcpAuthCallback(name, url), {}),
     'tab.mcpClearAuth': async ({ tabId, name }) => (await tabOf(tabId).mcpClearAuth(name), {}),
     'tab.hooks': ({ tabId }) => tabOf(tabId).hooks(),
+    'tab.memory': ({ tabId }) => tabOf(tabId).memory(),
+    'tab.memoryRead': ({ tabId, path }) => workspace.readMemory(tabId, path),
+    'tab.memoryWrite': async ({ tabId, path, text, version }) => ({ version: await workspace.writeMemory(tabId, path, text, version) }),
+    'tab.memoryDelete': async ({ tabId, path }) => (await workspace.deleteMemory(tabId, path), {}),
+    // A user setting; the tab only has to pass the trust gate.
+    'tab.setAutoMemory': async ({ tabId, enabled }) => (await tabOf(tabId).settingsFolder(), await workspace.setAutoMemory(enabled), {}),
     'tab.permissions': ({ tabId }) => tabOf(tabId).permissions(),
     'tab.permissionRule': async ({ tabId, op, behavior, rule, destination }) => (await workspace.changePermissionRule(tabId, op, behavior, rule, destination), {}),
     'tab.permissionDirectory': async ({ tabId, op, path, destination }) => (await workspace.changePermissionDirectory(tabId, op, path, destination), {}),

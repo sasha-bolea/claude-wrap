@@ -19,6 +19,7 @@ import {
   type TabStatus,
   type Hooks,
   type McpServer,
+  type Memory,
   type Permissions,
   type Status,
   type Usage
@@ -26,7 +27,7 @@ import {
 import type { Notice, SdkApi } from './config.ts'
 import { CoreError, messageOf } from './errors.ts'
 import { suggestFiles } from './fileSuggestions.ts'
-import { HookRuns, clearMcpAuth, readHookListing, readMcp, readPermissions, readStatus, startMcpAuth, submitMcpCallback, type InitInfo } from './inspect.ts'
+import { HookRuns, clearMcpAuth, readHookListing, readMcp, readMemory, readMemoryPaths, readPermissions, type MemoryPaths, readStatus, startMcpAuth, submitMcpCallback, type InitInfo } from './inspect.ts'
 import { Normalizer, peerOf, storedPeer } from './normalize.ts'
 import { runShell } from './process.ts'
 import { Requests, modeSetBy, type Answer } from './requests.ts'
@@ -816,6 +817,18 @@ export class Tab {
   async permissions(): Promise<Permissions> {
     const session = await this.ensureSession()
     return readPermissions(session.query).catch((error: unknown) => this.sdkFailure('Permissions failed', error))
+  }
+
+  // The session's memory: instruction files, auto-memory folder and memories (live session, else starts the process).
+  async memory(): Promise<Memory> {
+    const session = await this.ensureSession()
+    return readMemory(session.query).catch((error: unknown) => this.sdkFailure('Memory failed', error))
+  }
+
+  // The paths the session's memory dialog lists now (the only ones the Memory panel may open).
+  async memoryPaths(): Promise<MemoryPaths> {
+    const session = await this.ensureSession()
+    return readMemoryPaths(session.query).catch((error: unknown) => this.sdkFailure('Memory failed', error))
   }
 
   // The folder whose settings files the session reads: the canonical cwd, after the trust gate (starts the process).

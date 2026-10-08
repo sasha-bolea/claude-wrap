@@ -9,7 +9,6 @@ const COMMANDS: Partial<Record<LaterKey, string>> = {
   tasks: '/tasks',
   todo: '/todos',
   diff: '/diff',
-  memory: '/memory',
   skills: '/skills',
   agents: '/agents',
   styles: '/output-style',

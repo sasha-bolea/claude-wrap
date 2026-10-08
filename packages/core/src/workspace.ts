@@ -11,7 +11,8 @@ import { PaletteStore } from './palettes.ts'
 import { waitForCleanups } from './process.ts'
 import { PromptHistory } from './promptHistory.ts'
 import { readClaudeSettings, saveClaudeSetting } from './claudeSettings.ts'
-import { changeDirectory, changeRule, settingsPath } from './settingsFiles.ts'
+import { isIndex, listedAs, readMemoryFile, unindexMemory, writeMemoryFile } from './memoryFiles.ts'
+import { changeDirectory, changeRule, settingsPath, updateSettings } from './settingsFiles.ts'
 import type { PersistedState, StateStore } from './state.ts'
 import { DEFAULT_RING, Stream } from './stream.ts'
 import { MAX_AUTO_TITLE, Tab, type TabEnvironment, type TabInit } from './tab.ts'
@@ -312,6 +313,31 @@ export class Workspace {
     const cwd = await this.tabOf(tabId).settingsFolder()
     await changeDirectory(op, path, destination, cwd, this.claudeDir)
     await this.reloadSettings()
+  }
+
+  // Reads a file the tab's memory dialog lists (instruction file or memory).
+  async readMemory(tabId: string, path: string): Promise<{ text: string; exists: boolean; version: string }> {
+    listedAs(await this.tabOf(tabId).memoryPaths(), path)
+    return readMemoryFile(path)
+  }
+
+  // Saves an instruction file the tab's memory dialog lists, if still at `version`. Returns the new version.
+  async writeMemory(tabId: string, path: string, text: string, version: string): Promise<string> {
+    if (listedAs(await this.tabOf(tabId).memoryPaths(), path) !== 'file') throw new CoreError('invalid_args', 'saved memories are not edited from the app')
+    return writeMemoryFile(path, text, version)
+  }
+
+  // Moves a saved memory the tab's memory dialog lists to the trash and takes it out of the MEMORY.md index.
+  async deleteMemory(tabId: string, path: string): Promise<void> {
+    if (listedAs(await this.tabOf(tabId).memoryPaths(), path) !== 'memory' || isIndex(path)) throw new CoreError('invalid_args', 'only a saved memory can be deleted')
+    await this.discard(path)
+    await unindexMemory(path)
+  }
+
+  // Auto memory on or off, saved in the user's settings as /memory does; every live session takes it at once.
+  async setAutoMemory(enabled: boolean): Promise<void> {
+    const file = settingsPath('userSettings', '', this.claudeDir)
+    if (await updateSettings(file, (settings) => settings.autoMemoryEnabled !== enabled && ((settings.autoMemoryEnabled = enabled), true))) await this.reloadSettings()
   }
 
   // Claude Code's /config settings of the user's settings file, and that file.

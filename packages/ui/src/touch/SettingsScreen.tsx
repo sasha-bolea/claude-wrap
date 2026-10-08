@@ -22,7 +22,7 @@ export type PushCapability = {
 }
 
 // The settings pages of Claude Code to come (🔜), in the prototype's order.
-const CONFIG_LATER: LaterKey[] = ['memory', 'skills', 'agents', 'styles', 'plugins']
+const CONFIG_LATER: LaterKey[] = ['skills', 'agents', 'styles', 'plugins']
 
 // Subscribes this device to the server's push notifications (from a tap: iOS asks the permission then).
 async function subscribePush(connection: Touch['connection'], push: PushCapability): Promise<void> {
@@ -87,7 +87,7 @@ export function SettingsScreen() {
                 </button>
                 <Icon name="chevron" className="chevron" />
               </li>
-              {(['mcp', 'hooks', 'permissions'] as const).map((panel) => (
+              {(['mcp', 'hooks', 'permissions', 'memory'] as const).map((panel) => (
                 <li key={panel} className="row">
                   <button className="row-main" onClick={() => openSheet({ title: t('chooseSession'), body: <SessionPickSheet panel={panel} /> })}>
                     <span className="row-title plain">{t(`later_${panel}`)}</span>

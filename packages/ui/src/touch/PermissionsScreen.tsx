@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { PERMISSION_BEHAVIORS, SETTINGS_DESTINATIONS, type PermissionBehavior, type PermissionRule, type Permissions, type SettingsDestination } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useTouch } from './context.tsx'
-import { InspectBody, InspectTop, errorText, useInspect, useReloadOnTop, useSessionSub } from './inspect.tsx'
+import { InspectBody, InspectTop, SheetError, useInspect, useReloadOnTop, useSessionSub, useSheetRequest } from './inspect.tsx'
 import { IconButton } from './parts.tsx'
 import { DESTINATION_FILES, destinationOf, sourceLabelKey, visibleText } from './permissions.ts'
 
@@ -21,38 +21,6 @@ function sourceLabel(source: string): string {
 
 // What something removed is and where it is stored: a rule or a folder, with the settings file it leaves.
 type Removal = { kind: 'rule'; behavior: PermissionBehavior; rule: string; destination: SettingsDestination } | { kind: 'folder'; path: string; destination: SettingsDestination }
-
-// Runs a request from a sheet: busy while it runs, a failure kept as text in the sheet, on success reads the list again
-// and closes the sheet with a toast.
-// Parameters: the request to send and the toast text. Returns the error, the busy flag and the runner.
-function useSheetRequest(reload: () => void) {
-  const { closeSheet, toast } = useTouch()
-  const [error, setError] = useState<string>()
-  const [busy, setBusy] = useState(false)
-  const run = (request: () => Promise<unknown>, done: string) => {
-    setBusy(true)
-    setError(undefined)
-    request().then(
-      () => {
-        reload()
-        closeSheet()
-        toast(done)
-      },
-      (failure: unknown) => (setError(errorText(failure)), setBusy(false))
-    )
-  }
-  return { error, busy, run }
-}
-
-// The failure of a sheet, as an alert under its fields.
-function SheetError({ error }: { error?: string }) {
-  if (!error) return null
-  return (
-    <p className="error-text selectable" role="alert">
-      {error}
-    </p>
-  )
-}
 
 // Confirmation of a removal: what goes (in mono, as plain text) and the file it leaves; Cancel or Remove.
 function RemoveSheet({ tabId, removal, reload }: { tabId: string; removal: Removal; reload: () => void }) {

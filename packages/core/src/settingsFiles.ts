@@ -54,25 +54,34 @@ function listOf(settings: Record<string, unknown>, key: string, file: string): s
   return list as string[]
 }
 
-// Applies a change to a settings file and saves it when the change says so (returns true). The write goes through a
-// symlink to the real file (configuration kept in git stays linked), atomically (temp file + rename), with the file's
-// mode. Returns whether the file changed.
-export function updateSettings(file: string, change: (settings: Record<string, unknown>) => boolean): Promise<boolean> {
-  const run = async () => {
-    const target = await realpath(file).catch(() => file)
-    const settings = await readSettings(target)
-    if (!change(settings)) return false
-    await mkdir(dirname(target), { recursive: true })
-    const mode = ((await stat(target).catch(() => undefined))?.mode ?? 0o100644) & 0o777
-    const temp = `${target}.${process.pid}.${Date.now()}.tmp`
-    await writeFile(temp, `${JSON.stringify(settings, null, 2)}\n`, { mode })
-    await rename(temp, target)
-    return true
-  }
+// Runs a read-change-write of one file after the previous one on that file has finished. Returns what it returns.
+export function serialized<T>(file: string, run: () => Promise<T>): Promise<T> {
   const next = (queues.get(file) ?? Promise.resolve()).catch(() => undefined).then(run)
   queues.set(file, next)
   void next.finally(() => queues.get(file) === next && queues.delete(file)).catch(() => undefined)
   return next
+}
+
+// Writes text to a file through a symlink to the real file (configuration kept in git stays linked), atomically (temp
+// file + rename), keeping the file's mode; the folder is created when missing.
+export async function writeThrough(file: string, text: string): Promise<void> {
+  const target = await realpath(file).catch(() => file)
+  await mkdir(dirname(target), { recursive: true })
+  const mode = ((await stat(target).catch(() => undefined))?.mode ?? 0o100644) & 0o777
+  const temp = `${target}.${process.pid}.${Date.now()}.tmp`
+  await writeFile(temp, text, { mode })
+  await rename(temp, target)
+}
+
+// Applies a change to a settings file and saves it (through symlinks, atomically) when the change says so. Returns
+// whether the file changed.
+export function updateSettings(file: string, change: (settings: Record<string, unknown>) => boolean): Promise<boolean> {
+  return serialized(file, async () => {
+    const settings = await readSettings(await realpath(file).catch(() => file))
+    if (!change(settings)) return false
+    await writeThrough(file, `${JSON.stringify(settings, null, 2)}\n`)
+    return true
+  })
 }
 
 // Adds or removes a rule in a settings file. Adding one already there changes nothing; removing takes out the exact

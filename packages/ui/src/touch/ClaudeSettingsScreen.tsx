@@ -4,22 +4,10 @@ import { t } from '../i18n.ts'
 import { useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
 import { InspectBody, InspectTop, useInspect, useReloadOnTop } from './inspect.tsx'
+import { SwitchRow } from './parts.tsx'
 
 // The longest language name the setting accepts (the protocol's limit).
 const LANGUAGE_MAX = 100
-
-// A switch row: the title and its hint, the checkbox at the right. dim: shown dimmed and not changeable.
-function SwitchRow({ id, title, hint, checked, dim, onChange }: { id: string; title: string; hint?: string; checked: boolean; dim?: boolean; onChange: (on: boolean) => void }) {
-  return (
-    <li className={dim ? 'row end-pad dim' : 'row end-pad'}>
-      <label className="row-main" htmlFor={id}>
-        <span className="row-title">{title}</span>
-        {hint && <span className="row-sub wrap">{hint}</span>}
-      </label>
-      <input type="checkbox" id={id} className="toggle-input" checked={checked} disabled={dim} onChange={(event) => onChange(event.target.checked)} />
-    </li>
-  )
-}
 
 // The sheet of the default model: the models as a radio menu; picking one closes the sheet.
 function ModelSheet({ current, onPick }: { current: ClaudeSettings['model']; onPick: (model: ClaudeSettings['model']) => void }) {

@@ -46,6 +46,19 @@ export function IconButton({ icon, label, onClick, dot, count, countIcon, classN
   )
 }
 
+// A switch row: the title and its hint, the checkbox at the right. dim: shown dimmed and not changeable.
+export function SwitchRow({ id, title, hint, checked, dim, onChange }: { id: string; title: string; hint?: string; checked: boolean; dim?: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <li className={dim ? 'row end-pad dim' : 'row end-pad'}>
+      <label className="row-main" htmlFor={id}>
+        <span className="row-title">{title}</span>
+        {hint && <span className="row-sub wrap">{hint}</span>}
+      </label>
+      <input type="checkbox" id={id} className="toggle-input" checked={checked} disabled={dim} onChange={(event) => onChange(event.target.checked)} />
+    </li>
+  )
+}
+
 // Title of a top bar with its small line under it.
 export function Title({ text, sub, padLeft }: { text: ReactNode; sub?: ReactNode; padLeft?: boolean }) {
   return (

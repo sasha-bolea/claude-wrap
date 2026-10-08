@@ -4,7 +4,7 @@ import type { Home, Image, TabMeta, Welcome } from '@athome/protocol'
 import type { Capabilities } from '../App.tsx'
 
 // The 🔜 panels and settings pages (a placeholder that says what they will show and the / command to use meanwhile).
-export type LaterKey = 'context' | 'usage' | 'tasks' | 'todo' | 'diff' | 'memory' | 'skills' | 'agents' | 'styles' | 'plugins'
+export type LaterKey = 'context' | 'usage' | 'tasks' | 'todo' | 'diff' | 'skills' | 'agents' | 'styles' | 'plugins'
 
 // Screens of the touch layout, one at a time; the stack keeps them mounted, so going back finds them as they were.
 export type Screen =
@@ -31,6 +31,10 @@ export type Screen =
   | { name: 'mcp'; tabId: string }
   | { name: 'hooks'; tabId: string }
   | { name: 'permissions'; tabId: string }
+  // /memory: the panel, an instruction file's editor (kind: where it comes from) and a saved memory's read-only viewer.
+  | { name: 'memory'; tabId: string }
+  | { name: 'memoryFile'; tabId: string; path: string; label: string; kind: string }
+  | { name: 'memoryView'; tabId: string; path: string; title: string }
   // Go back to one of your messages (/rewind); itemId: a message picked by a long press, its actions open at once.
   | { name: 'rewind'; tabId: string; itemId?: string }
 

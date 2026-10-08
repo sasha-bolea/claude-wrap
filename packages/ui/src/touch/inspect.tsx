@@ -90,10 +90,42 @@ export function useSessionSub(tabId: string): string {
   return tab ? `${tab.title} · ${baseName(tab.cwd)}` : ''
 }
 
+// Runs a request from a sheet: busy while it runs, a failure kept as text in the sheet, on success reads the list again
+// and closes the sheet with a toast.
+// Parameters: the request to send and the toast text. Returns the error, the busy flag and the runner.
+export function useSheetRequest(reload: () => void) {
+  const { closeSheet, toast } = useTouch()
+  const [error, setError] = useState<string>()
+  const [busy, setBusy] = useState(false)
+  const run = (request: () => Promise<unknown>, done: string) => {
+    setBusy(true)
+    setError(undefined)
+    request().then(
+      () => {
+        reload()
+        closeSheet()
+        toast(done)
+      },
+      (failure: unknown) => (setError(errorText(failure)), setBusy(false))
+    )
+  }
+  return { error, busy, run }
+}
+
+// The failure of a sheet, as an alert under its fields.
+export function SheetError({ error }: { error?: string }) {
+  if (!error) return null
+  return (
+    <p className="error-text selectable" role="alert">
+      {error}
+    </p>
+  )
+}
+
 // Settings → a per-session panel: the open sessions, most recently used first (title and folder); a tap opens the
 // panel for that session. With none open, says how to start one.
 // Parameters: the panel to open (without its tabId). Returns the sheet body.
-export function SessionPickSheet({ panel }: { panel: 'mcp' | 'hooks' | 'permissions' | 'status' }) {
+export function SessionPickSheet({ panel }: { panel: 'mcp' | 'hooks' | 'permissions' | 'memory' | 'status' }) {
   const { state, go } = useTouch()
   const tabs = recentFirst(state.tabs)
   if (!tabs.length) return <p className="muted flat">{t('pickNoSession')}</p>

@@ -1,7 +1,7 @@
 // The native Status and MCP servers panels in the desktop's wide arrangement, on the scripted fake SDK (every fake
 // process has the same data: see scriptInspection in packages/core/src/testing/scenarios.ts). User stories: from the
 // chat's ⋯ menu the session's Status opens in the right panel, next to the chat; so do the MCP servers with their state
-// and the Permissions with the rules written in the folder's settings file.
+// and the Permissions with the rules written in the folder's settings file; so does the Memory.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -57,5 +57,15 @@ describe('desktop inspection panels (fake SDK)', () => {
     await sheet.getByRole('button', { name: 'Add', exact: true }).click()
     await panel.getByText('Read', { exact: true }).waitFor()
     await panel.getByRole('radio', { name: 'Allow 2' }).waitFor()
+  })
+
+  it('⋯ → Memory opens in the right panel next to the chat (the fake CLI lists no files)', async () => {
+    const { page } = ctx
+    await page.getByRole('button', { name: 'More actions' }).click()
+    await page.locator('.sheet').getByRole('button', { name: /^Memory/ }).click()
+    const panel = page.locator('.col-right').getByRole('region', { name: 'Memory', exact: true })
+    await panel.getByText('Instruction files', { exact: true }).waitFor()
+    await panel.getByRole('checkbox', { name: /^Use auto memory/ }).waitFor()
+    await panel.getByText('No saved memories yet.').waitFor()
   })
 })

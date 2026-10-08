@@ -98,6 +98,16 @@ export const claudeSettingChangeSchema = z.discriminatedUnion('key', [
   z.object({ key: z.literal('worktreeBaseRef'), value: z.enum(['fresh', 'head']) }),
   ...(['thinking', 'autoCompact', 'useAutoModeDuringPlan', 'workflows', 'workflowKeywordTriggerEnabled'] as const).map((key) => z.object({ key: z.literal(key), value: z.boolean() }))
 ])
+// /memory: the instruction files the session loads (CLAUDE.md and the files they import, including ones not created
+// yet), the auto-memory folder and its saved memories, and whether auto memory is on. Only paths the CLI lists can be
+// read; instruction files can be written, memories deleted (MEMORY.md, their index, cannot).
+export const MEMORY_LIMITS = { textBytes: 512 * 1024 } as const
+export const memorySchema = z.object({
+  files: z.array(z.object({ kind: z.string().max(INSPECT_LIMITS.name), path: shortText, label: shortText, description: shortText, exists: z.boolean() })),
+  folder: shortText.optional(),
+  memories: z.array(z.object({ name: shortText, path: shortText, description: shortText, type: z.string().max(INSPECT_LIMITS.name).optional(), modifiedAt: z.number().optional() })),
+  autoMemory: z.boolean()
+})
 export type Status = z.infer<typeof statusSchema>
 export type McpServer = z.infer<typeof mcpServerSchema>
 export type HookEntry = z.infer<typeof hookEntrySchema>
@@ -105,6 +115,7 @@ export type HookRun = z.infer<typeof hookRunSchema>
 export type Hooks = z.infer<typeof hooksSchema>
 export type ClaudeSettings = z.infer<typeof claudeSettingsSchema>
 export type ClaudeSettingChange = z.infer<typeof claudeSettingChangeSchema>
+export type Memory = z.infer<typeof memorySchema>
 export type PermissionRule = z.infer<typeof permissionRuleSchema>
 export type Permissions = z.infer<typeof permissionsSchema>
 export type PermissionBehavior = (typeof PERMISSION_BEHAVIORS)[number]
@@ -254,6 +265,16 @@ export const COMMANDS = {
   // /permissions. permissionRule / permissionDirectory add to or remove from one settings file (local = this folder,
   // only for you; project = this folder, checked in; user = every folder), then every live session takes the files
   // again. Removing looks for the exact stored text; adding something already there changes nothing.
+  // /memory. memoryRead: a listed file's text and its version ('' and exists false for a file not created yet);
+  // memoryWrite saves an instruction file when it is still at that version (invalid_args when it changed meanwhile) and
+  // returns the new one; memoryDelete moves a saved memory to the trash and takes its line out of MEMORY.md;
+  // setAutoMemory saves autoMemoryEnabled in the user's settings (as /memory does). Changes to instruction files reach
+  // the sessions started afterwards.
+  'tab.memory': { args: z.object({ tabId }), result: memorySchema },
+  'tab.memoryRead': { args: z.object({ tabId, path: shortText.min(1) }), result: z.object({ text: z.string(), exists: z.boolean(), version: z.string() }) },
+  'tab.memoryWrite': { args: z.object({ tabId, path: shortText.min(1), text: z.string().max(MEMORY_LIMITS.textBytes), version: z.string() }), result: z.object({ version: z.string() }) },
+  'tab.memoryDelete': { args: z.object({ tabId, path: shortText.min(1) }), result: empty },
+  'tab.setAutoMemory': { args: z.object({ tabId, enabled: z.boolean() }), result: empty },
   'tab.permissions': { args: z.object({ tabId }), result: permissionsSchema },
   'tab.permissionRule': { args: z.object({ tabId, op: z.enum(['add', 'remove']), behavior: permissionBehavior, rule: shortText.min(1), destination: settingsDestination }), result: empty },
   'tab.permissionDirectory': { args: z.object({ tabId, op: z.enum(['add', 'remove']), path: shortText.min(1), destination: settingsDestination }), result: empty },

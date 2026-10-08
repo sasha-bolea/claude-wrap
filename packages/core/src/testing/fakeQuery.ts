@@ -111,6 +111,10 @@ export class FakeSession {
   // Folder of the userSettings file the fake reads (undefined: none).
   userSettingsDir?: string
   private filePermissions: unknown
+  // Answer of getMemoryDialog (runtime-only SDK method; undefined: not available). getSettings answers the user
+  // settings file's autoMemoryEnabled as read at spawn / applyFlagSettings (absent: Claude Code's default).
+  memoryDialog: unknown = { files: [], folders: [], memories: [] }
+  private userSettings: Record<string, unknown> = {}
   // Results of rewindFiles calls, keyed by userMessageId (default: no file checkpoint found).
   rewindResults = new Map<string, RewindFilesResult>()
   // The resumeSessionAt option received when this session was created.
@@ -230,6 +234,8 @@ export class FakeSession {
         await maybeReject()
         this.readPermissionFiles()
       },
+      getMemoryDialog: async () => this.inspect('getMemoryDialog', [], () => this.runtimeAnswer('getMemoryDialog', this.memoryDialog)),
+      getSettings: async () => this.inspect('getSettings', [], () => ({ effective: { ...this.userSettings }, sources: [], applied: {} })),
       listPermissionRules: async () => this.inspect('listPermissionRules', [], () => this.runtimeAnswer('listPermissionRules', this.permissionsAnswer ?? this.filePermissions)),
       supportedModels: async () => (record('supportedModels', []), this.models),
       supportedCommands: async () => (record('supportedCommands', []), this.commands),
@@ -264,7 +270,8 @@ export class FakeSession {
   }
 
   // Reads the permission rules and extra folders of the user, project and local settings files (absent or invalid
-  // files count as empty) plus the allowedTools / additionalDirectories options, as list_permission_rules shows them.
+  // files count as empty) plus the allowedTools / additionalDirectories options, as list_permission_rules shows them;
+  // keeps the user settings for getSettings.
   readPermissionFiles(): void {
     const cwd = this.options.cwd ?? ''
     const files = [
@@ -275,10 +282,12 @@ export class FakeSession {
     const rules: object[] = (this.options.allowedTools ?? []).map((rule) => ({ behavior: 'allow', source: 'cliArg', rule, editability: 'session' }))
     const workspaceDirectories: object[] = (this.options.additionalDirectories ?? []).map((path) => ({ path, source: 'cliArg' }))
     for (const [source, file] of files) {
-      let permissions: Record<string, unknown> = {}
+      let settings: Record<string, unknown> = {}
       try {
-        permissions = (file && JSON.parse(readFileSync(file, 'utf8')).permissions) || {}
+        settings = (file && JSON.parse(readFileSync(file, 'utf8'))) || {}
       } catch {}
+      if (source === 'userSettings') this.userSettings = settings
+      const permissions = (settings.permissions as Record<string, unknown> | undefined) ?? {}
       for (const behavior of ['allow', 'ask', 'deny']) {
         for (const rule of (permissions[behavior] as string[] | undefined) ?? []) rules.push({ behavior, source, rule, editability: 'persistent' })
       }
