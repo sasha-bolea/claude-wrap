@@ -33,6 +33,8 @@ The app's colours are CSS variables: --background, --surface, --surface-2, --bor
 --accent-text, --danger, --success, --radius, --space, --font, --font-mono. Plain elements are already styled to match
 the app: button (class "secondary" or "danger" for the other kinds), input, select, textarea, table, .card, .chip,
 .row (horizontal group), .stack (vertical group), .muted, code, svg text. The frame grows to fit its content.
+Attach handlers from your script (element.onclick = …), not with inline onclick="…" attributes: inside those, the
+element's own properties shadow your functions (a function named command, name, form, type or value breaks).
 
 ## Acting on the app
 Every action must start from the user's tap inside the widget (a widget cannot act by itself, e.g. on load); heavy
