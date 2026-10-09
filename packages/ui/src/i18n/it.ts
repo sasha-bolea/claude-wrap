@@ -735,6 +735,7 @@ export const it: Record<MessageKey, string> = {
   autoCompactCli: 'Compattazione automatica come impostata in Claude Code',
   newSessionsTitle: 'Nuove sessioni',
   defaultEffortModel: 'Del modello',
+  newSessionsModelHint: 'L’impostazione di Claude Code: vale anche nel terminale',
   newSessionsHint: 'Per le sessioni che avvii da ora; quelle già aperte tengono le loro. Un modello che non offre lo sforzo scelto usa il suo livello più alto sotto.',
   defaultEffortSet: 'Nuove sessioni: sforzo {effort}',
   defaultModeSet: 'Nuove sessioni: {mode}',

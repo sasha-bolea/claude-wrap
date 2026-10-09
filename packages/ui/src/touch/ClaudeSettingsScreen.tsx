@@ -9,8 +9,9 @@ import { SwitchRow } from './parts.tsx'
 // The longest language name the setting accepts (the protocol's limit).
 const LANGUAGE_MAX = 100
 
-// The sheet of the default model: the models as a radio menu; picking one closes the sheet.
-function ModelSheet({ current, onPick }: { current: ClaudeSettings['model']; onPick: (model: ClaudeSettings['model']) => void }) {
+// The sheet of Claude Code's default model (also in Settings → New sessions): the models as a radio menu; picking one
+// closes the sheet.
+export function DefaultModelSheet({ current, onPick }: { current: ClaudeSettings['model']; onPick: (model: ClaudeSettings['model']) => void }) {
   const { closeSheet } = useTouch()
   return (
     <ul className="menu" role="radiogroup" aria-label={t('ccModel')}>
@@ -98,7 +99,7 @@ export function ClaudeSettingsScreen() {
             <>
               <ul className="list">
                 <li className="row">
-                  <button className="row-main" onClick={() => openSheet({ title: t('ccModel'), body: <ModelSheet current={values.model} onPick={(value) => void apply({ key: 'model', value })} /> })}>
+                  <button className="row-main" onClick={() => openSheet({ title: t('ccModel'), body: <DefaultModelSheet current={values.model} onPick={(value) => void apply({ key: 'model', value })} /> })}>
                     <span className="row-title">{t('ccModel')}</span>
                     <span className="row-sub">{t(`ccModel_${values.model}`)}</span>
                     <span className="row-sub wrap">{t('ccModelHint')}</span>

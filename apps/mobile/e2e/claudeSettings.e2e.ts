@@ -1,6 +1,6 @@
 // The native Claude Code settings screen (/config) in the PWA on the scripted fake SDK. User stories: from Settings →
 // Claude Code I open the screen and see Claude Code's defaults; a switch saves at once into the user settings file;
-// I pick the default model in a sheet; I set the reply language and put it back to the default (the key leaves the
+// I pick the default model in a sheet (also from Settings → New sessions, the same setting); I set the reply language and put it back to the default (the key leaves the
 // file); turning Dynamic workflows off dims the "ultracode" switch. The core's Claude config folder is a temp folder.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -68,6 +68,23 @@ describe('PWA Claude Code settings (fake SDK)', () => {
     await sheet.getByRole('radio', { name: 'Opus · 1M context' }).click()
     await screen.getByRole('button', { name: /^Default model/ }).getByText('Opus · 1M context').waitFor()
     await expect.poll(() => saved().model).toBe('opus[1m]')
+  })
+
+  it('Settings → New sessions has the same default model: picked there, it is in the file and on this screen', async () => {
+    const context = await phone(browser)
+    contexts.push(context)
+    const page = await pairedPage(context, backend)
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    const row = page.getByRole('button', { name: /^Default model/ })
+    await row.getByText('Claude Code’s default').waitFor()
+    // First in the group, before the effort.
+    expect((await row.boundingBox())!.y).toBeLessThan((await page.getByRole('radiogroup', { name: 'Effort' }).boundingBox())!.y)
+    await row.click()
+    await page.getByRole('dialog', { name: 'Default model' }).getByRole('radio', { name: 'Haiku' }).click()
+    await row.getByText('Haiku').waitFor()
+    await expect.poll(() => saved().model).toBe('haiku')
+    await page.getByRole('button', { name: 'Claude Code settings' }).click()
+    await page.getByRole('region', { name: 'Claude Code settings' }).getByRole('button', { name: /^Default model/ }).getByText('Haiku').waitFor()
   })
 
   it('a reply language is saved, and Back to default removes the key', async () => {

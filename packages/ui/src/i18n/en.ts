@@ -733,6 +733,7 @@ export const en = {
   autoCompactCli: 'Automatic compaction as set in Claude Code',
   newSessionsTitle: 'New sessions',
   defaultEffortModel: 'Model’s own',
+  newSessionsModelHint: 'Claude Code’s setting: the terminal takes it too',
   newSessionsHint: 'For the sessions you start from now on; open ones keep theirs. A model that does not offer the effort takes its highest level below.',
   defaultEffortSet: 'New sessions: effort {effort}',
   defaultModeSet: 'New sessions: {mode}',

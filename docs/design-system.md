@@ -330,8 +330,10 @@ line ("Widget in arrivo…"); a bad name, bad JSON data or a library widget that
 untrusted**: it runs only in the sandboxed frame (opaque origin, its own CSP without network), never in the app's page.
 Examples: [WidgetBlock.tsx:27](../packages/ui/src/touch/WidgetBlock.tsx#L27), [Conversation.tsx:241](../packages/ui/src/touch/Conversation.tsx#L241), [touch.css:191](../packages/ui/src/touch.css#L191).
 
-### Settings → new sessions (existing `.list`, `.row.stacked`, `.segmented.effort`, `.menu` via `ModeMenu`)
-"Nuove sessioni": a row "Sforzo" with six segments in two rows of three (Del modello, then the five levels) and a
+### Settings → new sessions (existing `.list`, `.row.stacked`, `.segmented.effort`, `.menu` via `ModeMenu` and `DefaultModelSheet`)
+"Nuove sessioni": first a row "Modello predefinito" (the current model and a hint that the terminal takes it too),
+which opens the same radio menu as Settings → Claude Code (`DefaultModelSheet`): it is Claude Code's own setting, not
+a copy, so the two rows always agree. Then a row "Sforzo" with six segments in two rows of three (Del modello, then the five levels) and a
 wrapping hint, and a row "Modalità permessi" showing the chosen mode, which opens the same radio menu as the composer's
 mode sheet (`ModeMenu`). Both apply to sessions created from then on (forks keep their source's); open ones keep theirs.
 Examples: [SettingsScreen.tsx:167](../packages/ui/src/touch/SettingsScreen.tsx#L167), [modelSheets.tsx:75](../packages/ui/src/touch/modelSheets.tsx#L75).

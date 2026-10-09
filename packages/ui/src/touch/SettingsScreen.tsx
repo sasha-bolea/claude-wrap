@@ -1,10 +1,11 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { EFFORT_LEVELS, revokeCascade, type Device, type Effort, type PermissionMode } from '@athome/protocol'
+import { EFFORT_LEVELS, revokeCascade, type ClaudeSettings, type Device, type Effort, type PermissionMode } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { modeLabel } from '../modes.ts'
 import { useAvailableUpdate } from '../appUpdate.ts'
 import { activePaletteId, subscribeActivePalette } from '../palette.ts'
 import { AccountsGroup } from './accounts.tsx'
+import { DefaultModelSheet } from './ClaudeSettingsScreen.tsx'
 import { useTouch, type LaterKey, type Touch } from './context.tsx'
 import { Icon } from './icons.tsx'
 import { SessionPickSheet } from './inspect.tsx'
@@ -165,17 +166,29 @@ function AppGroup() {
   )
 }
 
-// Settings → Nuove sessioni: the effort (the model's own, or a level) and the permission mode the sessions started
+// Settings → Nuove sessioni: the model (Claude Code's own default model, the same setting as in Settings → Claude Code,
+// so the terminal takes it too), the effort (the model's own, or a level) and the permission mode the sessions started
 // from now on take; open ones keep theirs.
 function NewSessionsGroup() {
   const { state, connection, openSheet, toast, fail } = useTouch()
   const mode = state.defaultMode ?? 'default'
+  const model = useDefaultModel()
   const pickEffort = (effort: Effort | undefined) =>
     connection.request('settings.setDefaultEffort', effort ? { effort } : {}).then(() => toast(t('defaultEffortSet', { effort: effort ? effortLabel(effort) : t('defaultEffortModel') })), fail)
   return (
     <div className="group">
       <p className="label">{t('newSessionsTitle')}</p>
       <ul className="list">
+        {model.value && (
+          <li className="row">
+            <button className="row-main" onClick={() => openSheet({ title: t('ccModel'), body: <DefaultModelSheet current={model.value!} onPick={model.pick} /> })}>
+              <span className="row-title">{t('ccModel')}</span>
+              <span className="row-sub">{t(`ccModel_${model.value}`)}</span>
+              <span className="row-sub wrap">{t('newSessionsModelHint')}</span>
+            </button>
+            <Icon name="chevron" className="chevron" />
+          </li>
+        )}
         <li className="row stacked">
           <span className="row-title" id="default-effort-label">
             {t('effort')}
@@ -200,6 +213,20 @@ function NewSessionsGroup() {
       </ul>
     </div>
   )
+}
+
+// Claude Code's default model, read from its user settings when the screen opens (undefined until then, or when it
+// cannot be read), and pick: saves another one there (shown at once, put back if refused).
+function useDefaultModel() {
+  const { connection, toast, fail } = useTouch()
+  const [value, setValue] = useState<ClaudeSettings['model']>()
+  useEffect(() => void connection.request('settings.claudeCode', {}).then(({ values }) => setValue(values.model), () => undefined), [connection])
+  const pick = (model: ClaudeSettings['model']) => {
+    const before = value
+    setValue(model)
+    connection.request('settings.setClaudeCode', { change: { key: 'model', value: model } }).then(() => toast(t('ccSaved')), (failure: unknown) => (setValue(before), fail(failure)))
+  }
+  return { value, pick }
 }
 
 // The permission mode of new sessions; picking one closes the sheet.
