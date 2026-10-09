@@ -11,7 +11,8 @@ import { Icon } from './icons.tsx'
 import { WidgetBlock } from './WidgetBlock.tsx'
 import { actionWords, widgetSpec } from './widget.ts'
 import { useWidgetActions } from './widgetActions.ts'
-import { answeredQuestions, durationLabel } from './model.ts'
+import { answeredQuestions, durationLabel, modelShortName } from './model.ts'
+import { effortLabel } from './modelSheets.tsx'
 
 type LoadImage = (imageId: string) => Promise<Image>
 type ToolCall = Extract<Item, { kind: 'toolCall' }>
@@ -267,6 +268,12 @@ function PeerMessage({ item }: { item: PeerItem }) {
   )
 }
 
+// The words of a model change in the chat: "Model: Opus 5.5", with " · effort high" when an effort is set.
+function modelLineText(item: Extract<Item, { kind: 'modelChange' }>): string {
+  const model = item.modelName ?? (item.model ? modelShortName(item.model) : t('modelDefault'))
+  return item.effort ? t('modelLineEffort', { model, effort: effortLabel(item.effort).toLowerCase() }) : t('modelAnnounce', { model })
+}
+
 // One transcript item, as the prototype shows it.
 function ItemView({ tabId, item, readAt, loadImage, onActions, onSendNow, onUnsend }: { tabId: string; item: Item; readAt?: number; loadImage: LoadImage; onActions: (item: UserItem) => void; onSendNow: (item: UserItem) => Promise<unknown>; onUnsend: (item: UserItem) => Promise<unknown> }) {
   const { capabilities } = useTouch()
@@ -293,6 +300,8 @@ function ItemView({ tabId, item, readAt, loadImage, onActions, onSendNow, onUnse
       return <PeerMessage item={item} />
     case 'compactBoundary':
       return <p className="compacted">{t('compacted')}</p>
+    case 'modelChange':
+      return <p className="compacted model-line">{modelLineText(item)}</p>
     case 'localCommandOutput':
       return <pre className="local-output">{item.text}</pre>
     case 'shell':

@@ -766,6 +766,36 @@ describe('controls', () => {
     expect(meta(client)?.model).toBe('haiku')
   })
 
+  it('a model or effort change shows in the chat as one line, kept in its place across restarts', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'cw-model-line-'))
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    fake.histories.set('s-ml', [stored.user('u1', 'hi'), stored.assistant('a1', 'm1', [{ type: 'text', text: 'hello!' }])])
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD, resume: 's-ml' })
+    await client.ok('tab.subscribe', { tabId: 't1' })
+    await client.ok('tab.setModel', { tabId: 't1', model: 'haiku' })
+    await tick()
+    expect(items(client).at(-1)).toMatchObject({ kind: 'modelChange', model: 'haiku' })
+    // An effort change right after: the same line, not a second one. The same model again: nothing new.
+    await client.ok('tab.setEffort', { tabId: 't1', effort: 'high' })
+    await client.ok('tab.setModel', { tabId: 't1', model: 'haiku' })
+    await tick()
+    expect(items(client).map((item) => item.kind)).toEqual(['user', 'assistantText', 'modelChange'])
+    expect(items(client).at(-1)).toMatchObject({ kind: 'modelChange', model: 'haiku', effort: 'high' })
+    // After a restart, with a message stored since: the line stays where it was, between the two.
+    await core.closeAll()
+    fake.histories.set('s-ml', [...fake.histories.get('s-ml')!, stored.user('u2', 'and now?')])
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    await client.ok('tab.subscribe', { tabId: 't1' })
+    expect(items(client).map((item) => item.kind)).toEqual(['user', 'assistantText', 'modelChange', 'user'])
+    expect(items(client)[2]).toMatchObject({ model: 'haiku', effort: 'high' })
+    // A later change is a new line, at the end.
+    await client.ok('tab.setModel', { tabId: 't1', model: 'sonnet' })
+    await tick()
+    expect(items(client).map((item) => item.kind)).toEqual(['user', 'assistantText', 'modelChange', 'user', 'modelChange'])
+  })
+
   it('context and usage come from the CLI, reduced for the panels; an API-key session has no plan limits', async () => {
     const session = await startedTab()
     const context = await client.ok('tab.context', { tabId: 't1' })

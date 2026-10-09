@@ -156,7 +156,7 @@ state words (draft, queued, "this one"); `.chip.changed`: new / changed by Claud
 pulsing while it waits for you (`Badge` component, with its meaning for screen readers); `.unseen`: an idle dot in the accent colour, not pulsing, while Claude finished and nobody looked at the chat yet (core's `TabMeta.unseen`; the words stay "idle"). Folder rows take it too when one of their chats is unseen (`badgeClass` in [model.ts](../packages/ui/src/touch/model.ts)).
 Examples: [ChatScreen.tsx:346](../packages/ui/src/touch/ChatScreen.tsx#L346), [FilesScreen.tsx:243](../packages/ui/src/touch/FilesScreen.tsx#L243), [parts.tsx:113](../packages/ui/src/touch/parts.tsx#L113).
 
-### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-user-row`, `.send-now`, `.unsend`, `.msg-ai`, `.msg-peer` (`.from`), `.think`, `.tool`, `.working-line`, `.working-mini`, `.turn-end`, `.code-block` (`.copy-code`)
+### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-user-row`, `.send-now`, `.unsend`, `.msg-ai`, `.msg-peer` (`.from`), `.think`, `.tool`, `.working-line`, `.working-mini`, `.turn-end`, `.compacted` (`.model-line`), `.code-block` (`.copy-code`)
 Your messages right in a bubble (a long press or right click opens their actions; "waiting" until Claude reads a
 message sent while it works, then "read" for a few seconds); Claude's text as markdown (every code block is a `.code-block` with a `.copy-code` icon button in its top right corner:
 it copies the code and shows a tick for 1.5 s — `CodeBlock` in [Markdown.tsx](../packages/ui/src/Markdown.tsx)); reasoning and tool calls as
@@ -166,6 +166,9 @@ send-now, not a Stop (the queue is not paused). Next to it, `.unsend` (same circ
 (each frame a share of the way left; at once from farther than a screen, with reduced motion; a finger on the chat
 stops it), so Claude's streaming never jerks the view. With the keyboard open, a quick drag on the chat (faster than
 0.6 px/ms) closes it; a slow one, to read, leaves it open.
+Events of the session sit across the chat as a `.compacted` line (muted 12 px text between two dashed rules): "Conversation
+compacted", and `.model-line` "Model: Opus 5.5 · effort high" when the model or effort changes (one line for changes
+in a row; core keeps it in place across restarts). Example: [Conversation.tsx](../packages/ui/src/touch/Conversation.tsx) (`modelLineText`).
 The working line (`.working-line`, dot + "Claude is working · 1 min 20 s") is plain scroll content: the last element of the
 conversation's text, before the cards ([Conversation.tsx:375](../packages/ui/src/touch/Conversation.tsx#L375)), so it moves with the text.
 Once it is out of view (scrolled below the visible area, or hidden behind the floating dock), `.working-mini` shows as a
@@ -283,18 +286,23 @@ A row "Compatta quando la conversazione arriva a" with five segments: Standard (
 it. A change restarts the live processes (idle now, working at the end of their turn) with the conversations kept.
 Examples: [SettingsScreen.tsx:215](../packages/ui/src/touch/SettingsScreen.tsx#L215).
 
-### Plan card (a caller's plan, on the Home) — `.card.plan-card`, `.plan-summary`, `.plan-steps`, `.chip.free`; existing `.card`, `.card-actions`, `.chip.accent`, `.button` (`.primary`, `.danger`, `.quiet`)
+### Plan card (a caller's plan, on the Home) — `.card.plan-card`, `.plan-summary`, `.plan-steps`, `.plan-row` (`.depth-1/2`, `.plan-either/-branch/-repeat`, `.plan-ran/-next/-out`), `.plan-number`, `.plan-note`, `.chip.free`; existing `.card`, `.card-actions`, `.chip.accent`, `.button` (`.primary`, `.danger`, `.quiet`)
 A plan proposed by a caller with a key (Petra, through the `athome` command) sits on top of the Home, in both views,
 until answered or finished: a `.card.plan-card` (region "Piano di <caller>") with the heading ("petra propone un piano",
-then "Piano di petra · passo N di M"), the caller's summary as it wrote it (`.plan-summary`, React text only), the
-line "Se approvi, potrà fare, in quest'ordine:" and the steps as a numbered `.plan-steps` list **in the app's own words**
+then "Piano di petra · prossimo: passo N" or "… · segue una chat"), the caller's summary as it wrote it
+(`.plan-summary`, React text only), the line "Se approvi, potrà fare, in quest'ordine:" and the steps as `.plan-steps`
+rows (`.plan-row` with its `.plan-number`, the same numbering core uses) **in the app's own words**
 ([plans.ts](../packages/ui/src/touch/plans.ts): what the core will enforce, never the caller's wording). In a step,
 free text the caller decides later is a dashed `.chip.free` ("testo libero"); a folder, chat (its title) or message
 that exists already is a `.chip.accent` with "· esistente", so the user sees where the plan touches what is there;
-steps already run are `.muted`. `.card-actions`: Approva (primary) / Rifiuta (danger) while proposed; "Annulla il piano"
+a choice ("Una sola di queste strade:"), each branch ("Se <condizione>:") and a group ("Fino a N volte, <condizione>:")
+are label rows (`.plan-either` / `.plan-branch` / `.plan-repeat`, the caller's conditions as React text) with their steps
+indented (`.depth-1`, `.depth-2`); an optional step ends with an italic `.plan-note` ("· facoltativo: <condizione>").
+While running, a step that ran is `.plan-ran` (muted), one that may run next `.plan-next` (accent number), one that can
+no longer run (a branch not taken, a finished group) `.plan-out` (struck through). `.card-actions`: Approva (primary) / Rifiuta (danger) while proposed; "Annulla il piano"
 (quiet) while running. Every answer gives a toast; a refusal goes through `fail`. The phone's notification for a new
 proposal says "<caller> propone un piano: approvalo in AtHome" and opens the app (no chat).
-Examples: [PlanCard.tsx:22](../packages/ui/src/touch/PlanCard.tsx#L22), [plans.ts:58](../packages/ui/src/touch/plans.ts#L58), [HomeScreen.tsx:135](../packages/ui/src/touch/HomeScreen.tsx#L135).
+Examples: [PlanCard.tsx:24](../packages/ui/src/touch/PlanCard.tsx#L24), [plans.ts:96](../packages/ui/src/touch/plans.ts#L96), [HomeScreen.tsx:135](../packages/ui/src/touch/HomeScreen.tsx#L135).
 
 ### Settings → chat widgets (existing `.list`, `SwitchRow`)
 "Widget in chat": one `SwitchRow` ("Claude può mostrare widget") whose hint says what widgets are, that /creawidget

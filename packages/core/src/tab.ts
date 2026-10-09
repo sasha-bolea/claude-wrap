@@ -112,6 +112,13 @@ function promptOf(item: RewindableItem): string {
   return item.kind === 'shell' ? `!${item.command}` : item.text
 }
 
+// A model change shown in the chat, kept across history reloads: after is the stored message it follows (undefined:
+// before the first one); the rest are the modelChange item's fields.
+export type ModelLine = { itemId: string; after?: string; model?: string; modelName?: string; effort?: Effort }
+
+// Most model lines a tab keeps (the oldest go first).
+const MAX_MODEL_LINES = 100
+
 // A user message on its way: queueId is the cmd id (SDK message uuid); pastes are long pasted texts inside text.
 export type Outgoing = { queueId: string; text: string; from: string; images?: Image[]; pastes?: string[] }
 
@@ -141,6 +148,8 @@ export type TabInit = {
   unseen?: boolean
   // After a conversation rewind: the stored message the next process resumes at (everything after it is dropped).
   resumeAt?: string
+  // The model changes shown in the chat.
+  modelLines?: ModelLine[]
 }
 
 // Longest title taken from the CLI (chars). Its "summary" is its generated title, but for some sessions (long ones,
@@ -252,6 +261,8 @@ export class Tab {
   private rewinding = false
   // The stored message the next process resumes at, from a conversation rewind until that process reports init.
   private resumeAt?: string
+  // The model changes shown in the chat, put back in place at each history load.
+  private modelLines: ModelLine[]
 
   constructor(init: TabInit, env: TabEnvironment) {
     this.env = env
@@ -266,6 +277,7 @@ export class Tab {
     this.unseenFinish = init.unseen ?? false
     this.sessionId = init.resume
     this.resumeAt = init.resumeAt
+    this.modelLines = init.modelLines ?? []
     this.model = init.model
     this.effort = init.effort
     this.mode = this.confirmedMode = init.mode ?? 'default'
@@ -307,7 +319,7 @@ export class Tab {
   persisted(): PersistedTab {
     const { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, queuePause, autoTitle, account, interrupted, lastUsedAt, resumeAt } = this
     const context = this.contextGauge
-    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account, interrupted, context, lastUsedAt, ...(resumeAt ? { resumeAt } : {}), ...(this.unseenFinish ? { unseen: true } : {}) }
+    return { tabId, title, cwd, sessionId, model, effort, mode, cachedModels, cachedCommands, ...(this.queue.length ? { queue: this.queue } : {}), queuePause, autoTitle, account, interrupted, context, lastUsedAt, ...(resumeAt ? { resumeAt } : {}), ...(this.unseenFinish ? { unseen: true } : {}), ...(this.modelLines.length ? { modelLines: this.modelLines } : {}) }
   }
 
   // The stored-session uuid behind an item (fork up to that item).
@@ -659,6 +671,7 @@ export class Tab {
     this.silentResults = 0
     this.silentUuids.clear()
     this.transcript.truncateAt(item.itemId)
+    this.modelLines = this.modelLines.filter((line) => this.transcript.has(line.itemId))
     // The queued messages were written for the conversation as it was: they wait for ▶.
     if (this.queue.length) this.queuePause = { reason: 'user' }
     return prompt
@@ -686,10 +699,12 @@ export class Tab {
   // Changes the model: live → setModel; dormant → only stored, passed at spawn. undefined = default model.
   // An effort level the new model does not offer moves to its highest one below.
   async setModel(model: string | undefined): Promise<void> {
+    const moved = model !== this.model
     this.model = model
     this.changed()
     if (this.session) await this.session.query.setModel(model).catch((error: unknown) => this.sdkFailure('Model change failed', error))
     await this.keepEffortOffered()
+    if (moved) this.showModelLine()
   }
 
   // Moves the effort to the highest level the model offers below it, when the model (as cached) does not offer it.
@@ -702,10 +717,37 @@ export class Tab {
   // Changes the reasoning effort: live → applyFlagSettings (as /effort); dormant → stored, passed at spawn.
   // undefined = the model's default.
   async setEffort(effort: Effort | undefined): Promise<void> {
+    const moved = effort !== this.effort
     this.effort = effort
     this.changed()
-    if (!this.session) return
-    await this.session.query.applyFlagSettings({ effortLevel: effort ?? null }).catch((error: unknown) => this.sdkFailure('Effort change failed', error))
+    if (this.session) await this.session.query.applyFlagSettings({ effortLevel: effort ?? null }).catch((error: unknown) => this.sdkFailure('Effort change failed', error))
+    if (moved) this.showModelLine()
+  }
+
+  // Shows the model and effort now set as a line in the chat, kept for the history loads. A change right after another
+  // (nothing said in between) updates that line instead of adding one.
+  private showModelLine(): void {
+    const items = this.transcript.all()
+    const last = items.at(-1)
+    const modelName = this.cachedModels?.find((info) => info.value === (this.model ?? 'default'))?.displayName
+    const fields = { ...(this.model ? { model: this.model } : {}), ...(modelName ? { modelName } : {}), ...(this.effort ? { effort: this.effort } : {}) }
+    const previous = last?.kind === 'modelChange' ? this.modelLines.findIndex((line) => line.itemId === last.itemId) : -1
+    if (last && previous >= 0) {
+      this.modelLines[previous] = { itemId: last.itemId, after: this.modelLines[previous]!.after, ...fields }
+      this.transcript.update({ kind: 'modelChange', itemId: last.itemId, ...fields })
+    } else {
+      const after = items.findLast((item) => item.sourceUuid)?.sourceUuid
+      const itemId = `model-${randomUUID()}`
+      this.modelLines = [...this.modelLines, { itemId, ...(after ? { after } : {}), ...fields }].slice(-MAX_MODEL_LINES)
+      this.transcript.add({ kind: 'modelChange', itemId, ...fields })
+    }
+    this.changed()
+  }
+
+  // Adds the model lines that follow the stored message after (undefined: those before the first one) during a history
+  // load.
+  private addModelLines(after: string | undefined): void {
+    for (const { after: _, ...fields } of this.modelLines.filter((line) => line.after === after)) this.transcript.add({ kind: 'modelChange', ...fields })
   }
 
   // Changes the permission mode. Calls are chained; a rejection falls back to the last confirmed mode.
@@ -960,7 +1002,15 @@ export class Tab {
     const dir = { dir: this.cwd }
     this.historyPromise ??= Promise.all([this.env.sdk.getSessionMessages(sessionId, dir), this.env.sdk.getSessionInfo(sessionId, dir)]).then(([messages, info]) => {
       this.historyModified = info?.lastModified
-      this.transcript.rebuildFrom(() => this.cutAtResume(messages).forEach((message) => this.normalizer.history(message)))
+      this.transcript.rebuildFrom(() => {
+        this.addModelLines(undefined)
+        for (const message of this.cutAtResume(messages)) {
+          this.normalizer.history(message)
+          this.addModelLines(message.uuid)
+        }
+      })
+      // Lines whose message is gone (cut by a rewind) are dropped.
+      this.modelLines = this.modelLines.filter((line) => this.transcript.has(line.itemId))
     })
     return this.historyPromise
   }
@@ -1276,6 +1326,7 @@ export class Tab {
     this.setSessionId(newSessionId)
     this.title = basename(this.cwd) || this.cwd
     this.autoTitle = true
+    this.modelLines = []
     this.normalizer = new Normalizer(this.transcript)
     this.transcript.clear()
     this.changed()

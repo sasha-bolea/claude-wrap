@@ -205,6 +205,8 @@ describe('PWA (fake SDK)', () => {
     const effort = modelSheet.getByRole('radiogroup', { name: 'Effort' })
     await effort.getByRole('radio', { name: 'High', exact: true }).click()
     await expect.poll(() => effort.getByRole('radio', { name: 'High', exact: true }).isChecked()).toBe(true)
+    // The chat shows the change as a line across it, as a compaction does.
+    await expect.poll(() => page.locator('.conversation .model-line').textContent()).toMatch(/^Model: .+ · effort high$/)
     await page.keyboard.press('Escape')
     // The ⋯ menu has one "Model and effort" item (model · effort on its right).
     await button(page, 'More actions').click()

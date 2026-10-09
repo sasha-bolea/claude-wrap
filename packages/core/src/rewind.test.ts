@@ -219,7 +219,8 @@ describe('rewinding', () => {
     expect(result).toMatchObject({ text: 'first', filesChanged: [] })
     expect(result.newTabId).toBeTruthy()
     expect(fake.sessions[0]!.rewindCalls).toHaveLength(2)
-    expect(ids(client)).toHaveLength(6)
+    // The 6 items of the old session, and the line of the effort change.
+    expect(ids(client)).toHaveLength(7)
     expect(meta(client)).toMatchObject({ sessionId: 's1' })
     await client.waitFor(() => meta(client, result.newTabId)?.cwd === CWD)
     expect(meta(client, result.newTabId)).toMatchObject({ status: 'dormant', effort: 'low', sessionId: undefined })

@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { ContextGauge, Effort, ModelInfo, PlanLimits, PermissionMode, QueuePause, SlashCommand } from '@athome/protocol'
-import type { Outgoing } from './tab.ts'
+import type { ModelLine, Outgoing } from './tab.ts'
 
 // What a tab keeps across restarts (it comes back dormant). Transcripts are not here: the CLI JSONL is the truth.
 // ponytail: queued images stay inline (base64) in state.json; move them to files if queues of many photos get common.
@@ -31,6 +31,8 @@ export type PersistedTab = {
   unseen?: boolean
   // After a conversation rewind: the stored message the next process resumes at (the history is cut there meanwhile).
   resumeAt?: string
+  // The model changes shown in the chat (the stored session does not record them).
+  modelLines?: ModelLine[]
 }
 
 // A claude process started by this core, recorded to kill it if the core dies without closing it.

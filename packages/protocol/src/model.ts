@@ -37,6 +37,8 @@ export const itemSchema = z.discriminatedUnion('kind', [
   }),
   z.object({ ...itemBase, kind: z.literal('notice'), level: z.enum(['info', 'warning', 'error']), text: z.string() }),
   z.object({ ...itemBase, kind: z.literal('compactBoundary') }),
+  // The model (undefined: the default; modelName: its name as the CLI offered it) and effort the chat moved to.
+  z.object({ ...itemBase, kind: z.literal('modelChange'), model: z.string().optional(), modelName: z.string().optional(), effort: effortSchema.optional() }),
   z.object({ ...itemBase, kind: z.literal('localCommandOutput'), text: z.string() }),
   // A `!` shell command run by core in the tab's folder; exitCode undefined while it runs.
   z.object({ ...itemBase, kind: z.literal('shell'), command: z.string(), output: z.string(), exitCode: z.number().optional() }),
