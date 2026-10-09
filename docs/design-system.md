@@ -54,8 +54,10 @@ the device):
    a sheet (the session menu) opens it again, without animation, when you come back. Focus goes to the sheet's title
    (or its first field when `field`), **never to a button**. The body is an element that reads live state from the
    context.
-3. **Claude's requests are part of the conversation** (`.request` card): the field for a reason, "Other…" or "what to
-   change" appears only after choosing the answer that needs it; nothing focuses a granting button.
+3. **Claude's requests are part of the conversation** (`.request` card): the field for a reason or "what to change"
+   appears only after choosing the answer that needs it; a question's "Other…" field is always in its card (writing
+   picks it); nothing focuses a granting button. Its buttons act on the tap's end (`useTap`): with the keyboard open the
+   layout moves under the finger and the click would be lost.
 4. **Very little text; the state is shown** (badges, chips, the dot on back and on the Sessions button). Every
    icon-only button has an `aria-label`; state changes go to the `aria-live` region (`announce`).
 5. **Targets ≥ 44 px, safe areas** (`env(safe-area-inset-*)`), **fields at 16 px** (`input, textarea, select`: smaller
@@ -195,9 +197,11 @@ Web Animations; none with reduced motion); "Raggruppa i N comandi" (`.tool-colla
 A single call stays a plain `.tool` card.
 Examples: [Conversation.tsx:143](../packages/ui/src/touch/Conversation.tsx#L143), [Conversation.tsx:180](../packages/ui/src/touch/Conversation.tsx#L180).
 
-### Request card — `.request` (`.preview`, `.grant-row`, `.reveal`)
+### Request card — `.request` (`.preview`, `.grant-row`, `.reveal`, `.option.other-option`, `.other-field`)
 Claude's permission, question or plan inside the conversation (rule 3); `.reveal` holds the field and the button
-that appear after choosing "No…", "Other…" or "Keep planning…".
+that appear after choosing "No…" or "Keep planning…". A question's last option, `.other-option`, holds "Other…" and
+under it its `.other-field` textarea at once: writing picks the option, emptying it lets it go, and it grows with the
+text up to 140 px like the composer's field (`QuestionFields` in [Conversation.tsx](../packages/ui/src/touch/Conversation.tsx)).
 A form with several questions shows one at a time, like the CLI: a row of `.question-step` pills (`.question-steps`,
 one per header; current = accent outline with `aria-current="step"`, answered = filled; tap = go to it) above the
 question; choosing an answer of a single-choice question moves on, "Avanti" otherwise; "Rispondi" on the last step

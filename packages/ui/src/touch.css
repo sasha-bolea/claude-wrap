@@ -535,6 +535,10 @@ svg.ghost-thumb { width: 22px; height: 22px; color: var(--text-muted); }
 .option { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px solid var(--border); border-radius: 12px; }
 .option input { margin-top: 3px; width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
 .option small { display: block; color: var(--text-muted); }
+/* "Other…": its field is always in its card, under the label, and grows with the text (QuestionFields sets the
+   height, up to 140 px, then it scrolls) */
+.other-option .other-body { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.other-field { display: block; min-height: 40px; padding: 8px 10px; resize: none; font: inherit; color: var(--text); line-height: 1.4; }
 .question { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
 .question legend { padding: 0; margin-bottom: 8px; font-weight: 600; }
 /* Steps of a form with several questions: one at a time, like the CLI; current = accent outline, answered = filled */

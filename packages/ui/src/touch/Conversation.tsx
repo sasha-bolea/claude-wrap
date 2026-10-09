@@ -516,6 +516,31 @@ function PermissionCard({ request, onAnswer }: { request: Request; onAnswer: (an
 }
 
 const OTHER = '\u0000other'
+// Tallest the "Other" field grows (px), as the composer's field; past it the text scrolls.
+const MAX_OTHER_FIELD = 140
+// Finger travel (px) past which a touch is a scroll, not a tap.
+const TAP_SLOP = 10
+
+// Handlers that run action on a tap of a button, when the finger lifts. With the keyboard open, iOS closes it at the
+// touch and the chat shrinks back under the finger, so the click that follows lands elsewhere and never reaches the
+// button: a touch stays on the element it started on, wherever that moved, so its end acts instead (and cancels the
+// click). A drag (a scroll) does nothing; the click still serves the mouse and the keyboard. Disabled: nothing.
+function useTap(action: () => void, disabled = false) {
+  const start = useRef<{ x: number; y: number } | undefined>(undefined)
+  return {
+    disabled,
+    onClick: action,
+    onTouchStart: (event: React.TouchEvent) => (start.current = { x: event.touches[0]!.clientX, y: event.touches[0]!.clientY }),
+    onTouchEnd: (event: React.TouchEvent) => {
+      const from = start.current
+      start.current = undefined
+      const touch = event.changedTouches[0]
+      if (!from || !touch || Math.hypot(touch.clientX - from.x, touch.clientY - from.y) > TAP_SLOP) return
+      event.preventDefault()
+      if (!disabled) action()
+    }
+  }
+}
 
 // Claude's multiple-choice questions, one at a time like the CLI: with more than one, a row of steps (one per
 // header, tap = go to it) sits on top; choosing an answer of a single-choice question moves on to the next one.
@@ -534,9 +559,23 @@ function QuestionCard({ request, onAnswer }: { request: Request; onAnswer: (answ
     })
     if (!question.multiSelect && label !== OTHER && !last) setStep(step + 1)
   }
-  const answerOf = (question: Question) => (chosen[question.question] ?? []).map((label) => (label === OTHER ? (other[question.question] ?? '') : label)).filter(Boolean).join(', ')
+  // Writing in "Other" picks it (alone, for a single-choice question); emptying it lets it go.
+  const typeOther = (question: Question, text: string) => {
+    setOther((current) => ({ ...current, [question.question]: text }))
+    setChosen((current) => {
+      const selected = (current[question.question] ?? []).filter((label) => label !== OTHER)
+      if (!text.trim()) return { ...current, [question.question]: selected }
+      return { ...current, [question.question]: question.multiSelect ? [...selected, OTHER] : [OTHER] }
+    })
+  }
+  const answerOf = (question: Question) => (chosen[question.question] ?? []).map((label) => (label === OTHER ? (other[question.question] ?? '').trim() : label)).filter(Boolean).join(', ')
   const complete = questions.every((question) => answerOf(question))
   const question = questions[step]
+  // A field of the form still focused lets go before the next step or the answer (the keyboard goes with it).
+  const letGo = () => document.activeElement instanceof HTMLElement && document.activeElement.closest('.question') && document.activeElement.blur()
+  const answerTap = useTap(() => (letGo(), onAnswer({ decision: 'allow', answers: Object.fromEntries(questions.map((entry) => [entry.question, answerOf(entry)])) })), !complete)
+  const nextTap = useTap(() => (letGo(), setStep(step + 1)), !question || !answerOf(question))
+  const skipTap = useTap(() => (letGo(), onAnswer({ decision: 'deny' })))
   return (
     <>
       {questions.length > 1 && <QuestionSteps questions={questions} step={step} answered={(entry) => Boolean(answerOf(entry))} onStep={setStep} />}
@@ -548,20 +587,20 @@ function QuestionCard({ request, onAnswer }: { request: Request; onAnswer: (answ
           chosen={chosen[question.question] ?? []}
           other={other[question.question] ?? ''}
           onChoose={(label) => choose(question, label)}
-          onOther={(text) => setOther((current) => ({ ...current, [question.question]: text }))}
+          onOther={(text) => typeOther(question, text)}
         />
       )}
       <div className="grant-row">
         {last ? (
-          <button className="button primary" disabled={!complete} onClick={() => onAnswer({ decision: 'allow', answers: Object.fromEntries(questions.map((entry) => [entry.question, answerOf(entry)])) })}>
+          <button className="button primary" {...answerTap}>
             {t('answer')}
           </button>
         ) : (
-          <button className="button primary" disabled={!question || !answerOf(question)} onClick={() => setStep(step + 1)}>
+          <button className="button primary" {...nextTap}>
             {t('nextQuestion')}
           </button>
         )}
-        <button className="button" onClick={() => onAnswer({ decision: 'deny' })}>
+        <button className="button" {...skipTap}>
           {t('skip')}
         </button>
       </div>
@@ -583,28 +622,43 @@ function QuestionSteps({ questions, step, answered, onStep }: { questions: Quest
   )
 }
 
-// One question with its options, plus "Other…" and its field once chosen. Params: the question, the group's label
-// (the step, when the form has several), the chosen labels, the "Other" text and the callbacks that change them.
+// One question with its options, then "Other…" with its field always in the same card: writing there picks it,
+// picking it moves into the field; the field grows with the text like the composer's. Params: the question, the
+// group's label (the step, when the form has several), the chosen labels, the "Other" text and the callbacks.
 function QuestionFields({ question, label, chosen, other, onChoose, onOther }: { question: Question; label?: string; chosen: string[]; other: string; onChoose: (label: string) => void; onOther: (text: string) => void }) {
+  const field = useRef<HTMLTextAreaElement>(null)
+  const type = question.multiSelect ? 'checkbox' : 'radio'
+  useLayoutEffect(() => {
+    const element = field.current
+    if (!element) return
+    element.style.height = 'auto'
+    element.style.height = `${Math.min(element.scrollHeight, MAX_OTHER_FIELD)}px`
+  }, [other])
+  const chooseOther = () => {
+    onChoose(OTHER)
+    if (!chosen.includes(OTHER)) field.current?.focus()
+  }
   return (
     <fieldset className="question" aria-label={label}>
       <legend>
         <span className="chip">{question.header}</span> {question.question}
       </legend>
-      {[...question.options, { label: OTHER, description: t('otherHint') }].map((option) => (
+      {question.options.map((option) => (
         <label key={option.label} className="option">
-          <input type={question.multiSelect ? 'checkbox' : 'radio'} name={question.question} checked={chosen.includes(option.label)} onChange={() => onChoose(option.label)} />
+          <input type={type} name={question.question} checked={chosen.includes(option.label)} onChange={() => onChoose(option.label)} />
           <span>
-            {option.label === OTHER ? t('otherEllipsis') : option.label}
+            {option.label}
             <small>{option.description}</small>
           </span>
         </label>
       ))}
-      {chosen.includes(OTHER) && (
-        <div className="reveal">
-          <input className="field" aria-label={t('yourAnswer')} placeholder={t('yourAnswer')} autoFocus value={other} onChange={(event) => onOther(event.target.value)} />
+      <div className="option other-option">
+        <input type={type} name={question.question} id={`${question.question}-other`} checked={chosen.includes(OTHER)} onChange={chooseOther} />
+        <div className="other-body">
+          <label htmlFor={`${question.question}-other`}>{t('otherEllipsis')}</label>
+          <textarea ref={field} className="field other-field" rows={1} aria-label={t('yourAnswer')} placeholder={t('otherHint')} value={other} onChange={(event) => onOther(event.target.value)} />
         </div>
-      )}
+      </div>
     </fieldset>
   )
 }

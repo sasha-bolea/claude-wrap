@@ -156,6 +156,35 @@ describe('PWA (fake SDK)', () => {
     await page.getByText('No past sessions').waitFor()
   })
 
+  it("a question's Other field is in its card from the start: writing picks it, it grows with the text; a tap on Answer while writing answers at once, even when the layout moves under the finger (the keyboard closing)", async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await send(page, 'question')
+    const panel = page.getByRole('region', { name: 'Question from Claude' })
+    const field = panel.getByRole('textbox', { name: 'Your answer' })
+    await field.waitFor()
+    const other = panel.getByRole('radio', { name: 'Other…' })
+    expect(await other.isChecked()).toBe(false)
+    await field.fill('Teal')
+    expect(await other.isChecked()).toBe(true)
+    // It grows with the text, like the composer's field.
+    const one = (await field.boundingBox())!.height
+    await field.fill('Teal\nwith\nmore lines')
+    expect((await field.boundingBox())!.height).toBeGreaterThan(one + 20)
+    // Emptied: Other lets go. Written again, and focused (the keyboard open).
+    await field.fill('')
+    expect(await other.isChecked()).toBe(false)
+    await field.fill('Teal')
+    await field.focus()
+    // On iOS the touch closes the keyboard and the chat grows back: the button moves away under the finger.
+    await page.evaluate(() =>
+      document.addEventListener('touchstart', () => document.querySelector('.request')!.prepend(Object.assign(document.createElement('div'), { style: 'height: 200px' })), { capture: true, once: true })
+    )
+    const answer = (await panel.getByRole('button', { name: 'Answer' }).boundingBox())!
+    await page.touchscreen.tap(answer.x + answer.width / 2, answer.y + answer.height / 2)
+    await expect.poll(() => lastAnswer(page).textContent()).toBe('Question: allow {"Which color?":"Teal"}')
+  })
+
   it('a session left without sending anything is closed; with a draft written it stays', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
