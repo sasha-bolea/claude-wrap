@@ -23,7 +23,7 @@ export type TerminalPolicy = { actions: CoreActionName[]; interactiveActsDirectl
 export const DEFAULT_TERMINAL_POLICY: TerminalPolicy = { actions: ['project.create', 'session.start'], interactiveActsDirectly: true, othersMayAct: false, sessionsPerHour: 10, newSessionMode: 'default' }
 // The only commands a terminal connection may send (it also gets the workspace snapshot, read only).
 // Reads (folders, a chat's transcript) are open to every terminal connection.
-export const TERMINAL_COMMANDS: ReadonlySet<CommandName> = new Set<CommandName>(['actions.run', 'folders.list', 'tab.subscribe', 'tab.unsubscribe', 'tab.history', 'callers.create', 'callers.list', 'callers.revoke', 'plans.propose', 'plans.cancel'])
+export const TERMINAL_COMMANDS: ReadonlySet<CommandName> = new Set<CommandName>(['actions.run', 'folders.list', 'tab.subscribe', 'tab.unsubscribe', 'tab.history', 'callers.create', 'callers.list', 'callers.revoke', 'plans.propose', 'plans.cancel', 'plans.finish'])
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -188,16 +188,22 @@ function parsedArgs(action: CoreActionName, args: Record<string, unknown>): unkn
   return parsed.data
 }
 
-// Runs an action of a caller with a key: only the next step of one of its approved plans (plans.ts), with the
-// arguments the user saw, with no confirmation; the step is then over (unless it follows a chat).
+// Runs an action of a caller with a key: only a step one of its approved plans allows now (plans.ts), with the
+// arguments the user saw, with no confirmation; the plan then moves on (unless the step follows a chat). A failed
+// step leaves the plan where it was.
 async function runPlanned(workspace: Workspace, run: CommandArgs<'actions.run'>, connection: Connection, caller: string): Promise<unknown> {
-  if (!run.plan) throw new CoreError('action_denied', 'with a key, actions run only inside an approved plan: propose one first')
-  const begun = workspace.planStore.begin(run.plan, caller, run)
-  const tab = begun.tabId ? workspace.tabOf(begun.tabId) : undefined
-  const context: Context = { workspace, tab, source: run.source, by: connection.label, direct: true, mode: workspace.terminalPolicy.newSessionMode, plan: run.plan }
-  const value = await (RUNNERS[run.action] as Runner<CoreActionName>)(context, parsedArgs(run.action, begun.args) as never)
-  if (!begun.passthrough) workspace.planStore.complete(run.plan, value)
-  return value
+  const planId = run.plan
+  if (!planId) throw new CoreError('action_denied', 'with a key, actions run only inside an approved plan: propose one first')
+  const begun = workspace.planStore.begin(planId, caller, run)
+  try {
+    const tab = begun.tabId ? workspace.tabOf(begun.tabId) : undefined
+    const context: Context = { workspace, tab, source: run.source, by: connection.label, direct: true, mode: workspace.terminalPolicy.newSessionMode, plan: planId }
+    const value = await (RUNNERS[run.action] as Runner<CoreActionName>)(context, parsedArgs(run.action, begun.args) as never)
+    if (begun.move) workspace.planStore.complete(planId, begun.move, value)
+    return value
+  } finally {
+    if (begun.move) workspace.planStore.release(planId)
+  }
 }
 
 // Runs one action. run: the actions.run arguments; connection: who sent it. Returns the action's value; throws

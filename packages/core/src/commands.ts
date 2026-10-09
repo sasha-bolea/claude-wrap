@@ -200,6 +200,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
       return {}
     },
     'plans.cancel': ({ planId }, connection) => (workspace.planStore.cancel(planId, connection.terminal ? callerOf(connection) : undefined), {}),
+    'plans.finish': ({ planId }, connection) => (workspace.planStore.finish(planId, callerOf(connection)), {}),
     'settings.claudeCode': () => workspace.claudeSettings(),
     'settings.setClaudeCode': async ({ change }) => (await workspace.setClaudeSetting(change), {}),
     'tab.refreshGauges': async ({ tabId }) => (await workspace.refreshGauges(tabId), {}),

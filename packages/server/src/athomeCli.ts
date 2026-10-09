@@ -6,6 +6,7 @@ import {
   PROTOCOL_VERSION,
   WORKSPACE_STREAM,
   coreFrameSchema,
+  planNext,
   planProposalSchema,
   tabStream,
   type CoreActionName,
@@ -20,7 +21,8 @@ import {
 // The athome command: uses the AtHome server from a terminal (a person, a script, Claude through its Bash tool, a
 // caller with a key such as Petra) over the terminal socket. What it may do is decided by core, not here: a person in
 // a terminal acts at once; Claude in an AtHome session waits for the confirmation in that chat; a caller with a key
-// (ATHOME_KEY) acts only inside a plan the user approved (--plan / ATHOME_PLAN); anything else may only read.
+// (ATHOME_KEY) acts only inside a plan the user approved (--plan / ATHOME_PLAN), naming the step (--step /
+// ATHOME_STEP) when an action fits more than one the plan allows now; anything else may only read.
 
 export const USAGE = `usage:
   athome projects [--json]                                 the projects of the Home
@@ -32,7 +34,9 @@ export const USAGE = `usage:
 
 With a key (ATHOME_KEY), inside an approved plan (--plan <id> or ATHOME_PLAN), also:
   athome plan propose <file.json | -> [--wait]             proposes a plan ({summary, steps}); --wait: until answered
-  athome plan status <id> | plan cancel <id>
+  athome plan status <id> [--json]                         the steps the plan allows now, or closed
+  athome plan finish <id>                                  ends the plan once only skippable steps are left
+  athome plan cancel <id>
   athome folder create <name> --in <folder>                a plain folder
   athome project mark <path> [--off]                       the project mark of a folder
   athome session send <id> <text>                          a message in a chat already open
@@ -41,14 +45,16 @@ With a key (ATHOME_KEY), inside an approved plan (--plan <id> or ATHOME_PLAN), a
   athome queue add <id> <text> | queue remove <id> <queueId>
   athome request answer <id> allow|deny [--answers <json>]
 
+When an action fits two steps the plan allows now, add --step <n> (or ATHOME_STEP=<n>): the step's number.
 By hand, in a terminal: athome key create <name> | key list | key revoke <name>
 Run by you in a terminal, it acts at once. Run by Claude in an AtHome session, AtHome asks you to confirm in that
 chat and the command waits (give it a timeout of a few minutes). It never writes to sessions already open without a
 plan. Exit codes: 0 done, 1 error, 2 wrong command line, 3 not allowed.`
 
 // Where the command runs: the socket, the folder relative paths start from, whether a person types in this terminal,
-// the AtHome chat it runs in (CLAUDE_WRAP_TAB_ID), a caller's key and plan, standard input, and where its output goes.
-export type CliIo = { socket: string; cwd: string; interactive: boolean; tabId?: string; key?: string; plan?: string; stdin?: () => Promise<string>; out(line: string): void; err(line: string): void }
+// the AtHome chat it runs in (CLAUDE_WRAP_TAB_ID), a caller's key, plan and step (ATHOME_STEP), standard input, and
+// where its output goes.
+export type CliIo = { socket: string; cwd: string; interactive: boolean; tabId?: string; key?: string; plan?: string; step?: number; stdin?: () => Promise<string>; out(line: string): void; err(line: string): void }
 
 // A command line, read.
 type Parsed =
@@ -56,9 +62,9 @@ type Parsed =
   | { kind: 'list'; what: 'projects' | 'sessions' }
   | { kind: 'read'; tabId: string; last: number }
   | { kind: 'wait'; tabId: string; timeoutMs: number }
-  | { kind: 'action'; action: CoreActionName; args: Record<string, unknown>; tabId?: string }
+  | { kind: 'action'; action: CoreActionName; args: Record<string, unknown>; tabId?: string; step?: number }
   | { kind: 'plan'; op: 'propose'; source: string; wait: boolean }
-  | { kind: 'plan'; op: 'status' | 'cancel'; planId: string }
+  | { kind: 'plan'; op: 'status' | 'cancel' | 'finish'; planId: string }
   | { kind: 'key'; op: 'create' | 'list' | 'revoke'; name?: string }
 
 class UsageError extends Error {}
@@ -97,7 +103,9 @@ function options(words: string[], valued: string[], flags: string[]): { rest: st
 // Reads a command line. cwd: where relative folders start. Throws UsageError.
 function parse(argv: string[], cwd: string): { parsed: Parsed; json: boolean } {
   if (argv.length === 0 || ['--help', 'help', '-h'].includes(argv[0]!)) return { parsed: { kind: 'help' }, json: false }
-  const { rest, values, flags } = options(argv, ['--in', '--prompt', '--last', '--timeout', '--answers'], ['--json', '--wait', '--off'])
+  const { rest, values, flags } = options(argv, ['--in', '--prompt', '--last', '--timeout', '--answers', '--step'], ['--json', '--wait', '--off'])
+  const step = values.step === undefined ? undefined : Number(values.step)
+  if (step !== undefined && !(Number.isInteger(step) && step >= 1)) throw new UsageError('--step needs a step number')
   const json = flags.has('json')
   const [a, b, c, d, ...extra] = rest
   const folder = (path: string) => resolve(cwd, path)
@@ -109,7 +117,7 @@ function parse(argv: string[], cwd: string): { parsed: Parsed; json: boolean } {
     if (a === 'project' && b === 'create' && c && d === undefined) return { kind: 'action', action: 'project.create', args: { name: c, ...(values.in ? { parent: folder(values.in) } : {}) } }
     if (a === 'session' && b === 'start' && c && d === undefined) return { kind: 'action', action: 'session.start', args: { folder: folder(c), ...(values.prompt ? { prompt: values.prompt } : {}) } }
     if (a === 'plan' && b === 'propose' && c && d === undefined) return { kind: 'plan', op: 'propose', source: c, wait: flags.has('wait') }
-    if (a === 'plan' && (b === 'status' || b === 'cancel') && c && d === undefined) return { kind: 'plan', op: b, planId: c }
+    if (a === 'plan' && (b === 'status' || b === 'cancel' || b === 'finish') && c && d === undefined) return { kind: 'plan', op: b, planId: c }
     if (a === 'folder' && b === 'create' && c && d === undefined) {
       if (!values.in) throw new UsageError('folder create needs --in <folder>')
       return { kind: 'action', action: 'folder.create', args: { parent: folder(values.in), name: c } }
@@ -124,7 +132,7 @@ function parse(argv: string[], cwd: string): { parsed: Parsed; json: boolean } {
     if (a === 'key' && b === 'list' && c === undefined) return { kind: 'key', op: 'list' }
     throw new UsageError('unknown command')
   })()
-  return { parsed, json }
+  return { parsed: parsed.kind === 'action' && step !== undefined ? { ...parsed, step } : parsed, json }
 }
 
 // Connects to the terminal socket and says hello (with the caller's key, if any); resolves once the workspace
@@ -240,7 +248,8 @@ async function wait(terminal: Terminal, tabId: string, timeoutMs: number, json: 
 // Runs an action and prints what it did.
 async function act(terminal: Terminal, parsed: Extract<Parsed, { kind: 'action' }>, json: boolean, io: CliIo): Promise<void> {
   if (!io.interactive && io.tabId && !io.key) io.err('Waiting for the confirmation in the AtHome chat…')
-  const run = { action: parsed.action, args: parsed.args, source: 'terminal', interactive: io.interactive, ...(parsed.tabId ?? io.tabId ? { tabId: parsed.tabId ?? io.tabId } : {}), ...(io.plan ? { plan: io.plan } : {}) }
+  const step = parsed.step ?? io.step
+  const run = { action: parsed.action, args: parsed.args, source: 'terminal', interactive: io.interactive, ...(parsed.tabId ?? io.tabId ? { tabId: parsed.tabId ?? io.tabId } : {}), ...(io.plan ? { plan: io.plan } : {}), ...(step ? { step } : {}) }
   const { value } = (await terminal.request('actions.run', run)) as { value?: { path?: string; tabId?: string; needsTrust?: boolean; queueId?: string; following?: boolean } }
   if (json) return io.out(JSON.stringify(value ?? {}))
   if (value?.path) io.out(`Created: ${value.path}`)
@@ -265,11 +274,16 @@ async function propose(terminal: Terminal, source: string, waitForAnswer: boolea
   return approved ? 0 : 3
 }
 
-// A plan's state (open plans only: a closed one is done, rejected, cancelled or expired).
+// A plan's state: the step numbers it allows now and whether it may be finished, or that it follows a chat (open
+// plans only: a closed one is done, rejected, cancelled or expired).
 function status(terminal: Terminal, planId: string, json: boolean, io: CliIo): void {
   const plan = terminal.snapshot.plans?.find((one) => one.planId === planId)
-  if (json) return io.out(JSON.stringify(plan ? { status: plan.status, step: plan.cursor + 1, steps: plan.steps.length, following: Boolean(plan.following) } : { status: 'closed' }))
-  io.out(plan ? `${plan.status}\tstep ${Math.min(plan.cursor + 1, plan.steps.length)} of ${plan.steps.length}${plan.following ? ' (following)' : ''}` : 'closed')
+  if (!plan) return io.out(json ? JSON.stringify({ status: 'closed' }) : 'closed')
+  const { next, finishable } = planNext(plan.steps, plan.at)
+  const numbers = plan.following ? [] : next.map((move) => move.number)
+  if (json) return io.out(JSON.stringify({ status: plan.status, next: numbers, finishable, following: Boolean(plan.following) }))
+  if (plan.following) return io.out(`${plan.status}\tfollowing a chat (${plan.following}): answer its requests until Claude finishes`)
+  io.out(`${plan.status}\tnext: step ${numbers.join(' or ')}${finishable ? ', or finish' : ''}`)
 }
 
 // Keys of the callers: by a person at a terminal only.
@@ -308,6 +322,7 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
     else if (parsed.kind === 'key') await keys(terminal, parsed, json, io)
     else if (parsed.op === 'propose') return await propose(terminal, parsed.source, parsed.wait, json, io)
     else if (parsed.op === 'status') status(terminal, parsed.planId, json, io)
+    else if (parsed.op === 'finish') await terminal.request('plans.finish', { planId: parsed.planId }).then(() => io.out(`Finished: ${parsed.planId}`))
     else await terminal.request('plans.cancel', { planId: parsed.planId }).then(() => io.out(`Cancelled: ${parsed.planId}`))
     return 0
   } catch (error) {

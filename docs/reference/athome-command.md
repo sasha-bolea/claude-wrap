@@ -36,9 +36,11 @@ which plan, how it ended).
 
 ## 4. Plans: how Petra acts
 A plan is a JSON file (or standard input with `-`): a short **summary** in the user's words and the **steps**, in the
-order they will run. The user sees the summary and, written by the app itself from the steps, what the plan will be
-allowed to do; approves or rejects it on the phone. Once approved the server lets Petra run **only the next step, with
-exactly the arguments the user saw**; anything else is refused with exit 3.
+order they will run. Besides plain steps a plan may hold **choices**, **optional steps** and **repeated groups**
+(section 4.5). The user sees the summary and, written by the app itself from the steps, what the plan will be allowed
+to do; approves or rejects it on the phone. Once approved the server lets Petra run **only a step the plan allows next,
+with exactly the arguments the user saw**; anything else is refused with exit 3 (the message says which steps are
+allowed now).
 
 ```json
 {
@@ -63,11 +65,16 @@ athome session follow <tabId>               # step 4 → Following… / Claude w
 athome session wait <tabId>                 # (a read, no step) → claude: <the reply>
 athome plan status <planId>                 # → closed  (done)
 ```
-- Without `--wait`, `plan propose` prints the id at once; poll `athome plan status <id>` (`proposed`, `running step N
-  of M`, or `closed` = done, rejected, cancelled or expired).
-- A step that fails (e.g. a folder that does not exist) does **not** advance: fix and run it again.
+- Without `--wait`, `plan propose` prints the id at once; poll `athome plan status <id>`: `proposed`; `running\tnext:
+  step 3 or 5[, or finish]`; `running\tfollowing a chat (<tabId>): …`; or `closed` (done, rejected, cancelled or
+  expired). With `--json`: `{status, next: [3, 5], finishable, following}`.
+- A step that fails (e.g. a folder that does not exist) does **not** advance: fix and run it again. One step at a time:
+  while a step runs, another one is refused.
+- The plan is done by itself once no step is left. When only skippable steps are left (optional steps, more rounds of
+  a group), end it with `athome plan finish <id>`; with steps it must still run, `finish` is refused: cancel instead.
 - `athome plan cancel <id>` gives the plan up; the user can cancel it from the app at any time.
-- A plan expires 24 hours after it was proposed. At most 50 steps; summary at most 1000 characters.
+- A plan expires 24 hours after it was proposed. At most 50 steps (counted inside choices and groups); summary at most
+  1000 characters.
 - `--plan <id>` on any command is the same as `ATHOME_PLAN`.
 
 ### 4.2 Steps: actions and arguments
@@ -97,11 +104,55 @@ user never trusted creates the chat but does not send the prompt (`needsTrust`):
 folder; then `prompt.send` works.
 
 ### 4.3 Following a chat (`session.follow`)
-While Claude works in that chat, the plan stays on this step and Petra may answer the chat's requests any number of
+While Claude works in that chat, the plan follows it: nothing else runs, and Petra may answer the chat's requests any number of
 times with `athome request answer <id> allow|deny [--answers '{"question":"label"}']` (a step is not consumed). The
 step ends by itself when the turn ends; if the chat is idle when the step runs, it ends at once. Answering requests
 of another chat, or outside a follow step, is refused. **Allowing a permission here approves what Claude asked**: the
 user sees that in the plan before approving it.
+
+### 4.4 Step numbers
+Steps are numbered from 1 in reading order, the steps inside choices and groups included (the app shows the numbers).
+References (`$step`) and `--step` use these numbers.
+
+### 4.5 Choices, optional steps, repeated groups
+Petra decides which way to go; the server checks only that every action is one the plan allows at that point. The
+conditions (`if`) are words for the user: the server never checks them. Write them as a statement ("Claude chiede un
+permesso"), the app puts "If" in front.
+
+```json
+{
+  "summary": "Apro idea, faccio lavorare Claude con qualche scambio, poi chiudo se ha finito.",
+  "steps": [
+    { "action": "session.start", "args": { "folder": "/srv/progetti/idea", "prompt": { "$free": true } } },
+    { "repeat": 5, "if": "finché Claude non ha finito", "steps": [
+      { "action": "session.follow", "args": { "tabId": { "$step": 1, "field": "tabId" } } },
+      { "action": "prompt.send", "args": { "tabId": { "$step": 1, "field": "tabId" }, "text": { "$free": true } } }
+    ] },
+    { "either": [
+      { "if": "Claude ha finito", "steps": [ { "action": "session.close", "args": { "tabId": { "$step": 1, "field": "tabId" } } } ] },
+      { "if": "Claude ha ancora lavoro", "steps": [ { "action": "queue.add", "args": { "tabId": { "$step": 1, "field": "tabId" }, "text": { "$free": true } } } ] }
+    ] },
+    { "action": "project.mark", "args": { "path": "/srv/progetti/idea", "project": true }, "optional": true, "if": "se il progetto è nato" }
+  ]
+}
+```
+Here the steps are 1 `session.start`, 2 `session.follow`, 3 `prompt.send`, 4 `session.close`, 5 `queue.add`,
+6 `project.mark`.
+
+- **Choice** `{ "either": [ { "if": "…", "steps": [ … ] }, … ] }` (2 to 5 branches): the first step Petra runs takes
+  its branch; the other branches can no longer run. A branch may have no steps ("otherwise, nothing"): running the
+  step after the choice takes it.
+- **Optional step**: `"optional": true` on a step, with an optional `"if"` saying when (`if` goes only on optional
+  steps). Petra may run it or go on with the step after it.
+- **Repeated group** `{ "repeat": N, "if": "…", "steps": [ … ] }` (N from 1 to 20, `if` optional): up to N whole
+  rounds, none included. Within a round the steps go in order; at the end of a round Petra starts another one or goes
+  on after the group. A reference to a step inside the group reads its last round's result.
+- Choices and groups may sit inside one another, at most 2 levels deep.
+- A reference may not point at a step on another branch of the same choice (refused at the proposal). A step whose
+  referenced step was skipped or on a branch not taken cannot run.
+- **When an action fits two steps allowed now** (e.g. two branches that start with the same action and arguments, or
+  free text that fits both), the server refuses it with `this fits steps 1 and 3: say which with its step number
+  (--step)`. Run it again with `--step <n>` or `ATHOME_STEP=<n>`; the plan then goes on that way.
 
 ## 5. Reading (no plan needed)
 | Command | Output (`--json`) |
@@ -115,7 +166,9 @@ Text output: `user: …` / `claude: …` lines; `wait` prints `waiting for you: 
 
 ## 6. What the user sees
 - A push notification "petra proposes a plan: approve it in AtHome" and a card on top of the Home with the summary and
-  the steps in the app's words, with Approve / Reject; while running, "step N of M" and "Cancel the plan".
+  the steps in the app's words (choices, groups and optional steps indented, with their conditions), with Approve /
+  Reject; while running, "next: step N" with that step's number highlighted, the steps that ran muted, the branches
+  not taken struck through, and "Cancel the plan".
 - Heavy actions asked by Claude from a chat (no key) appear in that chat as "The athome command, run by Claude in this
   chat, asks for it", with Yes / No.
 

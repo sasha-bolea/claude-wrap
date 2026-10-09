@@ -3,12 +3,14 @@
 // it in the app; I approve or reject it; approved, the caller runs its steps only in that order with those arguments,
 // nothing else, with no confirmation; a step may refer to an earlier step's result or carry free text; a "follow"
 // step lets the caller answer Claude's requests in a chat until its turn ends; the app or the caller cancels a plan;
-// a plan expires; keys and plans survive a core restart.
+// a plan expires; keys and plans survive a core restart. A plan may also hold a choice between branches (the first
+// step run takes one), steps the caller may skip and groups it may repeat up to N rounds; the caller ends it once only
+// skippable steps are left; when an action fits two steps it may run now, the caller says which.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { existsSync, mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { WORKSPACE_STREAM, tabStream, type Plan, type Request, type WorkspaceSnapshot } from '@athome/protocol'
+import { WORKSPACE_STREAM, planNext, tabStream, type Plan, type Request, type WorkspaceSnapshot } from '@athome/protocol'
 import { createCore, type Core, type CoreConfig } from './core.ts'
 import { createFakeSdk, type FakeSdk } from './testing/fakeQuery.ts'
 import { sdk } from './testing/messages.ts'
@@ -47,14 +49,17 @@ function plans(of: RawClient = app): Plan[] {
   return []
 }
 
+// The step numbers a plan allows next.
+const nextOf = (plan: Plan | undefined): number[] => (plan ? planNext(plan.steps, plan.at).next.map((move) => move.number) : [])
+
 // Proposes a plan as the caller and returns its id.
 async function propose(caller: RawClient, steps: Plan['steps'], summary = 'Make a test project and greet it'): Promise<string> {
   return (await caller.ok('plans.propose', { summary, steps })).planId
 }
 
 // The caller runs one action under a plan; returns the reply frame.
-const runStep = (caller: RawClient, planId: string, action: string, args: object, tabId?: string) =>
-  caller.cmd('actions.run', { action, args, source: 'terminal', plan: planId, ...(tabId ? { tabId } : {}) })
+const runStep = (caller: RawClient, planId: string, action: string, args: object, tabId?: string, step?: number) =>
+  caller.cmd('actions.run', { action, args, source: 'terminal', plan: planId, ...(tabId ? { tabId } : {}), ...(step ? { step } : {}) })
 
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), 'cw-plans-'))
@@ -106,7 +111,8 @@ describe('proposing and answering a plan', () => {
     const caller = await petra()
     const planId = await propose(caller, [{ action: 'project.create', args: { name: 'idea' } }])
     await app.waitFor(() => plans().some((plan) => plan.planId === planId))
-    expect(plans()[0]).toMatchObject({ planId, caller: 'petra', status: 'proposed', cursor: 0, summary: 'Make a test project and greet it' })
+    expect(plans()[0]).toMatchObject({ planId, caller: 'petra', status: 'proposed', summary: 'Make a test project and greet it' })
+    expect(nextOf(plans()[0])).toEqual([1])
     expect(await caller.fails('plans.answer', { planId, decision: 'approve' })).toMatchObject({ code: 'unauthorized' })
     await app.ok('plans.answer', { planId, decision: 'approve' })
     expect(plans()[0]).toMatchObject({ status: 'running' })
@@ -146,7 +152,8 @@ describe('running a plan', () => {
     expect(await runStep(caller, planId, 'session.start', { folder: demo })).toMatchObject({ ok: false, error: { code: 'action_denied' } })
     expect(await runStep(caller, planId, 'project.create', { name: 'other' })).toMatchObject({ ok: false, error: { code: 'action_denied' } })
     expect(await runStep(caller, planId, 'project.create', { name: 'idea' })).toMatchObject({ ok: true, result: { value: { path: join(root, 'idea') } } })
-    expect(plans()[0]).toMatchObject({ cursor: 1, results: [{ path: join(root, 'idea') }] })
+    expect(plans()[0]).toMatchObject({ results: [{ path: join(root, 'idea') }] })
+    expect(nextOf(plans()[0])).toEqual([2])
     const started = await runStep(caller, planId, 'session.start', { folder: join(root, 'idea') })
     const tabId = (started as { result: { value: { tabId: string } } }).result.value.tabId
     expect(await runStep(caller, planId, 'prompt.send', { text: 'ciao' }, tabId)).toMatchObject({ ok: true })
@@ -165,7 +172,8 @@ describe('running a plan', () => {
     const planId = await propose(caller, [{ action: 'session.start', args: { folder: join(root, 'missing') } }])
     await app.ok('plans.answer', { planId, decision: 'approve' })
     expect(await runStep(caller, planId, 'session.start', { folder: join(root, 'missing') })).toMatchObject({ ok: false })
-    expect(plans()[0]).toMatchObject({ status: 'running', cursor: 0 })
+    expect(plans()[0]).toMatchObject({ status: 'running' })
+    expect(nextOf(plans()[0])).toEqual([1])
   })
 
   it('a session started by a plan asks for permissions, whatever the default', async () => {
@@ -201,17 +209,17 @@ describe('following a chat (session.follow)', () => {
     const planId = await propose(caller, [{ action: 'session.follow', args: { tabId: 't1' } }, { action: 'prompt.send', args: { tabId: 't1', text: 'next' } }])
     await app.ok('plans.answer', { planId, decision: 'approve' })
     expect(await runStep(caller, planId, 'session.follow', {}, 't1')).toMatchObject({ ok: true, result: { value: { following: true } } })
-    expect(plans()[0]).toMatchObject({ cursor: 0, following: true })
+    expect(plans()[0]).toMatchObject({ following: 't1' })
     // Nothing else meanwhile.
     expect(await runStep(caller, planId, 'prompt.send', { text: 'next' }, 't1')).toMatchObject({ ok: false, error: { code: 'action_denied' } })
     const pending = session.askPermission('Write', { file_path: 'a.txt', content: 'x' })
     await app.waitFor(() => app.events(tabStream('t1')).some((ev) => ev.type === 'request.opened'))
     expect(await runStep(caller, planId, 'request.answer', { decision: 'allow' }, 't1')).toMatchObject({ ok: true })
     expect(await pending.result).toMatchObject({ behavior: 'allow' })
-    expect(plans()[0]).toMatchObject({ cursor: 0, following: true })
+    expect(plans()[0]).toMatchObject({ following: 't1' })
     session.emit(sdk.success())
-    await app.waitFor(() => plans()[0]?.cursor === 1)
-    expect(plans()[0]).toMatchObject({ following: false })
+    await app.waitFor(() => plans()[0]?.following === undefined)
+    expect(nextOf(plans()[0])).toEqual([2])
     expect(await runStep(caller, planId, 'prompt.send', { text: 'next' }, 't1')).toMatchObject({ ok: true })
   })
 
@@ -221,7 +229,8 @@ describe('following a chat (session.follow)', () => {
     const planId = await propose(caller, [{ action: 'session.follow', args: { tabId: 't1' } }, { action: 'project.create', args: { name: 'idea' } }])
     await app.ok('plans.answer', { planId, decision: 'approve' })
     expect(await runStep(caller, planId, 'session.follow', {}, 't1')).toMatchObject({ ok: true, result: { value: { following: false } } })
-    expect(plans()[0]).toMatchObject({ cursor: 1 })
+    expect(plans()[0]).not.toHaveProperty('following')
+    expect(nextOf(plans()[0])).toEqual([2])
   })
 
   it('cannot answer the requests of another chat, nor outside a follow step', async () => {
@@ -271,7 +280,8 @@ describe('cancelling and expiring', () => {
     core = makeCore()
     app = new RawClient(core)
     await app.hello()
-    expect(plans()).toMatchObject([{ planId, status: 'running', cursor: 1 }])
+    expect(plans()).toMatchObject([{ planId, status: 'running' }])
+    expect(nextOf(plans()[0])).toEqual([2])
     const again = await petra()
     expect(await runStep(again, planId, 'project.create', { name: 'more' })).toMatchObject({ ok: true })
     expect(plans()).toEqual([])
@@ -343,5 +353,87 @@ describe('the other actions of a plan', () => {
     expect(await person.fails('tab.queueAdd', { tabId: 't1', text: 'x' })).toMatchObject({ code: 'unauthorized' })
     const caller = await petra()
     expect(await caller.ok('tab.subscribe', { tabId: 't1' })).toEqual({})
+  })
+})
+
+describe('plans with choices', () => {
+  // A folder step of the plan: a plain folder in the test root.
+  const box = (name: string): Plan['steps'][number] => ({ action: 'folder.create', args: { parent: root, name } })
+  const made = (name: string) => existsSync(join(root, name))
+
+  it('a choice: the first step run takes its branch; the other branch can no longer run', async () => {
+    const caller = await petra()
+    const steps: Plan['steps'] = [box('first'), { either: [{ if: 'the first went well', steps: [box('good'), box('better')] }, { if: 'otherwise', steps: [box('plan-b')] }] }, box('last')]
+    const planId = await propose(caller, steps)
+    await app.ok('plans.answer', { planId, decision: 'approve' })
+    expect(await runStep(caller, planId, 'folder.create', { parent: root, name: 'first' })).toMatchObject({ ok: true })
+    expect(nextOf(plans()[0])).toEqual([2, 4])
+    const skipping = await runStep(caller, planId, 'folder.create', { parent: root, name: 'last' })
+    expect(skipping).toMatchObject({ ok: false, error: { code: 'action_denied', message: expect.stringMatching(/step 2 .*step 4/) } })
+    expect(await runStep(caller, planId, 'folder.create', { parent: root, name: 'good' })).toMatchObject({ ok: true })
+    expect(await runStep(caller, planId, 'folder.create', { parent: root, name: 'plan-b' })).toMatchObject({ ok: false, error: { code: 'action_denied' } })
+    expect(await runStep(caller, planId, 'folder.create', { parent: root, name: 'better' })).toMatchObject({ ok: true })
+    expect(await runStep(caller, planId, 'folder.create', { parent: root, name: 'last' })).toMatchObject({ ok: true })
+    expect(plans()).toEqual([])
+    expect([made('good'), made('better'), made('plan-b'), made('last')]).toEqual([true, true, false, true])
+  })
+
+  it('a group repeats up to its rounds; a skippable step is left; the caller ends the plan', async () => {
+    await working()
+    const caller = await petra()
+    const steps: Plan['steps'] = [{ repeat: 2, if: 'until Claude has all it needs', steps: [{ action: 'queue.add', args: { tabId: 't1', text: { $free: true } } }] }, { ...box('wrap-up'), optional: true, if: 'if Claude asks for it' }]
+    const planId = await propose(caller, steps)
+    await app.ok('plans.answer', { planId, decision: 'approve' })
+    expect(await runStep(caller, planId, 'queue.add', { text: 'one' }, 't1')).toMatchObject({ ok: true })
+    expect(await runStep(caller, planId, 'queue.add', { text: 'two' }, 't1')).toMatchObject({ ok: true })
+    expect(await runStep(caller, planId, 'queue.add', { text: 'three' }, 't1')).toMatchObject({ ok: false, error: { code: 'action_denied' } })
+    await app.waitFor(() => queueOf('t1').length === 2)
+    expect(await app.fails('plans.finish', { planId })).toMatchObject({ code: 'unauthorized' })
+    await caller.ok('plans.finish', { planId })
+    expect(plans()).toEqual([])
+    expect(await runStep(caller, planId, 'folder.create', { parent: root, name: 'wrap-up' })).toMatchObject({ ok: false, error: { code: 'action_denied' } })
+  })
+
+  it('cannot be ended while a step it must run is left', async () => {
+    const caller = await petra()
+    const planId = await propose(caller, [box('needed'), { ...box('extra'), optional: true }])
+    await app.ok('plans.answer', { planId, decision: 'approve' })
+    expect(await caller.fails('plans.finish', { planId })).toMatchObject({ code: 'action_denied', message: expect.stringMatching(/cancel/) })
+    expect(await runStep(caller, planId, 'folder.create', { parent: root, name: 'needed' })).toMatchObject({ ok: true })
+    await caller.ok('plans.finish', { planId })
+    expect(plans()).toEqual([])
+  })
+
+  it('an action that fits two steps allowed now: the caller says which, and goes on that way', async () => {
+    const caller = await petra()
+    const steps: Plan['steps'] = [{ either: [{ if: 'x', steps: [box('same'), box('after-x')] }, { if: 'y', steps: [box('same'), box('after-y')] }] }]
+    const planId = await propose(caller, steps)
+    await app.ok('plans.answer', { planId, decision: 'approve' })
+    const unsure = await runStep(caller, planId, 'folder.create', { parent: root, name: 'same' })
+    expect(unsure).toMatchObject({ ok: false, error: { code: 'action_denied', message: expect.stringMatching(/steps 1 and 3.*step/) } })
+    expect(made('same')).toBe(false)
+    expect(await runStep(caller, planId, 'folder.create', { parent: root, name: 'same' }, undefined, 2)).toMatchObject({ ok: false, error: { code: 'action_denied' } })
+    expect(await runStep(caller, planId, 'folder.create', { parent: root, name: 'same' }, undefined, 3)).toMatchObject({ ok: true })
+    expect(await runStep(caller, planId, 'folder.create', { parent: root, name: 'after-x' })).toMatchObject({ ok: false, error: { code: 'action_denied' } })
+    expect(await runStep(caller, planId, 'folder.create', { parent: root, name: 'after-y' })).toMatchObject({ ok: true })
+    expect(plans()).toEqual([])
+  })
+
+  it('a step whose referenced step was skipped cannot run', async () => {
+    const caller = await petra()
+    const planId = await propose(caller, [{ ...box('maybe'), optional: true }, { action: 'project.mark', args: { path: { $step: 1, field: 'path' }, project: true } }])
+    await app.ok('plans.answer', { planId, decision: 'approve' })
+    expect(await runStep(caller, planId, 'project.mark', { path: join(root, 'maybe'), project: true })).toMatchObject({ ok: false, error: { code: 'action_denied', message: expect.stringMatching(/step 1/) } })
+  })
+
+  it('refuses a reference across branches, a condition on a step that must run, and choices nested too deep', async () => {
+    const caller = await petra()
+    const across: Plan['steps'] = [{ either: [{ if: 'x', steps: [box('a')] }, { if: 'y', steps: [{ action: 'project.mark', args: { path: { $step: 1, field: 'path' }, project: true } }] }] }]
+    expect(await caller.fails('plans.propose', { summary: 'x', steps: across })).toMatchObject({ code: 'invalid_args', message: expect.stringMatching(/branch/) })
+    expect(await caller.fails('plans.propose', { summary: 'x', steps: [{ ...box('a'), if: 'when I feel like it' }] })).toMatchObject({ code: 'invalid_args', message: expect.stringMatching(/optional/) })
+    const deep: Plan['steps'] = [{ repeat: 2, steps: [{ either: [{ if: 'x', steps: [{ repeat: 2, steps: [box('a')] }] }, { if: 'y', steps: [] }] }] }]
+    expect(await caller.fails('plans.propose', { summary: 'x', steps: deep })).toMatchObject({ code: 'invalid_args', message: expect.stringMatching(/deep/) })
+    const many: Plan['steps'] = [{ repeat: 2, steps: Array.from({ length: 30 }, (_, index) => box(`a${index}`)) }, { repeat: 2, steps: Array.from({ length: 30 }, (_, index) => box(`b${index}`)) }]
+    expect(await caller.fails('plans.propose', { summary: 'x', steps: many })).toMatchObject({ code: 'invalid_args', message: expect.stringMatching(/50/) })
   })
 })

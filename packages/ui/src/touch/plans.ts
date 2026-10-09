@@ -1,10 +1,11 @@
-import type { CoreActionName, Plan, PlanStep, TabMeta } from '@athome/protocol'
+import { isPlanEither, isPlanRepeat, planNext, planReachable, type CoreActionName, type Plan, type PlanNode, type PlanStep, type TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 
 // A plan's steps in plain words (PlanCard.tsx), written by the app from the steps themselves, never from the caller's
 // summary: what the user approves is what the core will enforce. Values a step leaves to the caller (free text) and
 // targets that exist already (a literal folder, chat or message, not one the plan creates) are marked, so the user
-// sees at a glance where the plan touches what is already there.
+// sees at a glance where the plan touches what is already there. Choices, groups and optional steps become indented
+// rows (planRows), with the conditions as the caller wrote them (words for the user, never checked by core).
 
 // A piece of a step's sentence: plain words, free text the caller decides later, or an existing target.
 export type StepPart = { kind: 'text' | 'free' | 'existing'; text: string }
@@ -76,7 +77,47 @@ export function stepParts(step: PlanStep, tabs: TabMeta[]): StepPart[] {
   return parts
 }
 
-// The card's heading: a proposal, or a running plan with its step.
+// The card's heading: a proposal, or a running plan with the steps it may run next (or the chat it follows).
 export function planHeading(plan: Plan): string {
-  return plan.status === 'proposed' ? t('planProposed', { caller: plan.caller }) : t('planRunning', { caller: plan.caller, step: String(Math.min(plan.cursor + 1, plan.steps.length)), count: String(plan.steps.length) })
+  if (plan.status === 'proposed') return t('planProposed', { caller: plan.caller })
+  if (plan.following) return t('planRunningFollow', { caller: plan.caller })
+  const numbers = planNext(plan.steps, plan.at).next.map((move) => String(move.number))
+  return t('planRunningNext', { caller: plan.caller, steps: numbers.join(t('planOr')) })
+}
+
+// A row of the card: a step (its number, sentence, optional note and state), or the line that opens a choice, one of
+// its branches or a group. depth: how far it is indented. A step's state: ran, may run next, may run later, or out
+// (on a branch not taken, or behind).
+export type PlanRow =
+  | { kind: 'step'; depth: number; number: number; parts: StepPart[]; note?: string; state: 'ran' | 'next' | 'later' | 'out' }
+  | { kind: 'either' | 'branch' | 'repeat'; depth: number; text: string }
+
+// The plan as rows, in reading order (the same numbering core uses). tabs: the open chats.
+export function planRows(plan: Plan, tabs: TabMeta[]): PlanRow[] {
+  const running = plan.status === 'running'
+  const next = new Set(running && !plan.following ? planNext(plan.steps, plan.at).next.map((move) => move.number) : [])
+  const reachable = running ? planReachable(plan.steps, plan.at) : undefined
+  const stateOf = (number: number): 'ran' | 'next' | 'later' | 'out' => {
+    if (next.has(number)) return 'next'
+    if (plan.results[number - 1]) return 'ran'
+    return !reachable || reachable.has(number) ? 'later' : 'out'
+  }
+  const rows: PlanRow[] = []
+  let number = 0
+  const visit = (nodes: PlanNode[], depth: number): void =>
+    nodes.forEach((node) => {
+      if (isPlanEither(node)) {
+        rows.push({ kind: 'either', depth, text: t('planEither') })
+        node.either.forEach((branch) => (rows.push({ kind: 'branch', depth, text: t('planBranch', { if: branch.if }) }), visit(branch.steps, depth + 1)))
+      } else if (isPlanRepeat(node)) {
+        rows.push({ kind: 'repeat', depth, text: node.if ? t('planRepeatIf', { count: String(node.repeat), if: node.if }) : t('planRepeat', { count: String(node.repeat) }) })
+        visit(node.steps, depth + 1)
+      } else {
+        number++
+        const note = node.optional ? (node.if ? `${t('planOptional')}: ${node.if}` : t('planOptional')) : undefined
+        rows.push({ kind: 'step', depth, number, parts: stepParts(node, tabs), ...(note ? { note } : {}), state: stateOf(number) })
+      }
+    })
+  visit(plan.steps, 0)
+  return rows
 }

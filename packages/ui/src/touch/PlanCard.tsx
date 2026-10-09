@@ -1,11 +1,13 @@
+import { useMemo } from 'react'
 import { t } from '../i18n.ts'
 import { useTouch } from './context.tsx'
-import { planHeading, stepParts } from './plans.ts'
+import { planHeading, planRows, type StepPart } from './plans.ts'
 import type { Plan } from '@athome/protocol'
 
 // A caller's plan (Petra's, through the athome command) on the Home: its summary as the caller wrote it, then the
-// steps in the app's own words (plans.ts) — what the core will let it do, in that order — with Approve / Reject;
-// once approved, the current step and Cancel. The summary is the caller's text: React text only.
+// steps in the app's own words (plans.ts) — what the core will let it do, in that order, with its choices, groups and
+// optional steps indented — with Approve / Reject; once approved, what ran, what may run next, what is out, and
+// Cancel. The summary and the conditions are the caller's text: React text only.
 
 export function PlanCards() {
   const { state } = useTouch()
@@ -21,6 +23,7 @@ export function PlanCards() {
 
 function PlanCard({ plan }: { plan: Plan }) {
   const { state, connection, toast, fail } = useTouch()
+  const rows = useMemo(() => planRows(plan, state.tabs), [plan, state.tabs])
   const answer = (decision: 'approve' | 'reject') => connection.request('plans.answer', { planId: plan.planId, decision }).then(() => toast(t(decision === 'approve' ? 'planApproved' : 'planRejected')), fail)
   const cancel = () => connection.request('plans.cancel', { planId: plan.planId }).then(() => toast(t('planCancelled')), fail)
   return (
@@ -28,15 +31,23 @@ function PlanCard({ plan }: { plan: Plan }) {
       <h2>{planHeading(plan)}</h2>
       <p className="plan-summary">{plan.summary}</p>
       <span className="muted">{t('planWillAllow')}</span>
-      <ol className="plan-steps">
-        {plan.steps.map((step, index) => (
-          <li key={index} className={index < plan.cursor ? 'muted' : undefined}>
-            {stepParts(step, state.tabs).map((part, at) =>
-              part.kind === 'text' ? <span key={at}>{part.text}</span> : <span key={at} className={part.kind === 'free' ? 'chip free' : 'chip accent'}>{part.kind === 'existing' ? `${part.text} · ${t('planExisting')}` : part.text}</span>
-            )}
-          </li>
-        ))}
-      </ol>
+      <ul className="plan-steps">
+        {rows.map((row, index) =>
+          row.kind === 'step' ? (
+            <li key={index} className={`plan-row depth-${row.depth} plan-${row.state}`}>
+              <span className="plan-number">{row.number}.</span>
+              <span>
+                <Parts parts={row.parts} />
+                {row.note && <span className="plan-note"> · {row.note}</span>}
+              </span>
+            </li>
+          ) : (
+            <li key={index} className={`plan-row depth-${row.depth} plan-${row.kind}`}>
+              {row.text}
+            </li>
+          )
+        )}
+      </ul>
       <div className="card-actions">
         {plan.status === 'proposed' ? (
           <>
@@ -54,5 +65,16 @@ function PlanCard({ plan }: { plan: Plan }) {
         )}
       </div>
     </section>
+  )
+}
+
+// A step's sentence: plain words, free text (a dashed chip), an existing target (an accent chip saying so).
+function Parts({ parts }: { parts: StepPart[] }) {
+  return (
+    <>
+      {parts.map((part, at) =>
+        part.kind === 'text' ? <span key={at}>{part.text}</span> : <span key={at} className={part.kind === 'free' ? 'chip free' : 'chip accent'}>{part.kind === 'existing' ? `${part.text} · ${t('planExisting')}` : part.text}</span>
+      )}
+    </>
   )
 }

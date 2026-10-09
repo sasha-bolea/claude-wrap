@@ -1,7 +1,7 @@
 // A plan's steps in the app's words: references, free text and existing targets are told apart.
 import { describe, expect, it } from 'vitest'
-import type { TabMeta } from '@athome/protocol'
-import { planHeading, stepParts } from './plans.ts'
+import type { Plan, TabMeta } from '@athome/protocol'
+import { planHeading, planRows, stepParts } from './plans.ts'
 
 const tabs = [{ tabId: 't1', title: 'Website' }] as TabMeta[]
 const words = (parts: ReturnType<typeof stepParts>) => parts.map((part) => (part.kind === 'text' ? part.text : `[${part.kind}:${part.text}]`)).join('')
@@ -30,9 +30,41 @@ describe('stepParts', () => {
 })
 
 describe('planHeading', () => {
-  const base = { planId: 'p', caller: 'petra', summary: 's', steps: [{ action: 'project.create' as const, args: {} }, { action: 'session.start' as const, args: {} }], results: [], createdAt: 0, expiresAt: 0 }
-  it('says who proposes, or which step is next', () => {
-    expect(planHeading({ ...base, status: 'proposed', cursor: 0 })).toBe('petra proposes a plan')
-    expect(planHeading({ ...base, status: 'running', cursor: 1 })).toBe('petra’s plan · step 2 of 2')
+  const base = { planId: 'p', caller: 'petra', summary: 's', steps: [{ action: 'project.create' as const, args: {} }, { action: 'session.start' as const, args: {}, optional: true }, { action: 'session.close' as const, args: {} }], results: [], createdAt: 0, expiresAt: 0 }
+  it('says who proposes, which steps may run next, or that the plan follows a chat', () => {
+    expect(planHeading({ ...base, status: 'proposed', at: [{ path: [], index: 0 }] })).toBe('petra proposes a plan')
+    expect(planHeading({ ...base, status: 'running', at: [{ path: [], index: 0 }] })).toBe('petra’s plan · next: step 1')
+    expect(planHeading({ ...base, status: 'running', at: [{ path: [], index: 1 }] })).toBe('petra’s plan · next: step 2 or 3')
+    expect(planHeading({ ...base, status: 'running', at: [{ path: [], index: 1 }], following: 't1' })).toBe('petra’s plan · following a chat')
+  })
+})
+
+describe('planRows', () => {
+  const step = (name: string, extra: object = {}) => ({ action: 'project.create' as const, args: { name }, ...extra })
+  const steps: Plan['steps'] = [
+    step('a'),
+    { either: [{ if: 'Claude asks', steps: [step('b')] }, { if: 'otherwise', steps: [{ repeat: 3, if: 'until it is done', steps: [step('c')] }] }] },
+    step('d', { optional: true, if: 'only at the end' })
+  ]
+  const plan = (extra: Partial<Plan>): Plan => ({ planId: 'p', caller: 'petra', summary: 's', steps, status: 'proposed', at: [{ path: [], index: 0 }], results: [], createdAt: 0, expiresAt: 0, ...extra })
+  // A row in short: its depth, then the words (and a step's state).
+  const short = (rows: ReturnType<typeof planRows>) => rows.map((row) => `${row.depth}${row.kind === 'step' ? ` ${row.number}. ${words(row.parts)}${row.note ? ` (${row.note})` : ''} [${row.state}]` : ` ${row.text}`}`)
+
+  it('lays out choices, groups and optional steps, numbered in reading order', () => {
+    expect(short(planRows(plan({}), tabs))).toEqual([
+      '0 1. Create the project “a” in the Home [later]',
+      '0 Only one of these ways:',
+      '0 If Claude asks:',
+      '1 2. Create the project “b” in the Home [later]',
+      '0 If otherwise:',
+      '1 Up to 3 times, until it is done:',
+      '2 3. Create the project “c” in the Home [later]',
+      '0 4. Create the project “d” in the Home (optional: only at the end) [later]'
+    ])
+  })
+
+  it('running, in the group after a round: what ran, what may run next (another round, or the last step), what is out', () => {
+    const rows = planRows(plan({ status: 'running', at: [{ path: [], index: 2 }, { path: [1, 1], index: 1 }, { path: [1, 1, 0], index: 1, round: 1 }], results: [{ path: '/a' }, null, { path: '/c' }] }), tabs)
+    expect(rows.flatMap((row) => (row.kind === 'step' ? [`${row.number}:${row.state}`] : []))).toEqual(['1:ran', '2:out', '3:next', '4:next'])
   })
 })

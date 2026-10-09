@@ -300,17 +300,20 @@ export const COMMANDS = {
   // Runs an action of the action API (actions.ts). tabId: the chat it comes from (a widget's; the AtHome session that
   // ran the athome command); heavy actions wait for the user's answer to a confirmation opened there (action_denied
   // when refused or cancelled). interactive: the athome command runs in a terminal a person types in (see the terminal
-  // policy in core actions.ts).
-  'actions.run': { args: z.object({ tabId: tabId.optional(), action: coreActionNameSchema, args: z.record(z.string(), z.unknown()), source: actionSourceSchema, interactive: z.boolean().optional(), plan: z.string().optional() }), result: z.object({ value: z.unknown().optional() }) },
+  // policy in core actions.ts). plan: the approved plan a caller with a key acts in; step: which of its steps this is,
+  // when the action fits more than one of those it allows now.
+  'actions.run': { args: z.object({ tabId: tabId.optional(), action: coreActionNameSchema, args: z.record(z.string(), z.unknown()), source: actionSourceSchema, interactive: z.boolean().optional(), plan: z.string().optional(), step: z.number().int().min(1).optional() }), result: z.object({ value: z.unknown().optional() }) },
   // Keys of the terminal's callers (Petra): only from a terminal a person types in (interactive). The key is shown
   // once; core keeps its hash.
   'callers.create': { args: z.object({ name: callerNameSchema, interactive: z.literal(true) }), result: z.object({ key: z.string() }) },
   'callers.list': { args: z.object({ interactive: z.literal(true) }), result: z.object({ callers: z.array(z.object({ name: callerNameSchema, createdAt: z.number() })) }) },
   'callers.revoke': { args: z.object({ name: callerNameSchema, interactive: z.literal(true) }), result: empty },
-  // Plans (plans.ts): a caller with a key proposes one; an app client approves or rejects it; either cancels it.
+  // Plans (plans.ts): a caller with a key proposes one; an app client approves or rejects it; either cancels it; the
+  // caller ends it once only skippable steps are left (finish).
   'plans.propose': { args: planProposalSchema, result: z.object({ planId: z.string() }) },
   'plans.answer': { args: z.object({ planId: z.string(), decision: z.enum(['approve', 'reject']) }), result: empty },
   'plans.cancel': { args: z.object({ planId: z.string() }), result: empty },
+  'plans.finish': { args: z.object({ planId: z.string() }), result: empty },
   // Claude Code's own settings (/config) of the user's settings file; a change is saved there and every live session
   // takes it at once. file: the settings file shown to the user.
   'settings.claudeCode': { args: empty, result: z.object({ values: claudeSettingsSchema, file: z.string() }) },

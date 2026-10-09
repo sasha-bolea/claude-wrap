@@ -102,7 +102,7 @@ describe('athome with a key (a caller such as Petra)', () => {
   let app: RawClient
   const asPetra = (argv: string[], plan?: string, extra: Partial<CliIo> = {}) => run(argv, { interactive: false, key, ...(plan ? { plan } : {}), ...extra })
   // The plans the app sees now (the latest of the last plans.updated event and the last workspace reset).
-  const plans = (): { planId: string; status: string; cursor?: number }[] => {
+  const plans = (): { planId: string; status: string; following?: string }[] => {
     for (let index = app.frames.length - 1; index >= 0; index--) {
       const frame = app.frames[index]!
       if (frame.t === 'ev' && frame.stream === 'workspace' && frame.ev.type === 'plans.updated') return frame.ev.plans
@@ -149,7 +149,7 @@ describe('athome with a key (a caller such as Petra)', () => {
     expect(out.at(-1)).toBe(`${planId}\tapproved`)
     out = []
     expect(await asPetra(['plan', 'status', planId], planId)).toBe(0)
-    expect(out[0]).toBe('running\tstep 1 of 2')
+    expect(out[0]).toBe('running\tnext: step 1')
     expect(await asPetra(['session', 'start', join(home, 'idea')], planId)).toBe(3)
     expect(await asPetra(['project', 'create', 'idea'], planId)).toBe(0)
     expect(existsSync(join(home, 'idea'))).toBe(true)
@@ -209,7 +209,7 @@ describe('athome with a key (a caller such as Petra)', () => {
     expect(await asPetra(['request', 'answer', 't1', 'allow'], planId)).toBe(0)
     expect(await pending.result).toMatchObject({ behavior: 'allow' })
     fake.last().emit(sdk.success())
-    await app.waitFor(() => plans()[0]?.status === 'running' && (plans()[0] as { cursor?: number }).cursor === 4)
+    await app.waitFor(() => plans()[0]?.status === 'running' && plans()[0]?.following === undefined)
     out = []
     expect(await asPetra(['queue', 'add', 't1', 'later', '--json'], planId)).toBe(0)
     const { queueId } = JSON.parse(out[0]!) as { queueId: string }
@@ -218,5 +218,28 @@ describe('athome with a key (a caller such as Petra)', () => {
     expect(await asPetra(['session', 'close', 't1'], planId)).toBe(0)
     expect(await app.fails('tab.subscribe', { tabId: 't1' })).toMatchObject({ code: 'not_found' })
     expect(plans()).toEqual([])
+  })
+
+  it('a plan with a choice: status says what may run, --step or ATHOME_STEP picks between equal steps, finish ends it', async () => {
+    const box = (name: string) => ({ action: 'folder.create', args: { parent: home, name } })
+    const steps = [{ either: [{ if: 'x', steps: [box('same'), box('after-x')] }, { if: 'y', steps: [box('same')] }] }, { ...box('extra'), optional: true }]
+    expect(await asPetra(['plan', 'propose', '-'], undefined, { stdin: () => Promise.resolve(JSON.stringify({ summary: 'choices', steps })) })).toBe(0)
+    const planId = out[0]!
+    await app.ok('plans.answer', { planId, decision: 'approve' })
+    out = []
+    expect(await asPetra(['plan', 'status', planId])).toBe(0)
+    expect(out[0]).toBe('running\tnext: step 1 or 3')
+    expect(await asPetra(['folder', 'create', 'same', '--in', home], planId)).toBe(3)
+    expect(err.at(-1)).toMatch(/steps 1 and 3/)
+    expect(await asPetra(['folder', 'create', 'same', '--in', home], planId, { step: 2 })).toBe(3)
+    expect(await asPetra(['folder', 'create', 'same', '--in', home, '--step', '3'], planId)).toBe(0)
+    out = []
+    expect(await asPetra(['plan', 'status', planId, '--json'])).toBe(0)
+    expect(JSON.parse(out[0]!)).toEqual({ status: 'running', next: [4], finishable: true, following: false })
+    expect(await asPetra(['plan', 'finish', planId])).toBe(0)
+    expect(out.at(-1)).toBe(`Finished: ${planId}`)
+    expect(await asPetra(['plan', 'status', planId])).toBe(0)
+    expect(out.at(-1)).toBe('closed')
+    expect(await asPetra(['folder', 'create', 'same', '--in', home, '--step', 'x'], planId)).toBe(2)
   })
 })
