@@ -5,12 +5,13 @@
 // step lets the caller answer Claude's requests in a chat until its turn ends; the app or the caller cancels a plan;
 // a plan expires; keys and plans survive a core restart. A plan may also hold a choice between branches (the first
 // step run takes one), steps the caller may skip and groups it may repeat up to N rounds; the caller ends it once only
-// skippable steps are left; when an action fits two steps it may run now, the caller says which.
+// skippable steps are left; when an action fits two steps it may run now, the caller says which. While it runs, the
+// app sees every command of the caller under the plan, live: its step, its arguments, and how it went.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { existsSync, mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { WORKSPACE_STREAM, planNext, tabStream, type Plan, type Request, type WorkspaceSnapshot } from '@athome/protocol'
+import { PLAN_LIMITS, WORKSPACE_STREAM, planNext, tabStream, type Plan, type Request, type WorkspaceSnapshot } from '@athome/protocol'
 import { createCore, type Core, type CoreConfig } from './core.ts'
 import { createFakeSdk, type FakeSdk } from './testing/fakeQuery.ts'
 import { sdk } from './testing/messages.ts'
@@ -435,5 +436,54 @@ describe('plans with choices', () => {
     expect(await caller.fails('plans.propose', { summary: 'x', steps: deep })).toMatchObject({ code: 'invalid_args', message: expect.stringMatching(/deep/) })
     const many: Plan['steps'] = [{ repeat: 2, steps: Array.from({ length: 30 }, (_, index) => box(`a${index}`)) }, { repeat: 2, steps: Array.from({ length: 30 }, (_, index) => box(`b${index}`)) }]
     expect(await caller.fails('plans.propose', { summary: 'x', steps: many })).toMatchObject({ code: 'invalid_args', message: expect.stringMatching(/50/) })
+  })
+})
+
+describe('the plan log (what the card shows, live)', () => {
+  // The log of the app's only open plan.
+  const log = () => plans()[0]?.log ?? []
+
+  it('every command of the caller: refused ones with the reason, running, then done or failed', async () => {
+    const caller = await petra()
+    const steps: Plan['steps'] = [{ action: 'project.create', args: { name: 'idea' } }, { action: 'session.start', args: { folder: join(root, 'missing') } }, { action: 'project.create', args: { name: 'more' } }]
+    const planId = await propose(caller, steps)
+    await app.ok('plans.answer', { planId, decision: 'approve' })
+    expect(log()).toEqual([])
+    await runStep(caller, planId, 'project.create', { name: 'other' })
+    expect(await runStep(caller, planId, 'project.create', { name: 'idea' })).toMatchObject({ ok: true })
+    expect(await runStep(caller, planId, 'session.start', { folder: join(root, 'missing') })).toMatchObject({ ok: false })
+    expect(log()).toMatchObject([
+      { action: 'project.create', args: { name: 'other' }, outcome: 'refused', reason: expect.stringMatching(/not the arguments/) },
+      { action: 'project.create', args: { name: 'idea' }, step: 1, outcome: 'done' },
+      { action: 'session.start', args: { folder: join(root, 'missing') }, step: 2, outcome: 'failed', reason: expect.any(String) }
+    ])
+    expect(log()[0]).not.toHaveProperty('step')
+    // Each command showed as running before it ended.
+    const seen = app.events(WORKSPACE_STREAM).flatMap((ev) => (ev.type === 'plans.updated' ? ev.plans.flatMap((plan) => plan.log ?? []) : []))
+    expect(seen.some((entry) => entry.step === 1 && entry.outcome === 'running')).toBe(true)
+  })
+
+  it('answers given while following a chat are in it too', async () => {
+    const session = await working()
+    const caller = await petra()
+    const planId = await propose(caller, [{ action: 'session.follow', args: { tabId: 't1' } }, { action: 'session.stop', args: { tabId: 't1' } }])
+    await app.ok('plans.answer', { planId, decision: 'approve' })
+    await runStep(caller, planId, 'session.follow', {}, 't1')
+    session.askPermission('Write', { file_path: 'a.txt', content: 'x' })
+    await app.waitFor(() => app.events(tabStream('t1')).some((ev) => ev.type === 'request.opened'))
+    expect(await runStep(caller, planId, 'request.answer', { decision: 'deny' }, 't1')).toMatchObject({ ok: true })
+    expect(log().map((entry) => [entry.action, entry.step, entry.outcome])).toEqual([['session.follow', 1, 'done'], ['request.answer', undefined, 'done']])
+    expect(log()[1]).toMatchObject({ args: { tabId: 't1', decision: 'deny' } })
+  })
+
+  it('keeps the last entries only, and long texts cut', async () => {
+    const caller = await petra()
+    const planId = await propose(caller, [{ action: 'project.create', args: { name: 'idea' } }])
+    await app.ok('plans.answer', { planId, decision: 'approve' })
+    for (let index = 0; index < PLAN_LIMITS.log + 5; index++) await runStep(caller, planId, 'project.create', { name: `wrong-${index}` })
+    await runStep(caller, planId, 'prompt.send', { text: 'x'.repeat(5000) }, 't1')
+    expect(log()).toHaveLength(PLAN_LIMITS.log)
+    expect(log()[0]).toMatchObject({ args: { name: 'wrong-6' } })
+    expect((log().at(-1)!.args.text as string).length).toBeLessThanOrEqual(PLAN_LIMITS.logText + 1)
   })
 })

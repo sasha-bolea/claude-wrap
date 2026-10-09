@@ -1,4 +1,4 @@
-import { isPlanEither, isPlanRepeat, planNext, planReachable, type CoreActionName, type Plan, type PlanNode, type PlanStep, type TabMeta } from '@athome/protocol'
+import { isPlanEither, isPlanRepeat, planNext, planReachable, type CoreActionName, type Plan, type PlanLogEntry, type PlanNode, type PlanStep, type TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 
 // A plan's steps in plain words (PlanCard.tsx), written by the app from the steps themselves, never from the caller's
@@ -120,4 +120,10 @@ export function planRows(plan: Plan, tabs: TabMeta[]): PlanRow[] {
     })
   visit(plan.steps, 0)
   return rows
+}
+
+// A command of the plan's log in the app's words, with the values it really had (the text Petra sent, the folder
+// it named): plain words, no free-text or "existing" marks — it already ran, or was refused.
+export function logParts(entry: PlanLogEntry, tabs: TabMeta[]): StepPart[] {
+  return stepParts({ action: entry.action, args: entry.args }, tabs).map((part) => ({ kind: 'text', text: part.text }))
 }

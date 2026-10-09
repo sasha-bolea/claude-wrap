@@ -168,7 +168,10 @@ Text output: `user: …` / `claude: …` lines; `wait` prints `waiting for you: 
 - A push notification "petra proposes a plan: approve it in AtHome" and a card on top of the Home with the summary and
   the steps in the app's words (choices, groups and optional steps indented, with their conditions), with Approve /
   Reject; while running, "next: step N" with that step's number highlighted, the steps that ran muted, the branches
-  not taken struck through, and "Cancel the plan".
+  not taken struck through, and "Cancel the plan". Under the steps, "What it did" lists every command Petra runs under
+  the plan, live and newest first (the last 30): time, outcome (running, done, refused, failed), step number, the
+  command with its real values (the text she sent too, cut at 300 characters) and, for a refusal or a failure, the
+  server's reason. Petra's mistakes are visible to the user.
 - Heavy actions asked by Claude from a chat (no key) appear in that chat as "The athome command, run by Claude in this
   chat, asks for it", with Yes / No.
 

@@ -1,12 +1,14 @@
 // A caller's plan (Petra's, through the athome command) in the PWA on the scripted fake SDK. User stories: a caller
-// with a key proposes a plan and I see it on top of the Home, in the app's words; I approve it and the caller runs its
-// steps, the card follows them and goes away when the plan is done; I reject one and nothing runs; I cancel a running
-// one; a plan with a choice, a group and an optional step shows them indented, and once a branch is taken the other
-// one is struck through; the caller ends it. The caller speaks to the backend's core directly here (the socket and the command have their own tests).
+// with a key proposes a plan and I see it on top of the Home, in the app's words; I approve it and the caller runs
+// its steps, the card follows them, with every command live in its log, and goes away when the plan is done; I reject
+// one and nothing runs; I cancel a running one; a plan with a choice, a group and an optional step shows them
+// indented, and once a branch is taken the other one is struck through; the caller ends it. The caller speaks to the
+// backend's core directly here (the socket and the command have their own tests).
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { Browser, BrowserContext, Locator, Page } from 'playwright-core'
+import type { PlanNode } from '@athome/protocol'
 import { RawClient } from '@athome/core/testing'
 import { home, launchChrome, pairedPage, phone, startBackend, type Backend } from './harness.ts'
 
@@ -54,8 +56,14 @@ describe('PWA plans (fake SDK)', () => {
     await card(page).getByText('free text').waitFor()
     await card(page).getByRole('button', { name: 'Approve' }).click()
     await card(page).getByText('petra’s plan · next: step 1').waitFor()
+    expect(await runStep(planId, 'project.create', { name: 'other' })).toMatchObject({ ok: false })
     expect(await runStep(planId, 'project.create', { name: 'idea' })).toMatchObject({ ok: true })
     await card(page).getByText('petra’s plan · next: step 2').waitFor()
+    // The log, newest first: the step done, then the refused command with core's reason.
+    const log = card(page).getByRole('region', { name: 'What it did' }).locator('li')
+    await expect.poll(() => log.count()).toBe(2)
+    expect(await log.nth(0).textContent()).toMatch(/done.*step 1 · Create the project “idea” in the Home/)
+    expect(await log.nth(1).textContent()).toMatch(/refused.*Create the project “other” in the Home.*not the arguments/)
     expect(existsSync(join(backend.root, 'idea'))).toBe(true)
     expect(await runStep(planId, 'session.start', { folder: join(backend.root, 'idea'), prompt: 'ciao' })).toMatchObject({ ok: true })
     await card(page).waitFor({ state: 'detached' })
@@ -82,8 +90,8 @@ describe('PWA plans (fake SDK)', () => {
 
   it('a plan with choices: indented in the card; the branch not taken is struck through; the caller ends it', async () => {
     const page = await phoneHome()
-    const box = (name: string) => ({ action: 'folder.create', args: { parent: backend.root, name } })
-    const steps = [
+    const box = (name: string): PlanNode => ({ action: 'folder.create', args: { parent: backend.root, name } })
+    const steps: PlanNode[] = [
       { either: [{ if: 'Claude asks for a folder', steps: [box('asked')] }, { if: 'Claude does not', steps: [box('spare')] }] },
       { repeat: 3, if: 'until it is enough', steps: [box('again')] },
       { ...box('wrap'), optional: true }

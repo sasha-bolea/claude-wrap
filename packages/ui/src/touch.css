@@ -210,6 +210,12 @@ input, textarea, select { font-size: 16px; }
 .plan-ran { color: var(--text-muted); }
 .plan-next .plan-number { color: var(--accent); font-weight: 700; }
 .plan-out { color: var(--text-muted); text-decoration: line-through; }
+/* The plan's log (PlanCard.tsx PlanLog): the caller's commands, newest first; time, outcome chip, step, words, why. */
+.plan-log { display: grid; gap: 6px; }
+.plan-log ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13px; }
+.plan-log-entry { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.plan-time { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.plan-reason { display: block; color: var(--danger); font-size: 12px; }
 .plan-steps .chip { vertical-align: 1px; margin: 0 2px; }
 .plan-steps .chip.free { background: none; border: 1px dashed var(--accent); color: var(--accent); }
 .code-block > pre { padding-right: 40px; }

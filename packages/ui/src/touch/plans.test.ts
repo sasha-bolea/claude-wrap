@@ -1,7 +1,7 @@
 // A plan's steps in the app's words: references, free text and existing targets are told apart.
 import { describe, expect, it } from 'vitest'
 import type { Plan, TabMeta } from '@athome/protocol'
-import { planHeading, planRows, stepParts } from './plans.ts'
+import { logParts, planHeading, planRows, stepParts } from './plans.ts'
 
 const tabs = [{ tabId: 't1', title: 'Website' }] as TabMeta[]
 const words = (parts: ReturnType<typeof stepParts>) => parts.map((part) => (part.kind === 'text' ? part.text : `[${part.kind}:${part.text}]`)).join('')
@@ -66,5 +66,13 @@ describe('planRows', () => {
   it('running, in the group after a round: what ran, what may run next (another round, or the last step), what is out', () => {
     const rows = planRows(plan({ status: 'running', at: [{ path: [], index: 2 }, { path: [1, 1], index: 1 }, { path: [1, 1, 0], index: 1, round: 1 }], results: [{ path: '/a' }, null, { path: '/c' }] }), tabs)
     expect(rows.flatMap((row) => (row.kind === 'step' ? [`${row.number}:${row.state}`] : []))).toEqual(['1:ran', '2:out', '3:next', '4:next'])
+  })
+})
+
+describe('logParts', () => {
+  it('a command in the app’s words with the values it really had: no free text, no “existing” marks', () => {
+    expect(words(logParts({ at: 0, action: 'prompt.send', args: { tabId: 't1', text: 'Rispondi: fatto' }, step: 3, outcome: 'done' }, tabs))).toBe('Send to Website: “Rispondi: fatto”')
+    expect(words(logParts({ at: 0, action: 'project.create', args: { name: 'idea', parent: '/srv' }, outcome: 'refused', reason: 'no' }, tabs))).toBe('Create the project “idea” in /srv')
+    expect(words(logParts({ at: 0, action: 'request.answer', args: { tabId: 't1', decision: 'allow' }, outcome: 'running' }, tabs))).toBe('Answer the request of Website: allow')
   })
 })

@@ -190,7 +190,7 @@ function parsedArgs(action: CoreActionName, args: Record<string, unknown>): unkn
 
 // Runs an action of a caller with a key: only a step one of its approved plans allows now (plans.ts), with the
 // arguments the user saw, with no confirmation; the plan then moves on (unless the step follows a chat). A failed
-// step leaves the plan where it was.
+// step leaves the plan where it was. Every command lands in the plan's log, live (plans.ts).
 async function runPlanned(workspace: Workspace, run: CommandArgs<'actions.run'>, connection: Connection, caller: string): Promise<unknown> {
   const planId = run.plan
   if (!planId) throw new CoreError('action_denied', 'with a key, actions run only inside an approved plan: propose one first')
@@ -199,10 +199,11 @@ async function runPlanned(workspace: Workspace, run: CommandArgs<'actions.run'>,
     const tab = begun.tabId ? workspace.tabOf(begun.tabId) : undefined
     const context: Context = { workspace, tab, source: run.source, by: connection.label, direct: true, mode: workspace.terminalPolicy.newSessionMode, plan: planId }
     const value = await (RUNNERS[run.action] as Runner<CoreActionName>)(context, parsedArgs(run.action, begun.args) as never)
-    if (begun.move) workspace.planStore.complete(planId, begun.move, value)
+    workspace.planStore.complete(planId, begun, value)
     return value
-  } finally {
-    if (begun.move) workspace.planStore.release(planId)
+  } catch (error) {
+    workspace.planStore.fail(planId, begun, error)
+    throw error
   }
 }
 

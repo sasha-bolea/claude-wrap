@@ -13,7 +13,7 @@ import { coreActionNameSchema, type CoreActionName } from './actions.ts'
 // every action is one the plan allows at that point. Steps are numbered in reading order (planSteps); references
 // ($step) use those numbers.
 
-export const PLAN_LIMITS = { steps: 50, summary: 1000, ttlMs: 24 * 60 * 60 * 1000, branches: 5, rounds: 20, condition: 200, depth: 2 } as const
+export const PLAN_LIMITS = { steps: 50, summary: 1000, ttlMs: 24 * 60 * 60 * 1000, branches: 5, rounds: 20, condition: 200, depth: 2, log: 30, logText: 300 } as const
 
 // A caller's name: lowercase letters, digits, dashes.
 export const callerNameSchema = z.string().min(1).max(40).regex(/^[a-z0-9][a-z0-9-]*$/)
@@ -53,9 +53,22 @@ export type PlanProposal = z.infer<typeof planProposalSchema>
 export const planFrameSchema = z.object({ path: z.array(z.number().int().min(0)), index: z.number().int().min(0), round: z.number().int().min(1).optional() })
 export type PlanFrame = z.infer<typeof planFrameSchema>
 
+// A command the caller ran under a plan, as the card shows it live: when, the action and its arguments (tabId
+// included; texts cut to PLAN_LIMITS.logText), the step it was (absent: refused before it was one, or an answer while
+// following a chat), how it went (running until it ends) and, refused or failed, why (core's words).
+export const planLogEntrySchema = z.object({
+  at: z.number(),
+  action: coreActionNameSchema,
+  args: z.record(z.string(), z.unknown()),
+  step: z.number().int().min(1).optional(),
+  outcome: z.enum(['running', 'done', 'refused', 'failed']),
+  reason: z.string().optional()
+})
+export type PlanLogEntry = z.infer<typeof planLogEntrySchema>
+
 // A plan as core keeps it. at: where it is; results: what each step run returned, by step number - 1 (the last round's
 // for a repeated one; refs read them; null or absent: not run); following: the chat a session.follow step follows
-// while its turn is under way (nothing else runs meanwhile).
+// while its turn is under way (nothing else runs meanwhile); log: the caller's last commands under it (oldest first).
 export const planSchema = planProposalSchema.extend({
   planId: z.string(),
   caller: callerNameSchema,
@@ -63,6 +76,7 @@ export const planSchema = planProposalSchema.extend({
   at: z.array(planFrameSchema).min(1),
   results: z.array(z.record(z.string(), z.unknown()).nullable()),
   following: z.string().optional(),
+  log: z.array(planLogEntrySchema).max(PLAN_LIMITS.log).optional(),
   createdAt: z.number(),
   expiresAt: z.number()
 })

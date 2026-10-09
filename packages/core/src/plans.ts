@@ -14,6 +14,7 @@ import {
   type CoreActionName,
   type NumberedStep,
   type Plan,
+  type PlanLogEntry,
   type PlanMove,
   type PlanNode,
   type PlanProposal,
@@ -33,8 +34,8 @@ import { JsonFile } from './jsonFile.ts'
 
 type Saved = { plans: Plan[] }
 // What the caller may run under a plan: the resolved arguments of the step (tabId apart) and the move it makes, or a
-// pass-through answer while following a chat (no step consumed).
-export type Begun = { args: Record<string, unknown>; tabId?: string; passthrough: boolean; move?: PlanMove }
+// pass-through answer while following a chat (no step consumed); entry: the command in the plan's log.
+export type Begun = { args: Record<string, unknown>; tabId?: string; passthrough: boolean; move?: PlanMove; entry: PlanLogEntry }
 
 // Actions that act on a chat (their args name it as tabId); fields a step may leave free; what an earlier step's
 // result offers to a reference.
@@ -48,6 +49,9 @@ const isFree = (value: unknown): boolean => Boolean(value) && typeof value === '
 const canonical = (value: unknown): string => JSON.stringify(value, (_key, inner: unknown) => (inner && typeof inner === 'object' && !Array.isArray(inner) ? Object.fromEntries(Object.entries(inner as object).sort(([a], [b]) => a.localeCompare(b))) : inner))
 const denied = (message: string) => new CoreError('action_denied', message)
 const invalid = (message: string) => new CoreError('invalid_args', message)
+// Arguments as the log keeps them: texts longer than PLAN_LIMITS.logText cut, with an ellipsis.
+const cut = (args: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(args).map(([field, value]) => [field, typeof value === 'string' && value.length > PLAN_LIMITS.logText ? `${value.slice(0, PLAN_LIMITS.logText)}…` : value]))
 
 // How many choices and groups sit inside one another, at most, in a list of nodes.
 function depthOf(nodes: PlanNode[]): number {
@@ -213,29 +217,59 @@ export class PlanStore {
 
   // What a caller may run now under a plan: a step the plan allows next, with the arguments the user saw (run.step
   // names it when the action fits more than one), or an answer to the chat it follows. run: the actions.run
-  // arguments. Throws action_denied for anything else. A begun step must be completed or released.
+  // arguments. Throws action_denied for anything else (logged as refused). A begun command is in the plan's log as
+  // running, and must be completed or failed.
   begin(planId: string, caller: string, run: CommandArgs<'actions.run'>): Begun {
     this.sweep()
     const plan = this.plans.find((one) => one.planId === planId && one.caller === caller)
     if (!plan || plan.status !== 'running') throw denied(plan ? `this plan is ${plan.status}` : 'no such plan of yours')
     const given: Record<string, unknown> = { ...run.args, ...(run.tabId ? { tabId: run.tabId } : {}) }
+    const entry: PlanLogEntry = { at: Date.now(), action: run.action, args: cut(given), outcome: 'running' }
+    try {
+      const begun = this.allowed(plan, run, given)
+      if (begun.move) entry.step = begun.move.number
+      this.note(plan, entry)
+      return { ...begun, entry }
+    } catch (error) {
+      this.note(plan, { ...entry, outcome: 'refused', reason: (error as Error).message })
+      throw error
+    }
+  }
+
+  // What begin lets through: an answer while following, or the step this action is (the plan is then busy until it
+  // ends). Throws action_denied.
+  private allowed(plan: Plan, run: CommandArgs<'actions.run'>, given: Record<string, unknown>): Omit<Begun, 'entry'> {
     if (plan.following) {
       if (run.action === 'request.answer' && given.tabId === plan.following) return { args: run.args, tabId: plan.following, passthrough: true }
       throw denied('the plan follows a chat: only its requests can be answered until its turn ends')
     }
-    if (this.busy.has(planId)) throw denied('a step of this plan is still running')
+    if (this.busy.has(plan.planId)) throw denied('a step of this plan is still running')
     const { move, resolved } = pick(plan, run, given)
-    this.busy.add(planId)
+    this.busy.add(plan.planId)
     const { tabId, ...args } = resolved
     return { args, ...(typeof tabId === 'string' ? { tabId } : {}), passthrough: false, move }
   }
 
-  // A begun step ran: keeps its result and moves the plan on (done once nothing is left). A session.follow step
-  // whose chat is at work leaves the plan following that chat until the turn ends.
-  complete(planId: string, move: PlanMove, value: unknown): void {
-    this.busy.delete(planId)
+  // A begun command ran: done in the log; a step keeps its result and moves the plan on (done once nothing is left).
+  // A session.follow step whose chat is at work leaves the plan following that chat until the turn ends.
+  complete(planId: string, begun: Begun, value: unknown): void {
+    begun.entry.outcome = 'done'
+    if (begun.move) this.busy.delete(planId)
     const plan = this.plans.find((one) => one.planId === planId && one.status === 'running')
     if (!plan) return
+    if (begun.move) this.moveOn(plan, begun.move, value)
+    this.commit()
+  }
+
+  // A begun command failed: failed in the log, with why; the plan stays where it was, and the caller may try again.
+  fail(planId: string, begun: Begun, error: unknown): void {
+    Object.assign(begun.entry, { outcome: 'failed', reason: error instanceof Error ? error.message : String(error) })
+    if (begun.move) this.busy.delete(planId)
+    if (this.plans.some((one) => one.planId === planId)) this.commit()
+  }
+
+  // A step ran: keeps its result (by its number) and moves the plan to where that step leads.
+  private moveOn(plan: Plan, move: PlanMove, value: unknown): void {
     const step = planSteps(plan.steps)[move.number - 1]!.step
     while (plan.results.length < move.number) plan.results.push(null)
     plan.results[move.number - 1] = value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
@@ -243,12 +277,12 @@ export class PlanStore {
     const followed = resolve(step, plan.results).tabId
     if (step.action === 'session.follow' && (value as { following?: boolean } | undefined)?.following && typeof followed === 'string') plan.following = followed
     else this.settle(plan)
-    this.commit()
   }
 
-  // A begun step failed: the plan stays where it was, and the caller may try again.
-  release(planId: string): void {
-    this.busy.delete(planId)
+  // Adds a command to the plan's log (the last PLAN_LIMITS.log kept) and tells the app.
+  private note(plan: Plan, entry: PlanLogEntry): void {
+    plan.log = [...(plan.log ?? []), entry].slice(-PLAN_LIMITS.log)
+    this.commit()
   }
 
   // A chat's turn ended: the plans following it move on.
