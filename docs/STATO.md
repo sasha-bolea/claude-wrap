@@ -26,8 +26,8 @@ a phone, three columns from 1024 px. Details per session: [storico-sessioni.md](
   desktop e2e 39/39 (Electron under `xvfb-run`). Real CLI: `smoke:rewind` and `smoke:inspect` pass (2026-10-07); the
   athome command and a plan verified by hand on the live server.
 - **Waiting for Sasha:** revoke the temporary device **"pulizia-test"** (Settings → Devices; used for the test
-  clean-up, a device cannot revoke itself); ask the `linux stup` session to add `~/.local/bin/athome`, the terminal
-  socket and the new state files to `inventario.md`; the **default palette**; the iPhone "install the app" link try.
+  clean-up, a device cannot revoke itself); add `~/.local/bin/athome`, the terminal
+  socket and the new state files to `~/claude-config/server/inventario.md`; the **default palette**; the iPhone "install the app" link try.
 - **Waiting for the PC session:** the packaged desktop on Windows with the terminal (procedure.md "Packaged build",
   step 5) and `npm test` there; `git pull` in its `claude-config` (lean reviewers).
 - **Next:** Petra's port when she exists (the socket + key serve a program on the server; a container needs the socket
@@ -47,7 +47,7 @@ a phone, three columns from 1024 px. Details per session: [storico-sessioni.md](
 - **Not verified for real:** the iOS start address (palette + pairing code) of the installed app; messages between
   sessions end-to-end after the 192c5c2 deploy; on a real iPhone the scroll-lock and selection fixes, the status bar
   style at launch, the draggable scroll indicator (the launch image needs the app re-added to the Home Screen).
-- Auto-update trust model (raised by linux stup, accepted by Sasha): a push to `main` runs on the server without a
+- Auto-update trust model (accepted by Sasha): a push to `main` runs on the server without a
   manual step, and the server holds a GitHub key that can push to the account. Restrict or remove that key.
 - A change of the build command makes the first automatic update fail: fix by hand ([deploy.md](deploy.md)).
 - `queued_command` duplicates after a core restart for a message read mid-turn (rare, not verified). An unused session

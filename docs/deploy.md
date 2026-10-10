@@ -1,8 +1,8 @@
 # Deploy — AtHome server on the home server
 
 _The remote backend (core + WebSocket + PWA) as a systemd **user** service on the Debian 13 home server, reached only
-through Tailscale Serve. Host changes (packages, linger, Tailscale Serve) are made by the `linux stup` session on
-Sasha's request; the install script itself needs no sudo. Files: [deploy/](../deploy/)._
+through Tailscale Serve. Host changes (packages, linger, Tailscale Serve) follow `~/claude-config/server/` and need
+Sasha for anything root; the install script itself needs no sudo. Files: [deploy/](../deploy/)._
 
 ## Layout on the server
 | Path | What |
@@ -19,7 +19,7 @@ Sasha's request; the install script itself needs no sudo. Files: [deploy/](../de
 | `~/.local/state/claude-wrap/` | state: `state.json`, `devices.json`, `vapid.json`, `pairing/` (all owner-only), `activity.json` (sessions at work, read by the update), `callers.json` (hashed keys of the terminal's callers), `plans.json` (open plans), `actions.jsonl` (the action API's log), `terminal/athome.sock` (the `athome` command's socket, folder 0700) |
 | `/srv/progetti` | the only folder sessions may run in (and the phone may browse) |
 
-Port 3012 on 127.0.0.1 (registered in `personale/linux stup/docs/architettura.md` and `~/.claude/porte.md`);
+Port 3012 on 127.0.0.1 (registered in `~/claude-config/server/inventario.md` and `~/.claude/porte.md`);
 Tailscale Serve publishes it as `https://<host>.<tailnet>.ts.net:8443`.
 
 ## First install (once)

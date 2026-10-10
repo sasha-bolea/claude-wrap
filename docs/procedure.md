@@ -160,7 +160,7 @@ backends only by editing the palette in the app.
    `journalctl --user -u claude-wrap-update -n 30`; a `.failed` file in `releases/<commit>/` means its tests failed.
 4. On the iPhone: "Nuova versione disponibile · Aggiorna", or close and reopen the app.
 
-**Warnings:** from the PC only read; host changes go through linux stup.
+**Warnings:** from the PC only read; host changes follow `~/claude-config/server/` (root commands run by Sasha).
 
 ## Translations check (params)
 **When:** many new `t()` keys at once.

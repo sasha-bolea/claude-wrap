@@ -62,7 +62,7 @@ deploy/             install.sh (--when-idle), rollback.sh, systemd units (servic
 - `npm run dist -w @athome/desktop` — packaged app in `apps/desktop/dist/win-unpacked/`.
 - Fake SDK by hand: `$env:CLAUDE_WRAP_FAKE_SDK='1'; $env:CLAUDE_WRAP_STATE_DIR="$env:TEMP\cw-try"; npm run start:desktop`.
 - Multi-step procedures (SDK update/probe, Electron binary, desktop and PWA e2e, Linux tests via WSL, packaged build, real-CLI smokes, following an automatic deploy): [docs/procedure.md](docs/procedure.md).
-- Ports: renderer dev server **5199**, server dev **3012** (registered in `~/.claude/porte.md`; on the home server 3012 is registered in `personale/linux stup/docs/architettura.md`).
+- Ports: renderer dev server **5199**, server dev **3012** (registered in `~/.claude/porte.md`; on the home server 3012 is registered in `~/claude-config/server/inventario.md`).
 
 ## 6. Conventions
 - **The core owns all shared state**; clients keep only view state. `ui` and `client` never import `core`; `core` never imports Electron or `ws`.
@@ -79,7 +79,8 @@ deploy/             install.sh (--when-idle), rollback.sh, systemd units (servic
 - SDK runtime methods outside its types (raw control requests: send now, `cancelAsyncMessage`, `rename_session`; `command_lifecycle` frames) stay behind casts in core and are covered by `smoke:composer`; fields of stored messages outside the types (`origin`, `is_meta` from `getSessionMessages`) are covered by `sdkContract.test.ts` (real SDK, sample file, zero tokens).
 - AtHome shows only native Claude Code features (Sasha, 2026-10-06): no app-specific agent or team features.
 - UI: follow [docs/design-system.md](docs/design-system.md) before building or changing any interface.
-- Host changes on the home server are done by the `linux stup` session on Sasha's request, never from here.
+- Host changes on the home server follow the server knowledge base `~/claude-config/server/` (protocol, inventory) and
+  update it in the same change; anything that needs root: prepare the exact command and ask Sasha to run it.
 - A second Claude session (server dev clone `/srv/progetti/claude-wrap`) also pushes to `main`: `git pull --ff-only` before working and before committing, push promptly.
   More than one session can work in that same clone at once: commit only the files you touched (`git add <paths>`,
   never `-A`), and check `git status` first.
