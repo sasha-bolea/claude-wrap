@@ -163,6 +163,12 @@ describe('PWA (fake SDK)', () => {
     const panel = page.getByRole('region', { name: 'Question from Claude' })
     const field = panel.getByRole('textbox', { name: 'Your answer' })
     await field.waitFor()
+    // The question stays inside its card, and the chat never scrolls sideways (Safari sized the old legend past it).
+    expect(await panel.getByRole('group', { name: /Which color\?/ }).count()).toBe(1)
+    const card = (await panel.boundingBox())!
+    const text = (await panel.locator('.question-text').boundingBox())!
+    expect(text.x + text.width).toBeLessThanOrEqual(card.x + card.width)
+    expect(await page.locator('.conversation').evaluate((box) => getComputedStyle(box).overflowX)).toBe('hidden')
     const other = panel.getByRole('radio', { name: 'Other…' })
     expect(await other.isChecked()).toBe(false)
     await field.fill('Teal')

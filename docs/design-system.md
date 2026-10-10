@@ -197,9 +197,10 @@ Web Animations; none with reduced motion); "Raggruppa i N comandi" (`.tool-colla
 A single call stays a plain `.tool` card.
 Examples: [Conversation.tsx:143](../packages/ui/src/touch/Conversation.tsx#L143), [Conversation.tsx:180](../packages/ui/src/touch/Conversation.tsx#L180).
 
-### Request card — `.request` (`.preview`, `.grant-row`, `.reveal`, `.option.other-option`, `.other-field`)
+### Request card — `.request` (`.preview`, `.grant-row`, `.reveal`, `.question-text`, `.option.other-option`, `.other-field`)
 Claude's permission, question or plan inside the conversation (rule 3); `.reveal` holds the field and the button
-that appear after choosing "No…" or "Keep planning…". A question's last option, `.other-option`, holds "Other…" and
+that appear after choosing "No…" or "Keep planning…". A question's text is a `.question-text` paragraph naming its
+`fieldset` (never a `<legend>`: Safari sizes one past the card and the chat scrolls sideways). A question's last option, `.other-option`, holds "Other…" and
 under it its `.other-field` textarea at once: writing picks the option, emptying it lets it go, and it grows with the
 text up to 140 px like the composer's field (`QuestionFields` in [Conversation.tsx](../packages/ui/src/touch/Conversation.tsx)).
 A form with several questions shows one at a time, like the CLI: a row of `.question-step` pills (`.question-steps`,

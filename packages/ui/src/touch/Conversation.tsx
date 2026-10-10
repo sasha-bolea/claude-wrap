@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { TabView } from '@athome/client'
 import type { Image, ImageRef, Item, Request, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
@@ -627,6 +627,7 @@ function QuestionSteps({ questions, step, answered, onStep }: { questions: Quest
 // group's label (the step, when the form has several), the chosen labels, the "Other" text and the callbacks.
 function QuestionFields({ question, label, chosen, other, onChoose, onOther }: { question: Question; label?: string; chosen: string[]; other: string; onChoose: (label: string) => void; onOther: (text: string) => void }) {
   const field = useRef<HTMLTextAreaElement>(null)
+  const textId = useId()
   const type = question.multiSelect ? 'checkbox' : 'radio'
   useLayoutEffect(() => {
     const element = field.current
@@ -639,10 +640,11 @@ function QuestionFields({ question, label, chosen, other, onChoose, onOther }: {
     if (!chosen.includes(OTHER)) field.current?.focus()
   }
   return (
-    <fieldset className="question" aria-label={label}>
-      <legend>
+    <fieldset className="question" aria-label={label} aria-labelledby={label ? undefined : textId}>
+      {/* Not a <legend>: Safari sizes a legend to its whole line, past the card, and the chat then scrolls sideways */}
+      <p className="question-text" id={textId}>
         <span className="chip">{question.header}</span> {question.question}
-      </legend>
+      </p>
       {question.options.map((option) => (
         <label key={option.label} className="option">
           <input type={type} name={question.question} checked={chosen.includes(option.label)} onChange={() => onChoose(option.label)} />
