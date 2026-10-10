@@ -138,7 +138,20 @@ export class Transcript implements TranscriptWriter {
   remove(itemId: string): void {
     if (!this.index.has(itemId)) return
     this.flush()
-    const kept = this.items.filter((item) => item.itemId !== itemId)
+    this.rebuildKeeping(this.items.filter((existing) => existing.itemId !== itemId))
+  }
+
+  // Replaces an item and moves it to the end (a message the CLI reads only now): a plain update when it is the last
+  // already, otherwise a new epoch, as the protocol has no move event.
+  moveToEnd(item: Item): void {
+    const position = this.index.get(item.itemId)
+    if (position === undefined || position === this.items.length - 1) return this.update(item)
+    this.flush()
+    this.rebuildKeeping([...this.items.filter((existing) => existing.itemId !== item.itemId), item])
+  }
+
+  // Rebuilds the transcript from these items (new epoch), keeping their images.
+  private rebuildKeeping(kept: Item[]): void {
     const blobs = new Map(this.blobs)
     this.rebuildFrom(() => {
       for (const item of kept) {

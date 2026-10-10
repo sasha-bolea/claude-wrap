@@ -1285,8 +1285,9 @@ export class Tab {
     const item = this.transcript.get(uuid)
     if (!item) this.lookUpIncoming(uuid)
     if (item?.kind === 'user' && item.pending) {
+      // It takes its place in the chat now, after what Claude wrote while it waited.
       const { pending: _read, ...read } = item
-      this.transcript.update(read)
+      this.transcript.moveToEnd(read)
     }
     if (this.turnRunning) return
     this.turnRunning = true

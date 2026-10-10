@@ -385,6 +385,20 @@ describe('messages sent while Claude works', () => {
     expect(meta(client)?.status).toBe('idle')
   })
 
+  it('take their place in the chat when the CLI reads them, after what Claude wrote meanwhile', async () => {
+    const session = await startedTab()
+    await client.ok('tab.subscribe', { tabId: 't1' })
+    session.emit(sdk.lifecycle(cmd(1), 'queued'), sdk.lifecycle(cmd(1), 'started'))
+    await client.ok('tab.send', { tabId: 't1', text: 'also this' }, cmd(2))
+    session.emit(sdk.lifecycle(cmd(2), 'queued'), sdk.assistant('msg-before', [{ type: 'text', text: 'Still working' }]))
+    await tick()
+    session.emit(sdk.lifecycle(cmd(2), 'started'), sdk.assistant('msg-after', [{ type: 'text', text: 'Got it' }]))
+    await tick()
+    const order = items(client).map((item) => (item.kind === 'user' ? item.itemId : 'text' in item ? item.text : item.kind))
+    expect(order).toEqual([cmd(1), 'Still working', cmd(2), 'Got it'])
+    expect(items(client).find((item) => item.itemId === cmd(2))).not.toHaveProperty('pending')
+  })
+
   it('one the CLI has not read when the turn ends keeps the tab working until its own turn ends', async () => {
     const notices: Notice[] = []
     core = makeCore({ notifier: (notice) => notices.push(notice) })

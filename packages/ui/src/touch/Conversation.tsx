@@ -225,11 +225,13 @@ function ToolStack({ items }: { items: ToolCall[] }) {
 }
 
 // The transcript's items with tool calls in a row gathered: one item, or a run of two or more tool calls. Claude's
-// questions are not a command: they stay out of the runs.
+// questions are not a command: they stay out of the runs. Messages waiting to be read stay below everything else: they
+// take their place in the chat only when Claude reads them.
 type Entry = { item: Item } | { tools: ToolCall[] }
 function entries(items: Item[]): Entry[] {
+  const waiting = (item: Item) => item.kind === 'user' && item.pending === true
   const out: Entry[] = []
-  for (const item of items) {
+  for (const item of [...items.filter((item) => !waiting(item)), ...items.filter(waiting)]) {
     const previous = out[out.length - 1]
     if (item.kind !== 'toolCall' || item.name === QUESTION_TOOL) out.push({ item })
     else if (previous && 'tools' in previous) previous.tools.push(item)
