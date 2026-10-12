@@ -8,7 +8,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import type { Browser, BrowserContext, CDPSession } from 'playwright-core'
+import type { Browser, BrowserContext, CDPSession, Page } from 'playwright-core'
 import { createPairingCode } from '@athome/server'
 import { button, composer, home, lastAnswer, launchChrome, openProject, pairedPage, phone, send, startBackend, type Backend } from './harness.ts'
 
@@ -376,6 +376,34 @@ describe('PWA (fake SDK)', () => {
     expect(await ghost.textContent()).toContain('slow')
     await conversation.evaluate((box) => (box.scrollTop = box.scrollHeight))
     await ghost.waitFor({ state: 'detached' })
+  })
+
+  // Opens a session, lets a long answer stream in and scrolls up until the ghost shows; then its bubble's right edge
+  // and my last message's are the same (within a pixel).
+  async function ghostLinesUp(page: Page): Promise<void> {
+    await openProject(page)
+    await send(page, 'slow')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('word399')
+    await page.locator('.conversation').evaluate((box) => (box.scrollTop = box.scrollHeight - box.clientHeight - 150))
+    const bubble = page.locator('.ghost-bubble')
+    await bubble.waitFor()
+    await page.waitForTimeout(400)
+    const right = async (element: typeof bubble) => {
+      const box = (await element.boundingBox())!
+      return box.x + box.width
+    }
+    expect(Math.abs((await right(bubble)) - (await right(page.locator('.msg-user').last())))).toBeLessThanOrEqual(1)
+  }
+
+  it('the ghost lines up with my messages on a phone', async () => {
+    await ghostLinesUp(await pairedPage(await newPhone(), backend))
+  })
+
+  it('the ghost lines up with my messages on a wide window with a mouse (centred column, scrollbar)', async () => {
+    // Low enough for the answer to push my message off the top of the 780 px column.
+    const wide = await browser.newContext({ viewport: { width: 1280, height: 480 }, locale: 'en-US' })
+    contexts.push(wide)
+    await ghostLinesUp(await pairedPage(wide, backend, 'laptop'))
   })
 
   it('the working line ends the text and scrolls with it; once scrolled out of view a mini label (dot and time) shows on the left of the jump button, and goes when the line is back or the turn ends', async () => {

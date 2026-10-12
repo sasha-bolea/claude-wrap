@@ -229,7 +229,9 @@ Examples: [ChatScreen.tsx:291](../packages/ui/src/touch/ChatScreen.tsx#L291).
 ### Ghost and jump — `.ghost` (`.ghost-bubble`, `.ghost-thumb`, `.ghost-more`, `.leaving`), `.jump` (`.ask`, `.dot`)
 The ghost: your message whose answer you are reading, once it scrolled off the top and you scroll up from the bottom
 (tap = back to it, drag up = put away; hidden at the bottom of the chat, with the keyboard open, and as soon as your next message touches it, so the two never overlap); it slides in from under the top bar and always leaves the same way (also after a drag, from where the finger left it). A message with images shows the first one as a 32 px rounded
-`.ghost-thumb` (the `image` icon until it loads) and `.ghost-more` "+N" for the others before its text — no emoji. The jump button "Torna giù" when not at the bottom (a dot when something new
+`.ghost-thumb` (the `image` icon until it loads) and `.ghost-more` "+N" for the others before its text — no emoji. Its
+right edge lines up with your messages (`alignGhost`: the conversation's padding — the centred column on a wide
+window — plus a mouse's scrollbar, as `--ghost-left` / `--ghost-right`). The jump button "Torna giù" when not at the bottom (a dot when something new
 arrived; "Claude ti aspetta" with a request open).
 Examples: [ChatScreen.tsx:294](../packages/ui/src/touch/ChatScreen.tsx#L294), [ChatScreen.tsx:307](../packages/ui/src/touch/ChatScreen.tsx#L307).
 

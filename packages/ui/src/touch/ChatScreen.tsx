@@ -30,6 +30,16 @@ const GHOST_BOTTOM = 56
 // Panels of a session that come later (🔜), in the session menu.
 const SESSION_PANELS: LaterKey[] = ['tasks', 'todo', 'diff']
 
+// Lines the ghost up with your messages: its edges sit where the conversation's content ends (its padding, which
+// centres a readable column on a wide window, plus the scrollbar of a mouse), set as --ghost-left / --ghost-right on
+// the chat body. box: the conversation. Returns nothing.
+function alignGhost(box: HTMLElement): void {
+  const style = getComputedStyle(box)
+  const body = box.parentElement!.style
+  body.setProperty('--ghost-left', `${parseFloat(style.paddingLeft) + 34}px`)
+  body.setProperty('--ghost-right', `${parseFloat(style.paddingRight) + box.offsetWidth - box.clientWidth}px`)
+}
+
 // The ghost of your message whose answer you are reading, once it has scrolled off the top and you scroll up from the
 // bottom: a tap goes back to it, a drag up puts it away until that message is on screen again. Gone at the bottom of
 // the chat and while the keyboard is open. It leaves as soon as your next message touches it, so the two never overlap
@@ -49,6 +59,7 @@ function useGhost(conversation: React.RefObject<HTMLDivElement | null>, element:
     const index = bubbles.findLastIndex((bubble) => bubble.getBoundingClientRect().bottom < top)
     const found = bubbles[index]
     const ghostElement = element.current
+    alignGhost(box)
     if (ghostElement) ghostBottom.current = ghostElement.offsetTop + ghostElement.offsetHeight
     const next = bubbles[index + 1]
     const touching = next !== undefined && next.getBoundingClientRect().top < box.getBoundingClientRect().top + ghostBottom.current
