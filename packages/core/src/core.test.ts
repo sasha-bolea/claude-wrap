@@ -1581,6 +1581,29 @@ describe('notes', () => {
     expect(await client.fails('notes.delete', { cwd: CWD, noteId: 'missing' })).toMatchObject({ code: 'not_found' })
     expect(await client.fails('notes.list', { cwd: join(CWD, 'missing') })).toMatchObject({ code: 'not_found' })
   })
+
+  it('keeps the order chosen: a new note on top, an edit stays in place, reordered for every client and restart', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'cw-notes-'))
+    // A file from before the order was kept: newest change first, as it was listed.
+    const old = (text: string, at: number) => ({ noteId: text, text, createdAt: at, updatedAt: at })
+    writeFileSync(join(stateDir, 'notes.json'), JSON.stringify({ [CWD]: [old('a', 1), old('b', 3), old('c', 2)] }))
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    const other = await connect(core, 'client-b')
+    const texts = async () => (await client.ok('notes.list', { cwd: CWD })).notes.map((note) => note.text)
+    expect(await texts()).toEqual(['b', 'c', 'a'])
+    await client.ok('notes.save', { cwd: CWD, text: 'd' })
+    await client.ok('notes.save', { cwd: CWD, noteId: 'a', text: 'a, edited' })
+    expect(await texts()).toEqual(['d', 'b', 'c', 'a, edited'])
+    const ids = (await client.ok('notes.list', { cwd: CWD })).notes.map((note) => note.noteId)
+    await client.ok('notes.reorder', { cwd: CWD, noteIds: [ids[3]!, ids[0]!, 'missing'] })
+    expect(await texts()).toEqual(['a, edited', 'd', 'b', 'c'])
+    await other.waitFor(() => other.events(WORKSPACE_STREAM).filter((ev) => ev.type === 'notes.changed').length === 3)
+    await core.closeAll()
+    core = makeCore({ stateDir })
+    client = await connect(core)
+    expect(await texts()).toEqual(['a, edited', 'd', 'b', 'c'])
+  })
 })
 
 // The Claude accounts of the backend (last accounts.updated seen by a client, or the snapshot's).

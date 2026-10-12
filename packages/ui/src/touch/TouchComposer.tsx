@@ -8,11 +8,12 @@ import { dataUrl, readBase64, readImages } from '../images.ts'
 import { modeLabel, nextMode } from '../modes.ts'
 import { noteUsed } from '../notes.ts'
 import type { Option } from '../Suggestions.tsx'
-import { readLinkedNote, writeLinkedNote, type LinkedNote } from '../viewState.ts'
+import { readLinkedNote, readNotesOpen, writeLinkedNote, writeNotesOpen, type LinkedNote } from '../viewState.ts'
 import { useTouch } from './context.tsx'
 import { GaugeButton } from './gauge.tsx'
 import { Icon, modeIcon } from './icons.tsx'
 import { sizeLabel } from './model.ts'
+import { NotesTray } from './NotesTray.tsx'
 import { ModelSheet, ModeSheet, modelLabel, useModels } from './modelSheets.tsx'
 import { IconButton, noteTitle } from './parts.tsx'
 import { useUndoReset } from './keyboard.ts'
@@ -69,7 +70,7 @@ function QueuedCountdown({ text, images, until, onStop }: { text: string; images
 
 // The composer of the touch layout: one box floating over the chat — the text on top; under it + (photos and
 // files), permissions and the context gauge on the left; on the right Stop and Coda while Claude responds (Coda puts
-// what is written straight into the queue), then Send (the model and effort sheet is the brain button after the mode button). `/` suggests
+// what is written straight into the queue), then Send (the model and effort sheet is the brain button after the mode button; the Notes toggle after it shows the folder's notes as cards under the composer). `/` suggests
 // commands, `@` files; `!` runs a shell command; long pastes collapse. Files that are not photos go to allegati/ and
 // are mentioned.
 // A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.
@@ -77,6 +78,12 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }:
   const { connection, backendId, openSheet, toast, snack, fail, inserts, clearInsert, go } = useTouch()
   const tabId = meta.tabId
   const models = useModels(tabId)
+  // The notes as cards under the composer: on or off on this device, for every chat.
+  const [notesOpen, setNotesOpen] = useState(readNotesOpen)
+  const toggleNotes = () => {
+    writeNotesOpen(!notesOpen)
+    setNotesOpen(!notesOpen)
+  }
   const input = useRef<HTMLTextAreaElement>(null)
   const picker = useRef<HTMLInputElement>(null)
   const undoReset = useUndoReset()
@@ -361,6 +368,9 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }:
           <button className="icon-btn model-tool" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
             <Icon name="brain" />
           </button>
+          <button className={`icon-btn notes-toggle${notesOpen ? ' on' : ''}`} aria-label={t('notes')} aria-pressed={notesOpen} onClick={toggleNotes}>
+            <Icon name="note" />
+          </button>
           <GaugeButton meta={meta} />
           {(running || requestOpen) && (
             <button className="send stop" aria-label={t('stopClaude')} onClick={stop} {...keepFocus}>
@@ -385,6 +395,7 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }:
         </div>
       </div>
       <QueueTray meta={meta} />
+      {notesOpen && <NotesTray tabId={tabId} cwd={meta.cwd} />}
       <input ref={picker} type="file" multiple hidden onChange={(event) => void attach([...(event.target.files ?? [])]).then(() => (event.target.value = ''))} />
     </footer>
   )

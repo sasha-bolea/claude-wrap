@@ -53,9 +53,10 @@ describe('Undo reset (fake SDK)', () => {
     const context = await phone(browser)
     contexts.push(context)
     const page = await pairedPage(context, backend)
-    await openProject(page)
-    await button(page, 'More actions').click()
-    await button(page, /^Folder notes/).click()
+    // The notes of a folder from the Home (a chat shows them as cards under its composer).
+    await page.getByRole('button', { name: 'project', exact: true }).click()
+    await button(page, 'Past sessions of project').click()
+    await button(page, 'Folder notes').click()
     await button(page, 'New note').click()
     const editor = page.locator('.note-editor')
     await editor.fill('a note to keep')

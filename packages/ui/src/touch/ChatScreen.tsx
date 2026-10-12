@@ -10,7 +10,7 @@ import { Conversation, WorkingMini } from './Conversation.tsx'
 import { Icon } from './icons.tsx'
 import { sessionState } from './model.ts'
 import { ModelSheet, currentEffort, modelLabel, useModels } from './modelSheets.tsx'
-import { Badge, ConnectionBanner, IconButton, UpdateBar, useQuery } from './parts.tsx'
+import { Badge, ConnectionBanner, IconButton, UpdateBar } from './parts.tsx'
 import { CloseButton, RenameSheet, useTrustPrompt } from './sessions.tsx'
 import { useOpenTerminal } from './TerminalScreen.tsx'
 import { TouchComposer } from './TouchComposer.tsx'
@@ -387,12 +387,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
           <Badge state={sessionState(meta)} />
           <h1 className="chat-title">{meta.title}</h1>
         </div>
-        {touch.wide && (
-          <>
-            <IconButton icon="files" className={touch.panel?.name === 'files' ? 'on' : undefined} label={t('folderFiles')} expanded={touch.panel?.name === 'files'} onClick={() => touch.togglePanel({ name: 'files', tabId })} />
-            <IconButton icon="note" className={touch.panel?.name === 'notes' ? 'on' : undefined} label={t('folderNotes')} expanded={touch.panel?.name === 'notes'} onClick={() => touch.togglePanel({ name: 'notes', tabId })} />
-          </>
-        )}
+        {touch.wide && <IconButton icon="files" className={touch.panel?.name === 'files' ? 'on' : undefined} label={t('folderFiles')} expanded={touch.panel?.name === 'files'} onClick={() => touch.togglePanel({ name: 'files', tabId })} />}
         <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'rewind', tabId }))} />
         <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />
       </header>
@@ -434,14 +429,13 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   )
 }
 
-// The session menu (⋯): where it runs and with what; File, Note, Torna indietro, model and effort,
+// The session menu (⋯): where it runs and with what; File, Torna indietro, model and effort,
 // account, rename, fork, restart, the panels to come, close.
 function SessionMenu({ tabId }: { tabId: string }) {
   const { state, connection, go, openSheet, closeSheets, toast, fail } = useTouch()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
   const models = useModels(tabId)
   const openTerminal = useOpenTerminal()
-  const notes = useQuery(() => (meta ? connection.request('notes.list', { cwd: meta.cwd }) : Promise.resolve(undefined)), [connection, meta?.cwd, state.notesVersion[meta?.cwd ?? '']])
   if (!meta) return null
   const busy = meta.status === 'running' || meta.status === 'starting' || meta.status === 'requires_action'
   const effort = currentEffort(meta, models)
@@ -465,12 +459,6 @@ function SessionMenu({ tabId }: { tabId: string }) {
       <ul className="menu">
         <li>
           <button onClick={() => go({ name: 'files', tabId })}>{t('folderFiles')}</button>
-        </li>
-        <li>
-          <button onClick={() => go({ name: 'notes', tabId })}>
-            {t('folderNotes')}
-            {notes.data && <span className="right">{notes.data.notes.length}</span>}
-          </button>
         </li>
         <li>
           <button onClick={() => openTerminal({ tabId })}>{t('terminal')}</button>

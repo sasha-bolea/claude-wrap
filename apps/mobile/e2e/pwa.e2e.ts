@@ -739,13 +739,11 @@ describe('PWA (fake SDK)', () => {
   it('a note used in the message is linked to the draft and deleted at send', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
-    await button(page, 'More actions').click()
-    await button(page, /^Folder notes/).click()
-    await button(page, 'New note').click()
+    await page.locator('.composer').getByRole('button', { name: 'Notes', exact: true }).click()
+    const tray = page.getByRole('region', { name: 'Notes' })
     const text = 'Remember the milk, then the long list of everything else that keeps going on and on past the screen'
-    await page.keyboard.type(text)
-    await page.getByText(/^Saved · /).waitFor()
-    await button(page, 'Notes').click()
+    await tray.getByRole('textbox', { name: 'New note' }).fill(text)
+    await tray.getByRole('textbox', { name: 'New note' }).blur()
     await button(page, 'Use in the message').click()
     await expect.poll(() => composer(page).inputValue()).toBe(text)
     // The bar stays as wide as the screen and Send stays on it.
@@ -756,8 +754,68 @@ describe('PWA (fake SDK)', () => {
     expect(sendBox.x + sendBox.width).toBeLessThanOrEqual(viewport)
     await send.click()
     await page.getByRole('status').filter({ hasText: 'used and deleted' }).waitFor()
-    await button(page, 'More actions').click()
-    await page.getByRole('button', { name: 'Folder notes 0' }).waitFor()
+    await expect.poll(() => tray.locator('.tray-note:not(.new)').count()).toBe(0)
+  })
+
+  it('notes as cards under the composer (wide): toggle, new, edit, delete, to the message, drag to reorder', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'en-US' })
+    contexts.push(context)
+    const page = await pairedPage(context, backend, 'laptop')
+    await openProject(page)
+    // Only the composer's toggle: no notes button in the chat's bar, no notes item in its menu.
+    expect(await page.locator('.col-center .chat-bar').getByRole('button', { name: /^Folder notes/ }).count()).toBe(0)
+    const toggle = page.locator('.composer').getByRole('button', { name: 'Notes', exact: true })
+    expect(await toggle.getAttribute('aria-pressed')).toBe('false')
+    const before = (await page.locator('.input-box').boundingBox())!
+    await toggle.click()
+    expect(await toggle.getAttribute('aria-pressed')).toBe('true')
+    const tray = page.getByRole('region', { name: 'Notes' })
+    await tray.waitFor()
+    // The cards sit under the input bar, which moved up to make room.
+    const after = (await page.locator('.input-box').boundingBox())!
+    expect(after.y).toBeLessThan(before.y)
+    expect((await tray.boundingBox())!.y).toBeGreaterThanOrEqual(after.y + after.height)
+    // The first card is always the new note: written and left, it becomes a card on top and the field empties.
+    const fresh = tray.getByRole('textbox', { name: 'New note' })
+    const cards = tray.locator('.tray-note:not(.new)')
+    for (const text of ['first note', 'second note']) {
+      await fresh.fill(text)
+      await fresh.blur()
+      await expect.poll(() => cards.first().textContent()).toContain(text)
+      expect(await fresh.inputValue()).toBe('')
+    }
+    // A click on a card edits it in place; leaving saves it.
+    await cards.filter({ hasText: 'first note' }).locator('.tray-note-text').click()
+    const editing = tray.getByRole('textbox', { name: 'Text of the note' })
+    await editing.press('End')
+    await editing.pressSequentially(' edited')
+    await editing.blur()
+    await expect.poll(() => cards.nth(1).textContent()).toContain('first note edited')
+    // Drag the second card above the first: the order stays after a reload.
+    const handle = cards.nth(1).locator('.tray-note-text')
+    const from = (await handle.boundingBox())!
+    const to = (await cards.first().boundingBox())!
+    await page.mouse.move(from.x + 20, from.y + from.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 20, to.y + 4, { steps: 8 })
+    await page.mouse.up()
+    await expect.poll(() => cards.first().textContent()).toContain('first note edited')
+    await page.reload()
+    await page.locator('.col-left').getByRole('button', { name: /^Show sessions/ }).click()
+    await page.getByRole('button', { name: /^project/ }).filter({ hasText: 'idle' }).first().click()
+    await page.locator('.composer').getByRole('button', { name: 'Notes', exact: true, pressed: true }).waitFor()
+    await expect.poll(() => cards.first().textContent()).toContain('first note edited')
+    expect(await cards.nth(1).textContent()).toContain('second note')
+    // Bottom right: into the composer; top right: delete, with undo.
+    await cards.first().getByRole('button', { name: 'Use in the message' }).click()
+    await expect.poll(() => composer(page).inputValue()).toBe('first note edited')
+    await cards.filter({ hasText: 'second note' }).getByRole('button', { name: 'Delete the note' }).click()
+    await expect.poll(() => cards.count()).toBe(1)
+    await page.getByRole('button', { name: 'Restore' }).click()
+    await expect.poll(() => cards.count()).toBe(2)
+    // Off again: the cards go.
+    await page.locator('.composer').getByRole('button', { name: 'Notes', exact: true }).click()
+    await tray.waitFor({ state: 'detached' })
   })
 
   it('folders: a new project at the root, its sessions screen, delete with undo', async () => {
@@ -987,9 +1045,8 @@ describe('PWA (fake SDK)', () => {
     await page.locator('.col-left').getByRole('button', { name: 'Show projects' }).click()
     expect(await page.locator('.col-center').getByRole('button', { name: 'Back', exact: true }).count()).toBe(0)
     await button(page, 'Folder files').click()
-    await page.locator('.col-right').getByRole('button', { name: 'Notes' }).click()
-    await page.locator('.col-right').getByRole('button', { name: 'New note' }).waitFor()
-    await button(page, 'Folder notes').click()
+    await page.locator('.col-right').getByRole('button', { name: 'Terminal', exact: true }).waitFor()
+    await button(page, 'Folder files').click()
     await page.locator('.col-right').waitFor({ state: 'detached' })
     // Menus are popovers by their button: below one at the top, above the composer's (the model's too).
     await button(page, 'More actions').click()

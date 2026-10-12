@@ -538,7 +538,7 @@ function NoChat() {
   )
 }
 
-// Wide: the right panel's head — File, Note and Terminal of the chat's folder as tabs (the panel shown highlighted),
+// Wide: the right panel's head — File and Terminal of the chat's folder as tabs (the panel shown highlighted),
 // × closes. Terminal opens the session's live terminal, or a new one in its folder.
 function PanelTabs({ root, chatTabId, onToggle, onClose }: { root: Screen; chatTabId?: string; onToggle: (screen: Screen) => void; onClose: () => void }) {
   const openTerminal = useOpenTerminal()
@@ -548,9 +548,6 @@ function PanelTabs({ root, chatTabId, onToggle, onClose }: { root: Screen; chatT
         <>
           <button className="panel-tab" aria-pressed={root.name === 'files'} onClick={() => root.name !== 'files' && onToggle({ name: 'files', tabId: chatTabId })}>
             {t('files')}
-          </button>
-          <button className="panel-tab" aria-pressed={root.name === 'notes'} onClick={() => root.name !== 'notes' && onToggle({ name: 'notes', tabId: chatTabId })}>
-            {t('notes')}
           </button>
           <button className="panel-tab" aria-pressed={root.name === 'terminal'} onClick={() => root.name !== 'terminal' && openTerminal({ tabId: chatTabId }, onToggle)}>
             {t('terminal')}

@@ -358,11 +358,13 @@ export const COMMANDS = {
   'trash.restore': { args: z.object({ id: z.string() }), result: z.object({ path: z.string() }) },
   'trash.delete': { args: z.object({ id: z.string() }), result: empty },
   'trash.empty': { args: z.object({ under: z.string().optional() }), result: empty },
-  // Notes of a folder, shared by every device; newest first.
+  // Notes of a folder, shared by every device, in the order chosen (a new note on top).
   'notes.list': { args: z.object({ cwd: z.string().min(1) }), result: z.object({ notes: z.array(noteSchema) }) },
   // noteId absent: a new note.
   'notes.save': { args: z.object({ cwd: z.string().min(1), noteId: z.string().optional(), text: z.string().trim().min(1) }), result: z.object({ note: noteSchema }) },
   'notes.delete': { args: z.object({ cwd: z.string().min(1), noteId: z.string() }), result: empty },
+  // A new order: the ids given first, in that order (unknown ones ignored), then the others as they were.
+  'notes.reorder': { args: z.object({ cwd: z.string().min(1), noteIds: z.array(z.string()) }), result: empty },
   // Colour palettes of the app, shared by every device. paletteId absent: a new palette.
   'palettes.save': { args: z.object({ paletteId: z.string().optional(), name: z.string().trim().min(1).max(40), colors: paletteColorsSchema }), result: z.object({ palette: paletteSchema }) },
   'palettes.delete': { args: z.object({ paletteId: z.string() }), result: empty },

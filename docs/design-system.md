@@ -95,8 +95,8 @@ Examples: [backends.tsx:28](../packages/ui/src/touch/backends.tsx#L28).
 From 1024 px of width (desktop, large tablets) the same screens are arranged side by side (NOTE-CONSEGNA §5): the
 Home in a 300 px column (Projects lists only folders, as on a phone; the open sessions are in its Sessions view, the
 one in the chat highlighted; its folder sessions and trash open in the column itself), the chat in the middle without a back arrow, its conversation
-padded to ~780 px of content and the composer as wide, **File** and **Note** in its top bar opening and closing a
-380 px panel on the right (tabs File | Note and ×; the 🔜 panels, Contesto and Consumo open there too), Settings in a
+padded to ~780 px of content and the composer as wide, **File** in its top bar opening and closing a
+380 px panel on the right (tabs File | Terminal and ×; the notes are cards under the composer; the 🔜 panels, Contesto and Consumo open there too), Settings in a
 window over the app (Back or a click outside closes it). A menu opened from a button is a **popover** by it
 (`.sheet.popover`, 320 px, below a button in the upper half of the window, above one in the lower half — the composer —
 re-placed when its content grows, over a clear scrim); typing sheets and sheets opened from a sheet (confirmations)
@@ -241,7 +241,7 @@ Examples: [ChatScreen.tsx:294](../packages/ui/src/touch/ChatScreen.tsx#L294), [C
 
 ### Composer and dock — `.dock`, `.composer`, `.input-box`, `.input-tools`, `.mode-btn`, `.model-tool`, `.queue-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.shell-hint`, `.suggest`
 One box floating over the chat over a light veil (2 px blur, a slightly dark gradient, fading to the page colour only in the last line above the bottom: the chat stays readable under it): the text on top; below it the
-+ (photos and files), the permission mode icon, the brain icon (`.model-tool`, model and effort sheet) and the context gauge on the left; on the right, while Claude works or waits, Stop and the `.send.queue-btn` (a filled 38 px circle like Send and Stop, in the text colour — dark on light, light on dark — so the three actions weigh the same and stay told apart by colour; puts what is written straight into the queue and empties the field — no queue mode; dimmed while nothing is written; count or pause badge: a small 14 px accent circle on its rim; 6 px apart on each side so a tap does not hit the wrong one), then Send, which always sends (the model and effort are in the brain sheet, the permission mode in the mode sheet). When Claude is done the queue button goes. A note brought in with "Usa nel messaggio" shows only as text in the field (no card above the box). Composer and box are one `minmax(0, 1fr)` column: a long
++ (photos and files), the permission mode icon, the brain icon (`.model-tool`, model and effort sheet), the Notes toggle (`.notes-toggle`, `aria-pressed`, accent tint when on; it pushes Send right while a new session has no gauge yet) and the context gauge on the left; on the right, while Claude works or waits, Stop and the `.send.queue-btn` (a filled 38 px circle like Send and Stop, in the text colour — dark on light, light on dark — so the three actions weigh the same and stay told apart by colour; puts what is written straight into the queue and empties the field — no queue mode; dimmed while nothing is written; count or pause badge: a small 14 px accent circle on its rim; 6 px apart on each side so a tap does not hit the wrong one), then Send, which always sends (the model and effort are in the brain sheet, the permission mode in the mode sheet). When Claude is done the queue button goes. A note brought in with "Usa nel messaggio" shows only as text in the field (no card above the box). Composer and box are one `minmax(0, 1fr)` column: a long
 file name is cut with "…", never pushing Send off the screen.
 Examples: [ChatScreen.tsx:314](../packages/ui/src/touch/ChatScreen.tsx#L314), [TouchComposer.tsx:315](../packages/ui/src/touch/TouchComposer.tsx#L315), [TouchComposer.tsx:308](../packages/ui/src/touch/TouchComposer.tsx#L308). Brain button: [TouchComposer.tsx:361](../packages/ui/src/touch/TouchComposer.tsx#L361); its sheet (models, then the `.segmented.effort`, only for a model with levels; applies at once, stays open): [modelSheets.tsx:45](../packages/ui/src/touch/modelSheets.tsx#L45); the mode sheet is modes only: [modelSheets.tsx:94](../packages/ui/src/touch/modelSheets.tsx#L94); icon: [icons.tsx:23](../packages/ui/src/touch/icons.tsx#L23).
 
@@ -272,6 +272,17 @@ Cards with the first line as title, two lines of preview, the date and "Usa nel 
 full-height textarea saved as you type (down to the bottom safe area); in its top bar "Usa nel messaggio" is the
 accent `to-chat` icon (a bubble with an arrow in, dimmed while the note is empty) beside the trash.
 Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [NotesScreen.tsx:152](../packages/ui/src/touch/NotesScreen.tsx#L152).
+These screens are for a folder without a chat (from its sessions screen); a chat shows its notes in the tray below.
+
+### Notes tray — `.notes-tray`, `.tray-list` (`li.dragging`), `.tray-note` (`.new`), `.tray-note-text`, `.tray-note-field`, `.tray-note-delete`, `.tray-note-send`
+The composer's Notes toggle shows the folder's notes as cards under the input bar (the bar moves up), one per row and
+as wide as it, at most ~45% of the height (then the list scrolls); on or off per device. The first card is fixed: a
+dashed empty field reading "Nuova nota" — left with text, it becomes a card on top and empties. A card shows up to six
+lines; a click edits it in place (saved as you type and on leaving, emptied it goes); the bin top right deletes it
+(with Restore), the accent `to-chat` icon bottom right puts it into the composer (linked as "Usa nel messaggio").
+Pressed and moved past 5 px a card is dragged (accent border, shadow) and takes the place of the card under the
+pointer; the order is the core's (`notes.reorder`), the same on every device.
+Examples: [NotesTray.tsx:25](../packages/ui/src/touch/NotesTray.tsx#L25), [NotesTray.tsx:178](../packages/ui/src/touch/NotesTray.tsx#L178), [TouchComposer.tsx:371](../packages/ui/src/touch/TouchComposer.tsx#L371).
 
 ### Terminal — `.terminal-screen`, `.terminal-host`, `.terminal-ended`, `.key-bar`, `.key` (`aria-pressed`)
 A shell of the backend (xterm.js, loaded on demand; colours from the tokens, its sheet imported by touch.css). Opened
