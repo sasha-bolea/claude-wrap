@@ -3,10 +3,10 @@ import type { FolderEntry, Home, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useBackHandler, useScreen, useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
-import { badgeClass, baseName, folderSummary, inside, type SessionState } from './model.ts'
+import { baseName, folderBadgeClass, folderSummary, inside, type SessionState } from './model.ts'
 import { ConnectionBanner, Crumbs, IconButton, Title, UpdateBar, useQuery } from './parts.tsx'
 import { BackendSwitch } from './backends.tsx'
-import { pastOnly, SessionLists, useStartSession } from './sessions.tsx'
+import { FolderMoveSheet, pastOnly, SessionLists, useStartSession } from './sessions.tsx'
 import { OpenTerminals, useOpenTerminal } from './TerminalScreen.tsx'
 
 const VIEW_KEY = 'claude-wrap:homeView'
@@ -55,7 +55,7 @@ function FolderRow({ entry, project, tabs, onEnter, onChanged }: { entry: Folder
         <span className="row-title">{entry.name}</span>
         {summary.open > 0 && (
           <span className="row-sub folder-status">
-            <span className={badgeClass(summary.state, summary.unseen)} aria-hidden="true" />
+            <span className={folderBadgeClass(summary)} aria-hidden="true" />
             {`${t(summary.open === 1 ? 'oneOpenSession' : 'openSessionsCount', { count: String(summary.open) })} · ${t(SUMMARY_WORDS[summary.state])}`}
           </span>
         )}
@@ -287,6 +287,14 @@ function FolderMenu({ entry, onEnter, onChanged }: { entry: FolderEntry; onEnter
           {t(project ? 'unmarkProject' : 'markProject')}
         </button>
       </li>
+      {!addedTop && (
+        <li>
+          <button onClick={() => openSheet({ title: t('moveFolderTitle', { name: entry.name }), body: <FolderMoveSheet folder={entry.path} onMoved={onChanged} /> })}>
+            <Icon name="move" />
+            {t('moveFolder')}
+          </button>
+        </li>
+      )}
       <li>
         {addedTop ? (
           <button onClick={() => void takeOff()}>

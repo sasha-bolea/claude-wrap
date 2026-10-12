@@ -8,9 +8,9 @@ import { useScreen, useTouch, type LaterKey } from './context.tsx'
 import { Conversation, WorkingMini } from './Conversation.tsx'
 import { Icon } from './icons.tsx'
 import { sessionState } from './model.ts'
-import { ModelSheet, currentEffort, modelLabel, useModels } from './modelSheets.tsx'
+import { currentEffort, modelLabel, useModels } from './modelSheets.tsx'
 import { Badge, ConnectionBanner, IconButton, UpdateBar } from './parts.tsx'
-import { CloseButton, MoveSheet, RenameSheet, useTrustPrompt } from './sessions.tsx'
+import { CloseButton, RenameSheet, useTrustPrompt } from './sessions.tsx'
 import { ToolsView, type ToolsPage } from './ToolsView.tsx'
 import { TouchComposer } from './TouchComposer.tsx'
 
@@ -428,8 +428,9 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   )
 }
 
-// The session menu (⋯): where it runs and with what; move, model and effort, rename, fork, restart, the panels, close
-// (File, Terminale, Torna indietro and Account are in the composer's Tools).
+// The session menu (⋯): where it runs and with what; Sessione (rename, restart when stopped, close), Pannelli (the
+// session's panels), Più avanti (the ones to come). File, Terminale, Torna indietro, Account, Modello and Fork are the
+// composer's Tools; moving is for folders, from the Home.
 function SessionMenu({ tabId }: { tabId: string }) {
   const { state, connection, go, openSheet, closeSheets, toast, fail } = useTouch()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
@@ -437,11 +438,6 @@ function SessionMenu({ tabId }: { tabId: string }) {
   if (!meta) return null
   const effort = currentEffort(meta, models)
   const stopped = meta.status === 'error'
-  const fork = () =>
-    connection.request('tab.fork', { tabId, newTabId: crypto.randomUUID() }).then(() => {
-      closeSheets()
-      toast(t('forked', { title: `${meta.title} (fork)` }))
-    }, fail)
   const restart = () =>
     connection.request('tab.restart', { tabId }).then(() => {
       closeSheets()
@@ -453,28 +449,21 @@ function SessionMenu({ tabId }: { tabId: string }) {
         <span className="mono-line">{meta.cwd}</span>
         <span className="muted">{[modelLabel(meta, models), effort, t(modeLabel(meta.mode))].filter(Boolean).join(' · ')}</span>
       </div>
+      <p className="label spaced">{t('sessionSection')}</p>
       <ul className="menu">
         <li>
-          <button onClick={() => openSheet({ title: t('moveSessionTitle'), body: <MoveSheet tabId={tabId} /> })}>{t('moveSession')}</button>
-        </li>
-        <li>
-          <button onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
-            {t('modelAndEffort')}
-            <span className="right">{[modelLabel(meta, models), effort].filter(Boolean).join(' · ')} ›</span>
-          </button>
-        </li>
-        <li>
           <button onClick={() => openSheet({ title: t('rename'), field: true, body: <RenameSheet tabId={tabId} current={meta.title} /> })}>{t('rename')}</button>
-        </li>
-        <li>
-          <button onClick={() => void fork()}>{t('forkLong')}</button>
         </li>
         {stopped && (
           <li>
             <button onClick={() => void restart()}>{t('restartClaude')}</button>
           </li>
         )}
+        <li>
+          <CloseButton tab={meta} />
+        </li>
       </ul>
+      <p className="label spaced">{t('panelsSection')}</p>
       <ul className="menu">
         {(['context', 'usage', 'status', 'mcp', 'hooks', 'permissions', 'memory'] as const).map((name) => (
           <li key={name}>
@@ -485,21 +474,16 @@ function SessionMenu({ tabId }: { tabId: string }) {
           </li>
         ))}
       </ul>
-      <p className="label">{t('panelsLater')}</p>
+      <p className="label spaced">{t('panelsLater')}</p>
       <ul className="menu">
         {SESSION_PANELS.map((key) => (
           <li key={key}>
             <button onClick={() => go({ name: 'later', key, tabId })}>
               {t(`later_${key}`)}
-              <span className="right">{t('laterShort')} ›</span>
+              <span className="right">›</span>
             </button>
           </li>
         ))}
-      </ul>
-      <ul className="menu">
-        <li>
-          <CloseButton tab={meta} />
-        </li>
       </ul>
     </>
   )

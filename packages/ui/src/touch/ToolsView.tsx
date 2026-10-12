@@ -17,7 +17,7 @@ import { useTrayDrag } from './trayDrag.ts'
 export type ToolsPage = 'grid' | 'notes' | 'queue'
 
 // The Tools of a chat (the composer's Tools button): a grid of tiles. Note and Coda (with how many they hold) open their
-// list of cards in the same place, ‹ goes back to the grid; File, Terminale, Torna indietro and Account open what the
+// list of cards in the same place, ‹ goes back to the grid; File, Terminale, Torna indietro, Account and Fork do what the
 // session menu used to (the folder's files, its terminal, the rewind, the account sheet).
 // Mode, model and context are the composer's own left buttons, which slide away while the Tools show.
 // Parameters: the chat's meta, the page shown and onPage (another page).
@@ -62,6 +62,7 @@ export function ToolsView({ meta, page, onPage }: { meta: TabMeta; page: ToolsPa
           <Tile icon="person" name={t('account')} detail={accountName(state, meta.account)} onClick={() => openSheet({ title: t('account'), body: <AccountPickSheet tabId={tabId} /> })} />
           <Tile icon={modeIcon(meta.mode)} name={t('modeShort')} detail={t(modeLabel(meta.mode))} onClick={() => openSheet({ title: t('modeTitle'), body: <ModeSheet tabId={tabId} /> })} />
           <Tile icon="brain" name={t('model')} detail={[modelLabel(meta, models), currentEffort(meta, models)].filter(Boolean).join(' · ')} onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })} />
+          <Tile icon="fork" name={t('forkShort')} onClick={() => void connection.request('tab.fork', { tabId, newTabId: crypto.randomUUID() }).then(() => toast(t('forked', { title: `${meta.title} (fork)` })), fail)} />
           <Tile icon="gauge" name={t('contextShort')} detail={gaugeTop(meta) === undefined ? '' : `${gaugeTop(meta)}%`} onClick={() => openSheet({ title: t('gaugeTitle'), body: <GaugeSheet tabId={tabId} /> })} />
         </ul>
       </section>

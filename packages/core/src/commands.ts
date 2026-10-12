@@ -222,6 +222,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'folders.add': async ({ path }) => ({ path: await workspace.addFolder(path) }),
     'folders.remove': async ({ path }) => (await workspace.removeFolder(path), {}),
     'folders.delete': async ({ path, closeSessions }) => (await workspace.deleteFolder(path, closeSessions), {}),
+    'folders.move': async ({ path, into }) => ({ path: await workspace.moveFolder(path, into) }),
     'files.list': async (args) => ({ entries: await listFiles(await folderOf(args), args.path) }),
     'files.read': async (args) => readFileFor(await folderOf(args), args.path, args.download),
     'files.write': async (args) => ({ path: await writeFileFor(await folderOf(args), args.path, args.data, { overwrite: args.overwrite, attachment: args.attachment }) }),
@@ -251,7 +252,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
       const note = (await workspace.notes.list(folder)).find((candidate) => candidate.noteId === noteId)
       if (!note) throw new CoreError('not_found', 'note not found')
       checkSize(note.text, [])
-      // Into an empty queue it waits there, the queue paused, until ▶ (it never goes by itself).
+      // Into an empty queue while Claude is free it waits there, the queue paused, until ▶ (it does not go by itself).
       tab.queueAdd({ queueId: cmdId, text: note.text, from: connection.label }, true)
       if (index !== undefined && tab.isQueued(cmdId)) tab.queueMove(cmdId, index)
       await workspace.notes.delete(folder, noteId)

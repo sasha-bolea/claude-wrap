@@ -57,6 +57,10 @@ export function folderSummary(tabs: TabMeta[], folder: string): { open: number; 
 // finished while nobody looked at it.
 export const badgeClass = (state: SessionState, unseen?: boolean) => `badge${state === 'idle' ? (unseen ? ' unseen' : '') : ` ${state}`}`
 
+// The status dot of a folder row: the accent colour as soon as one of its chats finished unseen, whatever the others
+// are doing; otherwise the most urgent state.
+export const folderBadgeClass = (summary: { state: SessionState; unseen: boolean }) => (summary.unseen ? 'badge unseen' : badgeClass(summary.state))
+
 // The open sessions with the last used first (a copy); those saved before the time existed follow in their order.
 export const recentFirst = (tabs: TabMeta[]) => [...tabs].sort((a, b) => (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0))
 

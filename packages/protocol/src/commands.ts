@@ -207,7 +207,8 @@ export const COMMANDS = {
   },
   // The tab's queue (queue mode of the composer); the cmd id is the queueId. Messages go one at a time when
   // Claude is free; added while it is free and the queue is not paused, the first goes at once. hold: into an empty
-  // queue it waits there instead, the queue paused, until ▶ (the queue's own "add" card).
+  // queue while Claude is free it waits there instead, the queue paused, until ▶ (the composer's queue button, the
+  // queue's own "add" card); while Claude works it joins as usual.
   'tab.queueAdd': {
     args: z.object({ tabId, ...message, hold: z.boolean().optional() }).refine((args) => args.text.trim() || args.images?.length, 'empty message'),
     result: empty
@@ -336,6 +337,9 @@ export const COMMANDS = {
   // system trash on the desktop. Refused while a session is open inside it, unless closeSessions: those are closed first
   // (their conversations stay among the saved sessions).
   'folders.delete': { args: z.object({ path: z.string().min(1), closeSessions: z.boolean().optional() }), result: empty },
+  // Moves a folder inside the Home into another of its folders (not the Home's own, not into itself, not over the same
+  // name); what the app knows of it (history, notes, marks, trust, open sessions) follows. Returns its new path.
+  'folders.move': { args: z.object({ path: z.string().min(1), into: z.string().min(1) }), result: z.object({ path: z.string() }) },
   // File explorer, paths relative to its folder (`.git` hidden and protected): a tab's folder (trusted folders only) or
   // a folder of the Home without a session (inside the roots, like folders.*). Exactly one of tabId and folder.
   'files.list': { args: filePlace({ path: relativePath }), result: z.object({ entries: z.array(fileEntrySchema) }) },
@@ -370,7 +374,7 @@ export const COMMANDS = {
   // A new order: the ids given first, in that order (unknown ones ignored), then the others as they were.
   'notes.reorder': { args: z.object({ cwd: z.string().min(1), noteIds: z.array(z.string()) }), result: empty },
   // A note of the tab's folder goes into the tab's queue at a place (absent: the end; the cmd id is its queueId) and
-  // leaves the notes. Into an empty queue it waits there, the queue paused, until ▶.
+  // leaves the notes. Into an empty queue while Claude is free it waits there, the queue paused, until ▶.
   'notes.toQueue': { args: z.object({ tabId, noteId: z.string(), index: z.number().int().nonnegative().optional() }), result: z.object({ queueId: z.string() }) },
   // Colour palettes of the app, shared by every device. paletteId absent: a new palette.
   'palettes.save': { args: z.object({ paletteId: z.string().optional(), name: z.string().trim().min(1).max(40), colors: paletteColorsSchema }), result: z.object({ palette: paletteSchema }) },

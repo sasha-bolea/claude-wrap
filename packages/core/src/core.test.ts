@@ -551,6 +551,16 @@ describe('queue', () => {
     expect(fake.sessions).toHaveLength(0)
   })
 
+  it('with hold while Claude works, an empty queue is not paused: the message goes when the turn ends', async () => {
+    const session = await startedTab()
+    await client.ok('tab.queueAdd', { tabId: 't1', text: 'next', hold: true }, cmd(2))
+    await client.waitFor(() => meta(client)?.queue.length === 1)
+    expect(meta(client)?.queuePause).toBeUndefined()
+    session.emit(sdk.success())
+    await session.waitForInput(2)
+    expect(session.received[1]).toMatchObject({ uuid: cmd(2) })
+  })
+
   it('"send now" takes a message out of the queue and sends it at once, without interrupting', async () => {
     const session = await startedTab()
     await client.ok('tab.queueAdd', { tabId: 't1', text: 'urgent' }, cmd(2))
@@ -1420,6 +1430,26 @@ describe('folders, projects and sessions', () => {
     save('elsewhere', tmpdir(), 3)
     const { sessions } = await client.ok('sessions.list', {})
     expect(sessions.map((session) => [session.sessionId, session.cwd])).toEqual([['new', join(root, 'beta')], ['old', join(root, 'alpha')]])
+  })
+
+  it('moving a folder into another of the Home: its files, project mark and open session follow; never the Home itself, into itself, or over a same name', async () => {
+    const root = tempDir('cw-move-')
+    mkdirSync(join(root, 'proj', 'inner'), { recursive: true })
+    mkdirSync(join(root, 'dest'))
+    mkdirSync(join(root, 'taken', 'proj'), { recursive: true })
+    writeFileSync(join(root, 'proj', 'a.txt'), 'x')
+    core = makeCore({ allowedRoots: [root], stateDir: tempDir('cw-move-state-') })
+    client = await connect(core)
+    await client.ok('folders.setProject', { path: join(root, 'proj'), project: true })
+    await client.ok('tab.create', { tabId: 't1', cwd: join(root, 'proj', 'inner') })
+    expect(await client.fails('folders.move', { path: root, into: join(root, 'dest') })).toMatchObject({ code: 'invalid_args' })
+    expect(await client.fails('folders.move', { path: join(root, 'proj'), into: join(root, 'proj', 'inner') })).toMatchObject({ code: 'invalid_args' })
+    expect(await client.fails('folders.move', { path: join(root, 'proj'), into: join(root, 'taken') })).toMatchObject({ code: 'invalid_args' })
+    expect(await client.ok('folders.move', { path: join(root, 'proj'), into: join(root, 'dest') })).toEqual({ path: join(root, 'dest', 'proj') })
+    expect(readFileSync(join(root, 'dest', 'proj', 'a.txt'), 'utf8')).toBe('x')
+    expect(existsSync(join(root, 'proj'))).toBe(false)
+    await client.waitFor(() => folders(client)?.projects.includes(join(root, 'dest', 'proj')) === true)
+    await client.waitFor(() => meta(client)?.cwd === join(root, 'dest', 'proj', 'inner'))
   })
 
   it('deleting a folder: never the Home itself, refused with a session open inside; to the app trash with its project marks, back with them', async () => {

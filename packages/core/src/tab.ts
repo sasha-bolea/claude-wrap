@@ -378,11 +378,12 @@ export class Tab {
   }
 
   // Adds a message to the queue: it goes at once if Claude is free and the queue is not paused. waitIfEmpty: into an
-  // empty queue it waits there instead, the queue paused (by hand) until ▶.
+  // empty queue while Claude is free it waits there instead, the queue paused (by hand) until ▶; while Claude works it
+  // joins the queue as usual and goes when the turn ends.
   queueAdd(message: Outgoing, waitIfEmpty = false): void {
     this.assertOpen()
     this.used()
-    if (waitIfEmpty && !this.queue.length) this.queuePause = { reason: 'user' }
+    if (waitIfEmpty && !this.queue.length && !this.turnRunning && !this.requests.size) this.queuePause = { reason: 'user' }
     this.queue.push(message)
     this.changed()
     this.dispatchNext()

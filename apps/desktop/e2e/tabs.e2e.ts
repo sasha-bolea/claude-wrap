@@ -5,7 +5,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { addFolder, button, composer, lastAnswer, launch, makeFolder, nextFolder, openChat, openRows, send, showProjects, showSessions, type App } from './harness.ts'
+import { addFolder, button, composer, lastAnswer, launch, makeFolder, nextFolder, openChat, openRows, openTool, send, showProjects, showSessions, type App } from './harness.ts'
 
 let ctx: App
 
@@ -118,8 +118,7 @@ describe('desktop several sessions (fake SDK)', () => {
     await openChat(page, ctx.projectDir)
     await send(page, 'to be forked')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: to be forked')
-    await button(page, 'More actions').click()
-    await page.locator('.sheet').getByRole('button', { name: 'Fork: copy into a new session' }).click()
+    await openTool(page, 'Fork')
     await showSessions(page)
     await expect.poll(() => openRows(page).count()).toBe(2)
     const fork = openRows(page).filter({ hasText: '(fork)' })

@@ -5,7 +5,7 @@
 // zoom, splash screens, the newer build offered. Sub-phase C1: a message sent while Claude works is read in the same
 // turn; the queue (pause after Stop, resume); the folder's files (browse, preview, mention, upload, trash with undo);
 // notes used in a message; folders and projects in the Home; the theme.
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { Browser, BrowserContext, CDPSession, Locator, Page } from 'playwright-core'
@@ -245,13 +245,14 @@ describe('PWA (fake SDK)', () => {
     // The chat shows the change as a line across it, as a compaction does.
     await expect.poll(() => page.locator('.conversation .model-line').textContent()).toMatch(/^Model: .+ · effort high$/)
     await page.keyboard.press('Escape')
-    // The ⋯ menu has one "Model and effort" item (model · effort on its right).
+    // The ⋯ menu has no model item any more: the Model tile of the Tools says model · effort.
     await button(page, 'More actions').click()
     const menu = page.getByRole('dialog').last()
-    expect(await menu.getByRole('button', { name: /^Model and effort/ }).count()).toBe(1)
-    expect(await menu.getByRole('button', { name: /^Effort/ }).count()).toBe(0)
-    expect(await menu.getByRole('button', { name: /^Model and effort/ }).textContent()).toContain('high')
+    expect(await menu.getByRole('button', { name: /^Model and effort|^Effort/ }).count()).toBe(0)
     await page.keyboard.press('Escape')
+    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
+    expect(await page.getByRole('region', { name: 'Tools' }).getByRole('button', { name: /^Model/ }).textContent()).toContain('high')
+    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
     await button(page, /^Permission mode/).click()
     const modeSheet = page.getByRole('dialog', { name: 'Permission mode' })
     expect(await modeSheet.getByRole('radiogroup', { name: 'Effort' }).count()).toBe(0)
@@ -1417,21 +1418,31 @@ describe('PWA (fake SDK)', () => {
     await wide.locator('.col-right').getByRole('region', { name: 'Terminal' }).locator('.xterm-rows').waitFor()
   })
 
-  it('"Move to another folder…" in the session menu: a folder of the Home is picked, the session goes on there', async () => {
+  it('"Move to another folder…" of a folder of the Home: a folder is picked, the folder goes there with its open session', async () => {
     mkdirSync(join(backend.root, 'cruscotto', 'inner'), { recursive: true })
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
-    await button(page, 'More actions').click()
+    await send(page, 'hello')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toBe('Echo: hello')
+    // Back to the Home, still inside `project`: up to the root, where its row and ⋯ are.
+    await button(page, 'Back').click()
+    await button(page, /^Up: /).click()
+    await button(page, 'Actions for the folder project').click()
     await page.getByRole('dialog').getByRole('button', { name: 'Move to another folder…' }).click()
-    const sheet = page.getByRole('dialog', { name: 'Move to another folder' })
-    // It opens beside the session's folder, that one marked; the folder itself cannot be the target.
-    await sheet.getByRole('button', { name: /^project/ }).filter({ hasText: "This session's folder" }).waitFor()
+    const sheet = page.getByRole('dialog', { name: 'Move project' })
+    // It opens beside the folder, that one marked and not a target.
+    await sheet.getByRole('button', { name: /^project/ }).filter({ hasText: 'The folder being moved' }).waitFor()
+    expect(await sheet.getByRole('button', { name: 'Move here' }).isDisabled()).toBe(true)
     await sheet.getByRole('button', { name: 'cruscotto', exact: true }).click()
     await sheet.getByRole('button', { name: 'inner', exact: true }).waitFor()
     await sheet.getByRole('button', { name: 'Move here' }).click()
-    await expect.poll(() => page.getByRole('status').first().textContent()).toBe(`Session moved to ${join(backend.root, 'cruscotto')}`)
+    await expect.poll(() => page.getByRole('status').first().textContent()).toBe(`project moved to ${join(backend.root, 'cruscotto')}`)
+    expect(existsSync(join(backend.root, 'cruscotto', 'project'))).toBe(true)
+    // Its open session follows it.
+    await button(page, 'Show sessions').click()
+    await page.locator('.row').filter({ hasText: 'project ·' }).locator('.row-main').first().click()
     await button(page, 'More actions').click()
-    await expect.poll(() => page.getByRole('dialog').locator('.mono-line').first().textContent()).toBe(join(backend.root, 'cruscotto'))
+    await expect.poll(() => page.getByRole('dialog').locator('.mono-line').first().textContent()).toBe(join(backend.root, 'cruscotto', 'project'))
   })
 
   it("Claude writes in the session's terminal: a card with the text, \"always in this session\", the terminal opens with it", async () => {

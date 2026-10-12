@@ -149,11 +149,15 @@ sessione con nome…": a sheet with the name `.field` and Crea): the name is the
 the other sessions, kept; without one the tab takes the title the CLI gives after the first prompt.
 Examples: [SheetHost.tsx:49](../packages/ui/src/touch/SheetHost.tsx#L49), [ChatScreen.tsx:350](../packages/ui/src/touch/ChatScreen.tsx#L350), [HomeScreen.tsx:298](../packages/ui/src/touch/HomeScreen.tsx#L298), [HomeScreen.tsx:252](../packages/ui/src/touch/HomeScreen.tsx#L252).
 
-Move a session (session menu → "Sposta in un'altra cartella…", `MoveSheet`): the Home's folders browsed inside the
-sheet (`Crumbs` + `.list` of folder rows with `chevron`), opened beside the session's folder, which is marked "La
-cartella di questa sessione" and is never a target; a primary block "Sposta qui" moves to the folder shown, then a
-toast ("Sessione spostata in …", or "Si sposta in … quando Claude ha finito" while it works). Claude asks the same
-through `athome session move`, as an action card ("Spostare questa sessione in …?").
+Move a folder (a folder's ⋯ in the Home → "Sposta in un'altra cartella…", `FolderMoveSheet`; not on the top folders
+added on This PC): the Home's folders browsed inside the sheet (`Crumbs` + `.list` of folder rows with `chevron`),
+opened beside the folder, which is marked "La cartella da spostare" and is never a target (nor what is inside it); a
+primary block "Sposta qui" (dimmed where it already is) moves it into the folder shown, its open sessions with it, then
+a toast ("… spostata in …"). A single session is moved only by Claude, through `athome session move`, as an action
+card ("Spostare questa sessione in …?").
+The session menu (⋯ of the chat): a `.card.compact` (folder, model · effort · mode), then `.label.spaced` sections:
+Sessione (Rinomina, Riavvia Claude when stopped, Chiudi sessione), Pannelli (the session's panels, ›), Più avanti
+(the panels to come).
 Examples: [sessions.tsx:213](../packages/ui/src/touch/sessions.tsx#L213), [ChatScreen.tsx:467](../packages/ui/src/touch/ChatScreen.tsx#L467).
 
 Revoke confirmation (Settings → Devices, `RevokeSheet`, [SettingsScreen.tsx](../packages/ui/src/touch/SettingsScreen.tsx)): a `.flat` hint, then, only when others fall with the device, a second `.flat` line "Also removes: names" (computed with `revokeCascade`: never the device in use nor what it created), then `.two-buttons` Cancel / danger Revoke.
@@ -168,7 +172,7 @@ Examples: [HomeScreen.tsx:166](../packages/ui/src/touch/HomeScreen.tsx#L166), [H
 ### Cards, chips, badges — `.card` (`.compact`, `.bad`), `.chip` (`.changed`), `.badge` (`.waiting`, `.working`, `.error`, `.unseen`)
 `.card`: a framed block (session info in the menu, error and trust notices, the 🔜 placeholder). `.chip`: small
 state words (draft, queued, "this one"); `.chip.changed`: new / changed by Claude. `.badge`: the session state dot,
-pulsing while it waits for you (`Badge` component, with its meaning for screen readers); `.unseen`: an idle dot in the accent colour, not pulsing, while Claude finished and nobody looked at the chat yet (core's `TabMeta.unseen`; the words stay "idle"). Folder rows take it too when one of their chats is unseen (`badgeClass` in [model.ts](../packages/ui/src/touch/model.ts)).
+pulsing while it waits for you (`Badge` component, with its meaning for screen readers); `.unseen`: an idle dot in the accent colour, not pulsing, while Claude finished and nobody looked at the chat yet (core's `TabMeta.unseen`; the words stay "idle"). Folder rows take it too when one of their chats is unseen, and there it wins over the other sessions' states (`folderBadgeClass` in [model.ts](../packages/ui/src/touch/model.ts)).
 Examples: [ChatScreen.tsx:346](../packages/ui/src/touch/ChatScreen.tsx#L346), [FilesScreen.tsx:243](../packages/ui/src/touch/FilesScreen.tsx#L243), [parts.tsx:113](../packages/ui/src/touch/parts.tsx#L113).
 
 ### Conversation — `.chat-body`, `.conversation`, `.msg-user` (`.pending`, `.pressed`, `.pending-note`), `.msg-user-row`, `.send-now`, `.unsend`, `.msg-ai`, `.msg-peer` (`.from`), `.think`, `.tool`, `.working-line`, `.working-mini`, `.turn-end`, `.compacted` (`.model-line`), `.code-block` (`.copy-code`)
@@ -254,7 +258,7 @@ Examples: [ChatScreen.tsx:294](../packages/ui/src/touch/ChatScreen.tsx#L294), [C
 
 ### Composer and dock — `.dock`, `.composer`, `.input-box`, `.input-tools`, `.mode-btn`, `.model-tool`, `.queue-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.shell-hint`, `.suggest`
 One box floating over the chat over a light veil (2 px blur, a slightly dark gradient, fading to the page colour only in the last line above the bottom: the chat stays readable under it): the text on top; below it the
-+ (photos and files), the permission mode icon, the brain icon (`.model-tool`, model and effort sheet) and the context gauge on the left; on the right first the Tools button (`.tools-toggle`, four squares, `aria-pressed`, accent tint while the Tools show), then Stop while Claude works or waits, the `.send.queue-btn` always (a filled 38 px circle like Send and Stop, in the text colour — dark on light, light on dark — so the three actions weigh the same and stay told apart by colour; puts what is written straight into the queue and empties the field — no queue mode; into an empty queue the message waits there, the queue paused, until ▶; dimmed while nothing is written; count or pause badge: a small 14 px accent circle on its rim; 6 px apart on each side so a tap does not hit the wrong one), then Send, which always sends (the model and effort are in the brain sheet, the permission mode in the mode sheet). A note brought in with "Usa nel messaggio" shows only as text in the field (no card above the box). Composer and box are one `minmax(0, 1fr)` column: a long
++ (photos and files), the permission mode icon, the brain icon (`.model-tool`, model and effort sheet) and the context gauge on the left; on the right first the Tools button (`.tools-toggle`, four squares, `aria-pressed`, accent tint while the Tools show), then Stop while Claude works or waits, the `.send.queue-btn` always (a filled 38 px circle like Send and Stop, in the text colour — dark on light, light on dark — so the three actions weigh the same and stay told apart by colour; puts what is written straight into the queue and empties the field — no queue mode; into an empty queue while Claude is free the message waits there, the queue paused, until ▶ (while Claude works it goes at the end of the turn); dimmed while nothing is written; count or pause badge: a small 14 px accent circle on its rim; 6 px apart on each side so a tap does not hit the wrong one), then Send, which always sends (the model and effort are in the brain sheet, the permission mode in the mode sheet). A note brought in with "Usa nel messaggio" shows only as text in the field (no card above the box). Composer and box are one `minmax(0, 1fr)` column: a long
 file name is cut with "…", never pushing Send off the screen.
 Examples: [ChatScreen.tsx:314](../packages/ui/src/touch/ChatScreen.tsx#L314), [TouchComposer.tsx:315](../packages/ui/src/touch/TouchComposer.tsx#L315), [TouchComposer.tsx:308](../packages/ui/src/touch/TouchComposer.tsx#L308). Brain button: [TouchComposer.tsx:361](../packages/ui/src/touch/TouchComposer.tsx#L361); its sheet (models, then the `.segmented.effort`, only for a model with levels; applies at once, stays open): [modelSheets.tsx:45](../packages/ui/src/touch/modelSheets.tsx#L45); the mode sheet is modes only: [modelSheets.tsx:94](../packages/ui/src/touch/modelSheets.tsx#L94); icon: [icons.tsx:23](../packages/ui/src/touch/icons.tsx#L23).
 
@@ -292,8 +296,8 @@ The composer's Tools button shows the chat's Tools in place of the conversation 
 readable column, scrolling above the dock; the composer stays); pressed again, or a message sent, the chat comes back.
 First a grid of tiles (icon in accent, name, a short detail: a count, a state): Note, Coda (the queue's stack opens it
 straight), File (`folder`: the session's folder in the Home, Back from there is the chat), Terminale (`prompt` >_),
-Torna indietro ("prima Stop" while Claude works), Account (its name) — these four left the session menu and the chat's
-bar — then Modalità, Modello and Contesto (with their state: mode, model · effort, the highest share), the composer's
+Torna indietro ("prima Stop" while Claude works), Account (its name), Fork (a copy of the session) — these left the
+session menu and the chat's bar — then Modalità, Modello and Contesto (with their state: mode, model · effort, the highest share), the composer's
 own left buttons, which slide left and go (`.tools-open`) while the Tools show (+ stays). Note and Coda open their list in the same place under a `.tools-head`
 (‹ back to the grid, the name, for the queue its count and ⏸/▶); the others open their screen or sheet.
 Lists share one card (`TrayCard`): a `.tray-handle` (`grip`, 28 px on the left edge, the only grab area) — pressed and
@@ -301,7 +305,7 @@ moved past 5 px the card follows the pointer's place (accent border, shadow) and
 (`notes.reorder`, `tab.queueMove`); the text up to six lines, a click edits it in place (saved as you type and on
 leaving); the bin top right. The first card of each list is a dashed field with its placeholder and an accent `check`
 bottom right (dimmed while empty; it keeps the focus for the next one): "Nuova nota" (a note on top) and "Aggiungi alla
-coda" (at the end; into an empty queue it waits, paused). Note cards: emptied, the note goes; bottom right `queue`
+coda" (at the end; into an empty queue while Claude is free it waits, paused). Note cards: emptied, the note goes; bottom right `queue`
 (to the end of the queue, with Restore) and the accent `to-chat` (into the composer, linked as "Usa nel messaggio").
 Queue cards (`.q`, `--surface-2`): photos as a `.q-images` chip; bottom right the round Send "Invia ora"; emptied, a
 text-only message leaves the queue.
@@ -309,8 +313,8 @@ Examples: [ToolsView.tsx:50](../packages/ui/src/touch/ToolsView.tsx#L50), [Notes
 
 ### Terminal — `.terminal-screen`, `.terminal-host`, `.terminal-ended`, `.key-bar`, `.key` (`aria-pressed`)
 A shell of the backend (xterm.js, loaded on demand; colours from the tokens, its sheet imported by touch.css). Opened
-from the session menu ("Terminale": the session's live one, else a new one), from a folder's menu ("Terminale qui")
-and, wide, from the Terminale tab of the right panel; the Home's Sessioni view (and the wide left column) lists the
+from the chat's Tools ("Terminale": the session's live one, else a new one; wide, in the right panel) and from a
+folder's menu ("Terminale qui"); the Home's Sessioni view (and the wide left column) lists the
 open ones (`terminal` icon, "Terminale · attivo / terminato (codice N)"). On a touch screen the key bar under it
 (on the keyboard while typing): Ctrl (lit until the next key), Esc, Tab, arrows, `|`, `~`, `/`; the keys never take
 the focus. A shell that ended shows `.terminal-ended` with Chiudi; the ⋯ menu has Copia tutto (the whole output as
@@ -434,7 +438,7 @@ No new classes. **One account for every session**: Settings → "Account Claude"
 Code" first (the backend's own login), then the added accounts; a tap makes one the account of every session (chip
 "in uso"), ⋯ of an added one opens a `.menu` with "Rinomina" (a sheet with the name field, prefilled, and Salva; the
 token stays) and "Rimuovi account" (after a confirmation sheet); "Aggiungi account" opens a sheet with a name and a **password-type mono token
-field** (never shown again). The session menu has an "Account" row (current name on the right) opening a radio
+field** (never shown again). The chat's Tools have an "Account" tile (current name under it) opening a radio
 `.menu`: picking one there switches every session too. While the account is at its usage limit, the conversation
 shows a `.card` (`role="status"`) with until when, one quiet "Passa a …" button (`.button.quiet` in `.card-actions`)
 per other added account (never Claude Code's login), each taking the row's width but the link beside it (or "Aggiungi un account") and "Annulla" (`.link-btn`: puts the card away for that limit on this device). In a session Claude stopped mid-work (usage limit, or a switch while it worked) the

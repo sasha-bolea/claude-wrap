@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FileEntry, TabMeta } from '@athome/protocol'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { answeredQuestions, durationLabel, filesChanged, folderSummary, freeName, htmlLines, inside, modelShortName, parentOf, recentFirst, resetLabel, sessionState, spanNodes, tokenLabel, trailTo } from './model.ts'
+import { answeredQuestions, durationLabel, filesChanged, folderBadgeClass, folderSummary, freeName, htmlLines, inside, modelShortName, parentOf, recentFirst, resetLabel, sessionState, spanNodes, tokenLabel, trailTo } from './model.ts'
 
 const tab = (cwd: string, status: TabMeta['status']): TabMeta => ({ tabId: cwd + status, title: 't', cwd, status, mode: 'default', queue: [], pendingRequests: 0 })
 
@@ -35,6 +35,9 @@ describe('touch model', () => {
     expect(folderSummary(tabs, '/srv/p/c')).toEqual({ open: 0, state: 'idle', unseen: false })
     // A chat finished but not looked at yet colours the folder's badge too.
     expect(folderSummary([...tabs, { ...tab('/srv/p/b/x', 'idle'), unseen: true }], '/srv/p/b')).toEqual({ open: 2, state: 'error', unseen: true })
+    // ...and that colour wins over the other sessions' states.
+    expect(folderBadgeClass({ state: 'working', unseen: true })).toBe('badge unseen')
+    expect(folderBadgeClass({ state: 'working', unseen: false })).toBe('badge working')
     expect(sessionState(tab('/x', 'starting'))).toBe('working')
     expect(sessionState(tab('/x', 'dormant'))).toBe('idle')
   })

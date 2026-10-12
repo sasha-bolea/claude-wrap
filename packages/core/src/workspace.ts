@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import { rename } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, join, relative } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
@@ -333,6 +335,23 @@ export class Workspace {
     if (inside.length && !closeSessions) throw new CoreError('session_busy', 'close the sessions open in this folder first')
     for (const tab of inside) await this.close(tab.tabId)
     await this.discard(folder)
+  }
+
+  // Moves a folder strictly inside the Home into another folder of the Home (never one of the Home's own folders, nor
+  // into itself, nor over a folder of the same name there); its history, notes, project marks, trust and open sessions
+  // follow it. Returns its new path.
+  async moveFolder(path: string, into: string): Promise<string> {
+    const folder = await this.folderOf(path)
+    const target = await this.folderOf(into)
+    const bases = this.allowedRoots === 'any' ? (this.store.data.addedFolders ?? []) : this.allowedRoots
+    if (!bases.some((base) => base !== folder && withinRoots(folder, [base]))) throw new CoreError('invalid_args', 'only folders inside the Home can be moved')
+    if (withinRoots(target, [folder])) throw new CoreError('invalid_args', 'a folder cannot move into itself')
+    const to = join(target, basename(folder))
+    if (to === folder) return folder
+    if (existsSync(to)) throw new CoreError('invalid_args', `${basename(folder)} already exists there`)
+    await rename(folder, to)
+    await this.followFolder(folder, to)
+    return to
   }
 
   // Moves a file or folder out of the way: to the system trash (desktop) or to the app's trash, with the project marks
