@@ -278,7 +278,21 @@ text, toast "Output copiato"), Incolla (the clipboard as a paste: bash waits for
 for every device). Links in the output open outside the app (`openExternal`, else a new tab). Leaving it
 (Back, edge swipe; not on a wide window) asks "Chiudere il terminale?" — Lascialo aperto / Chiudi il terminale (red);
 under the Home's list, "Chiudi tutti i terminali" (`.link-btn`) asks first, then ends them all.
-Examples: [TerminalScreen.tsx:58](../packages/ui/src/touch/TerminalScreen.tsx#L58), [TerminalScreen.tsx:138](../packages/ui/src/touch/TerminalScreen.tsx#L138), [TerminalScreen.tsx:171](../packages/ui/src/touch/TerminalScreen.tsx#L171), [TouchApp.tsx:498](../packages/ui/src/touch/TouchApp.tsx#L498).
+On the phone, a terminal opened from its chat has "Affianca alla chat" (`split` icon) first in its ⋯ menu: the chat
+above, the terminal below, the `.split-divider` between them; the item then reads "Schermo intero" (`expand` icon).
+Back on the terminal's bar asks as usual and leaves the chat full; Back on the chat leaves both (the terminal stays
+open); no edge swipe while split.
+Examples: [TerminalScreen.tsx:58](../packages/ui/src/touch/TerminalScreen.tsx#L58), [TerminalScreen.tsx:138](../packages/ui/src/touch/TerminalScreen.tsx#L138), [TerminalScreen.tsx:171](../packages/ui/src/touch/TerminalScreen.tsx#L171), [TerminalScreen.tsx:220](../packages/ui/src/touch/TerminalScreen.tsx#L220), [TouchApp.tsx:498](../packages/ui/src/touch/TouchApp.tsx#L498).
+
+### Dividers — `.divider` (`role="separator"`), `.panel-divider`, `.split-divider`
+A boundary dragged to share the room between two areas (finger, mouse; arrow keys when focused; double click resets),
+remembered on the device (localStorage, not per backend). It sits centred on the boundary, over the screens and under
+the sheets; while dragging only a CSS variable on `.device` changes, the size is committed at release.
+Wide: `.panel-divider` on the right panel's left edge (`--panel-w`, one width for every panel; 380 px by default, at
+least 300, the chat always keeps 340 px beside it) — a 2 px accent line on hover/focus. Phone: `.split-divider`
+(`--split-top`), a grip between the chat and its terminal, clear of the top bar's buttons; the terminal takes 20–80%
+of the height, dropped near the top edge it goes back to full screen.
+Examples: [Divider.tsx:18](../packages/ui/src/touch/Divider.tsx#L18), [Divider.tsx:65](../packages/ui/src/touch/Divider.tsx#L65), [Divider.tsx:104](../packages/ui/src/touch/Divider.tsx#L104), [TouchApp.tsx:432](../packages/ui/src/touch/TouchApp.tsx#L432), [TouchApp.tsx:488](../packages/ui/src/touch/TouchApp.tsx#L488).
 
 ### Bars and notices — `.update-bar`, `.banner`, `.toast`, `.snack`, `.viewer`, `.empty-line`
 `.update-bar`: "New version available · Update · ×" under the top bar of Home and chat. `.banner`: the server cannot

@@ -207,12 +207,21 @@ function ConfirmClose({ hint, keep, close, onKeep, onClose }: { hint: string; ke
   )
 }
 
-// Menu of a terminal: copy all its output, paste the clipboard into it, close it (the shell ends, for every device).
+// Menu of a terminal: beside its chat or full screen (phone, opened from the chat), copy all its output, paste the
+// clipboard into it, close it (the shell ends, for every device).
 function TerminalMenu({ terminalId, onClosed, onCopy, onPaste }: { terminalId: string; onClosed: () => void; onCopy: () => void; onPaste: () => void }) {
-  const { connection, closeSheets, fail } = useTouch()
+  const { connection, closeSheets, fail, beside } = useTouch()
   const close = () => connection.request('terminal.close', { terminalId }).then(() => (closeSheets(), onClosed()), fail)
   return (
     <ul className="menu">
+      {beside && (
+        <li>
+          <button onClick={() => (closeSheets(), beside.toggle())}>
+            <Icon name={beside.on ? 'expand' : 'split'} />
+            {beside.on ? t('fullScreen') : t('besideChat')}
+          </button>
+        </li>
+      )}
       <li>
         <button onClick={onCopy}>
           <Icon name="files" />

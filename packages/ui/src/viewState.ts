@@ -20,6 +20,13 @@ function write(name: string, value: string | undefined): void {
   }
 }
 
+// Layout of this device, whatever the backend: the right panel's width (wide window), in px.
+export const readPanelWidth = () => Number(read('claude-wrap:panelWidth')) || undefined
+export const writePanelWidth = (width: number | undefined) => write('claude-wrap:panelWidth', width ? String(Math.round(width)) : undefined)
+// The terminal's share of the height beside its chat (phone), between 0 and 1.
+export const readTerminalShare = () => Number(read('claude-wrap:terminalShare')) || undefined
+export const writeTerminalShare = (share: number) => write('claude-wrap:terminalShare', share.toFixed(3))
+
 export const readDraft = (backendId: string, tabId: string) => read(key(backendId, `draft:${tabId}`)) ?? ''
 export const writeDraft = (backendId: string, tabId: string, text: string) => write(key(backendId, `draft:${tabId}`), text)
 // Long pastes of a draft, by placeholder number (the draft text holds their placeholders).

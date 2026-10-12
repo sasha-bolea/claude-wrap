@@ -363,21 +363,19 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }:
           </button>
           <GaugeButton meta={meta} />
           {(running || requestOpen) && (
-            <button className="send stop" aria-label={t('stopClaude')} onClick={stop} {...keepFocus}>
-              <Icon name="stop" />
-            </button>
-          )}
-          {/* While Claude works, and also after, as long as something waits in the queue (paused or counting down):
-              what is written can join it instead of going ahead of it */}
-          {(running || requestOpen || meta.queue.length > 0) && (
-            <button className="send queue-btn" aria-label={queueLabel} disabled={!hasContent || shellMode} onClick={() => void send(true)} {...keepFocus}>
-              <Icon name="queue" />
-              {(queueCount || meta.queuePause) && (
-                <span className="count" aria-hidden="true">
-                  {meta.queuePause ? <Icon name="pause" /> : queueCount}
-                </span>
-              )}
-            </button>
+            <>
+              <button className="send stop" aria-label={t('stopClaude')} onClick={stop} {...keepFocus}>
+                <Icon name="stop" />
+              </button>
+              <button className="send queue-btn" aria-label={queueLabel} disabled={!hasContent || shellMode} onClick={() => void send(true)} {...keepFocus}>
+                <Icon name="queue" />
+                {(queueCount || meta.queuePause) && (
+                  <span className="count" aria-hidden="true">
+                    {meta.queuePause ? <Icon name="pause" /> : queueCount}
+                  </span>
+                )}
+              </button>
+            </>
           )}
           <button className="send" aria-label={t(shellMode ? 'run' : 'send')} disabled={!hasContent} onClick={() => void send()} {...keepFocus}>
             <Icon name="send" />

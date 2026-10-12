@@ -852,5 +852,9 @@ export const it: Record<MessageKey, string> = {
   closeAll: 'Chiudi tutti',
   copyAll: 'Copia tutto',
   paste: 'Incolla',
-  copiedOutput: 'Output copiato'
+  copiedOutput: 'Output copiato',
+  besideChat: 'Affianca alla chat',
+  fullScreen: 'Schermo intero',
+  terminalSize: 'Dimensione del terminale',
+  panelWidth: 'Larghezza del pannello'
 }

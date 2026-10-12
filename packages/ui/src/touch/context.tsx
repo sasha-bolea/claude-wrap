@@ -83,6 +83,9 @@ export type Touch = {
   panel?: Screen
   // Wide: opens that panel on the right, or closes it when it is the one open.
   togglePanel(screen: Screen): void
+  // Phone: a terminal opened from its chat can sit beside it (the chat above, the terminal below): whether it does and
+  // the switch; undefined for any other screen on top.
+  beside?: { on: boolean; toggle(): void }
 }
 
 export const TouchContext = createContext<Touch | null>(null)

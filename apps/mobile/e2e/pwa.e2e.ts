@@ -605,7 +605,7 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('details.tool').count()).toBe(0)
   })
 
-  it('the queue: the queue button puts what I wrote in the queue at once; Stop pauses the queue; Claude done, it still adds to it; ▶ sends the next message', async () => {
+  it('the queue: the queue button puts what I wrote in the queue at once; Stop pauses the queue; ▶ sends the next message', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
     await send(page, 'slow')
@@ -625,20 +625,11 @@ describe('PWA (fake SDK)', () => {
     await resume.waitFor()
     await page.locator('.working-line').waitFor({ state: 'detached' })
     expect(await page.locator('.msg-user').filter({ hasText: 'queued one' }).count()).toBe(0)
-    // Claude is done but the queue holds a message: the queue button stays, and what I write joins the queue.
-    expect(await page.locator('.send.stop').count()).toBe(0)
-    await composer(page).fill('queued two')
-    await button(page, /^Add to the queue \(1 queued/).click()
-    await button(page, /^Add to the queue \(2 queued/).waitFor()
-    expect(await page.locator('.msg-user').filter({ hasText: 'queued two' }).count()).toBe(0)
     await resume.click()
     // The chat is on screen: the message counts down in the composer before it goes.
     await page.getByRole('status').filter({ hasText: /From the queue: goes in \d+ s/ }).waitFor()
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toBe('Echo: queued one')
-    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 30_000 }).toBe('Echo: queued two')
     await page.locator('.queue-tray').waitFor({ state: 'detached' })
-    // Nothing left in the queue and Claude done: no queue button.
-    expect(await page.locator('.queue-btn').count()).toBe(0)
   })
 
   it('the bin on the queue card removes the next queued message', async () => {
@@ -1264,6 +1255,97 @@ describe('PWA (fake SDK)', () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
     // App open: the service worker posts open-tab without a tab.
+  it('a terminal beside its chat on the phone: chat above, terminal below, the divider resizes them and is remembered', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await button(page, 'More actions').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Terminal', exact: true }).click()
+    const terminal = page.getByRole('region', { name: 'Terminal' })
+    await terminal.locator('.xterm-rows').waitFor()
+    const chat = page.getByRole('region', { name: 'Chat' })
+    await expect.poll(() => chat.isVisible()).toBe(false)
+    // "Beside the chat": the chat in the top half, the terminal in the bottom one.
+    await button(page, 'Terminal actions').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Beside the chat' }).click()
+    await chat.waitFor()
+    const divider = page.getByRole('separator', { name: 'Terminal size' })
+    const top = (await chat.boundingBox())!
+    let bottom = (await terminal.boundingBox())!
+    expect(top.y + top.height).toBeLessThanOrEqual(bottom.y + 1)
+    expect(Math.abs(top.height - bottom.height)).toBeLessThan(40)
+    // The chat works in its half.
+    await composer(page).fill('typed above the terminal')
+    await expect.poll(() => composer(page).inputValue()).toBe('typed above the terminal')
+    // Dragging the divider up gives the terminal more room.
+    const drag = async (to: number) => {
+      const box = (await divider.boundingBox())!
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(box.x + box.width / 2, to, { steps: 6 })
+      await page.mouse.up()
+    }
+    await drag(bottom.y - 150)
+    await expect.poll(async () => (await terminal.boundingBox())!.height).toBeGreaterThan(bottom.height + 120)
+    bottom = (await terminal.boundingBox())!
+    // Full screen hides the chat; beside it again, the same proportions.
+    await button(page, 'Terminal actions').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Full screen' }).click()
+    await expect.poll(() => chat.isVisible()).toBe(false)
+    await button(page, 'Terminal actions').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Beside the chat' }).click()
+    await chat.waitFor()
+    await expect.poll(async () => Math.abs((await terminal.boundingBox())!.height - bottom.height)).toBeLessThan(4)
+    // Dragged to the top edge: the terminal goes back to full screen.
+    await drag(2)
+    await expect.poll(() => chat.isVisible()).toBe(false)
+    // Beside the chat again, Back on the chat leaves both; the terminal stays open, listed in the Home.
+    await button(page, 'Terminal actions').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Beside the chat' }).click()
+    await chat.getByRole('button', { name: 'Back', exact: true }).click()
+    await terminal.waitFor({ state: 'detached' })
+    await button(page, 'Show sessions').click()
+    await expect.poll(() => page.getByRole('button', { name: /^project/ }).filter({ hasText: 'Terminal' }).count()).toBe(1)
+  })
+
+  it('on a wide window the right panel is resized by dragging its edge, remembered, a double click resets it', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'en-US' })
+    contexts.push(context)
+    const page = await pairedPage(context, backend, 'laptop')
+    await openProject(page)
+    await button(page, 'Folder files').click()
+    const panel = page.locator('.col-right')
+    const width = async () => (await panel.boundingBox())!.width
+    await expect.poll(width).toBe(380)
+    const divider = page.getByRole('separator', { name: 'Panel width' })
+    const drag = async (by: number) => {
+      const box = (await divider.boundingBox())!
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(box.x + box.width / 2 + by, box.y + box.height / 2, { steps: 6 })
+      await page.mouse.up()
+    }
+    // Half the screen and more: wider by the drag, never beyond leaving the chat its room (1280 - 300 - 340).
+    await drag(-200)
+    await expect.poll(width).toBe(580)
+    await drag(-400)
+    await expect.poll(width).toBe(640)
+    // The Terminal tab keeps that width; so does the next opening of the app.
+    await panel.getByRole('button', { name: 'Terminal', exact: true }).click()
+    await panel.getByRole('region', { name: 'Terminal' }).locator('.xterm-rows').waitFor()
+    await expect.poll(width).toBe(640)
+    await page.reload()
+    await page.locator('.col-left').getByRole('button', { name: /^Show sessions/ }).click()
+    await page.getByRole('button', { name: /^project/ }).filter({ hasText: 'idle' }).first().click()
+    await button(page, 'Folder files').click()
+    await expect.poll(width).toBe(640)
+    // The arrow keys move it too; a double click puts it back.
+    await divider.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect.poll(width).toBe(620)
+    await divider.dblclick()
+    await expect.poll(width).toBe(380)
+  })
+
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => navigator.serviceWorker.dispatchEvent(new MessageEvent('message', { data: { type: 'open-tab' } }))))
     await button(page, 'Show projects').waitFor()
     await button(page, 'Show projects').click()

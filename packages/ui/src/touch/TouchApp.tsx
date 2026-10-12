@@ -5,6 +5,7 @@ import { t } from '../i18n.ts'
 import { applyPalette, followPalettes, readActivePalette } from '../palette.ts'
 import { readDraft } from '../viewState.ts'
 import { ChatScreen } from './ChatScreen.tsx'
+import { PanelDivider, SplitDivider } from './Divider.tsx'
 import { ScreenContext, TouchContext, type BackHandler, type ComposerInsert, type LiveState, type Screen, type SheetSpec, type Touch } from './context.tsx'
 import { FilesScreen, FileScreen } from './FilesScreen.tsx'
 import { FolderSessionsScreen, HomeScreen } from './HomeScreen.tsx'
@@ -146,6 +147,8 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
 
   const [stack, setStack] = useState<Entry[]>(() => [{ id: nextId++, screen: { name: 'home' } }])
   const [sheets, setSheets] = useState<SheetEntry[]>([])
+  // Phone: the terminal (its entry) shown beside the chat under it.
+  const [split, setSplit] = useState<number>()
   const [instant, setInstant] = useState(false)
   const [toastText, setToastText] = useState<string>()
   const [snackState, setSnackState] = useState<{ text: string; undo?: () => void }>()
@@ -162,6 +165,11 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
   const timers = useRef<{ toast?: ReturnType<typeof setTimeout>; snack?: ReturnType<typeof setTimeout> }>({})
   const stackRef = useRef(stack)
   stackRef.current = stack
+  // Phone: the terminal on top can sit beside the chat under it; it does while `split` names it.
+  const besideable = !wide && stack.at(-1)!.screen.name === 'terminal' && stack.at(-2)?.screen.name === 'chat'
+  const splitOn = besideable && split === stack.at(-1)!.id
+  const splitRef = useRef(splitOn)
+  splitRef.current = splitOn
   const sheetsRef = useRef(sheets)
   sheetsRef.current = sheets
 
@@ -276,7 +284,7 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
       else if (wideRef.current && stackRef.current.some((entry) => regionOf(entry.screen) === 'window')) regionBack('window')
       else {
         const chat = stackRef.current.findLast((entry) => entry.screen.name === 'chat')
-        const shown = chat && (wideRef.current || chat === stackRef.current.at(-1)) ? tabOf(chat.screen) : undefined
+        const shown = chat && (wideRef.current || splitRef.current || chat === stackRef.current.at(-1)) ? tabOf(chat.screen) : undefined
         const tab = shown && connection.store.getSnapshot().tabs?.find((candidate) => candidate.tabId === shown)
         if (!tab || !['running', 'starting', 'requires_action'].includes(tab.status)) return
         void connection.request('tab.interrupt', { tabId: tab.tabId }).catch(fail)
@@ -322,7 +330,7 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
     }
   }, [state.tabs])
 
-  const swipe = useEdgeSwipe(device, stack, backHandlers, sheets.length > 0 || wide, back)
+  const swipe = useEdgeSwipe(device, stack, backHandlers, sheets.length > 0 || wide || splitOn, back)
   // A screen entered forward slides in (the class goes after, or it would slide again when shown on the way back).
   const shown = useRef(stack.length)
   useEffect(() => {
@@ -348,10 +356,13 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
     [go]
   )
 
+  const topId = stack.at(-1)!.id
+  const beside = useMemo(() => (besideable ? { on: splitOn, toggle: () => setSplit(splitOn ? undefined : topId) } : undefined), [besideable, splitOn, topId])
   const touch = useMemo<Touch | undefined>(() => {
     if (!state.welcome || !state.tabs || !state.home || !state.projects) return undefined
     return {
       wide,
+      beside,
       chatTabId: chatEntry && tabOf(chatEntry.screen),
       panel: panelRoot,
       togglePanel,
@@ -375,13 +386,15 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
       clearInsert,
       inserts
     }
-  }, [state, connection, capabilities, go, back, backTo, reset, openSheet, closeSheet, closeSheets, toast, snack, fail, insertInComposer, clearInsert, inserts, wide, chatEntry, panelRoot, togglePanel])
+  }, [state, connection, capabilities, go, back, backTo, reset, openSheet, closeSheet, closeSheets, toast, snack, fail, insertInComposer, clearInsert, inserts, wide, chatEntry, panelRoot, togglePanel, beside])
   // Wide: each region's screens get Back for that region.
   const regionTouch = useMemo(() => {
     if (!touch) return undefined
     const of = (region: Region): Touch => ({ ...touch, back: () => regionBack(region) })
     return { left: of('left'), center: of('center'), right: of('right'), window: of('window') }
   }, [touch, regionBack])
+  // Phone: Back on the chat beside its terminal leaves both (the terminal stays open, listed in the Home).
+  const besideChatTouch = useMemo(() => touch && { ...touch, back: () => setStack((current) => current.slice(0, -2)) }, [touch])
 
   // Just paired: the notifications offered once, if iOS has not been asked yet.
   const pushOffered = useRef(false)
@@ -416,6 +429,7 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
           <main className="col-center">
             <TouchContext.Provider value={regionTouch.center}>{chatEntry ? regionView('center') : <NoChat />}</TouchContext.Provider>
           </main>
+          {panelEntries.length > 0 && panelRoot && <PanelDivider device={device} />}
           {panelEntries.length > 0 && panelRoot && (
             <aside className="col-right" aria-label={t('sidePanel')}>
               <PanelTabs root={panelRoot} chatTabId={tabOf(chatEntry?.screen ?? panelRoot)} onToggle={togglePanel} onClose={() => setStack((current) => current.filter((entry) => regionOf(entry.screen) !== 'right'))} />
@@ -458,13 +472,20 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
         </TouchContext.Provider>
       ) : (
         <TouchContext.Provider value={touch}>
-          {stack.map((entry, index) => (
-            <ScreenContext.Provider key={entry.id} value={{ entryId: entry.id, top: index === stack.length - 1, registerBack }}>
-              <div className="screen-host" hidden={index < stack.length - (swipe.revealBelow ? 2 : 1)} data-entry={entry.id}>
-                <ScreenView screen={entry.screen} />
-              </div>
-            </ScreenContext.Provider>
-          ))}
+          {stack.map((entry, index) => {
+            // Beside: the chat in the top part, its terminal under it.
+            const part = !splitOn ? '' : index === stack.length - 1 ? ' split-bottom' : index === stack.length - 2 ? ' split-top' : ''
+            return (
+              <TouchContext.Provider key={entry.id} value={part === ' split-top' && besideChatTouch ? besideChatTouch : touch}>
+                <ScreenContext.Provider value={{ entryId: entry.id, top: index === stack.length - 1, registerBack }}>
+                  <div className={`screen-host${part}`} hidden={index < stack.length - (swipe.revealBelow || splitOn ? 2 : 1)} data-entry={entry.id}>
+                    <ScreenView screen={entry.screen} />
+                  </div>
+                </ScreenContext.Provider>
+              </TouchContext.Provider>
+            )
+          })}
+          {splitOn && <SplitDivider device={device} onFull={() => setSplit(undefined)} />}
           <SheetHost sheets={sheets} instant={instant} onClose={closeSheet} />
           {snackState && (
             <div className="snack" role="status">

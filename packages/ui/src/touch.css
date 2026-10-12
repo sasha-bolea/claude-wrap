@@ -58,7 +58,22 @@ code { font-family: var(--font-mono); }
    conversation and composer at a readable ~780 px), File / Note and the panels in a 380 px panel on the right,
    Settings in a window over the app, sheets as centred dialogs */
 .device.wide { position: fixed; inset: 0; max-width: none; height: 100%; border-radius: 0; box-shadow: none; display: grid; grid-template-columns: 300px minmax(0, 1fr); flex-direction: row; }
-.device.wide.with-panel { grid-template-columns: 300px minmax(0, 1fr) 380px; }
+.device.wide.with-panel { grid-template-columns: 300px minmax(0, 1fr) min(var(--panel-w, 380px), calc(100% - 640px)); }
+/* Dividers (Divider.tsx): centred on the boundary they move, over the screens and under the sheets; a line shows on
+   hover and on keyboard focus. Wide: the right panel's left edge (--panel-w, set while dragging). */
+.divider { position: absolute; z-index: 6; touch-action: none; outline: none; }
+.divider:hover, .divider:focus-visible { background: linear-gradient(var(--accent), var(--accent)) center / 2px 100% no-repeat; }
+.panel-divider { top: 0; bottom: 0; right: min(var(--panel-w, 380px), calc(100% - 640px)); width: 9px; transform: translateX(50%); cursor: col-resize; }
+/* Phone, a terminal beside its chat: the chat above (--split-top tall), the terminal under it, a grip between them
+   (clear of the top bar's buttons). The terminal's top bar is no longer under the status bar. */
+.split-top > .screen { bottom: auto; height: var(--split-top, 50%); }
+.split-top .composer { padding-bottom: 8px; }
+.split-bottom > .screen { top: var(--split-top, 50%); }
+.split-bottom .topbar { padding-top: 6px; }
+.split-divider { left: 64px; right: 64px; top: var(--split-top, 50%); height: 24px; transform: translateY(-50%); cursor: row-resize; }
+.split-divider:hover, .split-divider:focus-visible { background: none; }
+.split-divider::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 5px; border-radius: 3px; background: var(--border); transform: translate(-50%, -50%); }
+.split-divider:focus-visible::after { background: var(--accent); }
 .col-left, .col-center, .col-right { position: relative; min-width: 0; height: 100%; overflow: clip; }
 .col-left { border-right: 1px solid var(--border); }
 .col-right { border-left: 1px solid var(--border); display: flex; flex-direction: column; background: var(--surface); }

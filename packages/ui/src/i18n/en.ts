@@ -850,7 +850,11 @@ export const en = {
   closeAll: 'Close all',
   copyAll: 'Copy all',
   paste: 'Paste',
-  copiedOutput: 'Output copied'
+  copiedOutput: 'Output copied',
+  besideChat: 'Beside the chat',
+  fullScreen: 'Full screen',
+  terminalSize: 'Terminal size',
+  panelWidth: 'Panel width'
 }
 
 export type MessageKey = keyof typeof en
