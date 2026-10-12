@@ -1292,10 +1292,6 @@ describe('PWA (fake SDK)', () => {
     await wide.locator('.col-right').getByRole('region', { name: 'Terminal' }).locator('.xterm-rows').waitFor()
   })
 
-  it('the notification about several chats opens the open sessions: tapped with the app open or closed', async () => {
-    const page = await pairedPage(await newPhone(), backend)
-    await openProject(page)
-    // App open: the service worker posts open-tab without a tab.
   it('a terminal beside its chat on the phone: chat above, terminal below, the divider resizes them and is remembered', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
@@ -1387,6 +1383,10 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(width).toBe(380)
   })
 
+  it('the notification about several chats opens the open sessions: tapped with the app open or closed', async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    // App open: the service worker posts open-tab without a tab.
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => navigator.serviceWorker.dispatchEvent(new MessageEvent('message', { data: { type: 'open-tab' } }))))
     await button(page, 'Show projects').waitFor()
     await button(page, 'Show projects').click()
