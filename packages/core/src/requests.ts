@@ -4,7 +4,7 @@ import type { ActionConfirmation, CommandArgs, PermissionMode, Request } from '@
 import { CoreError } from './errors.ts'
 
 export type Answer = Omit<CommandArgs<'request.answer'>, 'tabId' | 'requestId'>
-type Pending = { request: Request; suggestions?: PermissionUpdate[]; resolve: (result: PermissionResult) => void }
+type Pending = { request: Request; suggestions?: PermissionUpdate[]; resolve: (result: PermissionResult, answer?: Answer) => void }
 
 export interface RequestEvents {
   opened(request: Request): void
@@ -89,11 +89,12 @@ export class Requests {
 
   // Opens a confirmation of a heavy action of the action API (not Claude's: no tool call waits on it). Resolves true
   // when the user allows it, false when they deny it or it is cancelled (the chat closes, its process ends).
-  confirm(input: ActionConfirmation): Promise<boolean> {
+  // canAllowAlways: the card also offers "always in this session". Resolves with the user's decision.
+  confirm(input: ActionConfirmation, canAllowAlways = false): Promise<'allow' | 'allowAlways' | 'deny'> {
     const requestId = randomUUID()
-    const request: Request = { requestId, kind: 'action', toolName: 'AtHome', input, toolUseId: '', canAllowAlways: false, title: `Allow ${input.action}?` }
+    const request: Request = { requestId, kind: 'action', toolName: 'AtHome', input, toolUseId: '', canAllowAlways, title: `Allow ${input.action}?` }
     return new Promise((resolve) => {
-      this.pending.set(requestId, { request, resolve: (result) => resolve(result.behavior === 'allow') })
+      this.pending.set(requestId, { request, resolve: (result, answer) => resolve(result.behavior !== 'allow' ? 'deny' : answer?.decision === 'allowAlways' && canAllowAlways ? 'allowAlways' : 'allow') })
       this.events.opened(request)
     })
   }
@@ -104,7 +105,7 @@ export class Requests {
     if (!pending) throw new CoreError('request_resolved', 'request already answered or cancelled')
     this.pending.delete(requestId)
     const result = buildResult(pending, answer)
-    pending.resolve(result)
+    pending.resolve(result, answer)
     this.events.resolved(requestId, by, answer.decision)
     return result
   }

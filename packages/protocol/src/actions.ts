@@ -15,6 +15,8 @@ export const folderNameSchema = z
 
 // Longest text an action carries (a prompt, the composer's text).
 export const ACTION_TEXT_MAX = 20_000
+// Most lines of a terminal terminal.read gives back.
+export const TERMINAL_READ_MAX = 2000
 // Screens a widget may open in its chat's session.
 export const ACTION_SCREENS = ['files', 'notes', 'settings', 'context', 'usage', 'status', 'mcp', 'hooks', 'permissions', 'memory'] as const
 
@@ -24,12 +26,16 @@ export const actionSourceSchema = z.enum(['widget', 'terminal'])
 
 // Actions core runs, with their arguments. request.answer answers the chat's first open request (allow, with the
 // answers of a question, or deny). session.move moves the chat's own session to another folder of the Home.
+// terminal.read / terminal.write: the screen of the chat's own terminal as text (its last lines), text typed in it
+// (enter: then Enter); only Claude in an AtHome session (the athome command), writing after a confirmation.
 export const CORE_ACTIONS = {
   'prompt.send': z.object({ text: z.string().trim().min(1).max(ACTION_TEXT_MAX) }),
   'request.answer': z.object({ decision: z.enum(['allow', 'deny']), answers: z.record(z.string(), z.string()).optional() }),
   'project.create': z.object({ name: folderNameSchema, parent: z.string().min(1).optional() }),
   'session.start': z.object({ folder: z.string().min(1), prompt: z.string().trim().min(1).max(ACTION_TEXT_MAX).optional() }),
-  'session.move': z.object({ folder: z.string().min(1) })
+  'session.move': z.object({ folder: z.string().min(1) }),
+  'terminal.read': z.object({ lines: z.number().int().min(1).max(TERMINAL_READ_MAX).optional() }),
+  'terminal.write': z.object({ text: z.string().min(1).max(ACTION_TEXT_MAX), enter: z.boolean().optional() })
 } as const
 
 // Actions the client runs on its own screen.

@@ -29,7 +29,11 @@ import { listWidgets, setCreateCommand } from './widgets.ts'
 const SESSION_GUIDE = `# AtHome session
 This session runs in AtHome. To go on with this same conversation in another folder (for instance a project you just
 created), run \`athome session move <folder>\`: the user confirms in this chat, then the session and its conversation
-move there at the end of your turn. Give the command a timeout of a few minutes (it waits for the user).`
+move there at the end of your turn. Give the command a timeout of a few minutes (it waits for the user).
+The user can watch a terminal of this session in the app. \`athome terminal read [--lines <n>]\` prints what it shows;
+\`athome terminal write <text> [--enter]\` types text in it (with --enter it runs), opening one in this session's folder
+if none is open; the user allows writing in this chat (once, or for the whole session). Use it when the user should
+see or take over a command (a server, an interactive program); use your own Bash tool for everything else.`
 
 // Upper bound for closing everything on quit.
 const QUIT_CAP_MS = 8000

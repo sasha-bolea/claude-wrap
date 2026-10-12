@@ -15,6 +15,8 @@ const SCREEN_CHARS = 256 * 1024
 const RING: RingLimits = { events: 4000, bytes: 1024 * 1024 }
 // Output is gathered for this long before it goes out as one event (a busy shell writes in tiny pieces).
 const FLUSH_MS = 16
+// Lines the text of a terminal (terminal.read) is rebuilt with, beyond the screen.
+const SCROLLBACK = 5000
 
 // The shell to run: the user's own, else bash; PowerShell on Windows.
 export type ShellCommand = { file: string; args: string[] }
@@ -84,6 +86,34 @@ export class Terminals {
   // A client went away: it leaves every terminal stream.
   detachAll(send: Send): void {
     for (const terminal of this.terminals.values()) terminal.stream.detach(send)
+  }
+
+  // The terminal's screen as plain text (colours and cursor moves applied, as a client shows it): its last `lines`
+  // lines, scrollback included, without the empty ones at the end.
+  // xterm's headless build is imported by its file: the package's "module" field (6.0.0) names a file it does not ship,
+  // which bundlers (electron-vite) pick before "main".
+  async text(terminalId: string, lines: number): Promise<string> {
+    const terminal = this.terminalOf(terminalId)
+    if (terminal.pending) {
+      clearTimeout(terminal.timer)
+      this.flush(terminal)
+    }
+    const { Terminal: Headless } = await import('@xterm/headless/lib-headless/xterm-headless.mjs')
+    const screen = new Headless({ cols: terminal.meta.cols, rows: terminal.meta.rows, scrollback: SCROLLBACK, allowProposedApi: true })
+    try {
+      await new Promise<void>((done) => screen.write(terminal.screen, done))
+      const buffer = screen.buffer.active
+      const text = Array.from({ length: buffer.length }, (_, index) => buffer.getLine(index)?.translateToString(true) ?? '')
+      while (text.length && !text.at(-1)) text.pop()
+      return text.slice(-lines).join('\n')
+    } finally {
+      screen.dispose()
+    }
+  }
+
+  // The running terminal opened from a session, if any.
+  ofTab(tabId: string): TerminalMeta | undefined {
+    return [...this.terminals.values()].find((terminal) => terminal.meta.tabId === tabId && terminal.pty)?.meta
   }
 
   // Keys typed in a client's terminal (an ended shell ignores them).

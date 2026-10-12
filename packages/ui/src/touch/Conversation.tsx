@@ -443,7 +443,7 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
 // Claude's request inside the conversation. The optional text (reason for No, "Altro…", what to change in the
 // plan) shows only after choosing that answer; the card never takes the focus itself, so no tap grants by mistake.
 function RequestCard({ request, onAnswer }: { request: Request; onAnswer: (answer: Answer) => void }) {
-  const label = request.kind === 'question' ? t('questionRegion') : request.kind === 'plan' ? t('planRegion') : request.kind === 'action' ? t('actionRegion') : t('permissionRegion')
+  const label = request.kind === 'question' ? t('questionRegion') : request.kind === 'plan' ? t('planRegion') : request.kind === 'action' ? t(request.input.source === 'terminal' ? 'actionRegionTerminal' : 'actionRegion') : t('permissionRegion')
   const Card = { question: QuestionCard, plan: PlanCard, action: ActionCard, permission: PermissionCard }[request.kind]
   return (
     <section className="request" aria-label={label} tabIndex={-1}>
@@ -469,6 +469,11 @@ function ActionCard({ request, onAnswer }: { request: Request; onAnswer: (answer
         <button className="button danger" onClick={() => onAnswer({ decision: 'deny' })}>
           {t('no')}
         </button>
+        {request.canAllowAlways && (
+          <button className="button wide" onClick={() => onAnswer({ decision: 'allowAlways' })}>
+            {t('yesAlwaysSession')}
+          </button>
+        )}
       </div>
     </>
   )

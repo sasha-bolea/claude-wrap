@@ -238,7 +238,9 @@ describe('from the terminal (athome command)', () => {
   it('every session is told it can move itself with the athome command', async () => {
     await client.ok('tab.send', { tabId: 't1', text: 'hello' })
     await client.waitFor(() => fake.sessions.length === 1)
-    expect((fake.last().options.systemPrompt as { append?: string }).append).toContain('athome session move <folder>')
+    const { append } = fake.last().options.systemPrompt as { append?: string }
+    expect(append).toContain('athome session move <folder>')
+    expect(append).toContain('athome terminal write')
   })
 
   it('every action is in the log with its source and outcome', async () => {

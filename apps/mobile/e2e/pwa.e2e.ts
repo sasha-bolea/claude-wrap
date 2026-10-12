@@ -10,6 +10,8 @@ import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { Browser, BrowserContext, CDPSession, Page } from 'playwright-core'
 import { createPairingCode } from '@athome/server'
+import { WORKSPACE_STREAM, type WorkspaceSnapshot } from '@athome/protocol'
+import { RawClient } from '../../../packages/core/src/testing/rawClient.ts'
 import { button, composer, home, lastAnswer, launchChrome, openProject, pairedPage, phone, send, startBackend, type Backend } from './harness.ts'
 
 let browser: Browser
@@ -1364,6 +1366,30 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => page.getByRole('status').first().textContent()).toBe(`Session moved to ${join(backend.root, 'cruscotto')}`)
     await button(page, 'More actions').click()
     await expect.poll(() => page.getByRole('dialog').locator('.mono-line').first().textContent()).toBe(join(backend.root, 'cruscotto'))
+  })
+
+  it("Claude writes in the session's terminal: a card with the text, \"always in this session\", the terminal opens with it", async () => {
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    const claude = new RawClient(backend.core, 'athome-cli', { deviceId: 'terminal', label: 'terminal', terminal: true })
+    await claude.hello()
+    const tabId = (claude.lastReset(WORKSPACE_STREAM)!.snapshot as WorkspaceSnapshot).tabs[0]!.tabId
+    const write = (text: string) => claude.cmd('actions.run', { action: 'terminal.write', args: { text, enter: true }, source: 'terminal', tabId })
+    const first = write('echo cw-"fi"rst')
+    const card = page.getByRole('region', { name: 'Claude asks through AtHome' })
+    await card.getByText("Open a terminal in the session's folder and run this?").waitFor()
+    expect(await card.locator('.preview').textContent()).toBe('echo cw-"fi"rst')
+    await card.getByRole('button', { name: 'Yes, always in this session' }).click()
+    expect(await first).toMatchObject({ ok: true })
+    // The next one goes without a card; the terminal shows both.
+    expect(await write('echo cw-"se"cond')).toMatchObject({ ok: true })
+    expect(await card.count()).toBe(0)
+    await button(page, 'More actions').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Terminal', exact: true }).click()
+    const rows = page.getByRole('region', { name: 'Terminal' }).locator('.xterm-rows')
+    await expect.poll(() => rows.textContent(), { timeout: 10_000 }).toContain('cw-second')
+    expect(await rows.textContent()).toContain('cw-first')
+    claude.close()
   })
 
   it('a terminal beside its chat on the phone: chat above, terminal below, the divider resizes them and is remembered', async () => {

@@ -205,6 +205,8 @@ export class Tab {
   // (an account switch, a new auto-compact window).
   private account?: string
   private switchPending = false
+  // Actions allowed "always in this session" on their confirmation card.
+  private readonly alwaysAllowed = new Set<string>()
   // Where the session moves at the end of its turn (asked while Claude was at work), and why.
   private movePending?: { folder: string; how: MoveKind }
   // The account the running process was started with: until a switch takes effect (at the end of a turn) it is not
@@ -968,9 +970,14 @@ export class Tab {
   }
 
   // Asks the user, in this chat, to allow a heavy action of the action API. Resolves true when allowed.
-  confirmAction(input: ActionConfirmation): Promise<boolean> {
+  // always: the card offers "always in this session"; once chosen, that action no longer asks in this tab (until it
+  // closes or core restarts).
+  async confirmAction(input: ActionConfirmation, always = false): Promise<boolean> {
     this.assertOpen()
-    return this.requests.confirm(input)
+    if (always && this.alwaysAllowed.has(input.action)) return true
+    const decision = await this.requests.confirm(input, always)
+    if (decision === 'allowAlways') this.alwaysAllowed.add(input.action)
+    return decision !== 'deny'
   }
 
   // Answers an open request. by: the answering client. A mode set by the answer becomes the tab's mode.

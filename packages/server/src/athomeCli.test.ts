@@ -92,6 +92,27 @@ describe('athome', () => {
     expect(out.at(-1)).toBe(`Session moved to ${join(home, 'other')}`)
   })
 
+  it("terminal write and read: Claude types in its session's terminal once allowed, then reads the result", async () => {
+    const app = new RawClient(core)
+    await app.hello()
+    await app.ok('trust.grant', { cwd: join(home, 'demo') })
+    await app.ok('tab.create', { tabId: 't1', cwd: join(home, 'demo') })
+    await app.ok('tab.subscribe', { tabId: 't1' })
+    const done = run(['terminal', 'write', 'echo cw-"cl"i', '--enter'], { interactive: false, tabId: 't1' })
+    await app.waitFor(() => app.events(tabStream('t1')).some((ev) => ev.type === 'request.opened'))
+    const request = app.events(tabStream('t1')).flatMap((ev) => (ev.type === 'request.opened' ? [ev.request as Request] : []))[0]!
+    await app.ok('request.answer', { tabId: 't1', requestId: request.requestId, decision: 'allow' })
+    expect(await done).toBe(0)
+    expect(out.at(-1)).toBe('Written in the terminal, Enter pressed')
+    await expect
+      .poll(async () => {
+        out = []
+        await run(['terminal', 'read', '--lines', '20'], { interactive: false, tabId: 't1' })
+        return out.join('\n')
+      }, { timeout: 5000 })
+      .toContain('cw-cli')
+  })
+
   it('any other program is refused', async () => {
     expect(await run(['project', 'create', 'idea'], { interactive: false })).toBe(3)
     expect(existsSync(join(home, 'idea'))).toBe(false)

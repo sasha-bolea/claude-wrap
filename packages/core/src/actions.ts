@@ -20,7 +20,7 @@ import type { Workspace } from './workspace.ts'
 // act too. sessionsPerHour: new sessions it may start in an hour. newSessionMode: the permission mode of a session
 // started by a program (undefined: the usual default).
 export type TerminalPolicy = { actions: CoreActionName[]; interactiveActsDirectly: boolean; othersMayAct: boolean; sessionsPerHour: number; newSessionMode?: PermissionMode }
-export const DEFAULT_TERMINAL_POLICY: TerminalPolicy = { actions: ['project.create', 'session.start', 'session.move'], interactiveActsDirectly: true, othersMayAct: false, sessionsPerHour: 10, newSessionMode: 'default' }
+export const DEFAULT_TERMINAL_POLICY: TerminalPolicy = { actions: ['project.create', 'session.start', 'session.move', 'terminal.read', 'terminal.write'], interactiveActsDirectly: true, othersMayAct: false, sessionsPerHour: 10, newSessionMode: 'default' }
 // The only commands a terminal connection may send (it also gets the workspace snapshot, read only).
 // Reads (folders, a chat's transcript) are open to every terminal connection.
 export const TERMINAL_COMMANDS: ReadonlySet<CommandName> = new Set<CommandName>(['actions.run', 'folders.list', 'tab.subscribe', 'tab.unsubscribe', 'tab.history'])
@@ -41,10 +41,11 @@ class Denied extends CoreError {
 
 // Asks the user before a heavy action, in the chat it comes from; nothing to ask when direct. Throws action_denied
 // unless they allow it (or when there is no chat to ask in).
-async function confirmed(context: Context, action: CoreActionName, args: object, about?: ActionConfirmation['about']): Promise<void> {
+// always: the card also offers "always in this session".
+async function confirmed(context: Context, action: CoreActionName, args: object, about?: ActionConfirmation['about'], always = false): Promise<void> {
   if (context.direct) return
   if (!context.tab) throw new CoreError('action_denied', 'no chat to ask the user in')
-  const allowed = await context.tab.confirmAction({ action, args: { ...args }, source: context.source, ...(about ? { about } : {}) })
+  const allowed = await context.tab.confirmAction({ action, args: { ...args }, source: context.source, ...(about ? { about } : {}) }, always)
   if (!allowed) throw new Denied()
 }
 
@@ -112,12 +113,37 @@ const moveSession: Runner<'session.move'> = async (context, { folder: given }) =
   return tab.moveTo(folder)
 }
 
+// Lines terminal.read gives back by default.
+const TERMINAL_READ_LINES = 60
+
+// terminal.read: the last lines of the chat's own terminal as text, without asking. not_found with none open.
+const readTerminal: Runner<'terminal.read'> = async (context, { lines }) => {
+  const tab = chatOf(context)
+  const terminal = context.workspace.terminals.ofTab(tab.tabId)
+  if (!terminal) throw new CoreError('not_found', 'this session has no terminal open')
+  return { terminalId: terminal.terminalId, text: await context.workspace.terminals.text(terminal.terminalId, lines ?? TERMINAL_READ_LINES) }
+}
+
+// terminal.write: text typed in the chat's own terminal (then Enter if asked), after a confirmation that can be given
+// for the rest of the session; with no terminal open, one opens in the session's folder. Returns {terminalId}.
+const writeTerminal: Runner<'terminal.write'> = async (context, { text, enter }) => {
+  const tab = chatOf(context)
+  const { terminals } = context.workspace
+  const open = terminals.ofTab(tab.tabId)
+  await confirmed(context, 'terminal.write', { text, ...(enter ? { enter } : {}), ...(open ? {} : { newTerminal: true }) }, undefined, true)
+  const terminalId = terminals.ofTab(tab.tabId)?.terminalId ?? (await terminals.open(await tab.folder(), 80, 24, tab.tabId))
+  terminals.input(terminalId, enter ? `${text}\r` : text)
+  return { terminalId }
+}
+
 const RUNNERS: { [Name in CoreActionName]: Runner<Name> } = {
   'prompt.send': sendPrompt,
   'request.answer': answerRequest,
   'project.create': createProject,
   'session.start': startSession,
-  'session.move': moveSession
+  'session.move': moveSession,
+  'terminal.read': readTerminal,
+  'terminal.write': writeTerminal
 }
 
 // The context of an action from the terminal, by the policy: direct for a person at a terminal, otherwise confirmed in
@@ -137,6 +163,7 @@ function checkCaller(run: CommandArgs<'actions.run'>, connection: Connection): v
   const terminal = Boolean(connection.terminal)
   if ((run.source === 'terminal') !== terminal) throw new CoreError('unauthorized', `a ${terminal ? 'terminal' : 'client'} connection cannot run ${run.source} actions`)
   if (run.source === 'widget' && !run.tabId) throw new CoreError('invalid_args', 'a widget action needs its chat (tabId)')
+  if (run.source === 'widget' && run.action.startsWith('terminal.')) throw new CoreError('action_denied', 'a widget cannot use the terminal')
 }
 
 // The outcome a failed action is logged with.

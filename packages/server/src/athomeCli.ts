@@ -26,6 +26,8 @@ export const USAGE = `usage:
   athome project create <name> [--in <folder>] [--json]    a new project folder (default: in the Home)
   athome session start <folder> [--prompt <text>] [--json] a new session in a folder, with an optional first prompt
   athome session move <folder> [--json]                    (Claude in AtHome) this session goes on in another folder
+  athome terminal read [--lines <n>] [--json]              (Claude in AtHome) what this session's terminal shows
+  athome terminal write <text> [--enter] [--json]          (Claude in AtHome) types in this session's terminal
 
 Run by you in a terminal, it acts at once. Run by Claude in an AtHome session, AtHome asks you to confirm in that
 chat and the command waits (give it a timeout of a few minutes). Any other program may only read. It never writes to
@@ -79,7 +81,7 @@ function options(words: string[], valued: string[], flags: string[]): { rest: st
 // Reads a command line. cwd: where relative folders start. Throws UsageError.
 function parse(argv: string[], cwd: string): { parsed: Parsed; json: boolean } {
   if (argv.length === 0 || ['--help', 'help', '-h'].includes(argv[0]!)) return { parsed: { kind: 'help' }, json: false }
-  const { rest, values, flags } = options(argv, ['--in', '--prompt', '--last', '--timeout'], ['--json'])
+  const { rest, values, flags } = options(argv, ['--in', '--prompt', '--last', '--timeout', '--lines'], ['--json', '--enter'])
   const json = flags.has('json')
   const [a, b, c, d, ...extra] = rest
   const folder = (path: string) => resolve(cwd, path)
@@ -91,6 +93,8 @@ function parse(argv: string[], cwd: string): { parsed: Parsed; json: boolean } {
     if (a === 'project' && b === 'create' && c && d === undefined) return { kind: 'action', action: 'project.create', args: { name: c, ...(values.in ? { parent: folder(values.in) } : {}) } }
     if (a === 'session' && b === 'start' && c && d === undefined) return { kind: 'action', action: 'session.start', args: { folder: folder(c), ...(values.prompt ? { prompt: values.prompt } : {}) } }
     if (a === 'session' && b === 'move' && c && d === undefined) return { kind: 'action', action: 'session.move', args: { folder: folder(c) } }
+    if (a === 'terminal' && b === 'read' && c === undefined) return { kind: 'action', action: 'terminal.read', args: values.lines ? { lines: Number(values.lines) } : {} }
+    if (a === 'terminal' && b === 'write' && c && d === undefined) return { kind: 'action', action: 'terminal.write', args: { text: c, ...(flags.has('enter') ? { enter: true } : {}) } }
     throw new UsageError('unknown command')
   })()
   return { parsed, json }
@@ -207,10 +211,12 @@ async function wait(terminal: Terminal, tabId: string, timeoutMs: number, json: 
 
 // Runs an action and prints what it did.
 async function act(terminal: Terminal, parsed: Extract<Parsed, { kind: 'action' }>, json: boolean, io: CliIo): Promise<void> {
-  if (!io.interactive && io.tabId) io.err('Waiting for the confirmation in the AtHome chat…')
+  if (!io.interactive && io.tabId && parsed.action !== 'terminal.read') io.err('Waiting for the confirmation in the AtHome chat…')
   const run = { action: parsed.action, args: parsed.args, source: 'terminal', interactive: io.interactive, ...(io.tabId ? { tabId: io.tabId } : {}) }
-  const { value } = (await terminal.request('actions.run', run)) as { value?: { path?: string; tabId?: string; needsTrust?: boolean; pending?: boolean } }
+  const { value } = (await terminal.request('actions.run', run)) as { value?: { path?: string; tabId?: string; needsTrust?: boolean; pending?: boolean; text?: string } }
   if (json) return io.out(JSON.stringify(value ?? {}))
+  if (parsed.action === 'terminal.read') return io.out(value?.text ?? '')
+  if (parsed.action === 'terminal.write') return io.out(parsed.args.enter ? 'Written in the terminal, Enter pressed' : 'Written in the terminal (no Enter)')
   if (parsed.action === 'session.move') return io.out(value?.pending ? `The session moves to ${String(parsed.args.folder)} at the end of this turn` : `Session moved to ${String(parsed.args.folder)}`)
   if (value?.path) io.out(`Created: ${value.path}`)
   else if (value?.tabId) io.out(`Session started: ${value.tabId}${value.needsTrust ? ' (trust the folder in AtHome, then send the prompt from there)' : ''}`)

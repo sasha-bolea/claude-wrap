@@ -60,6 +60,10 @@ export function actionWords(input: Record<string, unknown>): { title: string; de
       return { title: t('actionProject', { name: text(args.name), parent: text(args.parent) }) }
     case 'session.start':
       return { title: t('actionSession', { folder: text(args.folder) }), ...(args.prompt ? { detail: text(args.prompt) } : {}) }
+    case 'terminal.write': {
+      const key = args.newTerminal ? (args.enter ? 'actionTerminalOpenRun' : 'actionTerminalOpenType') : args.enter ? 'actionTerminalRun' : 'actionTerminalType'
+      return { title: t(key), detail: text(args.text) }
+    }
     case 'session.move':
       return { title: t('actionMove', { folder: text(args.folder) }) }
     case 'request.answer':

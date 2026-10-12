@@ -225,6 +225,10 @@ the action in plain words as its `h2` ("Creare il progetto «idea» in /srv?", f
 [widget.ts](../packages/ui/src/touch/widget.ts)), the prompt it would send in a `.preview`, a muted "Lo chiede un widget
 di questa chat, dopo un tuo tocco." and a `.grant-row` with Sì / danger No (no reason field, no "always"). Its words come
 from a widget: React text only. Example: [Conversation.tsx:446](../packages/ui/src/touch/Conversation.tsx#L446).
+Asked by the `athome` command Claude runs in this chat, the region is "Claude chiede tramite AtHome" and the muted line
+says so. Writing in the session's terminal shows the text in the `.preview` (the title says whether it runs with Enter
+and whether a terminal opens first) and adds a third `.button.wide` "Sì, sempre in questa sessione": that tab stops
+asking for terminal writes until it closes or core restarts. Example: [Conversation.tsx:474](../packages/ui/src/touch/Conversation.tsx#L474).
 Examples: [Conversation.tsx:354](../packages/ui/src/touch/Conversation.tsx#L354), [Conversation.tsx:364](../packages/ui/src/touch/Conversation.tsx#L364).
 
 ### Conversation scroll indicator — `.scroll-thumb` (`.on`)
