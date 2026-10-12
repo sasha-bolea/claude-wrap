@@ -91,12 +91,14 @@ with "Aggiungi cartella…" (the system's folder dialog) and "Togli dall'elenco"
 goes to the system Trash (no "Eliminate di recente"). A local backend that crashed for good shows `.core-failed`.
 Examples: [backends.tsx:28](../packages/ui/src/touch/backends.tsx#L28).
 
-### Wide arrangement — `.device.wide` (`.with-panel`), `.col-left`, `.col-center`, `.col-right`, `.panel-tabs`, `.panel-tab`, `.panel-close`, `.window-scrim`, `.window`, `.no-chat`, `.row.current`
+### Wide arrangement — `.device.wide` (`.with-panel`), `.col-left`, `.col-center`, `.col-right`, `.panel-close`, `.window-scrim`, `.window`, `.no-chat`, `.row.current`
 From 1024 px of width (desktop, large tablets) the same screens are arranged side by side (NOTE-CONSEGNA §5): the
 Home in a 300 px column (Projects lists only folders, as on a phone; the open sessions are in its Sessions view, the
 one in the chat highlighted; its folder sessions and trash open in the column itself), the chat in the middle without a back arrow, its conversation
-padded to ~780 px of content and the composer as wide, **File** in its top bar opening and closing a
-380 px panel on the right (tabs File | Terminal and ×; the notes are cards under the composer; the 🔜 panels, Contesto and Consumo open there too), Settings in a
+padded to ~780 px of content and the composer as wide, a 380 px panel on the right for the chat's tools that have a
+screen (Terminale, Torna indietro, the session menu's panels — Contesto, Consumo, …): no tabs, its × over the right end
+of the shown screen's top bar (which keeps 48 px for it); the File tool opens the session's folder in the Home's
+column instead. Settings in a
 window over the app (Back or a click outside closes it). A menu opened from a button is a **popover** by it
 (`.sheet.popover`, 320 px, below a button in the upper half of the window, above one in the lower half — the composer —
 re-placed when its content grows, over a clear scrim); typing sheets and sheets opened from a sheet (confirmations)
@@ -117,7 +119,7 @@ with a `.pad` grid (16 px gaps; `.tight` 10 px; `.settings` 22 px), optional `.s
 Examples: [TouchApp.tsx:326](../packages/ui/src/touch/TouchApp.tsx#L326), [TouchApp.tsx:339](../packages/ui/src/touch/TouchApp.tsx#L339), [FilesScreen.tsx:226](../packages/ui/src/touch/FilesScreen.tsx#L226).
 
 ### Top bar — `.topbar`, `h1` (`.sub`, `.pad-left`), `.chat-bar` (`.chat-head`, `.chat-title`)
-52 px bar: back icon button, the title with its small `.sub` line (path, state), icon buttons on the right. The chat bar (`.topbar.chat-bar`, [ChatScreen.tsx:373](../packages/ui/src/touch/ChatScreen.tsx#L373)) is one row of the same height (52 px + safe area): back (phone only), then `.chat-head` with the state badge and `.chat-title` (an `h1`, plain text, not a button, nothing opens on tap): the chat's name only (no folder), 15 px semibold, cut with "…"; then (wide only) Files and Note, Torna indietro and ⋯ on the right; the session menu opens only from ⋯. There is no model button in the bar: the model and effort live in the composer (brain button), in one sheet with the effort levels at the top and the models under them. The ⋯ menu has one "Model and effort" item (model, plus " · effort" when the model has levels, on its right) opening the same sheet.
+52 px bar: back icon button, the title with its small `.sub` line (path, state), icon buttons on the right. The chat bar (`.topbar.chat-bar`, [ChatScreen.tsx:373](../packages/ui/src/touch/ChatScreen.tsx#L373)) is one row of the same height (52 px + safe area): back (phone only), then `.chat-head` with the state badge and `.chat-title` (an `h1`, plain text, not a button, nothing opens on tap): the chat's name only (no folder), 15 px semibold, cut with "…"; then ⋯ on the right, alone (File, Torna indietro and the rest are the composer's Tools); the session menu opens only from ⋯. There is no model button in the bar: the model and effort live in the composer (brain button), in one sheet with the effort levels at the top and the models under them. The ⋯ menu has one "Model and effort" item (model, plus " · effort" when the model has levels, on its right) opening the same sheet.
 Examples: [FilesScreen.tsx:219](../packages/ui/src/touch/FilesScreen.tsx#L219), [parts.tsx:47](../packages/ui/src/touch/parts.tsx#L47).
 
 ### Icon button — `.icon-btn` (`.dot`, `.count`, `.on`, `.dim`, `.accent`)
@@ -271,12 +273,12 @@ a sibling of the stack button inside `.q-front` (buttons do not nest), and the f
 elsewhere opens the Queue tool (see Tools).
 Examples: [queue.tsx:28](../packages/ui/src/touch/queue.tsx#L28), [queue.tsx:29](../packages/ui/src/touch/queue.tsx#L29).
 
-### Files — `.refresh-note`, `.file-meta`, `.code` (`.line`, `.ln`, `hljs-*`), `.md-view`, `.preview-img`, `.preview-empty`, `.sticky-actions.two`, `.at`
-The file list says what Claude created or changed at the end of a turn (`.refresh-note`, chips on the rows). The
-preview: code with line numbers coloured by highlight.js (loaded only when a file is opened; four colours from the
-tokens), markdown, images (SVG only as `<img>`), "no preview" otherwise; Mention in chat and Download stay at the
-bottom (`.at` is the mono "@" glyph).
-Examples: [FilesScreen.tsx:229](../packages/ui/src/touch/FilesScreen.tsx#L229), [FilesScreen.tsx:485](../packages/ui/src/touch/FilesScreen.tsx#L485), [FilesScreen.tsx:414](../packages/ui/src/touch/FilesScreen.tsx#L414), [FilesScreen.tsx:446](../packages/ui/src/touch/FilesScreen.tsx#L446).
+### Files — `.file-meta`, `.code` (`.line`, `.ln`, `hljs-*`), `.md-view`, `.preview-img`, `.preview-empty`, `.sticky-actions`
+One explorer, of a folder of the Home (its "N file" row; a chat's File tool opens the session's folder in the Home).
+Uploaded files are marked new. The preview: code with line numbers coloured by highlight.js (loaded only when a file
+is opened; four colours from the tokens), markdown, images (SVG only as `<img>`), "no preview" otherwise; Download
+stays at the bottom.
+Examples: [FilesScreen.tsx:400](../packages/ui/src/touch/FilesScreen.tsx#L400), [FilesScreen.tsx:402](../packages/ui/src/touch/FilesScreen.tsx#L402), [FilesScreen.tsx:433](../packages/ui/src/touch/FilesScreen.tsx#L433).
 
 ### Notes — `.note-list`, `.note-card` (`.note-open`, `.note-preview`, `.note-date`, `.note-actions`), `.note-editor`
 Cards with the first line as title, two lines of preview, the date and "Usa nel messaggio"; the editor is a
@@ -289,8 +291,10 @@ These screens are for a folder without a chat (from its sessions screen); a chat
 The composer's Tools button shows the chat's Tools in place of the conversation (a layer over it, as wide as its
 readable column, scrolling above the dock; the composer stays); pressed again, or a message sent, the chat comes back.
 First a grid of tiles (icon in accent, name, a short detail: a count, a state): Note, Coda (the queue's stack opens it
-straight), File (`folder`), Terminale (`prompt` >_), Torna indietro ("prima Stop" while Claude works), Account (its
-name) — these four left the session menu. Note and Coda open their list in the same place under a `.tools-head`
+straight), File (`folder`: the session's folder in the Home, Back from there is the chat), Terminale (`prompt` >_),
+Torna indietro ("prima Stop" while Claude works), Account (its name) — these four left the session menu and the chat's
+bar — then Modalità, Modello and Contesto (with their state: mode, model · effort, the highest share), the composer's
+own left buttons, which slide left and go (`.tools-open`) while the Tools show (+ stays). Note and Coda open their list in the same place under a `.tools-head`
 (‹ back to the grid, the name, for the queue its count and ⏸/▶); the others open their screen or sheet.
 Lists share one card (`TrayCard`): a `.tray-handle` (`grip`, 28 px on the left edge, the only grab area) — pressed and
 moved past 5 px the card follows the pointer's place (accent border, shadow) and the order is the core's

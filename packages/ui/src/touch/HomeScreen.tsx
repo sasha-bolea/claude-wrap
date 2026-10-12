@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { FolderEntry, TabMeta } from '@athome/protocol'
+import type { FolderEntry, Home, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useBackHandler, useScreen, useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
@@ -65,19 +65,33 @@ function FolderRow({ entry, project, tabs, onEnter, onChanged }: { entry: Folder
   )
 }
 
+// The folders entered from the top of the Home down to a folder (empty when it is the root or outside the Home).
+// home: the backend's Home; path: the folder.
+function trailTo(home: Home, path: string): string[] {
+  const base = home.kind === 'root' ? home.path : home.folders.find((folder) => inside(path, folder))
+  if (!base || !inside(path, base)) return []
+  const separator = path.includes('\\') ? '\\' : '/'
+  const trail = home.kind === 'added' ? [base] : []
+  let at = base.replace(/[\\/]+$/, '')
+  for (const part of path.slice(base.length).split(/[\\/]/).filter(Boolean)) trail.push((at = `${at}${separator}${part}`))
+  return trail
+}
+
 // Home: the folders of the backend (server: its root; this PC: the added folders), with the sessions of the folder
 // shown and a new session right there; or every session (the Sessioni view). Back goes up one folder first.
-// view: the view to open on (otherwise the one remembered).
-export function HomeScreen({ view: asked }: { view?: View }) {
-  const { state, connection, go, openSheet, capabilities, fail } = useTouch()
+// view: the view to open on (otherwise the one remembered); path: a folder to open on (a chat's File tool) — Back
+// does not go above it: from there it leaves the Home (back to the chat).
+export function HomeScreen({ view: asked, path: opened }: { view?: View; path?: string }) {
+  const { state, connection, go, back, openSheet, capabilities, fail } = useTouch()
   const { top } = useScreen()
   const startSession = useStartSession()
-  const [view, setView] = useHomeView(asked)
-  const [trail, setTrail] = useState<string[]>([])
+  const [view, setView] = useHomeView(opened ? 'projects' : asked)
+  const [floor] = useState(() => (opened ? trailTo(state.home, opened) : []))
+  const [trail, setTrail] = useState<string[]>(floor)
   const home = state.home
   const root = home.kind === 'root' ? home.path : undefined
   const current = trail.at(-1) ?? root
-  useBackHandler(trail.length > 0 && view === 'projects', () => setTrail((path) => path.slice(0, -1)))
+  useBackHandler(trail.length > floor.length && view === 'projects', () => setTrail((path) => path.slice(0, -1)))
 
   // Listed again when the project marks change: a project made elsewhere (a plan, a widget, another device) shows up.
   const listing = useQuery(() => (current ? connection.request('folders.list', { path: current }) : Promise.resolve(undefined)), [connection, current, state.projects])
@@ -115,7 +129,8 @@ export function HomeScreen({ view: asked }: { view?: View }) {
     <section className="screen" aria-label={t(view === 'sessions' ? 'sessions' : 'foldersTitle')}>
       <BackendSwitch />
       <header className="topbar">
-        {view === 'projects' && trail.length > 0 && <IconButton icon="back" label={t('upTo', { name: baseName(trail.at(-2) ?? root ?? '') || t('thisComputer') })} onClick={() => setTrail((path) => path.slice(0, -1))} />}
+        {view === 'projects' && trail.length > floor.length && <IconButton icon="back" label={t('upTo', { name: baseName(trail.at(-2) ?? root ?? '') || t('thisComputer') })} onClick={() => setTrail((path) => path.slice(0, -1))} />}
+        {opened && trail.length <= floor.length && <IconButton icon="back" label={t('back')} onClick={back} />}
         {view === 'sessions' ? (
           <Title text={t('sessions')} sub={connected} padLeft />
         ) : (

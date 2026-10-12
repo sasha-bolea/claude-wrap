@@ -443,6 +443,8 @@ export const en = {
   allTools: 'All tools',
   rewindShort: 'Rewind',
   queueIt: 'Put it in the queue',
+  modeShort: 'Mode',
+  contextShort: 'Context',
   noteQueued: 'Note moved to the queue',
   removedFromQueue: 'Removed from the queue',
   text: 'Text',

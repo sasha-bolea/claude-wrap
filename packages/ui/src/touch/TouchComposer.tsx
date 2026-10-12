@@ -356,7 +356,7 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab, t
           onFocus={onFocusField}
           onBlur={() => suggestions.close()}
         />
-        <div className="input-tools" hidden={Boolean(waiting)}>
+        <div className={`input-tools${toolsOpen ? ' tools-open' : ''}`} hidden={Boolean(waiting)}>
           <IconButton icon="plus" label={t('attachPhotoOrFile')} onClick={() => picker.current?.click()} />
           <button className="icon-btn mode-btn" data-mode={meta.mode} aria-label={t('modeButtonLabel', { mode: t(modeLabel(meta.mode)) })} onClick={() => openSheet({ title: t('modeTitle'), body: <ModeSheet tabId={tabId} /> })}>
             <Icon name={modeIcon(meta.mode)} />

@@ -11,7 +11,7 @@ import { FilesScreen, FileScreen } from './FilesScreen.tsx'
 import { FolderSessionsScreen, HomeScreen } from './HomeScreen.tsx'
 import { Icon } from './icons.tsx'
 import { useKeyboard } from './keyboard.ts'
-import { TerminalScreen, useOpenTerminal } from './TerminalScreen.tsx'
+import { TerminalScreen } from './TerminalScreen.tsx'
 import { LaterScreen } from './LaterScreen.tsx'
 import { RewindScreen } from './RewindScreen.tsx'
 import { ContextScreen, UsageScreen } from './UsageScreens.tsx'
@@ -78,7 +78,7 @@ let nextId = 1
 function ScreenView({ screen }: { screen: Screen }): ReactNode {
   switch (screen.name) {
     case 'home':
-      return <HomeScreen view={screen.view} />
+      return <HomeScreen view={screen.view} path={screen.path} />
     case 'folderSessions':
       return <FolderSessionsScreen path={screen.path} />
     case 'trash':
@@ -86,7 +86,7 @@ function ScreenView({ screen }: { screen: Screen }): ReactNode {
     case 'chat':
       return <ChatScreen tabId={screen.tabId} />
     case 'files':
-      return <FilesScreen tabId={screen.tabId} folder={screen.folder} />
+      return <FilesScreen folder={screen.folder} />
     case 'file':
       return <FileScreen tabId={screen.tabId} folder={screen.folder} path={screen.path} modified={screen.modified} />
     case 'notes':
@@ -432,7 +432,7 @@ export function TouchApp({ connection, capabilities }: { connection: Connection;
           {panelEntries.length > 0 && panelRoot && <PanelDivider device={device} />}
           {panelEntries.length > 0 && panelRoot && (
             <aside className="col-right" aria-label={t('sidePanel')}>
-              <PanelTabs root={panelRoot} chatTabId={tabOf(chatEntry?.screen ?? panelRoot)} onToggle={togglePanel} onClose={() => setStack((current) => current.filter((entry) => regionOf(entry.screen) !== 'right'))} />
+              <IconButtonClose onClose={() => setStack((current) => current.filter((entry) => regionOf(entry.screen) !== 'right'))} />
               <div className="panel-body">
                 <TouchContext.Provider value={regionTouch.right}>{regionView('right')}</TouchContext.Provider>
               </div>
@@ -538,28 +538,7 @@ function NoChat() {
   )
 }
 
-// Wide: the right panel's head — File and Terminal of the chat's folder as tabs (the panel shown highlighted),
-// × closes. Terminal opens the session's live terminal, or a new one in its folder.
-function PanelTabs({ root, chatTabId, onToggle, onClose }: { root: Screen; chatTabId?: string; onToggle: (screen: Screen) => void; onClose: () => void }) {
-  const openTerminal = useOpenTerminal()
-  return (
-    <div className="panel-tabs">
-      {chatTabId && (
-        <>
-          <button className="panel-tab" aria-pressed={root.name === 'files'} onClick={() => root.name !== 'files' && onToggle({ name: 'files', tabId: chatTabId })}>
-            {t('files')}
-          </button>
-          <button className="panel-tab" aria-pressed={root.name === 'terminal'} onClick={() => root.name !== 'terminal' && openTerminal({ tabId: chatTabId }, onToggle)}>
-            {t('terminal')}
-          </button>
-        </>
-      )}
-      <IconButtonClose onClose={onClose} />
-    </div>
-  )
-}
-
-// The × of the right panel.
+// The × of the right panel: over the right end of the top bar of the screen it shows (which keeps room for it).
 function IconButtonClose({ onClose }: { onClose: () => void }) {
   return (
     <button className="icon-btn panel-close" aria-label={t('closePanel')} onClick={onClose}>

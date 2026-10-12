@@ -68,6 +68,8 @@ const SHAPES = {
   prompt: <path d="M5 7l5 5-5 5M12.5 17H19" />,
   // Person: a head and shoulders (the account).
   person: <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0" />,
+  // Gauge: a ring most of the way round with a needle (context and limits).
+  gauge: <path d="M12 4a8 8 0 1 1-6.93 4M12 12l3-3" />,
   // Grid: four squares, two by two (the Tools).
   grid: <path d="M4.5 4.5h6v6h-6zM13.5 4.5h6v6h-6zM4.5 13.5h6v6h-6zM13.5 13.5h6v6h-6z" />,
   // Grip: two columns of three dots (a handle to drag).

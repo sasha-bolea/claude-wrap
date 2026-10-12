@@ -44,18 +44,14 @@ async function untrustedChat(name: string): Promise<Page> {
 }
 
 describe('Folder trust in Files and Terminal (fake SDK)', () => {
-  it('Files of an untrusted folder: a notice, not a raw error; Decide… → trust sheet → Yes → the listing', async () => {
+  it('Files of an untrusted folder: the File tool opens it in the Home, whose files are listed as any folder of the Home (no trust asked)', async () => {
     const page = await untrustedChat('lonely')
     await openTool(page, 'Files')
+    await page.getByRole('button', { name: /^\d+ files?$/ }).click()
     const screen = page.getByRole('region', { name: 'Folder files' })
-    await screen.getByText('This folder is not trusted yet: its files stay closed until you decide.').waitFor()
-    expect(await page.getByText(/folder not trusted/).count()).toBe(0)
-    expect(await screen.getByText('readme.txt').count()).toBe(0)
-    await screen.getByRole('button', { name: 'Decide…' }).click()
-    await page.getByText('Do you trust this folder?').waitFor()
-    await button(page, 'Yes, I trust it').click()
     await screen.getByText('readme.txt').waitFor()
     expect(await screen.getByText('This folder is not trusted yet: its files stay closed until you decide.').count()).toBe(0)
+    expect(await page.getByText(/folder not trusted/).count()).toBe(0)
   })
 
   it('Terminal of an untrusted folder: the trust sheet opens, and after Yes the terminal opens', async () => {

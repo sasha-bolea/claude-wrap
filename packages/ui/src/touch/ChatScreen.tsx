@@ -340,7 +340,6 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   if (!meta) return null
   const request = view?.requests[0]
   const running = meta.status === 'running' || meta.status === 'starting'
-  const busy = running || Boolean(request)
   const otherWaiting = state.tabs.some((tab) => tab.tabId !== tabId && tab.status === 'requires_action')
   const onScroll = () => {
     const box = conversation.current!
@@ -388,8 +387,6 @@ export function ChatScreen({ tabId }: { tabId: string }) {
           <Badge state={sessionState(meta)} />
           <h1 className="chat-title">{meta.title}</h1>
         </div>
-        {touch.wide && <IconButton icon="files" className={touch.panel?.name === 'files' ? 'on' : undefined} label={t('folderFiles')} expanded={touch.panel?.name === 'files'} onClick={() => touch.togglePanel({ name: 'files', tabId })} />}
-        <IconButton icon="rewind" className={busy ? 'dim' : undefined} label={busy ? t('rewindStopFirst') : t('rewindLabel')} onClick={() => (busy ? touch.toast(t('stopFirst')) : go({ name: 'rewind', tabId }))} />
         <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />
       </header>
       <UpdateBar />

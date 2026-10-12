@@ -445,6 +445,8 @@ export const it: Record<MessageKey, string> = {
   allTools: 'Tutti gli strumenti',
   rewindShort: 'Torna indietro',
   queueIt: 'Metti in coda',
+  modeShort: 'Modalità',
+  contextShort: 'Contesto',
   noteQueued: 'Nota spostata in coda',
   removedFromQueue: 'Tolto dalla coda',
   text: 'Testo',

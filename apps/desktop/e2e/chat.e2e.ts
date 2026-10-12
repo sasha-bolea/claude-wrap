@@ -5,7 +5,7 @@
 // menu bar, only its zoom and F12 shortcuts kept.
 import { existsSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { addFolder, button, composer, launch, lastAnswer, openChat, openRows, send, showSessions, type App } from './harness.ts'
+import { addFolder, button, composer, launch, lastAnswer, openChat, openRows, openTool, send, showSessions, type App } from './harness.ts'
 
 let ctx: App
 
@@ -69,23 +69,20 @@ describe('desktop chat (fake SDK)', () => {
     expect(outcome).toBe('blocked')
   })
 
-  it('shows the chat in the middle with the Home and its open session on the left (Sessions view), and no back arrow', async () => {
+  it('shows the chat in the middle with the Home and its open session on the left (Sessions view), no back arrow, only ⋯ in its bar', async () => {
     const { page } = ctx
     await send(page, 'hello')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: hello')
     await showSessions(page)
     expect(await page.locator('.col-left .row.current').count()).toBe(1)
     expect(await page.locator('.col-center').getByRole('button', { name: 'Back', exact: true }).count()).toBe(0)
-    await button(page, 'Folder files').click()
-    await page.locator('.col-right').waitFor()
-    await button(page, 'Folder files').click()
-    await page.locator('.col-right').waitFor({ state: 'detached' })
+    // File and Rewind are tools now: the chat's bar keeps only its ⋯.
+    expect(await page.locator('.chat-bar').getByRole('button').count()).toBe(1)
   })
 
-  it('the Terminal tab of the right panel runs a shell in the session folder (node-pty inside Electron)', async () => {
+  it('the Terminal tool opens in the right panel a shell in the session folder (node-pty inside Electron)', async () => {
     const { page } = ctx
-    await button(page, 'Folder files').click()
-    await page.locator('.col-right').getByRole('button', { name: 'Terminal', exact: true }).click()
+    await openTool(page, 'Terminal')
     const terminal = page.locator('.col-right').getByRole('region', { name: 'Terminal' })
     await terminal.locator('.xterm').click()
     await page.keyboard.type('echo cw-"mark"er')

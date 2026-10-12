@@ -218,17 +218,17 @@ describe('PWA (fake SDK)', () => {
     expect(brain.x).toBeGreaterThan(modeBtn.x)
     expect(Math.abs(brain.y - modeBtn.y)).toBeLessThan(2)
     expect(await page.locator('.composer .input-tools .mode-btn + .model-tool').count()).toBe(1)
-    // The top bar is one row: back, title, rewind and ⋯ on the same line, with no model button.
+    // The top bar is one row: back, title and ⋯ on the same line, with no model button (rewind and files are tools).
     const title = (await page.locator('.chat-title').boundingBox())!
     const back = await box('Back')
-    const rewind = await box('Go back to one of your messages')
     const more = await box('More actions')
     const bar = (await page.locator('.chat-screen .topbar').boundingBox())!
     expect(bar.height).toBeLessThan(60)
     const mid = bar.y + bar.height / 2
-    for (const item of [back, title, rewind, more]) expect(Math.abs(item.y + item.height / 2 - mid)).toBeLessThan(4)
+    for (const item of [back, title, more]) expect(Math.abs(item.y + item.height / 2 - mid)).toBeLessThan(4)
     expect(title.x).toBeGreaterThan(back.x + back.width - 1)
-    expect(title.x + title.width).toBeLessThanOrEqual(rewind.x + 1)
+    expect(title.x + title.width).toBeLessThanOrEqual(more.x + 1)
+    expect(await page.locator('.chat-bar').getByRole('button').count()).toBe(2)
     expect(await page.locator('.topbar .model-btn').count()).toBe(0)
     // The title is the chat's name only (no folder), plain text: tapping it opens nothing.
     expect(await page.locator('.chat-title').textContent()).not.toContain(' / ')
@@ -709,7 +709,7 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('.msg-user').filter({ hasText: 'wait for me' }).count()).toBe(0)
   })
 
-  it("the folder's files: browse, preview with colours, mention in the chat, upload, trash with undo", async () => {
+  it("the File tool opens the session's folder in the Home; its files: browse, preview with colours, upload, trash with undo; Back goes back to the chat", async () => {
     const project = join(backend.root, 'project')
     mkdirSync(join(project, 'src'))
     writeFileSync(join(project, 'src', 'app.ts'), 'export const answer = 42\n')
@@ -717,14 +717,15 @@ describe('PWA (fake SDK)', () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
     await openTool(page, 'Files')
+    // The Home on the session's folder: its subfolder and its files' row; Back from here is the chat again.
+    await page.getByRole('button', { name: 'src', exact: true }).waitFor()
+    await page.getByRole('button', { name: '1 file', exact: true }).click()
     await button(page, /^src /).click()
     await button(page, /^app\.ts /).click()
     await page.locator('.code .hljs-keyword').first().waitFor()
-    await button(page, 'Mention in chat').click()
-    await expect.poll(() => composer(page).inputValue()).toBe('@src/app.ts ')
-    await composer(page).fill('')
+    await button(page, 'Back to files').click()
+    await button(page, 'Up: project').click()
     // Upload into the folder's root, then delete README.md and undo.
-    await openTool(page, 'Files')
     await page.locator('input[type=file]:not([accept])').last().setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hi') })
     await page.getByRole('button', { name: /^notes\.txt new/ }).waitFor()
     await button(page, 'Actions for README.md').click()
@@ -734,6 +735,10 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => page.getByRole('status').filter({ hasText: 'Restored in' }).count()).toBe(1)
     await button(page, 'Recently deleted').click()
     await page.getByText('Nothing deleted').waitFor()
+    await button(page, 'Back').click()
+    await button(page, 'Back').click()
+    await button(page, 'Back').click()
+    await composer(page).waitFor()
   })
 
   it('a note used in the message is linked to the draft and deleted at send', async () => {
@@ -1109,10 +1114,12 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('.col-left .row.current').count()).toBe(1)
     await page.locator('.col-left').getByRole('button', { name: 'Show projects' }).click()
     expect(await page.locator('.col-center').getByRole('button', { name: 'Back', exact: true }).count()).toBe(0)
-    await button(page, 'Folder files').click()
-    await page.locator('.col-right').getByRole('button', { name: 'Terminal', exact: true }).waitFor()
-    await button(page, 'Folder files').click()
+    // A tool with a screen of its own (the terminal) opens in the right panel; its × closes it.
+    await openTool(page, 'Terminal')
+    await page.locator('.col-right').getByRole('region', { name: 'Terminal' }).waitFor()
+    await page.locator('.col-right').getByRole('button', { name: 'Close the panel' }).click()
     await page.locator('.col-right').waitFor({ state: 'detached' })
+    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
     // Menus are popovers by their button: below one at the top, above the composer's (the model's too).
     await button(page, 'More actions').click()
     const menu = page.locator('.sheet.popover')
@@ -1406,8 +1413,7 @@ describe('PWA (fake SDK)', () => {
     contexts.push(context)
     const wide = await pairedPage(context, backend, 'laptop')
     await openProject(wide)
-    await button(wide, 'Folder files').click()
-    await wide.locator('.col-right').getByRole('button', { name: 'Terminal', exact: true }).click()
+    await openTool(wide, 'Terminal')
     await wide.locator('.col-right').getByRole('region', { name: 'Terminal' }).locator('.xterm-rows').waitFor()
   })
 
@@ -1443,7 +1449,7 @@ describe('PWA (fake SDK)', () => {
     expect(await first).toMatchObject({ ok: true })
     // The next one goes without a card; the terminal shows both.
     expect(await write('echo cw-"se"cond')).toMatchObject({ ok: true })
-    expect(await card.count()).toBe(0)
+    await expect.poll(() => card.count()).toBe(0)
     await openTool(page, 'Terminal')
     const rows = page.getByRole('region', { name: 'Terminal' }).locator('.xterm-rows')
     await expect.poll(() => rows.textContent(), { timeout: 10_000 }).toContain('cw-second')
@@ -1507,7 +1513,7 @@ describe('PWA (fake SDK)', () => {
     contexts.push(context)
     const page = await pairedPage(context, backend, 'laptop')
     await openProject(page)
-    await button(page, 'Folder files').click()
+    await openTool(page, 'Terminal')
     const panel = page.locator('.col-right')
     const width = async () => (await panel.boundingBox())!.width
     await expect.poll(width).toBe(380)
@@ -1524,14 +1530,11 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(width).toBe(580)
     await drag(-400)
     await expect.poll(width).toBe(640)
-    // The Terminal tab keeps that width; so does the next opening of the app.
-    await panel.getByRole('button', { name: 'Terminal', exact: true }).click()
-    await panel.getByRole('region', { name: 'Terminal' }).locator('.xterm-rows').waitFor()
-    await expect.poll(width).toBe(640)
+    // The next opening of the app keeps that width.
     await page.reload()
     await page.locator('.col-left').getByRole('button', { name: /^Show sessions/ }).click()
     await page.getByRole('button', { name: /^project/ }).filter({ hasText: 'idle' }).first().click()
-    await button(page, 'Folder files').click()
+    await openTool(page, 'Terminal')
     await expect.poll(width).toBe(640)
     // The arrow keys move it too; a double click puts it back.
     await divider.focus()

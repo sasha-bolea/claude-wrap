@@ -19,13 +19,18 @@ function shares(meta: TabMeta): { context?: number; fiveHour?: number; week?: nu
   return { context: meta.context?.percentage, fiveHour: plan(meta.planLimits?.fiveHour), week: plan(meta.planLimits?.sevenDay) }
 }
 
+// The highest of the three shares, rounded (absent until core has read one). meta: the session.
+export function gaugeTop(meta: TabMeta): number | undefined {
+  const known = Object.values(shares(meta)).filter((share): share is number => share !== undefined)
+  return known.length ? Math.round(Math.max(...known)) : undefined
+}
+
 // The composer's gauge, right of the model: a ring filled to the highest of the three shares (the number only for
 // screen readers and in the sheet); nothing until core has read one. A tap opens the sheet with the three bars.
 export function GaugeButton({ meta }: { meta: TabMeta }) {
   const { openSheet } = useTouch()
-  const known = Object.values(shares(meta)).filter((share): share is number => share !== undefined)
-  if (!known.length) return null
-  const top = Math.round(Math.max(...known))
+  const top = gaugeTop(meta)
+  if (top === undefined) return null
   return (
     <button className={`gauge-btn${top >= HIGH ? ' high' : ''}`} aria-label={t('gaugeLabel', { share: String(top) })} onClick={() => openSheet({ title: t('gaugeTitle'), body: <GaugeSheet tabId={meta.tabId} /> })}>
       <svg className="gauge-ring" viewBox="0 0 24 24" aria-hidden="true">
@@ -52,7 +57,7 @@ function GaugeBar({ name, share, detail }: { name: string; share: number; detail
 // The gauge's sheet: context window (tokens used / window), 5-hour and weekly plan windows (with when they reset;
 // the plan reports shares only, no token counts) and "Compatta ora", which sends /compact at once (not while Claude
 // works). Opening it asks core to read the gauges again from the live process.
-function GaugeSheet({ tabId }: { tabId: string }) {
+export function GaugeSheet({ tabId }: { tabId: string }) {
   const { state, connection, closeSheet, toast, fail } = useTouch()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
   useEffect(() => void connection.request('tab.refreshGauges', { tabId }).catch(() => undefined), [connection, tabId])

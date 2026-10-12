@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react'
 import type { TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
+import { modeLabel } from '../modes.ts'
 import { AccountPickSheet, accountName } from './accounts.tsx'
 import { useTouch } from './context.tsx'
-import { Icon, type IconName } from './icons.tsx'
+import { gaugeTop, GaugeSheet } from './gauge.tsx'
+import { Icon, modeIcon, type IconName } from './icons.tsx'
+import { currentEffort, ModelSheet, modelLabel, ModeSheet, useModels } from './modelSheets.tsx'
 import { NotesColumn } from './NotesTray.tsx'
 import { IconButton, useQuery } from './parts.tsx'
 import { pauseWords, QueueColumn, waitingQueue } from './queue.tsx'
@@ -16,10 +19,12 @@ export type ToolsPage = 'grid' | 'notes' | 'queue'
 // The Tools of a chat (the composer's Tools button): a grid of tiles. Note and Coda (with how many they hold) open their
 // list of cards in the same place, ‹ goes back to the grid; File, Terminale, Torna indietro and Account open what the
 // session menu used to (the folder's files, its terminal, the rewind, the account sheet).
+// Mode, model and context are the composer's own left buttons, which slide away while the Tools show.
 // Parameters: the chat's meta, the page shown and onPage (another page).
 export function ToolsView({ meta, page, onPage }: { meta: TabMeta; page: ToolsPage; onPage: (page: ToolsPage) => void }) {
   const { state, connection, announce, snack, fail, go, openSheet, toast } = useTouch()
   const openTerminal = useOpenTerminal()
+  const models = useModels(meta.tabId)
   const tabId = meta.tabId
   const notes = useQuery(() => connection.request('notes.list', { cwd: meta.cwd }), [connection, meta.cwd, state.notesVersion[meta.cwd]])
   const queue = waitingQueue(meta)
@@ -51,10 +56,13 @@ export function ToolsView({ meta, page, onPage }: { meta: TabMeta; page: ToolsPa
         <ul className="tools-grid">
           <Tile icon="note" name={t('notes')} detail={notes.data ? notes.data.notes.length : ''} onClick={() => onPage('notes')} />
           <Tile icon="queue" name={t('queue')} detail={queue.length || t('queueEmptyShort')} onClick={() => onPage('queue')} />
-          <Tile icon="folder" name={t('files')} onClick={() => go({ name: 'files', tabId })} />
+          <Tile icon="folder" name={t('files')} onClick={() => go({ name: 'home', path: meta.cwd })} />
           <Tile icon="prompt" name={t('terminal')} onClick={() => openTerminal({ tabId })} />
           <Tile icon="rewind" name={t('rewindShort')} detail={busy ? t('stopFirstShort') : ''} onClick={() => (busy ? toast(t('stopFirst')) : go({ name: 'rewind', tabId }))} />
           <Tile icon="person" name={t('account')} detail={accountName(state, meta.account)} onClick={() => openSheet({ title: t('account'), body: <AccountPickSheet tabId={tabId} /> })} />
+          <Tile icon={modeIcon(meta.mode)} name={t('modeShort')} detail={t(modeLabel(meta.mode))} onClick={() => openSheet({ title: t('modeTitle'), body: <ModeSheet tabId={tabId} /> })} />
+          <Tile icon="brain" name={t('model')} detail={[modelLabel(meta, models), currentEffort(meta, models)].filter(Boolean).join(' · ')} onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })} />
+          <Tile icon="gauge" name={t('contextShort')} detail={gaugeTop(meta) === undefined ? '' : `${gaugeTop(meta)}%`} onClick={() => openSheet({ title: t('gaugeTitle'), body: <GaugeSheet tabId={tabId} /> })} />
         </ul>
       </section>
     )

@@ -16,9 +16,11 @@ function userJustTapped(): boolean {
   return navigator.userActivation?.isActive === true
 }
 
-// The screen a widget opens in its chat's session.
-function screenFor(name: ClientActionArgs<'open.screen'>['name'], tabId: string): Screen {
-  return name === 'settings' ? { name } : { name, tabId }
+// The screen a widget opens in its chat's session (its files: the session's folder in the Home).
+function screenFor(name: ClientActionArgs<'open.screen'>['name'], tabId: string, cwd: string | undefined): Screen {
+  if (name === 'settings') return { name }
+  if (name === 'files') return { name: 'home', ...(cwd ? { path: cwd } : {}) }
+  return { name, tabId }
 }
 
 // Runs an action of the screen for a chat. Returns its value (none).
@@ -29,7 +31,7 @@ function runOnScreen(touch: Touch, tabId: string, action: ClientActionName, args
     const { text, replace } = parsed.data as ClientActionArgs<'composer.insert'>
     touch.insertInComposer(tabId, { text, ...(replace ? { replace } : {}) })
   } else if (action === 'open.file') touch.go({ name: 'file', tabId, path: (parsed.data as ClientActionArgs<'open.file'>).path })
-  else touch.go(screenFor((parsed.data as ClientActionArgs<'open.screen'>).name, tabId))
+  else touch.go(screenFor((parsed.data as ClientActionArgs<'open.screen'>).name, tabId, touch.state.tabs.find((tab) => tab.tabId === tabId)?.cwd))
   return undefined
 }
 

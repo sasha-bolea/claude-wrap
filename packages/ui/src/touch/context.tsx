@@ -9,12 +9,12 @@ export type LaterKey = 'context' | 'usage' | 'tasks' | 'todo' | 'diff' | 'skills
 // Screens of the touch layout, one at a time; the stack keeps them mounted, so going back finds them as they were.
 export type Screen =
   // view: open on that view of the Home (a notification about several chats opens the sessions).
-  | { name: 'home'; view?: 'sessions' }
+  | { name: 'home'; view?: 'sessions'; path?: string }
   | { name: 'folderSessions'; path: string }
   | { name: 'trash'; under?: string }
   | { name: 'chat'; tabId: string }
   // File explorer of a session's folder (tabId) or of a folder of the Home (folder): exactly one.
-  | { name: 'files'; tabId?: string; folder?: string }
+  | { name: 'files'; folder: string }
   | { name: 'file'; tabId?: string; folder?: string; path: string; modified?: number }
   | { name: 'notes'; tabId?: string; folder?: string }
   | { name: 'terminal'; terminalId: string }

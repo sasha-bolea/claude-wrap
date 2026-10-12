@@ -3,7 +3,7 @@
 // reported, transcript kept), and "Never mind" (nothing changes).
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { Browser, BrowserContext, Page } from 'playwright-core'
-import { button, composer, launchChrome, openProject, pairedPage, phone, send, startBackend, type Backend } from './harness.ts'
+import { button, composer, launchChrome, openProject, openTool, pairedPage, phone, send, startBackend, type Backend } from './harness.ts'
 
 let browser: Browser
 let backend: Backend
@@ -60,7 +60,7 @@ describe('PWA rewind (fake SDK)', () => {
 
   it('the back button lists your messages (latest last); Restore code reports the files and keeps the transcript', async () => {
     const page = await twoTurns()
-    await page.getByRole('button', { name: 'Go back to one of your messages' }).click()
+    await openTool(page, 'Rewind')
     const rows = page.locator('.list .row .row-main')
     await rows.first().waitFor()
     expect(await rows.allInnerTexts()).toEqual(['edit', 'hello'])
@@ -76,7 +76,7 @@ describe('PWA rewind (fake SDK)', () => {
     expect(await page.locator('.msg-user').count()).toBe(2)
     await page.getByText('Echo: hello').waitFor()
     // The second message came after the edits: nothing to restore, only the conversation.
-    await page.getByRole('button', { name: 'Go back to one of your messages' }).click()
+    await openTool(page, 'Rewind')
     await page.locator('.list .row .row-main').last().click()
     await page.locator('.menu').waitFor()
     expect(await page.getByRole('button', { name: 'Restore code', exact: true }).count()).toBe(0)
@@ -84,7 +84,7 @@ describe('PWA rewind (fake SDK)', () => {
 
   it('Never mind closes the actions and changes nothing', async () => {
     const page = await twoTurns()
-    await page.getByRole('button', { name: 'Go back to one of your messages' }).click()
+    await openTool(page, 'Rewind')
     await page.locator('.list .row .row-main').first().click()
     await page.locator('.rewind-files li').first().waitFor()
     await button(page, 'Never mind').click()

@@ -5,7 +5,7 @@ import { readBase64 } from '../images.ts'
 import { Markdown } from '../Markdown.tsx'
 import { useBackHandler, useScreen, useTouch } from './context.tsx'
 import { Icon, type IconName } from './icons.tsx'
-import { baseName, filesChanged, freeName, htmlLines, sizeLabel, spanNodes } from './model.ts'
+import { baseName, freeName, htmlLines, sizeLabel, spanNodes } from './model.ts'
 import { Crumbs, IconButton, Title, useQuery } from './parts.tsx'
 import { needsTrust, useTrustPrompt, when } from './sessions.tsx'
 
@@ -16,7 +16,6 @@ const CODE = /\.(c|cc|cpp|cs|css|go|h|html?|java|jsx?|json|kt|lua|mjs|cjs|php|py
 const IMAGE = /\.(gif|heic|jpe?g|png|svg|webp)$/i
 // Above this size code is shown without colours (highlighting a big file is slow on the phone).
 const HIGHLIGHT_MAX = 200_000
-const REFRESH_NOTE_MS = 6000
 
 const join = (...parts: string[]) => parts.filter(Boolean).join('/')
 const parentOf = (path: string) => path.split('/').slice(0, -1).join('/')
@@ -56,21 +55,11 @@ async function saveFile(file: FileData, name: string): Promise<boolean> {
   return true
 }
 
-// What can be done to a file or folder: mention it in the chat (only with a session), download, delete (with undo).
+// What can be done to a file or folder: download, delete (with undo).
 function useFileActions(place: FilePlace) {
-  const { state, connection, backTo, insertInComposer, openSheet, closeSheets, toast, snack, fail } = useTouch()
+  const { state, connection, openSheet, closeSheets, toast, snack, fail } = useTouch()
   const cwd = useCwd(place) ?? ''
   const systemTrash = state.home.kind === 'added'
-  const tabId = place.tabId
-  const mention = tabId
-    ? (path: string, folder: boolean) => {
-        const text = `@${path}${folder ? '/' : ''}`
-        closeSheets()
-        insertInComposer(tabId, { text: `${text} ` })
-        backTo((screen) => screen.name === 'chat' && screen.tabId === tabId)
-        toast(t('mentioned', { path: text }))
-      }
-    : undefined
   const download = (path: string) =>
     connection
       .request('files.read', { ...place, path, download: true })
@@ -92,7 +81,7 @@ function useFileActions(place: FilePlace) {
       if (systemTrash) toast(t('inSystemTrash', { name: baseName(path) }))
       else snack(t('movedToTrash', { name: baseName(path) }), () => void restore(path).then(onDone))
     }, fail)
-  return { mention, download, remove, systemTrash, cwd }
+  return { download, remove, systemTrash, cwd }
 }
 
 // The share sheet once the file is here (iOS wants a tap of its own when the download took a while).
@@ -106,31 +95,25 @@ function ShareReady({ file, name }: { file: FileData; name: string }) {
   )
 }
 
-// Files of a session's folder or of a folder of the Home: browse (Back goes up a folder first), open a preview, upload
-// photos and files, new folder, the ⋯ of each entry; the trash of this folder. With a session, at the end of a turn
-// the list refreshes and says what Claude created or changed. Prototype: NOTE-CONSEGNA §1 (File).
-export function FilesScreen({ tabId, folder: home }: FilePlace) {
+// Files of a folder of the Home (its "N file" row; a chat's File tool opens its folder in the Home): browse (Back goes
+// up a folder first), open a preview, upload photos and files, new folder, the ⋯ of each entry; the trash of this
+// folder. Uploaded files are marked new. Prototype: NOTE-CONSEGNA §1 (File).
+export function FilesScreen({ folder: home }: { folder: string }) {
   const { state, connection, back, go, openSheet, closeSheets, toast, fail } = useTouch()
   const { top } = useScreen()
-  const meta = state.tabs.find((tab) => tab.tabId === tabId)
   const [path, setPath] = useState('')
   const [uploading, setUploading] = useState<{ folder: string; name: string }[]>([])
   const [marks, setMarks] = useState<Changes>()
-  const [note, setNote] = useState<string>()
   const photos = useRef<HTMLInputElement>(null)
   const documents = useRef<HTMLInputElement>(null)
-  const before = useRef<{ path: string; entries: FileEntry[] } | undefined>(undefined)
-  const place: FilePlace = tabId ? { tabId } : { folder: home }
+  const place: FilePlace = { folder: home }
   const { systemTrash, cwd } = useFileActions(place)
   const askTrust = useTrustPrompt()
   // A folder not trusted yet is explained by a notice (with the way to decide), not by an error toast.
-  const listing = useQuery(() => connection.request('files.list', { ...place, path }), [connection, tabId, home, path], needsTrust)
+  const listing = useQuery(() => connection.request('files.list', { ...place, path }), [connection, home, path], needsTrust)
   const untrusted = listing.caught !== undefined
   const trash = useQuery(() => (systemTrash || !cwd ? Promise.resolve(undefined) : connection.request('trash.list', { under: cwd })), [connection, systemTrash, cwd])
   useBackHandler(path !== '', () => setPath(parentOf(path)))
-  const busy = meta ? meta.status === 'running' || meta.status === 'starting' || meta.status === 'requires_action' : false
-  const wasBusy = useRef(busy)
-
   // Back on top (from a preview, the trash): lists again.
   useEffect(() => {
     if (!top) return
@@ -138,28 +121,6 @@ export function FilesScreen({ tabId, folder: home }: FilePlace) {
     trash.reload()
   }, [top])
   useEffect(() => setMarks(undefined), [path])
-  // End of a turn: the list again, compared with the one before.
-  useEffect(() => {
-    if (wasBusy.current && !busy && listing.data) {
-      before.current = { path, entries: listing.data.entries }
-      listing.reload()
-    }
-    wasBusy.current = busy
-  }, [busy])
-  useEffect(() => {
-    const old = before.current
-    if (!old || !listing.data || old.path !== path) return
-    before.current = undefined
-    const changes = filesChanged(old.entries, listing.data.entries)
-    setMarks(changes)
-    if (changes.created.length || changes.modified.length) setNote(t('filesRefreshed', { created: String(changes.created.length), modified: String(changes.modified.length) }))
-  }, [listing.data])
-  useEffect(() => {
-    if (!note) return
-    const timer = setTimeout(() => setNote(undefined), REFRESH_NOTE_MS)
-    return () => clearTimeout(timer)
-  }, [note])
-
   if (!cwd) return null
   const root = baseName(cwd)
   const parts = path ? path.split('/') : []
@@ -220,7 +181,7 @@ export function FilesScreen({ tabId, folder: home }: FilePlace) {
   return (
     <section className="screen" aria-label={t('folderFiles')} onDragOver={dropping} onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && event.currentTarget.classList.remove('dropping')} onDrop={dropped}>
       <header className="topbar">
-        <IconButton icon="back" label={path ? t('upTo', { name: parts.at(-2) ?? root }) : t(tabId ? 'chat' : 'back')} onClick={back} />
+        <IconButton icon="back" label={path ? t('upTo', { name: parts.at(-2) ?? root }) : t('back')} onClick={back} />
         <Title text={t('files')} sub={fullPath(cwd, path)} />
         <IconButton icon="plus" label={t('addFilesLabel')} onClick={openAdd} disabled={untrusted} />
         {!systemTrash && <IconButton icon="trash" label={t('recentlyDeleted')} count={trash.data?.items.length ? String(trash.data.items.length) : undefined} onClick={() => go({ name: 'trash', under: cwd })} />}
@@ -228,11 +189,6 @@ export function FilesScreen({ tabId, folder: home }: FilePlace) {
       <Crumbs parts={[root, ...parts]} onJump={(index) => setPath(parts.slice(0, index).join('/'))} />
       <div className="scroll">
         <div className="pad tight">
-          {note && (
-            <p className="refresh-note" role="status">
-              {note}
-            </p>
-          )}
           {untrusted && (
             <div className="card">
               <span>{t('filesNeedTrust')}</span>
@@ -252,8 +208,7 @@ export function FilesScreen({ tabId, folder: home }: FilePlace) {
                     <span className="row-title">
                       {entry.name}
                       {marks?.created.includes(entry.name) && <span className="chip changed">{t('newChip')}</span>}
-                      {marks?.modified.includes(entry.name) && <span className="chip changed">{t('changedByClaude')}</span>}
-                    </span>
+                                          </span>
                     <span className="row-sub">{folder ? when(entry.modified) : `${sizeLabel(entry.size)} · ${when(entry.modified)}`}</span>
                   </button>
                   <IconButton
@@ -338,25 +293,15 @@ function NewFolderSheet({ place, parent, onDone }: { place: FilePlace; parent: s
   )
 }
 
-// ⋯ of a file or folder: open (or preview), mention in the chat, download, rename or move, to the trash.
+// ⋯ of a file or folder: open (or preview), download, rename or move, to the trash.
 function FileItemSheet({ place, path, folder, onOpen, onChanged, onRenamed, onDeleted }: { place: FilePlace; path: string; folder: boolean; onOpen?: () => void; onChanged: () => void; onRenamed?: (to: string) => void; onDeleted?: () => void }) {
   const { openSheet, closeSheets } = useTouch()
-  const { mention, download, remove, systemTrash, cwd } = useFileActions(place)
+  const { download, remove, systemTrash, cwd } = useFileActions(place)
   return (
     <ul className="menu">
       {onOpen && (
         <li>
           <button onClick={() => (closeSheets(), onOpen())}>{t(folder ? 'open' : 'preview')}</button>
-        </li>
-      )}
-      {mention && (
-        <li>
-          <button onClick={() => mention(path, folder)}>
-            <span className="at" aria-hidden="true">
-              @
-            </span>
-            {t('mentionInChat')}
-          </button>
         </li>
       )}
       {!folder && (
@@ -414,7 +359,7 @@ export function FileScreen({ tabId, folder, path: opened, modified }: FilePlace 
   const place: FilePlace = tabId ? { tabId } : { folder }
   const [path, setPath] = useState(opened)
   const file = useQuery(() => connection.request('files.read', { ...place, path }), [connection, tabId, folder, path])
-  const { mention, download, cwd } = useFileActions(place)
+  const { download, cwd } = useFileActions(place)
   if (!cwd) return null
   const name = baseName(path)
   const data = file.data
@@ -454,15 +399,7 @@ export function FileScreen({ tabId, folder, path: opened, modified }: FilePlace 
       </header>
       <p className="file-meta">{details || ' '}</p>
       <div className="scroll">{body}</div>
-      <div className={`sticky-actions${mention ? ' two' : ''}`}>
-        {mention && (
-          <button className="button" onClick={() => mention(path, false)}>
-            <span className="at" aria-hidden="true">
-              @
-            </span>
-            {t('mentionInChat')}
-          </button>
-        )}
+      <div className="sticky-actions">
         <button className="button" onClick={() => void download(path)}>
           <Icon name="download" />
           {t('download')}
