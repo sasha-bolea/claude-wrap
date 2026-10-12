@@ -9,7 +9,7 @@ app at different widths (three columns from 1024 px).
   `backend` = a real AtHome server on the scripted fake SDK (zero quota), reachable only from `ui`.
 - **Data**: `/srv/progetti/claude-wrap/.preview/` (git-ignored) — `root/` is its Home (sample folders `project`,
   `altro-progetto`), `state/` its state and paired devices, `home/` its Claude folder. Never the real app's.
-- **Fake answers**: the scripted SDK echoes messages (`Echo: …`); `slow` streams a long answer, `permission` asks for a
+- **Fake answers**: the scripted SDK echoes messages (`Echo: …`); `slow` streams a long answer, `infinito` streams until Stop, `permission` asks for a
   permission (see `packages/core/src/testing`).
 
 ## Pair a device

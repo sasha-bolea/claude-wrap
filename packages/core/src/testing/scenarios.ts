@@ -10,6 +10,7 @@ import { sdk, stored } from './messages.ts'
 //   questions  → asks two questions in one form (single and multiple choice), then echoes the answers
 //   plan       → asks to approve a plan, then reports the decision
 //   slow       → streams a long answer, word by word, until interrupted
+//   infinito   → streams words (a new paragraph every 40) and never ends by itself: only Stop ends it
 //   markdown   → answers with a remote image and a link (rendering safety checks)
 //   widget     → answers with an inline chat widget: a Vai button (athome.send), a Nuovo progetto button
 //                (athome.createProject('idea'), its outcome in #project) and a probe of its frame (runtime, theme,
@@ -70,6 +71,16 @@ async function stream({ session, interrupted, options, store, fold }: Turn, text
   const answer = text + fold()
   store(answer)
   session.emit(sdk.assistant(messageId, [{ type: 'text', text: answer }]), sdk.success())
+}
+
+// Streams words with no end (a new paragraph every 40) until the turn is interrupted, then an aborted result.
+async function streamForever({ session, interrupted, options }: Turn): Promise<void> {
+  session.emit(sdk.messageStart(`msg_${randomUUID()}`), sdk.blockStart(0, { type: 'text', text: '' }))
+  for (let n = 0; !interrupted(); n++) {
+    session.emit(sdk.textDelta(0, `word${n}${n % 40 === 39 ? '\n\n' : ' '}`))
+    await sleep(options.wordDelayMs)
+  }
+  session.emit(sdk.aborted())
 }
 
 // Asks a permission/question/plan through canUseTool and returns a description of the answer.
@@ -141,6 +152,7 @@ async function respond(turn: Turn, text: string, images: number): Promise<void> 
   if (keyword === 'questions') return questions(turn)
   if (keyword === 'plan') return stream(turn, `Plan: ${await ask(turn, 'ExitPlanMode', { plan: '1. Do the thing\n2. Check it' })}`)
   if (keyword === 'slow') return stream(turn, SLOW_TEXT)
+  if (keyword === 'infinito') return streamForever(turn)
   if (keyword === 'edit') {
     for (const file of ['src/app.ts', 'src/util.ts']) {
       const id = `toolu_${randomUUID()}`
