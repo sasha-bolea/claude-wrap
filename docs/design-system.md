@@ -91,8 +91,8 @@ Examples: [backends.tsx:28](../packages/ui/src/touch/backends.tsx#L28).
 
 ### Wide arrangement — `.device.wide` (`.with-panel`), `.col-left`, `.col-center`, `.col-right`, `.panel-tabs`, `.panel-tab`, `.panel-close`, `.window-scrim`, `.window`, `.no-chat`, `.row.current`
 From 1024 px of width (desktop, large tablets) the same screens are arranged side by side (NOTE-CONSEGNA §5): the
-Home in a 300 px column (with "Aperte", the backend's open sessions, on top — the one in the chat highlighted; its
-folder sessions and trash open in the column itself), the chat in the middle without a back arrow, its conversation
+Home in a 300 px column (Projects lists only folders, as on a phone; the open sessions are in its Sessions view, the
+one in the chat highlighted; its folder sessions and trash open in the column itself), the chat in the middle without a back arrow, its conversation
 padded to ~780 px of content and the composer as wide, **File** and **Note** in its top bar opening and closing a
 380 px panel on the right (tabs File | Note and ×; the 🔜 panels, Contesto and Consumo open there too), Settings in a
 window over the app (Back or a click outside closes it). A menu opened from a button is a **popover** by it

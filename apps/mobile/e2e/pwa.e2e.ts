@@ -934,7 +934,7 @@ describe('PWA (fake SDK)', () => {
     expect(await outside()).toEqual([])
   })
 
-  it('wide window (≥ 1024 px): Home on the left with the open sessions, the chat in the middle, File/Note on the right, Settings in a window', async () => {
+  it('wide window (≥ 1024 px): Home on the left (open sessions only in its Sessions view), the chat in the middle, File/Note on the right, Settings in a window', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'en-US' })
     contexts.push(context)
     const page = await pairedPage(context, backend)
@@ -942,8 +942,12 @@ describe('PWA (fake SDK)', () => {
     await openProject(page)
     await send(page, 'hello')
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo: hello')
-    // The Home stays on the left, with the open session highlighted; the chat has no back arrow.
+    // The Home stays on the left: Projects lists only folders, Sessions the open session highlighted; the chat has no
+    // back arrow.
+    expect(await page.locator('.col-left .row.current').count()).toBe(0)
+    await page.locator('.col-left').getByRole('button', { name: 'Show sessions' }).click()
     expect(await page.locator('.col-left .row.current').count()).toBe(1)
+    await page.locator('.col-left').getByRole('button', { name: 'Show projects' }).click()
     expect(await page.locator('.col-center').getByRole('button', { name: 'Back', exact: true }).count()).toBe(0)
     await button(page, 'Folder files').click()
     await page.locator('.col-right').getByRole('button', { name: 'Notes' }).click()

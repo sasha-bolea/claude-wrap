@@ -286,22 +286,6 @@ function StoredDelete({ session, cwd, onChange }: { session: SessionInfo; cwd: s
 export const pastOnly = (sessions: SessionInfo[] | undefined) => sessions?.filter((session) => !session.tabId)
 
 // The lists of a folder's (or every folder's) sessions: open ones and saved ones that are not open.
-// Wide: the open sessions of the backend on top of the Home's folders ("Aperte"), the one in the chat highlighted.
-export function OpenSessions() {
-  const { state } = useTouch()
-  if (!state.tabs.length) return null
-  return (
-    <>
-      <p className="label">{t('openSessions')}</p>
-      <ul className="list">
-        {recentFirst(state.tabs).map((tab) => (
-          <SessionRow key={tab.tabId} tab={tab} withFolder />
-        ))}
-      </ul>
-    </>
-  )
-}
-
 export function SessionLists({ open, stored: all, folder, withFolder, onChange }: { open: TabMeta[]; stored?: SessionInfo[]; folder: string; withFolder?: boolean; onChange: () => void }) {
   const stored = pastOnly(all)
   return (

@@ -6,7 +6,7 @@ import { Icon } from './icons.tsx'
 import { badgeClass, baseName, folderSummary, inside, type SessionState } from './model.ts'
 import { ConnectionBanner, Crumbs, IconButton, Title, UpdateBar, useQuery } from './parts.tsx'
 import { BackendSwitch } from './backends.tsx'
-import { OpenSessions, pastOnly, SessionLists, useStartSession } from './sessions.tsx'
+import { pastOnly, SessionLists, useStartSession } from './sessions.tsx'
 import { OpenTerminals, useOpenTerminal } from './TerminalScreen.tsx'
 import { PlanCards } from './PlanCard.tsx'
 
@@ -70,7 +70,7 @@ function FolderRow({ entry, project, tabs, onEnter, onChanged }: { entry: Folder
 // shown and a new session right there; or every session (the Sessioni view). Back goes up one folder first.
 // view: the view to open on (otherwise the one remembered).
 export function HomeScreen({ view: asked }: { view?: View }) {
-  const { state, connection, go, openSheet, wide, capabilities, fail } = useTouch()
+  const { state, connection, go, openSheet, capabilities, fail } = useTouch()
   const { top } = useScreen()
   const startSession = useStartSession()
   const [view, setView] = useHomeView(asked)
@@ -144,9 +144,6 @@ export function HomeScreen({ view: asked }: { view?: View }) {
             </>
           ) : (
             <>
-              {wide && <OpenSessions />}
-              {wide && <OpenTerminals />}
-              {wide && (state.tabs.length > 0 || state.terminals.length > 0) && <p className="label spaced">{t('foldersTitle')}</p>}
               <ul className="list">
                 {folders.map((entry) => (
                   <FolderRow key={entry.path} entry={entry} project={isProject(state.projects, entry.path)} tabs={state.tabs} onEnter={enter} onChanged={listing.reload} />

@@ -1,11 +1,11 @@
-// Desktop with several sessions on the scripted fake SDK (the open sessions are listed in the Home's left column).
+// Desktop with several sessions on the scripted fake SDK (the open sessions are listed in the Home's Sessions view).
 // User stories: I work in several folders at once; my sessions come back after a restart; I resume, rename, delete
 // and fork sessions; an untrusted folder asks first; a notification brings me to the session that needs me; a crash of
 // the local backend heals by itself.
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { addFolder, button, composer, lastAnswer, launch, makeFolder, nextFolder, openChat, openRows, send, type App } from './harness.ts'
+import { addFolder, button, composer, lastAnswer, launch, makeFolder, nextFolder, openChat, openRows, send, showProjects, showSessions, type App } from './harness.ts'
 
 let ctx: App
 
@@ -40,6 +40,7 @@ describe('desktop several sessions (fake SDK)', () => {
       await send(page, 'slow')
       await expect.poll(() => lastAnswer(page).textContent()).toContain('word1')
     }
+    await showSessions(page)
     await expect.poll(() => openRows(page).count()).toBe(3)
     await expect.poll(() => openRows(page).locator('.badge.working').count()).toBe(3)
     await openRows(page).filter({ hasText: 'alpha' }).getByRole('button').first().click()
@@ -52,12 +53,14 @@ describe('desktop several sessions (fake SDK)', () => {
     await openChat(page, ctx.projectDir)
     await send(page, 'hello there')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: hello there')
+    await showSessions(page)
     await renameOpen(openRows(page), 'Kept')
     await expect.poll(() => openRows(page).first().textContent()).toContain('Kept')
     await ctx.quit()
 
     ctx = await launch(ctx.stateDir)
     const reopened = ctx.page
+    await showSessions(reopened)
     await expect.poll(() => openRows(reopened).count()).toBe(1)
     expect(await openRows(reopened).first().textContent()).toContain('Kept')
     expect(await openRows(reopened).first().locator('.badge').getAttribute('class')).not.toMatch(/working|waiting|error/)
@@ -80,7 +83,9 @@ describe('desktop several sessions (fake SDK)', () => {
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: second session')
     await button(page, 'More actions').click()
     await page.locator('.sheet').getByRole('button', { name: 'Close session' }).click()
+    await showSessions(page)
     await expect.poll(() => openRows(page).count()).toBe(0)
+    await showProjects(page)
 
     // The folder's past sessions (the folder is entered with its row).
     await page.getByRole('button', { name: 'project', exact: true }).click()
@@ -115,6 +120,7 @@ describe('desktop several sessions (fake SDK)', () => {
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: to be forked')
     await button(page, 'More actions').click()
     await page.locator('.sheet').getByRole('button', { name: 'Fork: copy into a new session' }).click()
+    await showSessions(page)
     await expect.poll(() => openRows(page).count()).toBe(2)
     const fork = openRows(page).filter({ hasText: '(fork)' })
     await expect.poll(() => fork.count()).toBe(1)
@@ -130,6 +136,7 @@ describe('desktop several sessions (fake SDK)', () => {
     await openIn('two')
     await send(page, 'hi two')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: hi two')
+    await showSessions(page)
     await expect.poll(() => openRows(page).count()).toBe(2)
     await openRows(page).filter({ hasText: 'two' }).getByRole('button', { name: /^Actions for / }).click()
     await page.locator('.sheet').getByRole('button', { name: 'Close session' }).click()
@@ -152,6 +159,10 @@ describe('desktop several sessions (fake SDK)', () => {
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     await dialog.waitFor({ state: 'detached' })
     expect(await composer(page).count()).toBe(0)
+    // The folder's menu is still open under the trust sheet: Esc closes it.
+    await page.keyboard.press('Escape')
+    await page.locator('.sheet').waitFor({ state: 'detached' })
+    await showSessions(page)
     expect(await openRows(page).count()).toBe(0)
   })
 
@@ -171,6 +182,7 @@ describe('desktop several sessions (fake SDK)', () => {
     await send(page, 'permission')
     await page.locator('.request').waitFor()
     await openIn('elsewhere')
+    await showSessions(page)
     await expect.poll(() => openRows(page).locator('.badge.waiting').count()).toBe(1)
     const bodies = await app.evaluate(() => (globalThis as unknown as { shown: { body: string }[] }).shown.map((n) => n.body))
     expect(bodies).toContain('Claude needs you: Write notes.txt')
@@ -195,6 +207,7 @@ describe('desktop several sessions (fake SDK)', () => {
     expect(killed).toBe(true)
     await expect.poll(() => page.locator('.banner').count(), { timeout: 10_000 }).toBeGreaterThan(0)
     await expect.poll(() => page.locator('.banner').count(), { timeout: 15_000 }).toBe(0)
+    await showSessions(page)
     await expect.poll(() => openRows(page).count()).toBe(1)
     await send(page, 'after the crash')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: after the crash')

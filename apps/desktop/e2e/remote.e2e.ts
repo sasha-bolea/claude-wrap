@@ -4,7 +4,7 @@
 // removing it forgets it.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Page } from 'playwright-core'
-import { composer, launch, lastAnswer, openRows, send, type App } from './harness.ts'
+import { composer, launch, lastAnswer, openRows, send, showSessions, type App } from './harness.ts'
 import { startTestServer, type TestServer } from './server.ts'
 
 let ctx: App
@@ -31,8 +31,8 @@ async function openProject(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Actions for the folder project' }).click()
   await page.locator('.sheet').getByRole('button', { name: 'New session here' }).click()
   const trust = page.getByRole('button', { name: 'Yes, I trust it' })
-  const current = page.locator('.col-left .row.current').filter({ hasText: 'project' })
-  await trust.or(current).first().waitFor()
+  const opened = page.locator('.col-left .row').filter({ hasText: 'project' }).locator('.folder-status')
+  await trust.or(opened).first().waitFor()
   if (await trust.isVisible()) await trust.click()
   await composer(page).waitFor()
 }
@@ -83,6 +83,7 @@ describe('desktop on a remote server (fake SDK)', () => {
     ctx = await launch(ctx.stateDir)
     const { page } = ctx
     // The server was the shown backend: it comes back connected, with its session.
+    await showSessions(page)
     await expect.poll(() => openRows(page).count()).toBe(1)
     await page.getByRole('button', { name: 'Servers…' }).click()
     const panel = serversSheet(page)

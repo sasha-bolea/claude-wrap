@@ -61,6 +61,7 @@ export async function waitForHome(page: Page): Promise<void> {
 // Goes back to the root of This PC's Home (the list of added folders), leaving any folder entered.
 // page: the app's window. Returns when "Add folder…" is shown.
 export async function homeRoot(page: Page): Promise<void> {
+  await showProjects(page)
   const up = page.getByRole('button', { name: /^Up: / })
   while (await up.first().isVisible()) await up.first().click()
   await page.getByRole('button', { name: 'Add folder…' }).waitFor()
@@ -75,7 +76,7 @@ export async function addFolder(page: Page, folder: string): Promise<void> {
 }
 
 // Starts a session in a folder from its row menu (adding the folder first), trusts it if asked, and waits for its chat
-// (the open session of that folder highlighted in the left column).
+// (the open session of that folder highlighted in the Home's Sessions view); the Home is left on Projects.
 // page: the app's window. folder: the folder the stubbed dialog returns (nextFolder must have been set to it).
 export async function openChat(page: Page, folder: string): Promise<void> {
   const name = basename(folder)
@@ -84,11 +85,29 @@ export async function openChat(page: Page, folder: string): Promise<void> {
   await page.locator('.sheet').getByRole('button', { name: 'New session here' }).click()
   const trust = page.getByRole('button', { name: 'Yes, I trust it' })
   // The chat of a previous session stays in the middle until the new one replaces it: wait for the new one to be current.
-  const current = page.locator('.col-left .row.current').filter({ hasText: name })
-  await trust.or(current).first().waitFor()
+  const opened = page.locator('.col-left .row').filter({ hasText: name }).locator('.folder-status')
+  await trust.or(opened).first().waitFor()
   if (await trust.isVisible()) await trust.click()
-  await current.waitFor()
+  await showSessions(page)
+  await page.locator('.col-left .row.current').filter({ hasText: name }).waitFor()
+  await showProjects(page)
   await composer(page).waitFor()
+}
+
+// Switches the Home's left column to its Sessions view (open and past sessions), if it is not there already.
+// page: the app's window. Returns when the open sessions are listed.
+export async function showSessions(page: Page): Promise<void> {
+  const toggle = page.locator('.col-left').getByRole('button', { name: /^Show sessions/ })
+  if (await toggle.isVisible()) await toggle.click()
+  await page.locator('.col-left').getByRole('region', { name: 'Sessions' }).waitFor()
+}
+
+// Switches the Home's left column back to its Projects view (folders), if it is not there already.
+// page: the app's window.
+export async function showProjects(page: Page): Promise<void> {
+  const toggle = page.locator('.col-left').getByRole('button', { name: 'Show projects' })
+  if (await toggle.isVisible()) await toggle.click()
+  await page.locator('.col-left').getByRole('region', { name: 'Sessions' }).waitFor({ state: 'detached' })
 }
 
 // The composer's text field.
@@ -103,8 +122,8 @@ export async function send(page: Page, text: string): Promise<void> {
 // Text of the last assistant message.
 export const lastAnswer = (page: Page) => page.locator('.msg-ai').last()
 
-// The open sessions listed in the Home's left column (their rows).
-export const openRows = (page: Page) => page.locator('.col-left .row').filter({ has: page.getByRole('button', { name: /^Actions for (?!the folder)/ }) })
+// The open sessions listed in the Home's Sessions view (their rows; call showSessions first).
+export const openRows = (page: Page) => page.locator('.col-left .row').filter({ has: page.locator('.badge') })
 
 // A button by its exact accessible name (the last one: a sheet's buttons come after the screen's).
 export const button = (page: Page, name: string | RegExp) => page.getByRole('button', { name, exact: typeof name === 'string' }).last()

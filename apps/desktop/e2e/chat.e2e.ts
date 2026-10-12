@@ -4,7 +4,7 @@
 // window loses nothing; untrusted markdown cannot load remote content; the Home lists the folders of This PC.
 import { existsSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { addFolder, button, composer, launch, lastAnswer, openChat, openRows, send, type App } from './harness.ts'
+import { addFolder, button, composer, launch, lastAnswer, openChat, openRows, send, showSessions, type App } from './harness.ts'
 
 let ctx: App
 
@@ -37,10 +37,11 @@ describe('desktop chat (fake SDK)', () => {
     expect(outcome).toBe('blocked')
   })
 
-  it('shows the chat in the middle with the Home and its open session on the left, and no back arrow', async () => {
+  it('shows the chat in the middle with the Home and its open session on the left (Sessions view), and no back arrow', async () => {
     const { page } = ctx
     await send(page, 'hello')
     await expect.poll(() => lastAnswer(page).textContent()).toBe('Echo: hello')
+    await showSessions(page)
     expect(await page.locator('.col-left .row.current').count()).toBe(1)
     expect(await page.locator('.col-center').getByRole('button', { name: 'Back', exact: true }).count()).toBe(0)
     await button(page, 'Folder files').click()
@@ -195,7 +196,8 @@ describe('desktop chat (fake SDK)', () => {
     await composer(page).fill('half-written draft')
     await page.reload()
     await page.locator('.col-left').waitFor()
-    // After the reload the session is in the left column: open it.
+    // After the reload the session is in the left column's Sessions view: open it.
+    await showSessions(page)
     await openRows(page).first().getByRole('button').first().click()
     await expect.poll(() => lastAnswer(page).textContent()).toContain('word20')
     expect(await composer(page).inputValue()).toBe('half-written draft')
