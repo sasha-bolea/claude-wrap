@@ -25,6 +25,7 @@ export const USAGE = `usage:
   athome session wait <id> [--timeout <s>] [--json]        waits for Claude to finish (or to ask), prints its last reply
   athome project create <name> [--in <folder>] [--json]    a new project folder (default: in the Home)
   athome session start <folder> [--prompt <text>] [--json] a new session in a folder, with an optional first prompt
+  athome session move <folder> [--json]                    (Claude in AtHome) this session goes on in another folder
 
 Run by you in a terminal, it acts at once. Run by Claude in an AtHome session, AtHome asks you to confirm in that
 chat and the command waits (give it a timeout of a few minutes). Any other program may only read. It never writes to
@@ -89,6 +90,7 @@ function parse(argv: string[], cwd: string): { parsed: Parsed; json: boolean } {
     if (a === 'session' && b === 'wait' && c && d === undefined) return { kind: 'wait', tabId: c, timeoutMs: (Number(values.timeout ?? DEFAULT_WAIT_S) || DEFAULT_WAIT_S) * 1000 }
     if (a === 'project' && b === 'create' && c && d === undefined) return { kind: 'action', action: 'project.create', args: { name: c, ...(values.in ? { parent: folder(values.in) } : {}) } }
     if (a === 'session' && b === 'start' && c && d === undefined) return { kind: 'action', action: 'session.start', args: { folder: folder(c), ...(values.prompt ? { prompt: values.prompt } : {}) } }
+    if (a === 'session' && b === 'move' && c && d === undefined) return { kind: 'action', action: 'session.move', args: { folder: folder(c) } }
     throw new UsageError('unknown command')
   })()
   return { parsed, json }
@@ -207,8 +209,9 @@ async function wait(terminal: Terminal, tabId: string, timeoutMs: number, json: 
 async function act(terminal: Terminal, parsed: Extract<Parsed, { kind: 'action' }>, json: boolean, io: CliIo): Promise<void> {
   if (!io.interactive && io.tabId) io.err('Waiting for the confirmation in the AtHome chat…')
   const run = { action: parsed.action, args: parsed.args, source: 'terminal', interactive: io.interactive, ...(io.tabId ? { tabId: io.tabId } : {}) }
-  const { value } = (await terminal.request('actions.run', run)) as { value?: { path?: string; tabId?: string; needsTrust?: boolean } }
+  const { value } = (await terminal.request('actions.run', run)) as { value?: { path?: string; tabId?: string; needsTrust?: boolean; pending?: boolean } }
   if (json) return io.out(JSON.stringify(value ?? {}))
+  if (parsed.action === 'session.move') return io.out(value?.pending ? `The session moves to ${String(parsed.args.folder)} at the end of this turn` : `Session moved to ${String(parsed.args.folder)}`)
   if (value?.path) io.out(`Created: ${value.path}`)
   else if (value?.tabId) io.out(`Session started: ${value.tabId}${value.needsTrust ? ' (trust the folder in AtHome, then send the prompt from there)' : ''}`)
   else io.out('Done')

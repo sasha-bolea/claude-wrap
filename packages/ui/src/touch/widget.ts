@@ -60,6 +60,8 @@ export function actionWords(input: Record<string, unknown>): { title: string; de
       return { title: t('actionProject', { name: text(args.name), parent: text(args.parent) }) }
     case 'session.start':
       return { title: t('actionSession', { folder: text(args.folder) }), ...(args.prompt ? { detail: text(args.prompt) } : {}) }
+    case 'session.move':
+      return { title: t('actionMove', { folder: text(args.folder) }) }
     case 'request.answer':
       return { title: t('actionAllow', { tool: text(about.title) || text(about.toolName) }) }
     default:

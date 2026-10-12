@@ -20,7 +20,7 @@ import type { Workspace } from './workspace.ts'
 // act too. sessionsPerHour: new sessions it may start in an hour. newSessionMode: the permission mode of a session
 // started by a program (undefined: the usual default).
 export type TerminalPolicy = { actions: CoreActionName[]; interactiveActsDirectly: boolean; othersMayAct: boolean; sessionsPerHour: number; newSessionMode?: PermissionMode }
-export const DEFAULT_TERMINAL_POLICY: TerminalPolicy = { actions: ['project.create', 'session.start'], interactiveActsDirectly: true, othersMayAct: false, sessionsPerHour: 10, newSessionMode: 'default' }
+export const DEFAULT_TERMINAL_POLICY: TerminalPolicy = { actions: ['project.create', 'session.start', 'session.move'], interactiveActsDirectly: true, othersMayAct: false, sessionsPerHour: 10, newSessionMode: 'default' }
 // The only commands a terminal connection may send (it also gets the workspace snapshot, read only).
 // Reads (folders, a chat's transcript) are open to every terminal connection.
 export const TERMINAL_COMMANDS: ReadonlySet<CommandName> = new Set<CommandName>(['actions.run', 'folders.list', 'tab.subscribe', 'tab.unsubscribe', 'tab.history'])
@@ -103,11 +103,21 @@ const startSession: Runner<'session.start'> = async (context, { folder: given, p
   }
 }
 
+// session.move: the chat's own session goes to another folder of the Home (it must exist), its conversation with it;
+// while Claude works (it ran the command from its turn), at the end of the turn. Returns {pending}.
+const moveSession: Runner<'session.move'> = async (context, { folder: given }) => {
+  const tab = chatOf(context)
+  const folder = await context.workspace.folderOf(given)
+  await confirmed(context, 'session.move', { folder })
+  return tab.moveTo(folder)
+}
+
 const RUNNERS: { [Name in CoreActionName]: Runner<Name> } = {
   'prompt.send': sendPrompt,
   'request.answer': answerRequest,
   'project.create': createProject,
-  'session.start': startSession
+  'session.start': startSession,
+  'session.move': moveSession
 }
 
 // The context of an action from the terminal, by the policy: direct for a person at a terminal, otherwise confirmed in

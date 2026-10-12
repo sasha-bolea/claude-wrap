@@ -4,8 +4,9 @@ import type { CommandResult, SessionInfo, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { readDraft } from '../viewState.ts'
 import { useTouch } from './context.tsx'
-import { baseName, recentFirst, sessionState } from './model.ts'
-import { Badge, IconButton, stateWords } from './parts.tsx'
+import { Icon } from './icons.tsx'
+import { baseName, inside, parentOf, recentFirst, sessionState, trailTo } from './model.ts'
+import { Badge, Crumbs, IconButton, stateWords, useQuery } from './parts.tsx'
 
 type TrustCheck = CommandResult<'trust.check'>
 
@@ -201,6 +202,58 @@ export function RenameSheet({ tabId, current, saved }: { tabId?: string; current
       <input className="field" aria-label={t('newName')} value={title} onChange={(event) => setTitle(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && save()} />
       <button className="button primary block" onClick={save}>
         {t('save')}
+      </button>
+    </>
+  )
+}
+
+// "Move to another folder…" of the session menu: the folders of the Home, opened beside the session's folder (marked,
+// never a target); "Move here" moves the session to the folder shown, its conversation with it (while Claude works,
+// when the turn ends).
+export function MoveSheet({ tabId }: { tabId: string }) {
+  const { state, connection, closeSheets, toast, fail } = useTouch()
+  const meta = state.tabs.find((tab) => tab.tabId === tabId)
+  const { home } = state
+  const root = home.kind === 'root' ? home.path : undefined
+  // The trail of folders entered, from the root (server) or from the added folder holding the session (this PC).
+  const [trail, setTrail] = useState<string[]>(() => {
+    if (!meta) return []
+    if (root) return trailTo(root, parentOf(meta.cwd))
+    const added = home.kind === 'added' ? home.folders.find((folder) => inside(meta.cwd, folder)) : undefined
+    return added ? [added, ...trailTo(added, parentOf(meta.cwd))] : []
+  })
+  const current = trail.at(-1) ?? root
+  const listing = useQuery(() => (current ? connection.request('folders.list', { path: current }) : Promise.resolve(undefined)), [connection, current])
+  if (!meta) return null
+  const folders = current ? (listing.data?.folders ?? []) : home.kind === 'added' ? home.folders.map((path) => ({ name: baseName(path), path, project: false })) : []
+  const move = () =>
+    current &&
+    connection.request('tab.move', { tabId, folder: current }).then(({ pending }) => {
+      closeSheets()
+      toast(t(pending ? 'movesAtTurnEnd' : 'sessionMovedTo', { folder: current }))
+    }, fail)
+  return (
+    <>
+      <Crumbs parts={[root ? baseName(root) : t('thisComputer'), ...trail.map(baseName)]} onJump={(index) => setTrail((path) => path.slice(0, index))} />
+      <ul className="list">
+        {folders.map((entry) => (
+          <li key={entry.path} className="row">
+            <Icon name="folder" className={`ficon${entry.project ? ' dir' : ''}`} />
+            <button className="row-main" onClick={() => setTrail((path) => [...path, entry.path])}>
+              <span className="row-title">{entry.name}</span>
+              {entry.path === meta.cwd && <span className="row-sub">{t('sessionFolderHere')}</span>}
+            </button>
+            <Icon name="chevron" className="chevron" />
+          </li>
+        ))}
+        {!folders.length && listing.data && (
+          <li className="row">
+            <span className="muted">{t('noSubfolders')}</span>
+          </li>
+        )}
+      </ul>
+      <button className="button primary block" disabled={!current || current === meta.cwd} onClick={() => void move()}>
+        {t('moveHere')}
       </button>
     </>
   )

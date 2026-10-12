@@ -1349,6 +1349,23 @@ describe('PWA (fake SDK)', () => {
     await wide.locator('.col-right').getByRole('region', { name: 'Terminal' }).locator('.xterm-rows').waitFor()
   })
 
+  it('"Move to another folder…" in the session menu: a folder of the Home is picked, the session goes on there', async () => {
+    mkdirSync(join(backend.root, 'cruscotto', 'inner'), { recursive: true })
+    const page = await pairedPage(await newPhone(), backend)
+    await openProject(page)
+    await button(page, 'More actions').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Move to another folder…' }).click()
+    const sheet = page.getByRole('dialog', { name: 'Move to another folder' })
+    // It opens beside the session's folder, that one marked; the folder itself cannot be the target.
+    await sheet.getByRole('button', { name: /^project/ }).filter({ hasText: "This session's folder" }).waitFor()
+    await sheet.getByRole('button', { name: 'cruscotto', exact: true }).click()
+    await sheet.getByRole('button', { name: 'inner', exact: true }).waitFor()
+    await sheet.getByRole('button', { name: 'Move here' }).click()
+    await expect.poll(() => page.getByRole('status').first().textContent()).toBe(`Session moved to ${join(backend.root, 'cruscotto')}`)
+    await button(page, 'More actions').click()
+    await expect.poll(() => page.getByRole('dialog').locator('.mono-line').first().textContent()).toBe(join(backend.root, 'cruscotto'))
+  })
+
   it('a terminal beside its chat on the phone: chat above, terminal below, the divider resizes them and is remembered', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)

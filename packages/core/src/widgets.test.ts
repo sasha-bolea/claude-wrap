@@ -78,9 +78,11 @@ describe('the widget library', () => {
 })
 
 describe('the widgets switch', () => {
-  it('is off by default: the system prompt is the plain preset and /creawidget is not installed', async () => {
+  it('is off by default: no widget guide in the system prompt (only the AtHome session lines), no /creawidget', async () => {
     await spawned(1)
-    expect(systemPrompt()).toEqual({ type: 'preset', preset: 'claude_code' })
+    expect(systemPrompt()).toMatchObject({ type: 'preset', preset: 'claude_code' })
+    expect(systemPrompt().append).toContain('athome session move')
+    expect(systemPrompt().append).not.toContain('```widget')
     expect(existsSync(commandFile())).toBe(false)
   })
 

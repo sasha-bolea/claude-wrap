@@ -11,7 +11,7 @@ import { Icon } from './icons.tsx'
 import { sessionState } from './model.ts'
 import { ModelSheet, currentEffort, modelLabel, useModels } from './modelSheets.tsx'
 import { Badge, ConnectionBanner, IconButton, UpdateBar } from './parts.tsx'
-import { CloseButton, RenameSheet, useTrustPrompt } from './sessions.tsx'
+import { CloseButton, MoveSheet, RenameSheet, useTrustPrompt } from './sessions.tsx'
 import { useOpenTerminal } from './TerminalScreen.tsx'
 import { TouchComposer } from './TouchComposer.tsx'
 
@@ -462,6 +462,9 @@ function SessionMenu({ tabId }: { tabId: string }) {
         </li>
         <li>
           <button onClick={() => openTerminal({ tabId })}>{t('terminal')}</button>
+        </li>
+        <li>
+          <button onClick={() => openSheet({ title: t('moveSessionTitle'), body: <MoveSheet tabId={tabId} /> })}>{t('moveSession')}</button>
         </li>
         <li>
           <button disabled={busy} onClick={() => go({ name: 'rewind', tabId })}>

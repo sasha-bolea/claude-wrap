@@ -147,6 +147,13 @@ sessione con nome…": a sheet with the name `.field` and Crea): the name is the
 the other sessions, kept; without one the tab takes the title the CLI gives after the first prompt.
 Examples: [SheetHost.tsx:49](../packages/ui/src/touch/SheetHost.tsx#L49), [ChatScreen.tsx:350](../packages/ui/src/touch/ChatScreen.tsx#L350), [HomeScreen.tsx:298](../packages/ui/src/touch/HomeScreen.tsx#L298), [HomeScreen.tsx:252](../packages/ui/src/touch/HomeScreen.tsx#L252).
 
+Move a session (session menu → "Sposta in un'altra cartella…", `MoveSheet`): the Home's folders browsed inside the
+sheet (`Crumbs` + `.list` of folder rows with `chevron`), opened beside the session's folder, which is marked "La
+cartella di questa sessione" and is never a target; a primary block "Sposta qui" moves to the folder shown, then a
+toast ("Sessione spostata in …", or "Si sposta in … quando Claude ha finito" while it works). Claude asks the same
+through `athome session move`, as an action card ("Spostare questa sessione in …?").
+Examples: [sessions.tsx:213](../packages/ui/src/touch/sessions.tsx#L213), [ChatScreen.tsx:467](../packages/ui/src/touch/ChatScreen.tsx#L467).
+
 Revoke confirmation (Settings → Devices, `RevokeSheet`, [SettingsScreen.tsx](../packages/ui/src/touch/SettingsScreen.tsx)): a `.flat` hint, then, only when others fall with the device, a second `.flat` line "Also removes: names" (computed with `revokeCascade`: never the device in use nor what it created), then `.two-buttons` Cancel / danger Revoke.
 Each device row's `.row-main` is a button ("Rename <name>", this device too) opening `RenameDeviceSheet`: the session
 rename pattern (`.field` with the current name, max 60, primary Save; Enter saves), then a "Renamed" toast.

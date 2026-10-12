@@ -27,6 +27,24 @@ export function inside(path: string, folder: string): boolean {
   return target === base || target.startsWith(`${base}/`)
 }
 
+// The folder holding a path ('' for a root): everything before its last separator.
+export function parentOf(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, '')
+  const cut = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
+  return cut > 0 ? trimmed.slice(0, cut) : cut === 0 ? trimmed.slice(0, 1) : ''
+}
+
+// The folders from just below base down to target (target included), as a folder trail; [] when target is base or
+// not inside it.
+export function trailTo(base: string, target: string): string[] {
+  if (!inside(target, base) || comparable(target) === comparable(base)) return []
+  const separator = target.includes('\\') && !target.includes('/') ? '\\' : '/'
+  const trail: string[] = []
+  let path = base.replace(/[\\/]+$/, '')
+  for (const part of target.slice(path.length).split(/[\\/]/).filter(Boolean)) trail.push((path = `${path}${separator}${part}`))
+  return trail
+}
+
 // The open sessions inside a folder: how many, the most urgent state among them ('idle' when none), and whether one
 // finished while nobody looked at it.
 export function folderSummary(tabs: TabMeta[], folder: string): { open: number; state: SessionState; unseen: boolean } {

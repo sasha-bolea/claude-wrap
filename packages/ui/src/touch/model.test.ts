@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FileEntry, TabMeta } from '@athome/protocol'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { answeredQuestions, durationLabel, filesChanged, folderSummary, freeName, htmlLines, inside, modelShortName, recentFirst, resetLabel, sessionState, spanNodes, tokenLabel } from './model.ts'
+import { answeredQuestions, durationLabel, filesChanged, folderSummary, freeName, htmlLines, inside, modelShortName, parentOf, recentFirst, resetLabel, sessionState, spanNodes, tokenLabel, trailTo } from './model.ts'
 
 const tab = (cwd: string, status: TabMeta['status']): TabMeta => ({ tabId: cwd + status, title: 't', cwd, status, mode: 'default', queue: [], pendingRequests: 0 })
 
@@ -97,5 +97,21 @@ describe('touch model', () => {
     expect(answeredQuestions(input, careful).map((entry) => entry.answer)).toEqual([undefined, 'Large', undefined])
     expect(answeredQuestions(input, 'The user did not answer the questions.').every((entry) => entry.answer === undefined)).toBe(true)
     expect(answeredQuestions({}, 'anything')).toEqual([])
+  })
+})
+
+describe('folder trails (Move to another folder)', () => {
+  it('the parent of a folder, on Linux and Windows', () => {
+    expect(parentOf('/srv/progetti/app')).toBe('/srv/progetti')
+    expect(parentOf('/srv/')).toBe('/')
+    expect(parentOf('C:\\Users\\me\\app')).toBe('C:\\Users\\me')
+  })
+
+  it('the folders from below a base down to a target; none outside it or at it', () => {
+    expect(trailTo('/srv/progetti', '/srv/progetti/a/b')).toEqual(['/srv/progetti/a', '/srv/progetti/a/b'])
+    expect(trailTo('/srv/progetti/', '/srv/progetti/a')).toEqual(['/srv/progetti/a'])
+    expect(trailTo('/srv/progetti', '/srv/progetti')).toEqual([])
+    expect(trailTo('/srv/progetti', '/srv/progetti-old/a')).toEqual([])
+    expect(trailTo('C:\\work', 'C:\\work\\app')).toEqual(['C:\\work\\app'])
   })
 })

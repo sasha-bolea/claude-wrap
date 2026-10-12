@@ -25,6 +25,12 @@ import { TrustGate, canonicalFolder, checkRoots, withinRoots } from './trustGate
 import { widgetGuide } from './widgetGuide.ts'
 import { listWidgets, setCreateCommand } from './widgets.ts'
 
+// Told to every session (system prompt): it runs in AtHome and can move itself to another folder.
+const SESSION_GUIDE = `# AtHome session
+This session runs in AtHome. To go on with this same conversation in another folder (for instance a project you just
+created), run \`athome session move <folder>\`: the user confirms in this chat, then the session and its conversation
+move there at the end of your turn. Give the command a timeout of a few minutes (it waits for the user).`
+
 // Upper bound for closing everything on quit.
 const QUIT_CAP_MS = 8000
 // How often the terminals are looked at for a running command (activity file).
@@ -474,8 +480,11 @@ export class Workspace {
   }
 
   // The text appended to a new process's system prompt: the widget guide when widgets are on.
-  private async systemPromptAppend(): Promise<string | undefined> {
-    return this.store.data.widgets ? widgetGuide(await listWidgets(this.claudeDir)) : undefined
+  // What every session is told beyond Claude Code's own prompt: how to move itself (athome command) and, with widgets
+  // on, the widget guide.
+  private async systemPromptAppend(): Promise<string> {
+    const guide = this.store.data.widgets ? widgetGuide(await listWidgets(this.claudeDir)) : undefined
+    return [SESSION_GUIDE, guide].filter(Boolean).join('\n\n')
   }
 
   // A new session's init with the default effort and mode filled in where the client gave none.

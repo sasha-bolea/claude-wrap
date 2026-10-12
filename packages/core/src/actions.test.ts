@@ -203,6 +203,44 @@ describe('from the terminal (athome command)', () => {
     await limited.closeAll()
   })
 
+  it('session.move from Claude in its chat: confirmed there, then the session moves (at the end of the turn while it works)', async () => {
+    const other = join(root, 'other')
+    mkdirSync(other)
+    const reply = fromTerminal('session.move', { folder: other }, { tabId: 't1' })
+    const request = await confirmation()
+    expect(request.input).toMatchObject({ action: 'session.move', args: { folder: other }, source: 'terminal' })
+    await client.ok('request.answer', { tabId: 't1', requestId: request.requestId, decision: 'allow' })
+    expect(await reply).toMatchObject({ ok: true, result: { value: { pending: false } } })
+    const moved = client.events(WORKSPACE_STREAM).flatMap((ev) => ((ev as WorkspaceEvent).type === 'tab.updated' ? [(ev as Extract<WorkspaceEvent, { type: 'tab.updated' }>).tab] : []))
+    expect(moved.at(-1)).toMatchObject({ tabId: 't1', cwd: other })
+    // While Claude works (it ran the command from its turn): allowed, it moves when the turn ends.
+    await client.ok('trust.grant', { cwd: other })
+    await client.ok('tab.send', { tabId: 't1', text: 'work' })
+    await client.waitFor(() => fake.sessions.length === 1)
+    const working = fromTerminal('session.move', { folder: cwd }, { tabId: 't1' })
+    const second = await confirmation(2)
+    await client.ok('request.answer', { tabId: 't1', requestId: second.requestId, decision: 'allow' })
+    expect(await working).toMatchObject({ ok: true, result: { value: { pending: true } } })
+  })
+
+  it('session.move: denied, nothing moves; a folder outside the Home is refused before asking; it needs its chat', async () => {
+    const other = join(root, 'other')
+    mkdirSync(other)
+    const reply = fromTerminal('session.move', { folder: other }, { tabId: 't1' })
+    const request = await confirmation()
+    await client.ok('request.answer', { tabId: 't1', requestId: request.requestId, decision: 'deny' })
+    expect(await reply).toMatchObject({ ok: false, error: { code: 'action_denied' } })
+    expect(await fromTerminal('session.move', { folder: tmpdir() }, { tabId: 't1' })).toMatchObject({ ok: false, error: { code: 'outside_root' } })
+    expect(await fromTerminal('session.move', { folder: other }, { interactive: true })).toMatchObject({ ok: false, error: { code: 'invalid_args' } })
+    expect(opened().filter((one) => one.kind === 'action')).toHaveLength(1)
+  })
+
+  it('every session is told it can move itself with the athome command', async () => {
+    await client.ok('tab.send', { tabId: 't1', text: 'hello' })
+    await client.waitFor(() => fake.sessions.length === 1)
+    expect((fake.last().options.systemPrompt as { append?: string }).append).toContain('athome session move <folder>')
+  })
+
   it('every action is in the log with its source and outcome', async () => {
     await fromTerminal('project.create', { name: 'test' }, { interactive: true })
     await fromTerminal('project.create', { name: 'other' })

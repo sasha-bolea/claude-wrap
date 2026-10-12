@@ -23,12 +23,13 @@ export const ACTION_SCREENS = ['files', 'notes', 'settings', 'context', 'usage',
 export const actionSourceSchema = z.enum(['widget', 'terminal'])
 
 // Actions core runs, with their arguments. request.answer answers the chat's first open request (allow, with the
-// answers of a question, or deny).
+// answers of a question, or deny). session.move moves the chat's own session to another folder of the Home.
 export const CORE_ACTIONS = {
   'prompt.send': z.object({ text: z.string().trim().min(1).max(ACTION_TEXT_MAX) }),
   'request.answer': z.object({ decision: z.enum(['allow', 'deny']), answers: z.record(z.string(), z.string()).optional() }),
   'project.create': z.object({ name: folderNameSchema, parent: z.string().min(1).optional() }),
-  'session.start': z.object({ folder: z.string().min(1), prompt: z.string().trim().min(1).max(ACTION_TEXT_MAX).optional() })
+  'session.start': z.object({ folder: z.string().min(1), prompt: z.string().trim().min(1).max(ACTION_TEXT_MAX).optional() }),
+  'session.move': z.object({ folder: z.string().min(1) })
 } as const
 
 // Actions the client runs on its own screen.
