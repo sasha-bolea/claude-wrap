@@ -1,0 +1,44 @@
+# Live preview of AtHome's UI, to change the interface together with Sasha and see it at once (temporary, dev only).
+#   ui       Vite's dev server of the PWA with hot reload, on 127.0.0.1:3007 (Tailscale Serve 8448 → here, run by Sasha)
+#   backend  a real AtHome server on the scripted fake SDK (zero quota): its own Home, state and Claude folder in
+#            /srv/progetti/claude-wrap/.preview (git-ignored), never the real app's; reachable only from the ui container
+# Both run the repo's own code and node_modules (mounted at the same path), as the host user.
+# Pairing a device: see deploy/preview/README.md.
+services:
+  backend:
+    image: node:24.21.0-trixie-slim
+    container_name: claude-wrap-preview-backend
+    restart: unless-stopped
+    user: "1000:1000"
+    working_dir: /srv/progetti/claude-wrap
+    command: ["node", "packages/server/src/main.ts"]
+    environment:
+      CLAUDE_WRAP_FAKE_SDK: "1"
+      CLAUDE_WRAP_ROOT: /srv/progetti/claude-wrap/.preview/root
+      CLAUDE_WRAP_STATE_DIR: /srv/progetti/claude-wrap/.preview/state
+      CLAUDE_WRAP_PUBLIC_URL: https://server.taildb4b9b.ts.net:8448
+      CLAUDE_WRAP_HOST: 0.0.0.0
+      CLAUDE_WRAP_PORT: "3013"
+      HOME: /srv/progetti/claude-wrap/.preview/home
+    volumes:
+      - /srv/progetti/claude-wrap:/srv/progetti/claude-wrap
+  ui:
+    image: node:24.21.0-trixie-slim
+    container_name: claude-wrap-preview-ui
+    restart: unless-stopped
+    user: "1000:1000"
+    working_dir: /srv/progetti/claude-wrap
+    command: ["node_modules/.bin/vite", "--config", "apps/mobile/vite.preview.config.ts"]
+    environment:
+      HOME: /srv/progetti/claude-wrap/.preview/home
+    ports:
+      - "127.0.0.1:3007:3007"
+    volumes:
+      - /srv/progetti/claude-wrap:/srv/progetti/claude-wrap
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3007/').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
