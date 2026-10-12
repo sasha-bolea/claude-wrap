@@ -52,8 +52,8 @@ export function TrayItem({ list, id, index, drag, children }: { list: TrayList; 
   )
 }
 
-// A card of the trays: its text (a click edits it in place, a drag moves it) and its buttons. Edited, the text is saved
-// as you type and when you leave it; left empty, onEmptied decides. Parameters: the text, the label of the card and of
+// A card of the trays: the handle on its left edge (a drag there moves the card), its text (a click edits it in place)
+// and its buttons. Edited, the text is saved as you type and when you leave it; left empty, onEmptied decides. Parameters: the text, the label of the card and of
 // its field, where it is (list, id) for the drag, onSave, onEmptied and the buttons.
 export function TrayCard({ text, label, fieldLabel, list, id, drag, onSave, onEmptied, className, children }: { text: string; label: string; fieldLabel: string; list: TrayList; id: string; drag: TrayDrag; onSave: (text: string) => void; onEmptied: () => void; className?: string; children: ReactNode }) {
   const [editing, setEditing] = useState(false)
@@ -83,10 +83,13 @@ export function TrayCard({ text, label, fieldLabel, list, id, drag, onSave, onEm
   }
   return (
     <div className={`tray-note${className ? ` ${className}` : ''}`}>
+      <button className="tray-handle" aria-label={t('dragToMove')} {...drag.handlers(list, id)}>
+        <Icon name="grip" />
+      </button>
       {editing ? (
         <textarea className="tray-note-field" aria-label={fieldLabel} autoFocus value={value} onChange={(event) => change(event.target.value)} onBlur={leave} onFocus={(event) => event.target.setSelectionRange(event.target.value.length, event.target.value.length)} />
       ) : (
-        <button className="tray-note-text" aria-label={label} {...drag.handlers(list, id)} onClick={() => !drag.wasDragged() && setEditing(true)}>
+        <button className="tray-note-text" aria-label={label} onClick={() => setEditing(true)}>
           <span>{text}</span>
         </button>
       )}

@@ -589,7 +589,7 @@ svg.ghost-thumb { width: 22px; height: 22px; color: var(--text-muted); }
 /* Where a card dragged from the other column would land */
 .drop-marker { height: 0; border-top: 3px solid var(--accent); border-radius: 2px; margin: -2px 6px; }
 .tray-note.q { background: var(--surface-2); }
-.tray-note .q-images { position: absolute; left: 14px; bottom: 8px; }
+.tray-note .q-images { position: absolute; left: 30px; bottom: 8px; }
 .tray-note.q .tray-note-text { padding-bottom: 32px; }
 .tray-note-queue { position: absolute; bottom: 0; right: 40px; color: var(--text-muted); }
 .tray-note.q .send.tray-note-send { position: absolute; margin: 0; bottom: 6px; right: 6px; width: 32px; height: 32px; min-width: 32px; }
@@ -597,12 +597,14 @@ svg.ghost-thumb { width: 22px; height: 22px; color: var(--text-muted); }
 .tray-list li.dragging .tray-note { box-shadow: 0 8px 24px rgba(0,0,0,.18); border-color: var(--accent); }
 .tray-note { position: relative; min-height: 88px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
 .tray-note.new { border-style: dashed; min-height: 0; }
-.tray-note-text { display: flex; align-items: flex-start; width: 100%; min-height: 86px; border: 0; background: none; padding: 10px 44px 36px 14px; text-align: left; font-size: 14px; line-height: 1.45; cursor: grab; touch-action: none; }
+.tray-note-text { display: flex; align-items: flex-start; width: 100%; min-height: 86px; border: 0; background: none; padding: 10px 44px 36px 30px; text-align: left; font-size: 14px; line-height: 1.45; }
 .tray-note-text > span { white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
-li.dragging .tray-note-text { cursor: grabbing; }
-.composer textarea.tray-note-field { display: block; min-height: 86px; max-height: 240px; padding: 10px 44px 10px 14px; font-size: 14px; line-height: 1.45; field-sizing: content; }
+.tray-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 28px; display: grid; place-items: center; border: 0; padding: 0; background: none; border-radius: 14px 0 0 14px; color: var(--text-muted); cursor: grab; touch-action: none; }
+.tray-handle:hover, li.dragging .tray-handle { color: var(--text); background: color-mix(in srgb, var(--text) 5%, transparent); }
+li.dragging .tray-handle { cursor: grabbing; }
+.composer textarea.tray-note-field { display: block; min-height: 86px; max-height: 240px; padding: 10px 44px 10px 30px; font-size: 14px; line-height: 1.45; field-sizing: content; }
 .tray-note.new { min-height: 48px; }
-.tray-note.new textarea.tray-note-field { min-height: 46px; padding-right: 48px; }
+.tray-note.new textarea.tray-note-field { min-height: 46px; padding-left: 14px; padding-right: 48px; }
 .tray-note.new .tray-note-send:disabled { color: var(--text-muted); opacity: .5; }
 .tray-note-delete { position: absolute; top: 0; right: 0; color: var(--text-muted); }
 .tray-note-send { position: absolute; bottom: 0; right: 0; }

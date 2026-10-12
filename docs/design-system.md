@@ -285,7 +285,7 @@ accent `to-chat` icon (a bubble with an arrow in, dimmed while the note is empty
 Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [NotesScreen.tsx:152](../packages/ui/src/touch/NotesScreen.tsx#L152).
 These screens are for a folder without a chat (from its sessions screen); a chat shows its notes in the tray below.
 
-### Trays: notes and open queue — `.trays` (`.two`), `.tray` (`.notes-tray`, `.queue-column`), `.tray-head`, `.tray-close`, `.tray-list` (`.drop-target`, `li.dragging`), `.drop-marker`, `.tray-note` (`.new`, `.q`), `.tray-note-text`, `.tray-note-field`, `.tray-note-delete`, `.tray-note-queue`, `.tray-note-send`, `.q-images`
+### Trays: notes and open queue — `.trays` (`.two`), `.tray` (`.notes-tray`, `.queue-column`), `.tray-head`, `.tray-close`, `.tray-list` (`.drop-target`, `li.dragging`), `.drop-marker`, `.tray-note` (`.new`, `.q`), `.tray-handle`, `.tray-note-text`, `.tray-note-field`, `.tray-note-delete`, `.tray-note-queue`, `.tray-note-send`, `.q-images`
 What hangs under the input bar (the bar moves up): the folder's notes (the composer's Notes toggle) and the open queue
 (a tap on the queue's stack; its `.tray-close` ˅ turns it back into the stack); both open, they sit side by side —
 notes left, queue right — as tall as each other, each at most ~45% of the height and scrolling on its own under a
@@ -296,8 +296,9 @@ top right. Notes: the first card is a dashed field reading "Nuova nota" with an 
 on top;
 emptied, a note goes; bottom right `queue` (send to the end of the queue, with Restore) and the accent `to-chat`
 (into the composer, linked as "Usa nel messaggio"). Queue cards (`.q`, `--surface-2`): photos as a `.q-images` chip,
-bottom right the round Send "Invia ora"; emptied, a text-only message leaves the queue. Pressed and moved past 5 px a
-card is dragged (accent border, shadow): over its own column it takes the place of the card under the pointer; over
+bottom right the round Send "Invia ora"; emptied, a text-only message leaves the queue. Pressed on its `.tray-handle`
+(a `grip` on the left edge, 28 px, the only grab area: a click on the text edits it) and moved past 5 px, a card is
+dragged (accent border, shadow): over its own column it takes the place of the card under the pointer; over
 the other column a `.drop-marker` (3 px accent line) shows where it lands — a note dropped on the queue joins it there
 and leaves the notes (Restore), a queued message dropped on the notes becomes a note there and leaves the queue
 (photos are not kept). The orders are the core's (`notes.reorder`, `tab.queueMove`, `notes.toQueue`,

@@ -798,13 +798,19 @@ describe('PWA (fake SDK)', () => {
     await editing.pressSequentially(' edited')
     await editing.blur()
     await expect.poll(() => cards.nth(1).textContent()).toContain('first note edited')
-    // Drag the second card above the first: the order stays after a reload.
-    const handle = cards.nth(1).locator('.tray-note-text')
-    const from = (await handle.boundingBox())!
-    const to = (await cards.first().boundingBox())!
-    await page.mouse.move(from.x + 20, from.y + from.height / 2)
+    // Pressed and moved, the text does not drag the card (only its handle does; a click on the text edits it).
+    const text = (await cards.nth(1).locator('.tray-note-text').boundingBox())!
+    await page.mouse.move(text.x + 40, text.y + 10)
     await page.mouse.down()
-    await page.mouse.move(from.x + 20, to.y + 4, { steps: 8 })
+    await page.mouse.move(text.x + 40, (await cards.first().boundingBox())!.y + 4, { steps: 8 })
+    await page.mouse.up()
+    expect(await cards.first().textContent()).toContain('second note')
+    // Its handle does: dragged above the first, it goes first and the order stays after a reload.
+    const from = (await cards.nth(1).getByRole('button', { name: 'Drag to move' }).boundingBox())!
+    const to = (await cards.first().boundingBox())!
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(from.x + from.width / 2, to.y + 4, { steps: 8 })
     await page.mouse.up()
     await expect.poll(() => cards.first().textContent()).toContain('first note edited')
     await page.reload()
@@ -864,13 +870,13 @@ describe('PWA (fake SDK)', () => {
     // Dragged above the first, it goes first.
     const drag = async (from: Locator, x: number, y: number) => {
       const box = (await from.boundingBox())!
-      await page.mouse.move(box.x + 20, box.y + box.height / 2)
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
       await page.mouse.down()
-      await page.mouse.move(box.x + 20, box.y + box.height / 2 - 10, { steps: 3 })
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 10, { steps: 3 })
       await page.mouse.move(x, y, { steps: 10 })
       await page.mouse.up()
     }
-    await drag(queued.nth(1).locator('.tray-note-text'), right.x + 40, (await queued.first().boundingBox())!.y + 6)
+    await drag(queued.nth(1).getByRole('button', { name: 'Drag to move' }), right.x + 40, (await queued.first().boundingBox())!.y + 6)
     await expect.poll(() => queued.first().textContent()).toContain('q two edited')
     // "Send to the queue" moves a note to the end of the queue; Restore brings it back.
     await noteCards.first().getByRole('button', { name: 'Send to the queue' }).click()
@@ -881,10 +887,10 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => noteCards.count()).toBe(1)
     await expect.poll(() => queued.count()).toBe(2)
     // A note dropped on top of the queue joins it there; a queued message dropped on the notes becomes a note.
-    await drag(noteCards.first().locator('.tray-note-text'), right.x + 40, (await queued.first().boundingBox())!.y + 4)
+    await drag(noteCards.first().getByRole('button', { name: 'Drag to move' }), right.x + 40, (await queued.first().boundingBox())!.y + 4)
     await expect.poll(() => queued.first().textContent()).toContain('note A')
     await expect.poll(() => noteCards.count()).toBe(0)
-    const fromQueue = queued.filter({ hasText: 'q one' }).locator('.tray-note-text')
+    const fromQueue = queued.filter({ hasText: 'q one' }).getByRole('button', { name: 'Drag to move' })
     await drag(fromQueue, left.x + 40, (await fresh.boundingBox())!.y + 60)
     await expect.poll(() => noteCards.first().textContent()).toContain('q one')
     await expect.poll(() => queued.count()).toBe(2)

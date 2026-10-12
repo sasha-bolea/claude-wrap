@@ -85,6 +85,8 @@
   .tray-note.new { min-height: 38px; border-style: dashed; color: #999; padding-right: 12px; }
   .tray-note .del { position: absolute; top: 4px; right: 4px; }
   .tray-note .send { position: absolute; bottom: 4px; right: 4px; }
+  .tray-note .grip { position: absolute; left: 0; top: 0; bottom: 0; width: 24px; display: grid; place-items: center; color: #999; border-right: 1px dashed #ccc; cursor: grab; }
+  .tray-note:not(.new) { padding-left: 32px; }
   .tray-note .send-queue { position: absolute; bottom: 4px; right: 46px; }
 
   /* Sheets and popovers */
@@ -183,13 +185,13 @@
           <div class="tray notes-tray only-notes">
             <div class="tray-head"><b>Note</b><span class="grow"></span><span class="lbl">trascina → Coda</span></div>
             <div class="tray-note new">Nuova nota<span class="btn accent send">✓<br><span class="lbl">salva</span></span></div>
-            <div class="tray-note">Testo della nota (fino a 6 righe)<span class="btn del">🗑</span><span class="btn send-queue">→≡<br><span class="lbl">coda</span></span><span class="btn accent send">→💬</span></div>
-            <div class="tray-note">Un'altra nota<span class="btn del">🗑</span><span class="btn send-queue">→≡<br><span class="lbl">coda</span></span><span class="btn accent send">→💬</span></div>
+            <div class="tray-note"><span class="grip">⋮⋮</span>Testo della nota (fino a 6 righe)<span class="btn del">🗑</span><span class="btn send-queue">→≡<br><span class="lbl">coda</span></span><span class="btn accent send">→💬</span></div>
+            <div class="tray-note"><span class="grip">⋮⋮</span>Un'altra nota<span class="btn del">🗑</span><span class="btn send-queue">→≡<br><span class="lbl">coda</span></span><span class="btn accent send">→💬</span></div>
           </div>
           <div class="tray queue-open only-queue only-queueopen">
             <div class="tray-head"><span class="btn">⏸</span><b>Coda · 2</b><span class="grow"></span><span class="lbl">← trascina → Note</span><span class="btn">˅<br><span class="lbl">chiudi</span></span></div>
-            <div class="tray-note q">Prossimo messaggio in coda<span class="btn del">🗑</span><span class="btn dark round send">⇡<br><span class="lbl">ora</span></span></div>
-            <div class="tray-note q">Secondo in coda <span class="lbl">[img ×2]</span><span class="btn del">🗑</span><span class="btn dark round send">⇡<br><span class="lbl">ora</span></span></div>
+            <div class="tray-note q"><span class="grip">⋮⋮</span>Prossimo messaggio in coda<span class="btn del">🗑</span><span class="btn dark round send">⇡<br><span class="lbl">ora</span></span></div>
+            <div class="tray-note q"><span class="grip">⋮⋮</span>Secondo in coda <span class="lbl">[img ×2]</span><span class="btn del">🗑</span><span class="btn dark round send">⇡<br><span class="lbl">ora</span></span></div>
           </div>
         </div>
       </div>
@@ -222,6 +224,7 @@
       <li>Card della coda come le note: clic = modifica il testo; 🗑 in alto a destra = toglie dalla coda; in basso a destra = invia ora; trascinamento = riordina.</li>
       <li>Note e Coda aperte insieme: affiancate sotto l'input bar, Note a sinistra, Coda a destra.</li>
       <li>Card delle note, in basso a destra: →≡ manda in coda (come trascinarla nella Coda), →💬 la mette nel composer.</li>
+      <li>Ogni card si trascina solo dalla maniglia ⋮⋮ sul bordo sinistro; un clic sul testo lo modifica.</li>
       <li>Nota → Coda (trascinata): entra in coda nel punto dove la lasci e sparisce dalle note (con Ripristina).</li>
       <li>Coda → Note (trascinata): diventa una nota in quel punto ed esce dalla coda; le immagini allegate si perdono.</li>
       <li>Telefono: da adattare dopo il desktop.</li>

@@ -440,6 +440,7 @@ export const it: Record<MessageKey, string> = {
   queuedText: 'Testo del messaggio in coda',
   toQueue: 'Manda in coda',
   saveNote: 'Salva la nota',
+  dragToMove: 'Trascina per spostare',
   noteQueued: 'Nota spostata in coda',
   removedFromQueue: 'Tolto dalla coda',
   text: 'Testo',

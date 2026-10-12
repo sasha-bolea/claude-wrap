@@ -11,16 +11,14 @@ const DRAG_START = 5
 // Drag the cards of the notes and the queue with a mouse or a finger. Past DRAG_START px the pressed card is dragged:
 // over its own column it takes the place of the card under the pointer (the order changes as it goes, committed on
 // release); over the other column it shows where it would land, and released there it moves to that column.
-// A press without a drag is left to the click.
 // Parameters: ids (each column's cards in their order), onReorder (a column's new order and the card moved) and onMove (a card dropped on
 // the other column at an index).
 // Returns order (a column's cards, as dragged), register / registerColumn (the elements), handlers (for a card's grab
-// area), dragged, target and wasDragged (true right after a drag, so its click is ignored).
+// area: the card's handle), dragged and target.
 export function useTrayDrag({ ids, onReorder, onMove }: { ids: Record<TrayList, string[]>; onReorder: (list: TrayList, ids: string[], id: string) => void; onMove: (from: TrayList, id: string, to: TrayList, index: number) => void }) {
   const cards = useRef(new Map<string, HTMLElement>())
   const columns = useRef(new Map<TrayList, HTMLElement>())
   const press = useRef<{ list: TrayList; id: string; y: number; moved: boolean }>(undefined)
-  const justDragged = useRef(false)
   // While dragging (and until the lists come back in that order): a column's order as dragged.
   const [live, setLive] = useState<Partial<Record<TrayList, string[]>>>({})
   const [dragged, setDragged] = useState<{ list: TrayList; id: string }>()
@@ -99,15 +97,13 @@ export function useTrayDrag({ ids, onReorder, onMove }: { ids: Record<TrayList, 
       const drop = targetRef.current
       if (!current?.moved) return end()
       event.currentTarget.releasePointerCapture(event.pointerId)
-      justDragged.current = true
-      setTimeout(() => (justDragged.current = false))
       end()
       if (drop) onMove(list, id, drop.list, drop.index)
       else if (latest.current(list).join() !== ids[list].join()) onReorder(list, latest.current(list), id)
     },
     onPointerCancel: end
   })
-  return { order, register, registerColumn, handlers, dragged, target, wasDragged: () => justDragged.current }
+  return { order, register, registerColumn, handlers, dragged, target }
 }
 
 export type TrayDrag = ReturnType<typeof useTrayDrag>
