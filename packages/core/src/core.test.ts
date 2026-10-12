@@ -526,6 +526,22 @@ describe('queue', () => {
     expect(meta(client)?.queue).toHaveLength(3)
   })
 
+  it('a note sent to an empty queue waits there, the queue paused, until ▶; to a queue with messages it just joins it', async () => {
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD })
+    await client.ok('tab.subscribe', { tabId: 't1' })
+    const { note: first } = await client.ok('notes.save', { cwd: CWD, text: 'first' })
+    await client.ok('notes.toQueue', { tabId: 't1', noteId: first.noteId }, cmd(2))
+    await client.waitFor(() => meta(client)?.queue.length === 1)
+    expect(meta(client)).toMatchObject({ queue: [{ queueId: cmd(2), text: 'first' }], queuePause: { reason: 'user' } })
+    expect(meta(client)?.queueCountdown).toBeUndefined()
+    expect(fake.sessions).toHaveLength(0)
+    const { note: second } = await client.ok('notes.save', { cwd: CWD, text: 'second' })
+    await client.ok('notes.toQueue', { tabId: 't1', noteId: second.noteId }, cmd(3))
+    await tick()
+    expect(meta(client)?.queue.map((message) => message.text)).toEqual(['first', 'second'])
+    expect(meta(client)?.queuePause).toEqual({ reason: 'user' })
+  })
+
   it('"send now" takes a message out of the queue and sends it at once, without interrupting', async () => {
     const session = await startedTab()
     await client.ok('tab.queueAdd', { tabId: 't1', text: 'urgent' }, cmd(2))

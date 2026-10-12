@@ -377,10 +377,12 @@ export class Tab {
     if (!this.transcript.has(message.queueId)) this.dispatch(session, message, true)
   }
 
-  // Adds a message to the queue: it goes at once if Claude is free and the queue is not paused.
-  queueAdd(message: Outgoing): void {
+  // Adds a message to the queue: it goes at once if Claude is free and the queue is not paused. waitIfEmpty: into an
+  // empty queue it waits there instead, the queue paused (by hand) until ▶.
+  queueAdd(message: Outgoing, waitIfEmpty = false): void {
     this.assertOpen()
     this.used()
+    if (waitIfEmpty && !this.queue.length) this.queuePause = { reason: 'user' }
     this.queue.push(message)
     this.changed()
     this.dispatchNext()

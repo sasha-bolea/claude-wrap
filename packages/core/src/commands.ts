@@ -251,7 +251,8 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
       const note = (await workspace.notes.list(folder)).find((candidate) => candidate.noteId === noteId)
       if (!note) throw new CoreError('not_found', 'note not found')
       checkSize(note.text, [])
-      tab.queueAdd({ queueId: cmdId, text: note.text, from: connection.label })
+      // Into an empty queue it waits there, the queue paused, until ▶ (it never goes by itself).
+      tab.queueAdd({ queueId: cmdId, text: note.text, from: connection.label }, true)
       if (index !== undefined && tab.isQueued(cmdId)) tab.queueMove(cmdId, index)
       await workspace.notes.delete(folder, noteId)
       notesChanged(folder)
