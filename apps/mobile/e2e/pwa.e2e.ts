@@ -12,7 +12,7 @@ import type { Browser, BrowserContext, CDPSession, Locator, Page } from 'playwri
 import { createPairingCode } from '@athome/server'
 import { WORKSPACE_STREAM, type WorkspaceSnapshot } from '@athome/protocol'
 import { RawClient } from '../../../packages/core/src/testing/rawClient.ts'
-import { button, composer, home, lastAnswer, launchChrome, openProject, pairedPage, phone, send, startBackend, type Backend } from './harness.ts'
+import { button, composer, home, lastAnswer, launchChrome, openProject, openTool, pairedPage, phone, send, startBackend, type Backend } from './harness.ts'
 
 let browser: Browser
 let backend: Backend
@@ -647,7 +647,7 @@ describe('PWA (fake SDK)', () => {
     await page.getByRole('button', { name: /^Queue: 1 waiting\. Next: queued one/ }).waitFor()
     // The field is empty again and Send still sends (no queue mode).
     expect(await composer(page).inputValue()).toBe('')
-    await button(page, /^Add to the queue \(1 queued\)/).waitFor()
+    await button(page, /^Add to the queue \(1 queued/).waitFor()
     expect(await page.locator('.composer.queue-mode').count()).toBe(0)
     await button(page, 'Send').waitFor()
     await button(page, 'Stop: stop Claude').click()
@@ -667,8 +667,8 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toBe('Echo: queued one')
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 30_000 }).toBe('Echo: queued two')
     await page.locator('.queue-tray').waitFor({ state: 'detached' })
-    // Nothing left in the queue and Claude done: no queue button.
-    expect(await page.locator('.queue-btn').count()).toBe(0)
+    // Nothing left in the queue and Claude done: the queue button stays, for the next message.
+    await page.locator('.queue-btn').waitFor()
   })
 
   it('the bin on the queue card removes the next queued message', async () => {
@@ -716,8 +716,7 @@ describe('PWA (fake SDK)', () => {
     writeFileSync(join(project, 'README.md'), '# Title\n\nText.\n')
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
-    await button(page, 'More actions').click()
-    await button(page, 'Folder files').click()
+    await openTool(page, 'Files')
     await button(page, /^src /).click()
     await button(page, /^app\.ts /).click()
     await page.locator('.code .hljs-keyword').first().waitFor()
@@ -725,8 +724,7 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => composer(page).inputValue()).toBe('@src/app.ts ')
     await composer(page).fill('')
     // Upload into the folder's root, then delete README.md and undo.
-    await button(page, 'More actions').click()
-    await button(page, 'Folder files').click()
+    await openTool(page, 'Files')
     await page.locator('input[type=file]:not([accept])').last().setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hi') })
     await page.getByRole('button', { name: /^notes\.txt new/ }).waitFor()
     await button(page, 'Actions for README.md').click()
@@ -741,7 +739,8 @@ describe('PWA (fake SDK)', () => {
   it('a note used in the message is linked to the draft and deleted at send', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
-    await page.locator('.composer').getByRole('button', { name: 'Notes', exact: true }).click()
+    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
+    await page.getByRole('region', { name: 'Tools' }).getByRole('button', { name: /^Notes/ }).click()
     const tray = page.getByRole('region', { name: 'Notes' })
     const text = 'Remember the milk, then the long list of everything else that keeps going on and on past the screen'
     await tray.getByRole('textbox', { name: 'New note' }).fill(text)
@@ -756,34 +755,41 @@ describe('PWA (fake SDK)', () => {
     expect(sendBox.x + sendBox.width).toBeLessThanOrEqual(viewport)
     await send.click()
     await page.getByRole('status').filter({ hasText: 'used and deleted' }).waitFor()
-    await expect.poll(() => tray.locator('.tray-note:not(.new)').count()).toBe(0)
+    // Sending brought the chat back; the note is gone from the Tools.
+    await tray.waitFor({ state: 'detached' })
+    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
+    await expect.poll(() => page.getByRole('region', { name: 'Tools' }).getByRole('button', { name: /^Notes/ }).textContent()).toContain('0')
   })
 
-  it('notes as cards under the composer (wide): toggle, new, edit, delete, to the message, drag to reorder', async () => {
+  it('the Tools (wide): a grid in place of the chat, its tools out of the session menu; Notes: new, edit, delete, to the message, drag by the handle', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'en-US' })
     contexts.push(context)
     const page = await pairedPage(context, backend, 'laptop')
     await openProject(page)
-    // Only the composer's toggle: no notes button in the chat's bar, no notes item in its menu.
-    expect(await page.locator('.col-center .chat-bar').getByRole('button', { name: /^Folder notes/ }).count()).toBe(0)
-    const toggle = page.locator('.composer').getByRole('button', { name: 'Notes', exact: true })
-    expect(await toggle.getAttribute('aria-pressed')).toBe('false')
-    // On the right of the bar, just before Send.
+    // The session menu no longer lists them: they are tools now.
+    await button(page, 'More actions').click()
+    const menu = page.locator('.sheet')
+    await menu.getByRole('button', { name: 'Rename', exact: true }).waitFor()
+    for (const gone of ['Folder files', 'Terminal', 'Go back to one of your messages', /^Account/]) expect(await menu.getByRole('button', { name: gone, exact: typeof gone === 'string' }).count()).toBe(0)
+    await page.keyboard.press('Escape')
+    // The Tools button, on the right of the bar, shows the grid in place of the conversation; again: the chat.
+    const tools = page.locator('.composer').getByRole('button', { name: 'Tools', exact: true })
     const bar = (await page.locator('.input-box').boundingBox())!
-    expect((await toggle.boundingBox())!.x).toBeGreaterThan(bar.x + bar.width / 2)
-    const before = (await page.locator('.input-box').boundingBox())!
-    await toggle.click()
-    expect(await toggle.getAttribute('aria-pressed')).toBe('true')
+    expect((await tools.boundingBox())!.x).toBeGreaterThan(bar.x + bar.width / 2)
+    expect(await tools.getAttribute('aria-pressed')).toBe('false')
+    await tools.click()
+    expect(await tools.getAttribute('aria-pressed')).toBe('true')
+    const grid = page.getByRole('region', { name: 'Tools' })
+    for (const tile of [/^Notes/, /^Queue/, /^Files/, /^Terminal/, /^Rewind/, /^Account/]) await grid.getByRole('button', { name: tile }).waitFor()
+    await tools.click()
+    await grid.waitFor({ state: 'detached' })
+    await tools.click()
+    // A tile opens its list in the same place; ‹ goes back to the grid.
+    await grid.getByRole('button', { name: /^Notes/ }).click()
     const tray = page.getByRole('region', { name: 'Notes' })
-    await tray.waitFor()
-    // The cards sit under the input bar, which moved up to make room.
-    const after = (await page.locator('.input-box').boundingBox())!
-    expect(after.y).toBeLessThan(before.y)
-    expect((await tray.boundingBox())!.y).toBeGreaterThanOrEqual(after.y + after.height)
-    // The first card is always the new note: written and left, it becomes a card on top and the field empties.
     const fresh = tray.getByRole('textbox', { name: 'New note' })
     const cards = tray.locator('.tray-note:not(.new)')
-    // Its Save button keeps it too (disabled while the field is empty), the field still ready for the next one.
+    // The first card is always the new note: saved (or left), it becomes a card on top and the field empties.
     const save = tray.getByRole('button', { name: 'Save the note' })
     expect(await save.isDisabled()).toBe(true)
     for (const [text, how] of [['first note', 'blur'], ['second note', 'save']] as const) {
@@ -793,116 +799,88 @@ describe('PWA (fake SDK)', () => {
       await expect.poll(() => cards.first().textContent()).toContain(text)
       expect(await fresh.inputValue()).toBe('')
     }
-    expect(await fresh.evaluate((field) => field === document.activeElement)).toBe(true)
-    // A click on a card edits it in place; leaving saves it.
+    // A click on a card's text edits it in place; leaving saves it.
     await cards.filter({ hasText: 'first note' }).locator('.tray-note-text').click()
     const editing = tray.getByRole('textbox', { name: 'Text of the note' })
     await editing.press('End')
     await editing.pressSequentially(' edited')
     await editing.blur()
     await expect.poll(() => cards.nth(1).textContent()).toContain('first note edited')
-    // Pressed and moved, the text does not drag the card (only its handle does; a click on the text edits it).
+    // Pressed and moved, the text does not drag the card; its handle does, and the order is the core's.
     const text = (await cards.nth(1).locator('.tray-note-text').boundingBox())!
     await page.mouse.move(text.x + 40, text.y + 10)
     await page.mouse.down()
     await page.mouse.move(text.x + 40, (await cards.first().boundingBox())!.y + 4, { steps: 8 })
     await page.mouse.up()
     expect(await cards.first().textContent()).toContain('second note')
-    // Its handle does: dragged above the first, it goes first and the order stays after a reload.
     const from = (await cards.nth(1).getByRole('button', { name: 'Drag to move' }).boundingBox())!
-    const to = (await cards.first().boundingBox())!
     await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
     await page.mouse.down()
-    await page.mouse.move(from.x + from.width / 2, to.y + 4, { steps: 8 })
+    await page.mouse.move(from.x + from.width / 2, (await cards.first().boundingBox())!.y + 4, { steps: 8 })
     await page.mouse.up()
     await expect.poll(() => cards.first().textContent()).toContain('first note edited')
-    await page.reload()
-    await page.locator('.col-left').getByRole('button', { name: /^Show sessions/ }).click()
-    await page.getByRole('button', { name: /^project/ }).filter({ hasText: 'idle' }).first().click()
-    await page.locator('.composer').getByRole('button', { name: 'Notes', exact: true, pressed: true }).waitFor()
+    await page.getByRole('button', { name: 'All tools' }).click()
+    await grid.getByRole('button', { name: /^Notes/ }).click()
     await expect.poll(() => cards.first().textContent()).toContain('first note edited')
     expect(await cards.nth(1).textContent()).toContain('second note')
-    // Bottom right: into the composer; top right: delete, with undo.
+    // Bottom right: into the composer (the Tools stay); top right: delete, with Restore.
     await cards.first().getByRole('button', { name: 'Use in the message' }).click()
     await expect.poll(() => composer(page).inputValue()).toBe('first note edited')
     await cards.filter({ hasText: 'second note' }).getByRole('button', { name: 'Delete the note' }).click()
     await expect.poll(() => cards.count()).toBe(1)
     await page.getByRole('button', { name: 'Restore' }).click()
     await expect.poll(() => cards.count()).toBe(2)
-    // Off again: the cards go.
-    await page.locator('.composer').getByRole('button', { name: 'Notes', exact: true }).click()
-    await tray.waitFor({ state: 'detached' })
   })
 
-  it('the open queue as cards beside the notes (wide): edit, reorder, send now, close; cards move between the two', async () => {
+  it('the Queue tool (wide): the queue button always adds (an empty queue waits, paused); its stack opens the tool; add, edit, reorder, send now; a note goes to the queue', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'en-US' })
     contexts.push(context)
     const page = await pairedPage(context, backend, 'laptop')
     await openProject(page)
-    await send(page, 'slow')
-    await page.locator('.working-line').waitFor()
-    for (const text of ['q one', 'q two']) {
-      await composer(page).fill(text)
-      await button(page, /^Add to the queue/).click()
-    }
-    await button(page, 'Pause the queue').click()
-    // A tap on the stack opens the queue as a column of cards; ˅ closes it back into the stack.
-    await page.getByRole('button', { name: /^Queue: 2 waiting/ }).click()
+    // Claude is free: the queue button is there all the same, and into an empty queue the message waits, paused.
+    await composer(page).fill('q one')
+    await button(page, /^Add to the queue/).click()
+    await page.getByRole('button', { name: /^Queue: 1 waiting\. Next: q one/ }).waitFor()
+    await page.getByRole('button', { name: 'Queue paused: Resume' }).waitFor()
+    expect(await page.locator('.msg-user').count()).toBe(0)
+    // The stack opens the Queue tool in place of the chat; its first card adds at the end.
+    await page.getByRole('button', { name: /^Queue: 1 waiting/ }).click()
     const queue = page.getByRole('region', { name: 'Queue' })
-    await queue.getByText('Queue · 2').waitFor()
-    expect(await page.locator('.queue-tray').count()).toBe(0)
-    const queued = queue.locator('.tray-note')
-    // The notes open beside it, on the left.
-    await page.locator('.composer').getByRole('button', { name: 'Notes', exact: true }).click()
-    const notes = page.getByRole('region', { name: 'Notes' })
-    const fresh = notes.getByRole('textbox', { name: 'New note' })
-    await fresh.fill('note A')
-    await fresh.blur()
-    const noteCards = notes.locator('.tray-note:not(.new)')
-    await expect.poll(() => noteCards.count()).toBe(1)
-    const [left, right] = [(await notes.boundingBox())!, (await queue.boundingBox())!]
-    expect(left.x + left.width).toBeLessThanOrEqual(right.x)
-    expect(Math.abs(left.y - right.y)).toBeLessThan(4)
-    // A queued card is edited in place.
+    await queue.getByText('Queue · 1').waitFor()
+    await queue.getByRole('textbox', { name: 'Add to the queue' }).fill('q two')
+    await queue.getByRole('button', { name: 'Put it in the queue' }).click()
+    const queued = queue.locator('.tray-note:not(.new)')
+    await expect.poll(() => queued.count()).toBe(2)
+    // A queued card is edited in place, and dragged by its handle above the first.
     await queued.filter({ hasText: 'q two' }).locator('.tray-note-text').click()
     const field = queue.getByRole('textbox', { name: 'Text of the queued message' })
     await field.press('End')
     await field.pressSequentially(' edited')
     await field.blur()
     await expect.poll(() => queued.nth(1).textContent()).toContain('q two edited')
-    // Dragged above the first, it goes first.
-    const drag = async (from: Locator, x: number, y: number) => {
-      const box = (await from.boundingBox())!
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-      await page.mouse.down()
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 10, { steps: 3 })
-      await page.mouse.move(x, y, { steps: 10 })
-      await page.mouse.up()
-    }
-    await drag(queued.nth(1).getByRole('button', { name: 'Drag to move' }), right.x + 40, (await queued.first().boundingBox())!.y + 6)
+    const from = (await queued.nth(1).getByRole('button', { name: 'Drag to move' }).boundingBox())!
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(from.x + from.width / 2, (await queued.first().boundingBox())!.y + 4, { steps: 8 })
+    await page.mouse.up()
     await expect.poll(() => queued.first().textContent()).toContain('q two edited')
-    // "Send to the queue" moves a note to the end of the queue; Restore brings it back.
-    await noteCards.first().getByRole('button', { name: 'Send to the queue' }).click()
+    // A note sent to the queue goes to its end and leaves the notes.
+    await page.getByRole('button', { name: 'All tools' }).click()
+    await page.getByRole('region', { name: 'Tools' }).getByRole('button', { name: /^Notes/ }).click()
+    const notes = page.getByRole('region', { name: 'Notes' })
+    await notes.getByRole('textbox', { name: 'New note' }).fill('note A')
+    await notes.getByRole('button', { name: 'Save the note' }).click()
+    await notes.getByRole('button', { name: 'Send to the queue' }).click()
+    await expect.poll(() => notes.locator('.tray-note:not(.new)').count()).toBe(0)
+    await page.getByRole('button', { name: 'All tools' }).click()
+    await page.getByRole('region', { name: 'Tools' }).getByRole('button', { name: /^Queue/ }).click()
     await expect.poll(() => queued.count()).toBe(3)
-    await expect.poll(() => noteCards.count()).toBe(0)
     expect(await queued.last().textContent()).toContain('note A')
-    await page.getByRole('button', { name: 'Restore' }).click()
-    await expect.poll(() => noteCards.count()).toBe(1)
+    // Send now: that message leaves the queue and goes.
+    await queued.filter({ hasText: 'q one' }).getByRole('button', { name: 'Send now' }).click()
     await expect.poll(() => queued.count()).toBe(2)
-    // A note dropped on top of the queue joins it there; a queued message dropped on the notes becomes a note.
-    await drag(noteCards.first().getByRole('button', { name: 'Drag to move' }), right.x + 40, (await queued.first().boundingBox())!.y + 4)
-    await expect.poll(() => queued.first().textContent()).toContain('note A')
-    await expect.poll(() => noteCards.count()).toBe(0)
-    const fromQueue = queued.filter({ hasText: 'q one' }).getByRole('button', { name: 'Drag to move' })
-    await drag(fromQueue, left.x + 40, (await fresh.boundingBox())!.y + 60)
-    await expect.poll(() => noteCards.first().textContent()).toContain('q one')
-    await expect.poll(() => queued.count()).toBe(2)
-    // Send now: the message leaves the queue at once.
-    await queued.filter({ hasText: 'q two edited' }).getByRole('button', { name: 'Send now' }).click()
-    await expect.poll(() => queued.count()).toBe(1)
-    await queue.getByRole('button', { name: 'Close the queue' }).click()
-    await queue.waitFor({ state: 'detached' })
-    await page.getByRole('button', { name: /^Queue: 1 waiting\. Next: note A/ }).waitFor()
+    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toBe('Echo: q one')
   })
 
   it('folders: a new project at the root, its sessions screen, delete with undo', async () => {
@@ -999,8 +977,8 @@ describe('PWA (fake SDK)', () => {
     await stopped.getByRole('button', { name: 'Continue' }).click()
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo: continue')
     await stopped.waitFor({ state: 'detached' })
-    await button(page, 'More actions').click()
-    await page.getByRole('button', { name: /^Account Second/ }).waitFor()
+    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
+    await page.getByRole('region', { name: 'Tools' }).getByRole('button', { name: /^Account Second/ }).waitFor()
   })
 
   it('context and usage panels from the session menu: the window and its categories, plan limits and the session cost', async () => {
@@ -1328,13 +1306,12 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('.field').first().evaluate((element) => getComputedStyle(element).fontSize)).toBe('16px')
   })
 
-  it('a terminal from the session menu: I type and the shell answers, the key bar sends ↑, the Home lists it, I close it', async () => {
+  it('a terminal from the Tools: I type and the shell answers, the key bar sends ↑, the Home lists it, I close it', async () => {
     const page = await pairedPage(await newPhone(), backend)
     const refused: string[] = []
     page.on('console', (message) => message.text().includes('Content Security Policy') && refused.push(message.text()))
     await openProject(page)
-    await button(page, 'More actions').click()
-    await page.getByRole('dialog').getByRole('button', { name: 'Terminal', exact: true }).click()
+    await openTool(page, 'Terminal')
     const terminal = page.getByRole('region', { name: 'Terminal' })
     const rows = terminal.locator('.xterm-rows')
     await rows.waitFor()
@@ -1351,13 +1328,11 @@ describe('PWA (fake SDK)', () => {
     await terminal.getByRole('button', { name: 'Up' }).click()
     await page.keyboard.press('Enter')
     await expect.poll(async () => (await rows.textContent())!.split('cw-marker').length - 1, { timeout: 10_000 }).toBeGreaterThanOrEqual(2)
-    // Leaving asks whether to close it: kept open, back to the session menu it came from (closed), then the Home: the
-    // Sessioni view lists it; it opens again with its screen.
+    // Leaving asks whether to close it: kept open, back to the Tools it came from, then the Home: the Sessioni view
+    // lists it; it opens again with its screen.
     await button(page, 'Back').click()
     await page.getByRole('dialog', { name: 'Close the terminal?' }).getByRole('button', { name: 'Keep it open' }).click()
-    await page.getByRole('dialog', { name: 'project' }).waitFor()
-    await page.keyboard.press('Escape')
-    await page.getByRole('dialog').waitFor({ state: 'detached' })
+    await page.getByRole('region', { name: 'Tools' }).waitFor()
     await button(page, 'Back').click()
     await button(page, 'Show sessions').click()
     await page.getByRole('button', { name: /^project/ }).filter({ hasText: 'Terminal' }).click()
@@ -1469,8 +1444,7 @@ describe('PWA (fake SDK)', () => {
     // The next one goes without a card; the terminal shows both.
     expect(await write('echo cw-"se"cond')).toMatchObject({ ok: true })
     expect(await card.count()).toBe(0)
-    await button(page, 'More actions').click()
-    await page.getByRole('dialog').getByRole('button', { name: 'Terminal', exact: true }).click()
+    await openTool(page, 'Terminal')
     const rows = page.getByRole('region', { name: 'Terminal' }).locator('.xterm-rows')
     await expect.poll(() => rows.textContent(), { timeout: 10_000 }).toContain('cw-second')
     expect(await rows.textContent()).toContain('cw-first')
@@ -1480,8 +1454,7 @@ describe('PWA (fake SDK)', () => {
   it('a terminal beside its chat on the phone: chat above, terminal below, the divider resizes them and is remembered', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
-    await button(page, 'More actions').click()
-    await page.getByRole('dialog').getByRole('button', { name: 'Terminal', exact: true }).click()
+    await openTool(page, 'Terminal')
     const terminal = page.getByRole('region', { name: 'Terminal' })
     await terminal.locator('.xterm-rows').waitFor()
     const chat = page.getByRole('region', { name: 'Chat' })

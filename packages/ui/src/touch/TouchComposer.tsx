@@ -8,12 +8,11 @@ import { dataUrl, readBase64, readImages } from '../images.ts'
 import { modeLabel, nextMode } from '../modes.ts'
 import { noteUsed } from '../notes.ts'
 import type { Option } from '../Suggestions.tsx'
-import { readLinkedNote, readNotesOpen, readQueueOpen, writeLinkedNote, writeNotesOpen, writeQueueOpen, type LinkedNote } from '../viewState.ts'
+import { readLinkedNote, writeLinkedNote, type LinkedNote } from '../viewState.ts'
 import { useTouch } from './context.tsx'
 import { GaugeButton } from './gauge.tsx'
 import { Icon, modeIcon } from './icons.tsx'
 import { sizeLabel } from './model.ts'
-import { Trays } from './Trays.tsx'
 import { ModelSheet, ModeSheet, modelLabel, useModels } from './modelSheets.tsx'
 import { IconButton, noteTitle } from './parts.tsx'
 import { useUndoReset } from './keyboard.ts'
@@ -30,7 +29,9 @@ const enterSends = () => matchMedia('(hover: hover)').matches
 const ESCAPE_TWICE_MS = 600
 
 // tab: shown as a tab sticking out of the input box's top left edge (the working time while its line is out of view).
-type ComposerProps = { meta: TabMeta; running: boolean; requestOpen: boolean; onFocusField: () => void; tab?: ReactNode }
+// toolsOpen / onToggleTools: the Tools button (pressed while the Tools show); onOpenQueue: a tap on the queue's stack;
+// onSent: a message went (the chat comes back from the Tools).
+type ComposerProps = { meta: TabMeta; running: boolean; requestOpen: boolean; onFocusField: () => void; tab?: ReactNode; toolsOpen: boolean; onToggleTools: () => void; onOpenQueue: () => void; onSent: () => void }
 
 // Ring of the countdown around Stop (SVG units, a 44×44 box).
 const RING_RADIUS = 20
@@ -69,27 +70,15 @@ function QueuedCountdown({ text, images, until, onStop }: { text: string; images
 }
 
 // The composer of the touch layout: one box floating over the chat — the text on top; under it + (photos and
-// files), permissions and the context gauge on the left; on the right Stop and Coda while Claude responds (Coda puts
-// what is written straight into the queue), then Send (the model and effort sheet is the brain button after the mode button; the Notes toggle, first on the right, shows the folder's notes as cards under the composer). `/` suggests
+// files), permissions and the context gauge on the left; on the right Stop while Claude responds and Coda always (it puts what is written
+// straight into the queue; into an empty queue it waits there, the queue paused), then Send (the model and effort sheet is the brain button after the mode button; the Tools button, first on the right, shows the chat's Tools — notes, queue — in place of the conversation). `/` suggests
 // commands, `@` files; `!` runs a shell command; long pastes collapse. Files that are not photos go to allegati/ and
 // are mentioned.
 // A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.
-export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }: ComposerProps) {
+export function TouchComposer({ meta, running, requestOpen, onFocusField, tab, toolsOpen, onToggleTools, onOpenQueue, onSent }: ComposerProps) {
   const { connection, backendId, openSheet, toast, snack, fail, inserts, clearInsert, go } = useTouch()
   const tabId = meta.tabId
   const models = useModels(tabId)
-  // The notes as cards under the composer: on or off on this device, for every chat.
-  const [notesOpen, setNotesOpen] = useState(readNotesOpen)
-  const toggleNotes = () => {
-    writeNotesOpen(!notesOpen)
-    setNotesOpen(!notesOpen)
-  }
-  // The queue as a column of cards (a tap on its stack) or as the stack (its ˅): on this device, for every chat.
-  const [queueOpen, setQueueOpen] = useState(readQueueOpen)
-  const openQueue = (open: boolean) => {
-    writeQueueOpen(open)
-    setQueueOpen(open)
-  }
   const input = useRef<HTMLTextAreaElement>(null)
   const picker = useRef<HTMLInputElement>(null)
   const undoReset = useUndoReset()
@@ -190,7 +179,7 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }:
     try {
       if (shellMode) {
         await connection.request('tab.shell', { tabId, command: sent.text.slice(1).trim() })
-        return
+        return onSent()
       }
       const mentions: string[] = []
       for (const doc of sent.docs) {
@@ -199,8 +188,9 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }:
       }
       const message = [expanded.text, mentions.join(' ')].filter(Boolean).join('\n')
       const args = { tabId, text: message, ...(sent.images.length ? { images: sent.images } : {}), ...(expanded.pastes.length ? { pastes: expanded.pastes } : {}) }
-      await connection.request(toQueue ? 'tab.queueAdd' : 'tab.send', args)
+      await (toQueue ? connection.request('tab.queueAdd', { ...args, hold: true }) : connection.request('tab.send', args))
       settleNote(message)
+      if (!toQueue) onSent()
     } catch (error) {
       draft.setValue(expanded.text || sent.text)
       draft.setImages(sent.images)
@@ -375,33 +365,30 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }:
             <Icon name="brain" />
           </button>
           <GaugeButton meta={meta} />
-          <button className={`icon-btn notes-toggle${notesOpen ? ' on' : ''}`} aria-label={t('notes')} aria-pressed={notesOpen} onClick={toggleNotes}>
-            <Icon name="note" />
+          <button className={`icon-btn tools-toggle${toolsOpen ? ' on' : ''}`} aria-label={t('tools')} aria-pressed={toolsOpen} onClick={onToggleTools}>
+            <Icon name="grid" />
           </button>
           {(running || requestOpen) && (
             <button className="send stop" aria-label={t('stopClaude')} onClick={stop} {...keepFocus}>
               <Icon name="stop" />
             </button>
           )}
-          {/* While Claude works, and also after, as long as something waits in the queue (paused or counting down):
-              what is written can join it instead of going ahead of it */}
-          {(running || requestOpen || meta.queue.length > 0) && (
-            <button className="send queue-btn" aria-label={queueLabel} disabled={!hasContent || shellMode} onClick={() => void send(true)} {...keepFocus}>
-              <Icon name="queue" />
-              {(queueCount || meta.queuePause) && (
-                <span className="count" aria-hidden="true">
-                  {meta.queuePause ? <Icon name="pause" /> : queueCount}
-                </span>
-              )}
-            </button>
-          )}
+          {/* Always beside Send: what is written joins the queue instead of going now (into an empty queue it waits
+              there, the queue paused, until ▶) */}
+          <button className="send queue-btn" aria-label={queueLabel} disabled={!hasContent || shellMode} onClick={() => void send(true)} {...keepFocus}>
+            <Icon name="queue" />
+            {(queueCount || meta.queuePause) && (
+              <span className="count" aria-hidden="true">
+                {meta.queuePause ? <Icon name="pause" /> : queueCount}
+              </span>
+            )}
+          </button>
           <button className="send" aria-label={t(shellMode ? 'run' : 'send')} disabled={!hasContent} onClick={() => void send()} {...keepFocus}>
             <Icon name="send" />
           </button>
         </div>
       </div>
-      {!queueOpen && <QueueTray meta={meta} onOpen={() => openQueue(true)} />}
-      <Trays meta={meta} notesOpen={notesOpen} queueOpen={queueOpen} onCloseQueue={() => openQueue(false)} />
+      <QueueTray meta={meta} onOpen={onOpenQueue} />
       <input ref={picker} type="file" multiple hidden onChange={(event) => void attach([...(event.target.files ?? [])]).then(() => (event.target.value = ''))} />
     </footer>
   )

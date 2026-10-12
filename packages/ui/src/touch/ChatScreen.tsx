@@ -5,14 +5,13 @@ import { t } from '../i18n.ts'
 import { modeLabel } from '../modes.ts'
 import type { Answer } from '../chatHooks.ts'
 import { useScreen, useTouch, type LaterKey } from './context.tsx'
-import { AccountPickSheet, accountName } from './accounts.tsx'
 import { Conversation, WorkingMini } from './Conversation.tsx'
 import { Icon } from './icons.tsx'
 import { sessionState } from './model.ts'
 import { ModelSheet, currentEffort, modelLabel, useModels } from './modelSheets.tsx'
 import { Badge, ConnectionBanner, IconButton, UpdateBar } from './parts.tsx'
 import { CloseButton, MoveSheet, RenameSheet, useTrustPrompt } from './sessions.tsx'
-import { useOpenTerminal } from './TerminalScreen.tsx'
+import { ToolsView, type ToolsPage } from './ToolsView.tsx'
 import { TouchComposer } from './TouchComposer.tsx'
 
 type UserItem = Extract<Item, { kind: 'user' }>
@@ -188,6 +187,8 @@ export function ChatScreen({ tabId }: { tabId: string }) {
   const dock = useRef<HTMLDivElement>(null)
   const ghostDrag = useRef<{ y: number; dy: number } | undefined>(undefined)
   const ghostElement = useRef<HTMLButtonElement>(null)
+  // The Tools shown in place of the conversation (the composer's Tools button), and which page; absent: the chat.
+  const [tools, setTools] = useState<ToolsPage>()
   const { ghost, update: updateGhost, dismiss: dismissGhost } = useGhost(conversation, ghostElement)
   const { thumb, place: placeThumb } = useScrollThumb(conversation, dock, () => stopGlide())
   // The ghost on screen: once `ghost` goes away it stays for its slide back up (`.leaving`), then it is removed.
@@ -398,7 +399,8 @@ export function ChatScreen({ tabId }: { tabId: string }) {
           <Conversation meta={meta} view={view} workingRef={setWorkingLine} loadImage={loadImage} onAnswer={answer} onRestart={() => void connection.request('tab.restart', { tabId }).catch(fail)} onTrust={() => askTrust(meta.cwd, () => undefined)} onActions={openActions} onSendNow={sendNow} onUnsend={unsend} />
         </div>
         <div className="scroll-thumb" ref={thumb} aria-hidden="true" />
-        {shownGhost && (
+        {tools && <ToolsView meta={meta} page={tools} onPage={setTools} />}
+        {!tools && shownGhost && (
           <>
             <button className={`ghost${ghost ? '' : ' leaving'}`} ref={ghostElement} aria-hidden={ghost ? undefined : true} tabIndex={ghost ? undefined : -1} aria-label={t('ghostLabel', { text: shownGhost.text })} onClick={onGhostClick} onTouchStart={onGhostStart} onTouchMove={onGhostMove} onTouchEnd={onGhostEnd}>
               <span className="ghost-bubble">
@@ -414,7 +416,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
             )}
           </>
         )}
-        {!follow && (
+        {!tools && !follow && (
           <button className={`jump${request ? ' ask' : ''}`} aria-label={request ? t('jumpRequest') : t('jumpBottom')} onClick={() => (setFollow(true), setMissed(false), toBottom())}>
             {request && <span>{t('claudeWaitsYou')}</span>}
             <Icon name="down" />
@@ -423,21 +425,19 @@ export function ChatScreen({ tabId }: { tabId: string }) {
         )}
       </div>
       <div className="dock" ref={dock}>
-        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} onFocusField={() => (setFollow(true), settleBottom())} tab={<WorkingMini show={running && lineOut} since={meta.status === 'running' ? meta.workingSince : undefined} />} />
+        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} toolsOpen={Boolean(tools)} onToggleTools={() => setTools(tools ? undefined : 'grid')} onOpenQueue={() => setTools('queue')} onSent={() => setTools(undefined)} onFocusField={() => (setFollow(true), settleBottom())} tab={<WorkingMini show={running && lineOut} since={meta.status === 'running' ? meta.workingSince : undefined} />} />
       </div>
     </section>
   )
 }
 
-// The session menu (⋯): where it runs and with what; File, Torna indietro, model and effort,
-// account, rename, fork, restart, the panels to come, close.
+// The session menu (⋯): where it runs and with what; move, model and effort, rename, fork, restart, the panels, close
+// (File, Terminale, Torna indietro and Account are in the composer's Tools).
 function SessionMenu({ tabId }: { tabId: string }) {
   const { state, connection, go, openSheet, closeSheets, toast, fail } = useTouch()
   const meta = state.tabs.find((tab) => tab.tabId === tabId)
   const models = useModels(tabId)
-  const openTerminal = useOpenTerminal()
   if (!meta) return null
-  const busy = meta.status === 'running' || meta.status === 'starting' || meta.status === 'requires_action'
   const effort = currentEffort(meta, models)
   const stopped = meta.status === 'error'
   const fork = () =>
@@ -458,30 +458,12 @@ function SessionMenu({ tabId }: { tabId: string }) {
       </div>
       <ul className="menu">
         <li>
-          <button onClick={() => go({ name: 'files', tabId })}>{t('folderFiles')}</button>
-        </li>
-        <li>
-          <button onClick={() => openTerminal({ tabId })}>{t('terminal')}</button>
-        </li>
-        <li>
           <button onClick={() => openSheet({ title: t('moveSessionTitle'), body: <MoveSheet tabId={tabId} /> })}>{t('moveSession')}</button>
-        </li>
-        <li>
-          <button disabled={busy} onClick={() => go({ name: 'rewind', tabId })}>
-            {t('rewindLabel')}
-            {busy && <span className="right">{t('stopFirstShort')}</span>}
-          </button>
         </li>
         <li>
           <button onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
             {t('modelAndEffort')}
             <span className="right">{[modelLabel(meta, models), effort].filter(Boolean).join(' · ')} ›</span>
-          </button>
-        </li>
-        <li>
-          <button onClick={() => openSheet({ title: t('account'), body: <AccountPickSheet tabId={tabId} /> })}>
-            {t('account')}
-            <span className="right">{accountName(state, meta.account)} ›</span>
           </button>
         </li>
         <li>

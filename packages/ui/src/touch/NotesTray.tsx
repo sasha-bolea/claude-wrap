@@ -9,22 +9,19 @@ import type { TrayDrag, TrayList } from './trayDrag.ts'
 // Saved this long after the last keystroke (and when leaving the card or the app).
 const SAVE_DELAY = 600
 
-// The notes of the session's folder as a column of cards under the composer (its Notes toggle): the first card writes
-// a new note, each other card is edited in place, deleted (top right, with Restore), sent to the queue or put into the
-// message (bottom right), and dragged to another place or onto the queue (the order is the core's, the same on every
-// device). Parameters: the chat, its folder, the notes (absent while loading), the drag of the trays and onToQueue.
+// The notes of the session's folder as a list of cards (the Note tool): the first card writes a new note, each other
+// card is edited in place, deleted (top right, with Restore), sent to the queue or put into the message (bottom right),
+// and dragged by its handle to another place (the order is the core's, the same on every device).
+// Parameters: the chat, its folder, the notes (absent while loading), the drag and onToQueue.
 export function NotesColumn({ tabId, cwd, notes, drag, onToQueue }: { tabId: string; cwd: string; notes?: Note[]; drag: TrayDrag; onToQueue: (noteId: string) => void }) {
   const { connection, fail } = useTouch()
   const byId = new Map((notes ?? []).map((note) => [note.noteId, note]))
   const shown = drag.order('notes').flatMap((id) => byId.get(id) ?? [])
   return (
-    <section className="tray notes-tray" aria-label={t('notes')} ref={(element) => drag.registerColumn('notes', element)}>
-      <div className="tray-head">
-        <strong>{t('notes')}</strong>
-      </div>
+    <div className="tray notes-tray" ref={(element) => drag.registerColumn('notes', element)}>
       <ul className={`tray-list${drag.target?.list === 'notes' ? ' drop-target' : ''}`}>
         <li>
-          <NewNoteCard cwd={cwd} />
+          <NewCard label={t('newNote')} saveLabel={t('saveNote')} onKeep={(text) => connection.request('notes.save', { cwd, text })} />
         </li>
         {shown.map((note, index) => (
           <TrayItem key={note.noteId} list="notes" id={note.noteId} index={index} drag={drag}>
@@ -35,7 +32,7 @@ export function NotesColumn({ tabId, cwd, notes, drag, onToQueue }: { tabId: str
         ))}
         {drag.target?.list === 'notes' && drag.target.index >= shown.length && <li className="drop-marker" aria-hidden="true" />}
       </ul>
-    </section>
+    </div>
   )
 }
 
@@ -98,11 +95,11 @@ export function TrayCard({ text, label, fieldLabel, list, id, drag, onSave, onEm
   )
 }
 
-// The first card: an empty field reading "Nuova nota". Its Save button (bottom right), or leaving it with some text (or
-// the app hidden), makes the text a note on top of the others and empties the field (Save leaves the cursor there for
-// the next one). cwd: the folder.
-function NewNoteCard({ cwd }: { cwd: string }) {
-  const { connection, fail } = useTouch()
+// The first card of a list: an empty field with its placeholder (label). Its Save button (bottom right), or leaving it
+// with some text (or the app hidden), hands the text to onKeep and empties the field (Save leaves the cursor there for
+// the next one); a failure puts the text back. Parameters: label, saveLabel (the button's) and onKeep.
+export function NewCard({ label, saveLabel, onKeep }: { label: string; saveLabel: string; onKeep: (text: string) => Promise<unknown> }) {
+  const { fail } = useTouch()
   const [text, setText] = useState('')
   const latest = useRef('')
   const keep = () => {
@@ -110,7 +107,7 @@ function NewNoteCard({ cwd }: { cwd: string }) {
     if (!value.trim()) return
     latest.current = ''
     setText('')
-    connection.request('notes.save', { cwd, text: value }).catch((error: unknown) => {
+    onKeep(value).catch((error: unknown) => {
       latest.current = value
       setText(value)
       fail(error)
@@ -126,14 +123,14 @@ function NewNoteCard({ cwd }: { cwd: string }) {
       <textarea
         className="tray-note-field"
         rows={1}
-        aria-label={t('newNote')}
-        placeholder={t('newNote')}
+        aria-label={label}
+        placeholder={label}
         value={text}
         onChange={(event) => ((latest.current = event.target.value), setText(event.target.value))}
         onBlur={keep}
       />
-      {/* Pressing it keeps the focus in the field: the note is saved by the click, not by the blur */}
-      <button className="icon-btn tray-note-send accent" aria-label={t('saveNote')} disabled={!text.trim()} onMouseDown={(event) => event.preventDefault()} onClick={keep}>
+      {/* Pressing it keeps the focus in the field: the text is kept by the click, not by the blur */}
+      <button className="icon-btn tray-note-send accent" aria-label={saveLabel} disabled={!text.trim()} onMouseDown={(event) => event.preventDefault()} onClick={keep}>
         <Icon name="check" />
       </button>
     </div>

@@ -23,12 +23,6 @@ function write(name: string, value: string | undefined): void {
 // Layout of this device, whatever the backend: the right panel's width (wide window), in px.
 export const readPanelWidth = () => Number(read('claude-wrap:panelWidth')) || undefined
 export const writePanelWidth = (width: number | undefined) => write('claude-wrap:panelWidth', width ? String(Math.round(width)) : undefined)
-// Whether the notes show as cards under the composer (its Notes toggle), on this device.
-export const readNotesOpen = () => read('claude-wrap:notesOpen') === '1'
-export const writeNotesOpen = (open: boolean) => write('claude-wrap:notesOpen', open ? '1' : undefined)
-// Whether the queue shows as a column of cards (opened from its stack) instead of the stack, on this device.
-export const readQueueOpen = () => read('claude-wrap:queueOpen') === '1'
-export const writeQueueOpen = (open: boolean) => write('claude-wrap:queueOpen', open ? '1' : undefined)
 // The terminal's share of the height beside its chat (phone), between 0 and 1.
 export const readTerminalShare = () => Number(read('claude-wrap:terminalShare')) || undefined
 export const writeTerminalShare = (share: number) => write('claude-wrap:terminalShare', share.toFixed(3))

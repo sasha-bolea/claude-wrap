@@ -2,7 +2,7 @@ import type { TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
-import { TrayCard, TrayItem } from './NotesTray.tsx'
+import { NewCard, TrayCard, TrayItem } from './NotesTray.tsx'
 import { IconButton } from './parts.tsx'
 import type { TrayDrag } from './trayDrag.ts'
 
@@ -56,31 +56,23 @@ export function QueueTray({ meta, onOpen }: { meta: TabMeta; onOpen: () => void 
   )
 }
 
-// The open queue as a column of cards under the composer (a tap on its stack): ⏸/▶, "Coda · N" and ˅ (closes it) on
-// top; each card is edited in place, removed (top right), sent now (bottom right: read at Claude's next step, nothing
-// interrupted) and dragged to another place or onto the notes. Parameters: the chat's meta, the drag of the trays and
-// onClose.
-export function QueueColumn({ meta, drag, onClose }: { meta: TabMeta; drag: TrayDrag; onClose: () => void }) {
+// The queue as a list of cards (the Coda tool): the first card adds a message at the end (into an empty queue it waits
+// there, the queue paused, until ▶); each other card is edited in place, removed (top right), sent now (bottom right:
+// read at Claude's next step, nothing interrupted) and dragged by its handle to another place.
+// Parameters: the chat's meta and the drag.
+export function QueueColumn({ meta, drag }: { meta: TabMeta; drag: TrayDrag }) {
   const { connection, announce, fail } = useTouch()
   const tabId = meta.tabId
   const queue = waitingQueue(meta)
   const byId = new Map(queue.map((message) => [message.queueId, message]))
   const shown = drag.order('queue').flatMap((id) => byId.get(id) ?? [])
-  const paused = Boolean(meta.queuePause)
-  const toggle = () => connection.request('tab.queuePause', { tabId, paused: !paused }).then(() => announce(t(paused ? 'queueResumed' : 'queuePaused')), fail)
   const remove = (queueId: string) => connection.request('tab.unqueue', { tabId, queueId }).then(() => announce(t('removedFromQueue')), fail)
   return (
-    <section className="tray queue-column" aria-label={t('queue')} ref={(element) => drag.registerColumn('queue', element)}>
-      <div className="tray-head">
-        <button className="icon-btn q-play" aria-label={paused ? `${pauseWords(meta)}: ${t('resume')}` : t('pauseQueue')} onClick={() => void toggle()}>
-          <Icon name={paused ? 'play' : 'pause'} />
-        </button>
-        <strong>{t('queueTitle', { count: String(queue.length) })}</strong>
-        <button className="icon-btn tray-close" aria-label={t('closeQueue')} onClick={onClose}>
-          <Icon name="down" />
-        </button>
-      </div>
+    <div className="tray queue-column" ref={(element) => drag.registerColumn('queue', element)}>
       <ul className={`tray-list${drag.target?.list === 'queue' ? ' drop-target' : ''}`}>
+        <li>
+          <NewCard label={t('addToQueue')} saveLabel={t('queueIt')} onKeep={(text) => connection.request('tab.queueAdd', { tabId, text, hold: true })} />
+        </li>
         {shown.map((message, index) => (
           <TrayItem key={message.queueId} list="queue" id={message.queueId} index={index} drag={drag}>
             <TrayCard
@@ -104,6 +96,6 @@ export function QueueColumn({ meta, drag, onClose }: { meta: TabMeta; drag: Tray
         ))}
         {drag.target?.list === 'queue' && drag.target.index >= shown.length && <li className="drop-marker" aria-hidden="true" />}
       </ul>
-    </section>
+    </div>
   )
 }

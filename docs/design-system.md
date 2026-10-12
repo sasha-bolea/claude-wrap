@@ -252,7 +252,7 @@ Examples: [ChatScreen.tsx:294](../packages/ui/src/touch/ChatScreen.tsx#L294), [C
 
 ### Composer and dock — `.dock`, `.composer`, `.input-box`, `.input-tools`, `.mode-btn`, `.model-tool`, `.queue-btn`, `.send` (`.stop`), `.attachments`, `.doc-chip`, `.shell-hint`, `.suggest`
 One box floating over the chat over a light veil (2 px blur, a slightly dark gradient, fading to the page colour only in the last line above the bottom: the chat stays readable under it): the text on top; below it the
-+ (photos and files), the permission mode icon, the brain icon (`.model-tool`, model and effort sheet) and the context gauge on the left; on the right first the Notes toggle (`.notes-toggle`, `aria-pressed`, accent tint when on), then, while Claude works or waits, Stop and the `.send.queue-btn` (a filled 38 px circle like Send and Stop, in the text colour — dark on light, light on dark — so the three actions weigh the same and stay told apart by colour; puts what is written straight into the queue and empties the field — no queue mode; dimmed while nothing is written; count or pause badge: a small 14 px accent circle on its rim; 6 px apart on each side so a tap does not hit the wrong one), then Send, which always sends (the model and effort are in the brain sheet, the permission mode in the mode sheet). When Claude is done the queue button goes. A note brought in with "Usa nel messaggio" shows only as text in the field (no card above the box). Composer and box are one `minmax(0, 1fr)` column: a long
++ (photos and files), the permission mode icon, the brain icon (`.model-tool`, model and effort sheet) and the context gauge on the left; on the right first the Tools button (`.tools-toggle`, four squares, `aria-pressed`, accent tint while the Tools show), then Stop while Claude works or waits, the `.send.queue-btn` always (a filled 38 px circle like Send and Stop, in the text colour — dark on light, light on dark — so the three actions weigh the same and stay told apart by colour; puts what is written straight into the queue and empties the field — no queue mode; into an empty queue the message waits there, the queue paused, until ▶; dimmed while nothing is written; count or pause badge: a small 14 px accent circle on its rim; 6 px apart on each side so a tap does not hit the wrong one), then Send, which always sends (the model and effort are in the brain sheet, the permission mode in the mode sheet). A note brought in with "Usa nel messaggio" shows only as text in the field (no card above the box). Composer and box are one `minmax(0, 1fr)` column: a long
 file name is cut with "…", never pushing Send off the screen.
 Examples: [ChatScreen.tsx:314](../packages/ui/src/touch/ChatScreen.tsx#L314), [TouchComposer.tsx:315](../packages/ui/src/touch/TouchComposer.tsx#L315), [TouchComposer.tsx:308](../packages/ui/src/touch/TouchComposer.tsx#L308). Brain button: [TouchComposer.tsx:361](../packages/ui/src/touch/TouchComposer.tsx#L361); its sheet (models, then the `.segmented.effort`, only for a model with levels; applies at once, stays open): [modelSheets.tsx:45](../packages/ui/src/touch/modelSheets.tsx#L45); the mode sheet is modes only: [modelSheets.tsx:94](../packages/ui/src/touch/modelSheets.tsx#L94); icon: [icons.tsx:23](../packages/ui/src/touch/icons.tsx#L23).
 
@@ -268,7 +268,7 @@ Examples: [TouchComposer.tsx:38](../packages/ui/src/touch/TouchComposer.tsx#L38)
 The deck under the composer: the first card shows the next message, the others peek out on the right; ▶/⏸ beside
 it. A bin (`.q-remove`, muted, 44 px) on the front card's right end removes the next message at once with a toast; it is
 a sibling of the stack button inside `.q-front` (buttons do not nest), and the front card keeps 44 px free for it. A tap
-elsewhere opens the queue as a column of cards (see Trays).
+elsewhere opens the Queue tool (see Tools).
 Examples: [queue.tsx:28](../packages/ui/src/touch/queue.tsx#L28), [queue.tsx:29](../packages/ui/src/touch/queue.tsx#L29).
 
 ### Files — `.refresh-note`, `.file-meta`, `.code` (`.line`, `.ln`, `hljs-*`), `.md-view`, `.preview-img`, `.preview-empty`, `.sticky-actions.two`, `.at`
@@ -285,25 +285,23 @@ accent `to-chat` icon (a bubble with an arrow in, dimmed while the note is empty
 Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [NotesScreen.tsx:152](../packages/ui/src/touch/NotesScreen.tsx#L152).
 These screens are for a folder without a chat (from its sessions screen); a chat shows its notes in the tray below.
 
-### Trays: notes and open queue — `.trays` (`.two`), `.tray` (`.notes-tray`, `.queue-column`), `.tray-head`, `.tray-close`, `.tray-list` (`.drop-target`, `li.dragging`), `.drop-marker`, `.tray-note` (`.new`, `.q`), `.tray-handle`, `.tray-note-text`, `.tray-note-field`, `.tray-note-delete`, `.tray-note-queue`, `.tray-note-send`, `.q-images`
-What hangs under the input bar (the bar moves up): the folder's notes (the composer's Notes toggle) and the open queue
-(a tap on the queue's stack; its `.tray-close` ˅ turns it back into the stack); both open, they sit side by side —
-notes left, queue right — as tall as each other, each at most ~45% of the height and scrolling on its own under a
-sticky `.tray-head` ("Note"; ⏸/▶, "Coda · N", ˅). Open or closed is remembered per device. Cards share one look and
-behaviour (`TrayCard`): up to six lines; a click edits the text in place (saved as you type and on leaving); the bin
-top right. Notes: the first card is a dashed field reading "Nuova nota" with an accent `check` Save bottom right
-(dimmed while empty; it keeps the focus in the field for the next note) — saved, or left with text, it becomes a card
-on top;
-emptied, a note goes; bottom right `queue` (send to the end of the queue, with Restore) and the accent `to-chat`
-(into the composer, linked as "Usa nel messaggio"). Queue cards (`.q`, `--surface-2`): photos as a `.q-images` chip,
-bottom right the round Send "Invia ora"; emptied, a text-only message leaves the queue. Pressed on its `.tray-handle`
-(a `grip` on the left edge, 28 px, the only grab area: a click on the text edits it) and moved past 5 px, a card is
-dragged (accent border, shadow): over its own column it takes the place of the card under the pointer; over
-the other column a `.drop-marker` (3 px accent line) shows where it lands — a note dropped on the queue joins it there
-and leaves the notes (Restore), a queued message dropped on the notes becomes a note there and leaves the queue
-(photos are not kept). The orders are the core's (`notes.reorder`, `tab.queueMove`, `notes.toQueue`,
-`tab.queueToNote`), the same on every device.
-Examples: [Trays.tsx:13](../packages/ui/src/touch/Trays.tsx#L13), [NotesTray.tsx:20](../packages/ui/src/touch/NotesTray.tsx#L20), [NotesTray.tsx:57](../packages/ui/src/touch/NotesTray.tsx#L57), [queue.tsx:73](../packages/ui/src/touch/queue.tsx#L73), [TouchComposer.tsx:404](../packages/ui/src/touch/TouchComposer.tsx#L404).
+### Tools — `.tools-view`, `.tools-grid`, `.tool-tile` (`.tool-name`, `.tool-detail`), `.tools-head`; lists: `.tray` (`.notes-tray`, `.queue-column`), `.tray-list` (`li.dragging`), `.tray-note` (`.new`, `.q`), `.tray-handle`, `.tray-note-text`, `.tray-note-field`, `.tray-note-delete`, `.tray-note-queue`, `.tray-note-send`, `.q-images`
+The composer's Tools button shows the chat's Tools in place of the conversation (a layer over it, as wide as its
+readable column, scrolling above the dock; the composer stays); pressed again, or a message sent, the chat comes back.
+First a grid of tiles (icon in accent, name, a short detail: a count, a state): Note, Coda (the queue's stack opens it
+straight), File (`folder`), Terminale (`prompt` >_), Torna indietro ("prima Stop" while Claude works), Account (its
+name) — these four left the session menu. Note and Coda open their list in the same place under a `.tools-head`
+(‹ back to the grid, the name, for the queue its count and ⏸/▶); the others open their screen or sheet.
+Lists share one card (`TrayCard`): a `.tray-handle` (`grip`, 28 px on the left edge, the only grab area) — pressed and
+moved past 5 px the card follows the pointer's place (accent border, shadow) and the order is the core's
+(`notes.reorder`, `tab.queueMove`); the text up to six lines, a click edits it in place (saved as you type and on
+leaving); the bin top right. The first card of each list is a dashed field with its placeholder and an accent `check`
+bottom right (dimmed while empty; it keeps the focus for the next one): "Nuova nota" (a note on top) and "Aggiungi alla
+coda" (at the end; into an empty queue it waits, paused). Note cards: emptied, the note goes; bottom right `queue`
+(to the end of the queue, with Restore) and the accent `to-chat` (into the composer, linked as "Usa nel messaggio").
+Queue cards (`.q`, `--surface-2`): photos as a `.q-images` chip; bottom right the round Send "Invia ora"; emptied, a
+text-only message leaves the queue.
+Examples: [ToolsView.tsx:50](../packages/ui/src/touch/ToolsView.tsx#L50), [NotesTray.tsx:55](../packages/ui/src/touch/NotesTray.tsx#L55), [queue.tsx:63](../packages/ui/src/touch/queue.tsx#L63), [TouchComposer.tsx:368](../packages/ui/src/touch/TouchComposer.tsx#L368).
 
 ### Terminal — `.terminal-screen`, `.terminal-host`, `.terminal-ended`, `.key-bar`, `.key` (`aria-pressed`)
 A shell of the backend (xterm.js, loaded on demand; colours from the tokens, its sheet imported by touch.css). Opened

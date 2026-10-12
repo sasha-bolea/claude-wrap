@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { Browser, BrowserContext, Page } from 'playwright-core'
 import { RawClient } from '../../../packages/core/src/testing/rawClient.ts'
-import { button, launchChrome, pairedPage, phone, startBackend, type Backend } from './harness.ts'
+import { button, launchChrome, openTool, pairedPage, phone, startBackend, type Backend } from './harness.ts'
 
 let browser: Browser
 let backend: Backend
@@ -46,8 +46,7 @@ async function untrustedChat(name: string): Promise<Page> {
 describe('Folder trust in Files and Terminal (fake SDK)', () => {
   it('Files of an untrusted folder: a notice, not a raw error; Decide… → trust sheet → Yes → the listing', async () => {
     const page = await untrustedChat('lonely')
-    await button(page, 'More actions').click()
-    await button(page, 'Folder files').click()
+    await openTool(page, 'Files')
     const screen = page.getByRole('region', { name: 'Folder files' })
     await screen.getByText('This folder is not trusted yet: its files stay closed until you decide.').waitFor()
     expect(await page.getByText(/folder not trusted/).count()).toBe(0)
@@ -61,8 +60,7 @@ describe('Folder trust in Files and Terminal (fake SDK)', () => {
 
   it('Terminal of an untrusted folder: the trust sheet opens, and after Yes the terminal opens', async () => {
     const page = await untrustedChat('second')
-    await button(page, 'More actions').click()
-    await button(page, 'Terminal').click()
+    await openTool(page, 'Terminal')
     await page.getByText('Do you trust this folder?').waitFor()
     expect(await page.getByText(/folder not trusted/).count()).toBe(0)
     await button(page, 'Yes, I trust it').click()

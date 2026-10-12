@@ -206,9 +206,10 @@ export const COMMANDS = {
     result: empty
   },
   // The tab's queue (queue mode of the composer); the cmd id is the queueId. Messages go one at a time when
-  // Claude is free; added while it is free and the queue is not paused, the first goes at once.
+  // Claude is free; added while it is free and the queue is not paused, the first goes at once. hold: into an empty
+  // queue it waits there instead, the queue paused, until ▶ (the queue's own "add" card).
   'tab.queueAdd': {
-    args: z.object({ tabId, ...message }).refine((args) => args.text.trim() || args.images?.length, 'empty message'),
+    args: z.object({ tabId, ...message, hold: z.boolean().optional() }).refine((args) => args.text.trim() || args.images?.length, 'empty message'),
     result: empty
   },
   'tab.queueEdit': { args: z.object({ tabId, queueId: z.string(), text: z.string() }), result: empty },

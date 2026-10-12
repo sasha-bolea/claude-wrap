@@ -64,6 +64,12 @@ const SHAPES = {
   close: <path d="M6 6l12 12M18 6L6 18" />,
   copy: <path d="M9 9h11v11H9zM15 9V4H4v11h5" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  // Prompt: >_ (the terminal tool).
+  prompt: <path d="M5 7l5 5-5 5M12.5 17H19" />,
+  // Person: a head and shoulders (the account).
+  person: <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0" />,
+  // Grid: four squares, two by two (the Tools).
+  grid: <path d="M4.5 4.5h6v6h-6zM13.5 4.5h6v6h-6zM4.5 13.5h6v6h-6zM13.5 13.5h6v6h-6z" />,
   // Grip: two columns of three dots (a handle to drag).
   grip: <path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" strokeWidth="3" />,
   refresh: <path d="M20 12a8 8 0 1 1-2.4-5.7L20 8.6M20 4v4.6h-4.6" />,

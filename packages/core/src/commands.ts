@@ -118,9 +118,9 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
       await tabOf(tabId).send({ queueId: cmdId, text, from: connection.label, images, pastes })
       return {}
     },
-    'tab.queueAdd': ({ tabId, text, images, pastes }, connection, cmdId) => {
+    'tab.queueAdd': ({ tabId, text, images, pastes, hold }, connection, cmdId) => {
       checkSize(text, images ?? [])
-      tabOf(tabId).queueAdd({ queueId: cmdId, text, from: connection.label, images, pastes })
+      tabOf(tabId).queueAdd({ queueId: cmdId, text, from: connection.label, images, pastes }, hold === true)
       return {}
     },
     'tab.queueEdit': ({ tabId, queueId, text }) => (tabOf(tabId).queueEdit(queueId, text), {}),

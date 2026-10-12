@@ -542,6 +542,15 @@ describe('queue', () => {
     expect(meta(client)?.queuePause).toEqual({ reason: 'user' })
   })
 
+  it('a message added with hold to an empty queue waits there, the queue paused; Claude free, nothing goes', async () => {
+    await client.ok('tab.create', { tabId: 't1', cwd: CWD })
+    await client.ok('tab.subscribe', { tabId: 't1' })
+    await client.ok('tab.queueAdd', { tabId: 't1', text: 'later', hold: true }, cmd(2))
+    await client.waitFor(() => meta(client)?.queue.length === 1)
+    expect(meta(client)).toMatchObject({ queue: [{ queueId: cmd(2), text: 'later' }], queuePause: { reason: 'user' } })
+    expect(fake.sessions).toHaveLength(0)
+  })
+
   it('"send now" takes a message out of the queue and sends it at once, without interrupting', async () => {
     const session = await startedTab()
     await client.ok('tab.queueAdd', { tabId: 't1', text: 'urgent' }, cmd(2))
