@@ -212,6 +212,8 @@ export const en = {
   backendsLabel: 'Backends',
   thisComputer: 'This PC',
   manageServers: 'Servers…',
+  backendPickerLabel: 'Shown: {name}. Change',
+  renameServer: 'Rename {name}',
   serversTitle: 'Servers',
   addServerHint: 'Paste a pairing link: run claude-wrap pair --name pc on the server, or use Add device on a paired phone.',
   serverName: 'Name (optional)',

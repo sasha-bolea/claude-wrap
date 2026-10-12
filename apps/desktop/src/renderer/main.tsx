@@ -19,6 +19,7 @@ declare global {
       listBackends(): Promise<BackendInfo[]>
       addBackend(link: string, name: string): Promise<BackendInfo>
       removeBackend(id: string): Promise<void>
+      renameBackend(id: string, name: string): Promise<BackendInfo | undefined>
     }
   }
 }
@@ -44,7 +45,8 @@ function entry(info: BackendInfo): BackendEntry {
   return { ...info, connection, capabilities: info.kind === 'local' ? LOCAL : REMOTE }
 }
 
-// Holds the backend list: adding pairs a server through main, removing forgets it and closes its connection.
+// Holds the backend list: adding pairs a server through main, renaming keeps its connection, removing forgets it and
+// closes its connection.
 function Root({ initial }: { initial: BackendEntry[] }) {
   const [backends, setBackends] = useState(initial)
   const add = async (link: string, name: string) => {
@@ -58,7 +60,12 @@ function Root({ initial }: { initial: BackendEntry[] }) {
       return list.filter((backend) => backend.id !== id)
     })
   }
-  return <DesktopShell backends={backends} onAdd={add} onRemove={remove} onActivate={bridge.onActivateTab} />
+  const rename = async (id: string, name: string) => {
+    const info = await bridge.renameBackend(id, name)
+    if (!info) throw new Error('not_found')
+    setBackends((list) => list.map((backend) => (backend.id === id ? { ...backend, name: info.name } : backend)))
+  }
+  return <DesktopShell backends={backends} onAdd={add} onRename={rename} onRemove={remove} onActivate={bridge.onActivateTab} />
 }
 
 void bridge.listBackends().then((list) => createRoot(document.getElementById('root')!).render(<Root initial={list.map(entry)} />))

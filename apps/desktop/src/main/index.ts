@@ -185,6 +185,7 @@ function startApp(): void {
   ipcMain.on('connect', brokerConnection)
   ipcMain.handle('backends:list', (event) => (fromOurPage(event) ? backends.list() : []))
   ipcMain.handle('backends:add', addBackend)
+  ipcMain.handle('backends:rename', (event, id: unknown, name: unknown) => (fromOurPage(event) && typeof id === 'string' && typeof name === 'string' ? backends.rename(id, name) : undefined))
   ipcMain.handle('backends:remove', (event, id: unknown) => (fromOurPage(event) && typeof id === 'string' && id !== 'local' ? backends.remove(id) : undefined))
   ipcMain.handle('choose-folder', chooseFolder)
   ipcMain.on('open-external', openExternal)

@@ -85,6 +85,15 @@ export class BackendStore {
     return { id: server.id, name: server.name, kind: 'remote' }
   }
 
+  // Gives a server another name (trimmed; an empty one is refused). Returns its info, undefined for unknown ids.
+  async rename(id: string, name: string): Promise<BackendInfo | undefined> {
+    const server = this.servers.find((entry) => entry.id === id)
+    if (!server || !name.trim()) return undefined
+    server.name = name.trim().slice(0, 60)
+    await this.save()
+    return { id: server.id, name: server.name, kind: 'remote' }
+  }
+
   // Forgets a server (its token too). The device stays listed on the server until revoked there.
   async remove(id: string): Promise<void> {
     this.servers = this.servers.filter((entry) => entry.id !== id)

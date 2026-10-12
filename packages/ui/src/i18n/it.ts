@@ -214,6 +214,8 @@ export const it: Record<MessageKey, string> = {
   backendsLabel: 'Backend',
   thisComputer: 'Questo PC',
   manageServers: 'Server…',
+  backendPickerLabel: 'Mostrato: {name}. Cambia',
+  renameServer: 'Rinomina {name}',
   serversTitle: 'Server',
   addServerHint: 'Incolla un link di abbinamento: sul server esegui claude-wrap pair --name pc, oppure usa Aggiungi dispositivo su un telefono già abbinato.',
   serverName: 'Nome (facoltativo)',

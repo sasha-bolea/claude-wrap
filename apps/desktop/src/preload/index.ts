@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('athome', {
   listBackends: (): Promise<{ id: string; name: string; kind: 'local' | 'remote' }[]> => ipcRenderer.invoke('backends:list'),
   addBackend: (link: string, name: string): Promise<{ id: string; name: string; kind: 'remote' }> => ipcRenderer.invoke('backends:add', link, name),
   removeBackend: (id: string): Promise<void> => ipcRenderer.invoke('backends:remove', id),
+  renameBackend: (id: string, name: string): Promise<{ id: string; name: string; kind: 'remote' } | undefined> => ipcRenderer.invoke('backends:rename', id, name),
   // The local core crashed too often and will not be restarted.
   onCoreFailed: (listener: () => void) => listen('core-failed', listener),
   // Local path of a file dropped on the page.

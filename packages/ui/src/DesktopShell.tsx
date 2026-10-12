@@ -9,6 +9,7 @@ type DesktopShellProps = {
   backends: BackendEntry[]
   // Pairs a server from a pasted link (rejects with an error code: invalid_link, unreachable, pair_failed…).
   onAdd: (link: string, name: string) => Promise<void>
+  onRename: (id: string, name: string) => Promise<void>
   onRemove: (id: string) => Promise<void>
   // A notification was clicked: show that backend and tab. Returns the unsubscribe function.
   onActivate?: (listener: (tabId: string, backendId: string) => void) => () => void
@@ -38,7 +39,7 @@ function useWaiting(backends: BackendEntry[]): Set<string> {
 
 // The desktop with several backends: the shown backend's app, which offers the switch (This PC, the servers, a dot
 // where something waits) on top of its Home. Every connection stays open, so hidden backends still notify.
-export function DesktopShell({ backends, onAdd, onRemove, onActivate }: DesktopShellProps) {
+export function DesktopShell({ backends, onAdd, onRename, onRemove, onActivate }: DesktopShellProps) {
   const [selected, setSelected] = useState(() => readSelected() ?? 'local')
   const waiting = useWaiting(backends)
   // Notification taps for a backend whose app is not mounted yet wait here until it registers.
@@ -78,6 +79,7 @@ export function DesktopShell({ backends, onAdd, onRemove, onActivate }: DesktopS
       selected: shown.id,
       choose,
       add: onAdd,
+      rename: onRename,
       remove: (id) => onRemove(id).then(() => void (id === shown.id && choose('local')))
     }
   }
