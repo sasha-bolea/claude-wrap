@@ -46,3 +46,18 @@ export class NoteStore {
     return this.data
   }
 }
+  // A folder moved: its notes, and those of the folders inside it, go with it (merged with any already there).
+  // rebase: where a folder's notes go (the same path for folders outside the move).
+  async rebase(rebase: (cwd: string) => string): Promise<void> {
+    const data = await this.load()
+    let moved = false
+    for (const [cwd, notes] of Object.entries(data)) {
+      const target = rebase(cwd)
+      if (target === cwd) continue
+      data[target] = [...(data[target] ?? []), ...notes]
+      delete data[cwd]
+      moved = true
+    }
+    if (moved) await this.file?.save(data)
+  }
+

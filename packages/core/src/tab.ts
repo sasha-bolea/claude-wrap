@@ -70,6 +70,8 @@ export interface TabEnvironment {
   turnFinished(tab: Tab): void
   // The CLI announced or moved the session id (→ session index).
   sessionIdChanged(tab: Tab, previous: string | undefined): void
+  // Moves a stored conversation's files from one folder's history to another's (the session changes folder).
+  moveConversation(sessionId: string, from: string, to: string): Promise<void>
   // A prompt was accepted (→ prompt history).
   promptSent(tab: Tab, text: string): void
   // A usage limit was hit: every queue waits until `until` (ms).
@@ -180,6 +182,9 @@ export function tabTitle(info: { customTitle?: string; firstPrompt?: string } | 
 }
 
 // Lifecycle of the tab's process; the visible status adds the turn state on top of `live`.
+// Why a session changes folder: asked (tab.move) or its folder moved outside the app.
+type MoveKind = 'moved' | 'followed'
+
 type Lifecycle = 'dormant' | 'starting' | 'live' | 'closing' | 'needs_trust' | 'error'
 
 // What the CLI says of a sent message (capability msg_lifecycle_v1; the SDK's types do not have it).
@@ -200,6 +205,8 @@ export class Tab {
   // (an account switch, a new auto-compact window).
   private account?: string
   private switchPending = false
+  // Where the session moves at the end of its turn (asked while Claude was at work), and why.
+  private movePending?: { folder: string; how: MoveKind }
   // The account the running process was started with: until a switch takes effect (at the end of a turn) it is not
   // `account`, and what the process reports (limits, plan windows) belongs to it.
   private processAccount?: string
@@ -473,6 +480,46 @@ export class Tab {
     this.switchPending = true
     this.changed()
     await this.interrupt()
+  }
+
+  // Moves the session to another folder (canonical, checked by the caller): its stored conversation follows it and
+  // the process restarts there on the same conversation. At work: at the end of the turn. Returns whether it waits.
+  // how: asked (moved) or the folder itself moved outside the app (followed).
+  async moveTo(folder: string, how: MoveKind = 'moved'): Promise<{ pending: boolean }> {
+    this.assertOpen()
+    this.assertNotRewinding()
+    if (folder === this.cwd) return { pending: false }
+    if (this.busy) {
+      this.movePending = { folder, how }
+      return { pending: true }
+    }
+    await this.applyMove({ folder, how })
+    return { pending: false }
+  }
+
+  // The folder was moved or renamed outside the app, and core found it again: the tab follows it. A live process goes
+  // first (at work: at the end of its turn) and its conversation moves then; otherwise core has already moved the
+  // stored conversations and only the tab changes.
+  async followFolder(folder: string): Promise<void> {
+    if (this.session) await this.moveTo(folder, 'followed')
+    else if (folder !== this.cwd) this.relocated(this.cwd, folder, 'followed')
+  }
+
+  // The move itself: the process goes (dormant), the conversation's files move, the tab takes the new folder.
+  private async applyMove({ folder, how }: { folder: string; how: MoveKind }): Promise<void> {
+    this.movePending = undefined
+    await this.releaseProcess()
+    if (this.sessionId) await this.env.moveConversation(this.sessionId, this.cwd, folder)
+    this.relocated(this.cwd, folder, how)
+  }
+
+  // The tab is now in `to`: an automatic title that was the folder's name takes the new name, and the chat says where
+  // the session went.
+  private relocated(from: string, to: string, how: MoveKind): void {
+    this.cwd = to
+    if (this.autoTitle && this.title === (basename(from) || from)) this.title = basename(to) || to
+    this.notice('info', how === 'moved' ? `Session moved to ${to}` : `The folder moved to ${to}: the session follows it`)
+    this.changed()
   }
 
   // A CLI process is running for the tab (gauges are read only from one).
@@ -1303,8 +1350,9 @@ export class Tab {
     this.env.turnFinished(this)
     this.env.notify(this, 'turnFinished')
     void this.refreshGauges()
-    // An account switch asked during the turn: the process goes first, the queue then starts a new one.
-    if (this.switchPending) void this.releaseProcess().then(() => this.dispatchNext())
+    // A move or an account switch asked during the turn: the process goes first, the queue then starts a new one.
+    if (this.movePending) void this.applyMove(this.movePending).then(() => this.dispatchNext(), (error: unknown) => this.notice('error', `The session could not move: ${messageOf(error)}`))
+    else if (this.switchPending) void this.releaseProcess().then(() => this.dispatchNext())
     else this.dispatchNext()
     this.changed()
     void this.followCliTitle()
@@ -1345,6 +1393,8 @@ export class Tab {
     this.lifecycle = error ? 'error' : 'dormant'
     this.error = error ? [error.message, session.stderrTail].filter(Boolean).join('\n') : undefined
     this.requests.denyAll('The Claude process exited')
+    // A move asked during the turn the process ended in: it goes now.
+    if (this.movePending) void this.applyMove(this.movePending).catch((error: unknown) => this.notice('error', `The session could not move: ${messageOf(error)}`))
     if (this.error) {
       this.notice('error', this.error)
       this.env.notify(this, 'error', this.error)

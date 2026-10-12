@@ -1,5 +1,5 @@
 import { homedir } from 'node:os'
-import { basename, join, relative } from 'node:path'
+import { basename, dirname, join, relative } from 'node:path'
 import * as claudeSdk from '@anthropic-ai/claude-agent-sdk'
 import { WORKSPACE_STREAM, tabStream, type ClaudeSettingChange, type ClaudeSettings, type Effort, type Home, type PermissionBehavior, type PermissionMode, type PlanLimits, type SettingsDestination, type WidgetInfo } from '@athome/protocol'
 import { ActionLog } from './actionLog.ts'
@@ -12,6 +12,7 @@ import { NoteStore } from './notes.ts'
 import { PaletteStore } from './palettes.ts'
 import { waitForCleanups } from './process.ts'
 import { PromptHistory } from './promptHistory.ts'
+import { findFolder, folderId, moveConversation, moveFolderHistory, rebased } from './relocate.ts'
 import { readClaudeSettings, saveClaudeSetting } from './claudeSettings.ts'
 import { isIndex, listedAs, readMemoryFile, unindexMemory, writeMemoryFile } from './memoryFiles.ts'
 import { changeDirectory, changeRule, settingsPath, updateSettings } from './settingsFiles.ts'
@@ -28,6 +29,10 @@ import { listWidgets, setCreateCommand } from './widgets.ts'
 const QUIT_CAP_MS = 8000
 // How often the terminals are looked at for a running command (activity file).
 const ACTIVITY_POLL_MS = 2000
+// How often the folders of the sessions are checked for a rename or a move; a folder looked for in vain is looked
+// for again by the regular check only after FOLDER_RETRY_MS (a message sent in it looks at once).
+const FOLDER_CHECK_MS = 10_000
+const FOLDER_RETRY_MS = 5 * 60_000
 
 // The title of a saved tab when it comes back. Older states have no autoTitle: the folder's name meant automatic. A
 // title longer than a title is a prompt the CLI fell back to (fixed by older versions when a stored session was
@@ -66,6 +71,10 @@ export class Workspace {
   private readonly activity?: ActivityFile
   private readonly activityTimer?: NodeJS.Timeout
   private readonly trashTimer?: NodeJS.Timeout
+  private readonly folderTimer: NodeJS.Timeout
+  // The folder checks, one after the other; when a missing folder was last looked for in vain.
+  private folderCheck: Promise<Map<string, string>> = Promise.resolve(new Map())
+  private readonly lookedFor = new Map<string, number>()
   // Plan windows per account ('' = the login) for the composer gauges, and when they were read.
   private readonly plans = new Map<string, { limits?: PlanLimits; readAt: number }>()
   // Usage limits per account ('' = Claude Code's own login): until when, and the timer that ends them.
@@ -131,6 +140,9 @@ export class Workspace {
       void trash.expire()
       this.trashTimer = setInterval(() => void trash.expire(), DAY_MS).unref()
     }
+    // The folders of the sessions and the project marks are known by identity, to follow them if they move.
+    for (const path of new Set([...this.store.data.tabs.map((tab) => tab.cwd), ...this.store.data.projects])) this.rememberFolder(path)
+    this.folderTimer = setInterval(() => void this.checkFolders(), config.folderCheckMs ?? FOLDER_CHECK_MS).unref()
     // Usage limits still running from before the restart (per account).
     for (const tab of store.data.tabs) if (tab.queuePause?.reason === 'limit' && tab.queuePause.until) this.rateLimited(Math.max(tab.queuePause.until, this.limitedUntil(tab.account) ?? 0), tab.account)
   }
@@ -168,6 +180,7 @@ export class Workspace {
     if (existing) return existing.tabId
     const tab = new Tab({ ...init, account: init.account ?? this.accounts.defaultAccount, lastUsedAt: Date.now() }, this.env)
     this.add(tab)
+    this.rememberFolder(tab.cwd)
     this.stream.emit({ type: 'tab.added', tab: tab.meta() })
     this.persist()
     // A stored session opened without a title takes the CLI's own title now (it follows it afterwards).
@@ -221,10 +234,70 @@ export class Workspace {
     return folder
   }
 
+  // Moves a session to another folder of the Home (it must exist): see Tab.moveTo. Returns whether it waits for the
+  // end of the turn.
+  async moveTab(tabId: string, path: string): Promise<{ pending: boolean }> {
+    const tab = this.tabOf(tabId)
+    return tab.moveTo(await this.folderOf(path))
+  }
+
   // Marks or unmarks a folder (any level) as a project, for every device.
   async setProject(path: string, project: boolean): Promise<void> {
     const folder = await this.folderOf(path)
     await this.updateFolders((data) => (data.projects = project ? [...new Set([...data.projects, folder])] : data.projects.filter((other) => other !== folder)))
+    if (project) this.rememberFolder(folder)
+  }
+
+  // Records a folder's identity (best effort; a folder that does not exist is left alone).
+  private rememberFolder(path: string): void {
+    void folderId(path).then((id) => {
+      if (id && this.store.data.folderIds?.[path] !== id) return this.store.update((data) => (data.folderIds = { ...data.folderIds, [path]: id }))
+    }).catch(() => undefined)
+  }
+
+  // Looks for the known folders that are gone, one check at a time. force: also those looked for in vain a moment
+  // ago. Returns the moves followed (old path → new path).
+  checkFolders(force = false): Promise<Map<string, string>> {
+    this.folderCheck = this.folderCheck.catch(() => new Map<string, string>()).then(() => this.followMovedFolders(force))
+    return this.folderCheck
+  }
+
+  // Each known folder that is gone is looked for under the Home by its identity (beside its old place first); one
+  // found is followed. Inner folders after outer ones: a folder moved with its parent is already followed.
+  private async followMovedFolders(force: boolean): Promise<Map<string, string>> {
+    const moves = new Map<string, string>()
+    const known = Object.entries(this.store.data.folderIds ?? {}).sort(([a], [b]) => a.length - b.length)
+    for (const [path, id] of known) {
+      if ([...moves.keys()].some((gone) => withinRoots(path, [gone])) || (await folderId(path)) === id) continue
+      if (!force && Date.now() - (this.lookedFor.get(path) ?? 0) < FOLDER_RETRY_MS) continue
+      const roots = this.allowedRoots === 'any' ? (this.store.data.addedFolders ?? []) : this.allowedRoots
+      const found = await findFolder(id, [dirname(path), ...roots])
+      if (!found || !withinRoots(found, this.allowedRoots)) {
+        this.lookedFor.set(path, Date.now())
+        continue
+      }
+      this.lookedFor.delete(path)
+      await this.followFolder(path, found)
+      moves.set(path, found)
+    }
+    return moves
+  }
+
+  // A folder moved from `from` to `to` outside the app: the history of it and of the folders inside it (past sessions,
+  // Claude's memory), its notes, project marks, trust and Home entries, then its open sessions follow it.
+  private async followFolder(from: string, to: string): Promise<void> {
+    const move = (path: string) => rebased(path, from, to)
+    const inside = [...this.tabs.values()].filter((tab) => withinRoots(tab.cwd, [from]))
+    const running = new Set(inside.flatMap((tab) => (tab.live && tab.sessionId ? [tab.sessionId] : [])))
+    await moveFolderHistory(this.claudeDir, from, to, running)
+    await this.notes.rebase(move)
+    await this.updateFolders((data) => {
+      data.projects = data.projects.map(move)
+      data.trustedFolders = data.trustedFolders.map(move)
+      if (data.addedFolders) data.addedFolders = data.addedFolders.map(move)
+      data.folderIds = Object.fromEntries(Object.entries(data.folderIds ?? {}).map(([path, id]) => [move(path), id]))
+    })
+    for (const tab of inside) await tab.followFolder(move(tab.cwd)).catch(() => undefined)
   }
 
   // Adds a folder to the Home of this PC (only where any folder is allowed). Returns its canonical path.
@@ -479,6 +552,7 @@ export class Workspace {
   async closeAll(): Promise<void> {
     clearInterval(this.trashTimer)
     clearInterval(this.activityTimer)
+    clearInterval(this.folderTimer)
     this.terminals.closeAll()
     for (const { timer } of this.limits.values()) clearTimeout(timer)
     const closing = Promise.all([...this.tabs.values()].map((tab) => tab.close(true))).then(waitForCleanups)
@@ -542,8 +616,15 @@ export class Workspace {
         if (live >= maxLiveSessions) throw new CoreError('limit_reached', `at most ${maxLiveSessions} live sessions`)
       },
       prepareStart: async (cwd) => {
-        const folder = await this.folderOf(cwd)
+        const folder = await this.folderOf(cwd).catch(async (error: unknown) => {
+          // Gone: moved or renamed outside the app? Followed now, the session then starts where it went.
+          if (!(error instanceof CoreError && error.code === 'not_found')) throw error
+          const moved = [...(await this.checkFolders(true))].find(([gone]) => withinRoots(cwd, [gone]))
+          if (!moved) throw error
+          return this.folderOf(rebased(cwd, ...moved))
+        })
         if (!(await this.trust.isTrusted(folder))) throw new CoreError('needs_trust', `folder not trusted: ${folder}`)
+        this.rememberFolder(folder)
         return folder
       },
       changed: (tab) => {
@@ -558,6 +639,7 @@ export class Workspace {
         if (previous && this.sessionIndex.get(previous) === tab.tabId) this.sessionIndex.delete(previous)
         if (tab.sessionId) this.sessionIndex.set(tab.sessionId, tab.tabId)
       },
+      moveConversation: (sessionId, from, to) => moveConversation(this.claudeDir, sessionId, from, to),
       promptSent: (tab, text) => this.prompts.add(text, tab.cwd, tab.sessionId),
       notify: (tab, kind, detail) => this.notify(tab, kind, detail, config),
       rateLimited: (until, account) => this.rateLimited(until, account),

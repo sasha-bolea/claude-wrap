@@ -48,6 +48,8 @@ export interface CoreConfig {
   terminalShell?: ShellCommand
   // How often the activity file looks at the terminals for a running command (default 2 s; tests go faster).
   activityPollMs?: number
+  // How often the folders of the sessions are checked for a rename or a move outside the app (ms; default 10 s).
+  folderCheckMs?: number
   // Commands the host answers itself (remote server: devices.*).
   hostCommands?: HostCommands
   // File kept up to date with the number of sessions at work (remote server: its automatic update waits for 0).

@@ -44,7 +44,9 @@ export type LivePid = { pid: number; startedAt: number }
 // defaultEffort, defaultMode: those of new sessions (absent: the model's effort, the 'default' mode).
 // widgets: chat widgets on (absent: off).
 // planLimits: the plan windows last read per account ('' = the login), for the composer gauges after a restart.
-export type PersistedState = { version: 1; trustedFolders: string[]; tabs: PersistedTab[]; livePids: LivePid[]; projects: string[]; addedFolders?: string[]; autoCompactWindow?: number; defaultEffort?: Effort; defaultMode?: PermissionMode; widgets?: boolean; planLimits?: Record<string, { limits?: PlanLimits; readAt: number }> }
+// folderIds: the identity (device:inode) of the folders sessions and project marks live in, to find them again after
+// a rename or a move outside the app.
+export type PersistedState = { version: 1; trustedFolders: string[]; tabs: PersistedTab[]; livePids: LivePid[]; projects: string[]; addedFolders?: string[]; autoCompactWindow?: number; defaultEffort?: Effort; defaultMode?: PermissionMode; widgets?: boolean; planLimits?: Record<string, { limits?: PlanLimits; readAt: number }>; folderIds?: Record<string, string> }
 
 const EMPTY: PersistedState = { version: 1, trustedFolders: [], tabs: [], livePids: [], projects: [] }
 // Numbers temp files across every store of this process.

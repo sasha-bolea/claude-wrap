@@ -184,6 +184,9 @@ export const COMMANDS = {
   // Renames the tab and, when it has one, its stored session.
   'tab.rename': { args: z.object({ tabId, title: z.string().trim().min(1) }), result: empty },
   'tab.reorder': { args: z.object({ tabId, index: z.number().int().nonnegative() }), result: empty },
+  // Moves the session to another folder of the Home, its conversation with it; while Claude works, at the end of the
+  // turn (pending).
+  'tab.move': { args: z.object({ tabId, folder: z.string().min(1) }), result: z.object({ pending: z.boolean() }) },
   // Copies the session (up to an item, if given) into a new tab; refused while the tab runs.
   'tab.fork': { args: z.object({ tabId, newTabId: tabId, upToItemId: z.string().optional() }), result: z.object({ tabId: z.string() }) },
   // Restarts a tab whose process died: the transcript is reloaded from the stored session (new epoch).

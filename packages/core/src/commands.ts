@@ -107,6 +107,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'tab.close': async ({ tabId }) => (await workspace.close(tabId), {}),
     'tab.rename': async ({ tabId, title }) => (await tabOf(tabId).rename(title), {}),
     'tab.reorder': ({ tabId, index }) => (workspace.reorder(tabId, index), {}),
+    'tab.move': ({ tabId, folder }) => workspace.moveTab(tabId, folder),
     'tab.fork': (args) => fork(workspace, args),
     'tab.restart': async ({ tabId }) => (await tabOf(tabId).restart(), {}),
     'tab.subscribe': async ({ tabId }, connection) => (await tabOf(tabId).subscribe(connection.send), {}),
