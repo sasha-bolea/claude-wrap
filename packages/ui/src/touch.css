@@ -341,8 +341,6 @@ svg.ghost-thumb { width: 22px; height: 22px; color: var(--text-muted); }
 .q-card.k1 { --k: 1; } .q-card.k2 { --k: 2; } .q-card.k3 { --k: 3; }
 .q-card.m1 { --m: 1; } .q-card.m2 { --m: 2; } .q-card.m3 { --m: 3; }
 .q-card .q-line { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); opacity: .75; }
-.q-sheet-item { display: flex; align-items: center; gap: 10px; }
-.q-sheet-item .q-line { flex: 1; min-width: 0; }
 
 /* Launch screen */
 /* --launch-colour: the iOS launch image's grey (apps/mobile/scripts/icons.ts); fixed, not palette-driven, so the two screens look like one */
@@ -581,12 +579,25 @@ svg.ghost-thumb { width: 22px; height: 22px; color: var(--text-muted); }
 .input-tools .notes-toggle.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 /* The notes as cards under the input bar (its Notes toggle): one per row, as wide as the bar; the first writes a new
    note. Past about half the chat's height the list scrolls. The bin sits top right, "use in the message" bottom right. */
-.notes-tray { max-height: min(45vh, 440px); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+/* With the open queue beside them (two columns, notes on the left, as tall as each other so a card can be dropped
+   anywhere in a column); each column scrolls on its own. */
+.trays { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; align-items: stretch; }
+.tray { max-height: min(45vh, 440px); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+.tray-head { display: flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 4px; position: sticky; top: 0; z-index: 1; background: var(--background); }
+.tray-head strong { flex: 1; min-width: 0; font-size: 13px; }
+.tray-head .icon-btn { width: 36px; height: 36px; color: var(--text-muted); }
+/* Where a card dragged from the other column would land */
+.drop-marker { height: 0; border-top: 3px solid var(--accent); border-radius: 2px; margin: -2px 6px; }
+.tray-note.q { background: var(--surface-2); }
+.tray-note .q-images { position: absolute; left: 14px; bottom: 8px; }
+.tray-note.q .tray-note-text { padding-bottom: 32px; }
+.tray-note-queue { position: absolute; bottom: 0; right: 40px; color: var(--text-muted); }
+.tray-note.q .send.tray-note-send { position: absolute; margin: 0; bottom: 6px; right: 6px; width: 32px; height: 32px; min-width: 32px; }
 .tray-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .tray-list li.dragging .tray-note { box-shadow: 0 8px 24px rgba(0,0,0,.18); border-color: var(--accent); }
 .tray-note { position: relative; min-height: 88px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
 .tray-note.new { border-style: dashed; min-height: 0; }
-.tray-note-text { display: flex; align-items: flex-start; width: 100%; min-height: 86px; border: 0; background: none; padding: 10px 44px 10px 14px; text-align: left; font-size: 14px; line-height: 1.45; cursor: grab; touch-action: none; }
+.tray-note-text { display: flex; align-items: flex-start; width: 100%; min-height: 86px; border: 0; background: none; padding: 10px 44px 36px 14px; text-align: left; font-size: 14px; line-height: 1.45; cursor: grab; touch-action: none; }
 .tray-note-text > span { white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
 li.dragging .tray-note-text { cursor: grabbing; }
 .composer textarea.tray-note-field { display: block; min-height: 86px; max-height: 240px; padding: 10px 44px 10px 14px; font-size: 14px; line-height: 1.45; field-sizing: content; }

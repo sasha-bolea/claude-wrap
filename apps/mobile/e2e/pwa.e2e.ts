@@ -8,7 +8,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import type { Browser, BrowserContext, CDPSession, Page } from 'playwright-core'
+import type { Browser, BrowserContext, CDPSession, Locator, Page } from 'playwright-core'
 import { createPairingCode } from '@athome/server'
 import { WORKSPACE_STREAM, type WorkspaceSnapshot } from '@athome/protocol'
 import { RawClient } from '../../../packages/core/src/testing/rawClient.ts'
@@ -818,6 +818,77 @@ describe('PWA (fake SDK)', () => {
     // Off again: the cards go.
     await page.locator('.composer').getByRole('button', { name: 'Notes', exact: true }).click()
     await tray.waitFor({ state: 'detached' })
+  })
+
+  it('the open queue as cards beside the notes (wide): edit, reorder, send now, close; cards move between the two', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'en-US' })
+    contexts.push(context)
+    const page = await pairedPage(context, backend, 'laptop')
+    await openProject(page)
+    await send(page, 'slow')
+    await page.locator('.working-line').waitFor()
+    for (const text of ['q one', 'q two']) {
+      await composer(page).fill(text)
+      await button(page, /^Add to the queue/).click()
+    }
+    await button(page, 'Pause the queue').click()
+    // A tap on the stack opens the queue as a column of cards; ˅ closes it back into the stack.
+    await page.getByRole('button', { name: /^Queue: 2 waiting/ }).click()
+    const queue = page.getByRole('region', { name: 'Queue' })
+    await queue.getByText('Queue · 2').waitFor()
+    expect(await page.locator('.queue-tray').count()).toBe(0)
+    const queued = queue.locator('.tray-note')
+    // The notes open beside it, on the left.
+    await page.locator('.composer').getByRole('button', { name: 'Notes', exact: true }).click()
+    const notes = page.getByRole('region', { name: 'Notes' })
+    const fresh = notes.getByRole('textbox', { name: 'New note' })
+    await fresh.fill('note A')
+    await fresh.blur()
+    const noteCards = notes.locator('.tray-note:not(.new)')
+    await expect.poll(() => noteCards.count()).toBe(1)
+    const [left, right] = [(await notes.boundingBox())!, (await queue.boundingBox())!]
+    expect(left.x + left.width).toBeLessThanOrEqual(right.x)
+    expect(Math.abs(left.y - right.y)).toBeLessThan(4)
+    // A queued card is edited in place.
+    await queued.filter({ hasText: 'q two' }).locator('.tray-note-text').click()
+    const field = queue.getByRole('textbox', { name: 'Text of the queued message' })
+    await field.press('End')
+    await field.pressSequentially(' edited')
+    await field.blur()
+    await expect.poll(() => queued.nth(1).textContent()).toContain('q two edited')
+    // Dragged above the first, it goes first.
+    const drag = async (from: Locator, x: number, y: number) => {
+      const box = (await from.boundingBox())!
+      await page.mouse.move(box.x + 20, box.y + box.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(box.x + 20, box.y + box.height / 2 - 10, { steps: 3 })
+      await page.mouse.move(x, y, { steps: 10 })
+      await page.mouse.up()
+    }
+    await drag(queued.nth(1).locator('.tray-note-text'), right.x + 40, (await queued.first().boundingBox())!.y + 6)
+    await expect.poll(() => queued.first().textContent()).toContain('q two edited')
+    // "Send to the queue" moves a note to the end of the queue; Restore brings it back.
+    await noteCards.first().getByRole('button', { name: 'Send to the queue' }).click()
+    await expect.poll(() => queued.count()).toBe(3)
+    await expect.poll(() => noteCards.count()).toBe(0)
+    expect(await queued.last().textContent()).toContain('note A')
+    await page.getByRole('button', { name: 'Restore' }).click()
+    await expect.poll(() => noteCards.count()).toBe(1)
+    await expect.poll(() => queued.count()).toBe(2)
+    // A note dropped on top of the queue joins it there; a queued message dropped on the notes becomes a note.
+    await drag(noteCards.first().locator('.tray-note-text'), right.x + 40, (await queued.first().boundingBox())!.y + 4)
+    await expect.poll(() => queued.first().textContent()).toContain('note A')
+    await expect.poll(() => noteCards.count()).toBe(0)
+    const fromQueue = queued.filter({ hasText: 'q one' }).locator('.tray-note-text')
+    await drag(fromQueue, left.x + 40, (await fresh.boundingBox())!.y + 60)
+    await expect.poll(() => noteCards.first().textContent()).toContain('q one')
+    await expect.poll(() => queued.count()).toBe(2)
+    // Send now: the message leaves the queue at once.
+    await queued.filter({ hasText: 'q two edited' }).getByRole('button', { name: 'Send now' }).click()
+    await expect.poll(() => queued.count()).toBe(1)
+    await queue.getByRole('button', { name: 'Close the queue' }).click()
+    await queue.waitFor({ state: 'detached' })
+    await page.getByRole('button', { name: /^Queue: 1 waiting\. Next: note A/ }).waitFor()
   })
 
   it('folders: a new project at the root, its sessions screen, delete with undo', async () => {

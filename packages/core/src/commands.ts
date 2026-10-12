@@ -126,6 +126,17 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'tab.queueEdit': ({ tabId, queueId, text }) => (tabOf(tabId).queueEdit(queueId, text), {}),
     'tab.queueMove': ({ tabId, queueId, index }) => (tabOf(tabId).queueMove(queueId, index), {}),
     'tab.unqueue': ({ tabId, queueId }) => (tabOf(tabId).unqueue(queueId), {}),
+    'tab.queueToNote': async ({ tabId, queueId, index }) => {
+      const tab = tabOf(tabId)
+      const { text } = tab.peekQueued(queueId)
+      if (!text.trim()) throw new CoreError('invalid_args', 'an image-only message cannot become a note')
+      const folder = await workspace.folderOf(tab.cwd)
+      const note = await workspace.notes.save(folder, undefined, text)
+      if (index !== undefined) await workspace.notes.place(folder, note.noteId, index)
+      tab.unqueue(queueId)
+      notesChanged(folder)
+      return { note }
+    },
     'tab.queueHold': ({ tabId, queueId }) => tabOf(tabId).holdQueued(queueId),
     'tab.sendNow': async ({ tabId, queueId }) => (await tabOf(tabId).sendNow(queueId), {}),
     'tab.queuePause': ({ tabId, paused }) => (tabOf(tabId).setQueuePaused(paused), {}),
@@ -233,6 +244,18 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
       await workspace.notes.delete(folder, noteId)
       notesChanged(folder)
       return {}
+    },
+    'notes.toQueue': async ({ tabId, noteId, index }, connection, cmdId) => {
+      const tab = tabOf(tabId)
+      const folder = await workspace.folderOf(tab.cwd)
+      const note = (await workspace.notes.list(folder)).find((candidate) => candidate.noteId === noteId)
+      if (!note) throw new CoreError('not_found', 'note not found')
+      checkSize(note.text, [])
+      tab.queueAdd({ queueId: cmdId, text: note.text, from: connection.label })
+      if (index !== undefined && tab.isQueued(cmdId)) tab.queueMove(cmdId, index)
+      await workspace.notes.delete(folder, noteId)
+      notesChanged(folder)
+      return { queueId: cmdId }
     },
     'notes.reorder': async ({ cwd, noteIds }) => {
       const folder = await workspace.folderOf(cwd)

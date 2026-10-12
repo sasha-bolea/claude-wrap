@@ -8,12 +8,12 @@ import { dataUrl, readBase64, readImages } from '../images.ts'
 import { modeLabel, nextMode } from '../modes.ts'
 import { noteUsed } from '../notes.ts'
 import type { Option } from '../Suggestions.tsx'
-import { readLinkedNote, readNotesOpen, writeLinkedNote, writeNotesOpen, type LinkedNote } from '../viewState.ts'
+import { readLinkedNote, readNotesOpen, readQueueOpen, writeLinkedNote, writeNotesOpen, writeQueueOpen, type LinkedNote } from '../viewState.ts'
 import { useTouch } from './context.tsx'
 import { GaugeButton } from './gauge.tsx'
 import { Icon, modeIcon } from './icons.tsx'
 import { sizeLabel } from './model.ts'
-import { NotesTray } from './NotesTray.tsx'
+import { Trays } from './Trays.tsx'
 import { ModelSheet, ModeSheet, modelLabel, useModels } from './modelSheets.tsx'
 import { IconButton, noteTitle } from './parts.tsx'
 import { useUndoReset } from './keyboard.ts'
@@ -83,6 +83,12 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }:
   const toggleNotes = () => {
     writeNotesOpen(!notesOpen)
     setNotesOpen(!notesOpen)
+  }
+  // The queue as a column of cards (a tap on its stack) or as the stack (its ˅): on this device, for every chat.
+  const [queueOpen, setQueueOpen] = useState(readQueueOpen)
+  const openQueue = (open: boolean) => {
+    writeQueueOpen(open)
+    setQueueOpen(open)
   }
   const input = useRef<HTMLTextAreaElement>(null)
   const picker = useRef<HTMLInputElement>(null)
@@ -394,8 +400,8 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }:
           </button>
         </div>
       </div>
-      <QueueTray meta={meta} />
-      {notesOpen && <NotesTray tabId={tabId} cwd={meta.cwd} />}
+      {!queueOpen && <QueueTray meta={meta} onOpen={() => openQueue(true)} />}
+      <Trays meta={meta} notesOpen={notesOpen} queueOpen={queueOpen} onCloseQueue={() => openQueue(false)} />
       <input ref={picker} type="file" multiple hidden onChange={(event) => void attach([...(event.target.files ?? [])]).then(() => (event.target.value = ''))} />
     </footer>
   )

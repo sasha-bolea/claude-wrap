@@ -403,6 +403,16 @@ export class Tab {
     this.dispatchNext()
   }
 
+  // Whether a message is still in the queue (not gone yet).
+  isQueued(queueId: string): boolean {
+    return this.queue.some((message) => message.queueId === queueId)
+  }
+
+  // A copy of a queued message (not_found when it is no longer queued).
+  peekQueued(queueId: string): Outgoing {
+    return { ...this.queued(queueId) }
+  }
+
   unqueue(queueId: string): void {
     this.queue = this.queue.filter((message) => message.queueId !== queueId)
     this.changed()

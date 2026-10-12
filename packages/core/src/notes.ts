@@ -30,6 +30,13 @@ export class NoteStore {
     return [...(data[cwd] ?? [])].sort((a, b) => a.rank! - b.rank!).map(({ rank: _rank, ...note }) => note)
   }
 
+  // Puts a note at a place of its folder's order (clamped to the end); the others keep their order.
+  async place(cwd: string, noteId: string, index: number): Promise<void> {
+    const ids = (await this.list(cwd)).map((note) => note.noteId).filter((id) => id !== noteId)
+    ids.splice(Math.min(index, ids.length), 0, noteId)
+    await this.reorder(cwd, ids)
+  }
+
   // A new order: the ids given first, in that order (unknown ones ignored), then the others in their order.
   async reorder(cwd: string, noteIds: string[]): Promise<void> {
     const listed = await this.list(cwd)

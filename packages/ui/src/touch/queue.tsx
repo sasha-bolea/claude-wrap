@@ -1,8 +1,10 @@
-import { useState } from 'react'
-import type { QueuedMessage, TabMeta } from '@athome/protocol'
+import type { TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useTouch } from './context.tsx'
 import { Icon } from './icons.tsx'
+import { TrayCard, TrayItem } from './NotesTray.tsx'
+import { IconButton } from './parts.tsx'
+import type { TrayDrag } from './trayDrag.ts'
 
 // How many cards of the queue's stack show (the first with its text, the others as edges peeking out).
 const STACK = 4
@@ -19,9 +21,10 @@ export function pauseWords(meta: TabMeta): string | undefined {
 export const waitingQueue = (meta: TabMeta) => meta.queue.filter((message) => message.queueId !== meta.queueCountdown?.queueId)
 
 // The queue under the composer: a stack of cards (only the first shows its text, one line, and a bin on its right that
-// removes it) and play/pause beside it. A tap on the stack opens the whole queue. Nothing shows while the queue is empty.
-export function QueueTray({ meta }: { meta: TabMeta }) {
-  const { connection, openSheet, announce, fail } = useTouch()
+// removes it) and play/pause beside it. A tap on the stack opens the whole queue (onOpen). Nothing shows while the queue
+// is empty.
+export function QueueTray({ meta, onOpen }: { meta: TabMeta; onOpen: () => void }) {
+  const { connection, announce, fail } = useTouch()
   const queue = waitingQueue(meta)
   if (!queue.length) return null
   const shown = queue.slice(0, STACK)
@@ -35,7 +38,7 @@ export function QueueTray({ meta }: { meta: TabMeta }) {
   return (
     <div className="queue-tray">
       <div className={`q-front m${shown.length - 1}`}>
-        <button className="q-stack" aria-label={t('queueStackLabel', { count: String(queue.length), next: next.text })} onClick={() => openSheet({ title: t('queue'), body: <QueueSheet tabId={meta.tabId} /> })}>
+        <button className="q-stack" aria-label={t('queueStackLabel', { count: String(queue.length), next: next.text })} onClick={onOpen}>
           {shown.map((item, index) => (
             <span key={item.queueId} className={`q-card k${index} m${shown.length - 1}`} aria-hidden="true">
               {index === 0 && <span className="q-line">{nextText}</span>}
@@ -53,85 +56,54 @@ export function QueueTray({ meta }: { meta: TabMeta }) {
   )
 }
 
-// The whole queue; a message opens its actions.
-function QueueSheet({ tabId }: { tabId: string }) {
-  const { state, openSheet } = useTouch()
-  const meta = state.tabs.find((tab) => tab.tabId === tabId)
-  if (!meta) return null
-  const paused = pauseWords(meta)
+// The open queue as a column of cards under the composer (a tap on its stack): ⏸/▶, "Coda · N" and ˅ (closes it) on
+// top; each card is edited in place, removed (top right), sent now (bottom right: read at Claude's next step, nothing
+// interrupted) and dragged to another place or onto the notes. Parameters: the chat's meta, the drag of the trays and
+// onClose.
+export function QueueColumn({ meta, drag, onClose }: { meta: TabMeta; drag: TrayDrag; onClose: () => void }) {
+  const { connection, announce, fail } = useTouch()
+  const tabId = meta.tabId
+  const queue = waitingQueue(meta)
+  const byId = new Map(queue.map((message) => [message.queueId, message]))
+  const shown = drag.order('queue').flatMap((id) => byId.get(id) ?? [])
+  const paused = Boolean(meta.queuePause)
+  const toggle = () => connection.request('tab.queuePause', { tabId, paused: !paused }).then(() => announce(t(paused ? 'queueResumed' : 'queuePaused')), fail)
+  const remove = (queueId: string) => connection.request('tab.unqueue', { tabId, queueId }).then(() => announce(t('removedFromQueue')), fail)
   return (
-    <>
-      {paused && <p className="muted flat">{paused}</p>}
-      <ul className="menu">
-        {waitingQueue(meta).map((item) => (
-          <li key={item.queueId}>
-            <button className="q-sheet-item" onClick={() => openSheet({ title: t('queuedMessage'), body: <QueueItemSheet tabId={tabId} queueId={item.queueId} /> })}>
-              <span className="q-line">{item.text || t('imagesOnly', { count: String(item.images ?? 0) })}</span>
-            </button>
-          </li>
+    <section className="tray queue-column" aria-label={t('queue')} ref={(element) => drag.registerColumn('queue', element)}>
+      <div className="tray-head">
+        <button className="icon-btn q-play" aria-label={paused ? `${pauseWords(meta)}: ${t('resume')}` : t('pauseQueue')} onClick={() => void toggle()}>
+          <Icon name={paused ? 'play' : 'pause'} />
+        </button>
+        <strong>{t('queueTitle', { count: String(queue.length) })}</strong>
+        <button className="icon-btn tray-close" aria-label={t('closeQueue')} onClick={onClose}>
+          <Icon name="down" />
+        </button>
+      </div>
+      <ul className={`tray-list${drag.target?.list === 'queue' ? ' drop-target' : ''}`}>
+        {shown.map((message, index) => (
+          <TrayItem key={message.queueId} list="queue" id={message.queueId} index={index} drag={drag}>
+            <TrayCard
+              className="q"
+              text={message.text}
+              label={message.text || t('imagesOnly', { count: String(message.images ?? 0) })}
+              fieldLabel={t('queuedText')}
+              list="queue"
+              id={message.queueId}
+              drag={drag}
+              onSave={(text) => void connection.request('tab.queueEdit', { tabId, queueId: message.queueId, text }).catch(fail)}
+              onEmptied={() => (message.images ? void connection.request('tab.queueEdit', { tabId, queueId: message.queueId, text: '' }).catch(fail) : void remove(message.queueId))}
+            >
+              {Boolean(message.images) && <span className="chip q-images">{t('imagesOnly', { count: String(message.images) })}</span>}
+              <IconButton icon="trash" className="tray-note-delete" label={t('removeFromQueue')} onClick={() => void remove(message.queueId)} />
+              <button className="send tray-note-send" aria-label={t('sendNow')} onClick={() => void connection.request('tab.sendNow', { tabId, queueId: message.queueId }).catch(fail)}>
+                <Icon name="send" />
+              </button>
+            </TrayCard>
+          </TrayItem>
         ))}
-        {!waitingQueue(meta).length && (
-          <li className="muted" role="status">
-            {t('queueEmpty')}
-          </li>
-        )}
+        {drag.target?.list === 'queue' && drag.target.index >= shown.length && <li className="drop-marker" aria-hidden="true" />}
       </ul>
-    </>
-  )
-}
-
-// One queued message: edit, send now (read at Claude's next step, nothing interrupted), move up or down, remove.
-function QueueItemSheet({ tabId, queueId }: { tabId: string; queueId: string }) {
-  const { state, connection, openSheet, closeSheet, closeSheets, fail } = useTouch()
-  const meta = state.tabs.find((tab) => tab.tabId === tabId)
-  const index = meta?.queue.findIndex((item) => item.queueId === queueId) ?? -1
-  if (!meta || index < 0) return null
-  const item = meta.queue[index]!
-  const running = meta.status === 'running' || meta.status === 'requires_action'
-  const act = (request: Promise<unknown>, all = false) => request.then(() => (all ? closeSheets() : closeSheet()), fail)
-  return (
-    <>
-      <p className="flat pre-wrap">{item.text}</p>
-      <ul className="menu">
-        <li>
-          <button onClick={() => openSheet({ title: t('editQueued'), field: true, body: <QueueEditSheet tabId={tabId} item={item} /> })}>{t('edit')}</button>
-        </li>
-        <li>
-          <button onClick={() => void act(connection.request('tab.sendNow', { tabId, queueId }), true)}>
-            {t('sendNow')}
-            {running && <span className="right">{t('readAtNextStep')}</span>}
-          </button>
-        </li>
-        <li>
-          <button disabled={index === 0} onClick={() => void act(connection.request('tab.queueMove', { tabId, queueId, index: index - 1 }))}>
-            {t('moveUp')}
-          </button>
-        </li>
-        <li>
-          <button disabled={index === meta.queue.length - 1} onClick={() => void act(connection.request('tab.queueMove', { tabId, queueId, index: index + 1 }))}>
-            {t('moveDown')}
-          </button>
-        </li>
-        <li>
-          <button className="danger" onClick={() => void act(connection.request('tab.unqueue', { tabId, queueId }))}>
-            {t('removeFromQueue')}
-          </button>
-        </li>
-      </ul>
-    </>
-  )
-}
-
-function QueueEditSheet({ tabId, item }: { tabId: string; item: QueuedMessage }) {
-  const { connection, closeSheet, fail } = useTouch()
-  const [text, setText] = useState(item.text)
-  const save = () => connection.request('tab.queueEdit', { tabId, queueId: item.queueId, text }).then(closeSheet, fail)
-  return (
-    <>
-      <textarea className="field" aria-label={t('text')} rows={4} value={text} onChange={(event) => setText(event.target.value)} />
-      <button className="button primary block" disabled={!text.trim() && !item.images} onClick={() => void save()}>
-        {t('save')}
-      </button>
-    </>
+    </section>
   )
 }

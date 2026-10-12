@@ -500,6 +500,32 @@ describe('queue', () => {
     expect(await client.fails('tab.queueEdit', { tabId: 't1', queueId: cmd(2), text: 'x' })).toMatchObject({ code: 'not_found' })
   })
 
+  it('a note moves into the queue at a place, and a queued message moves back into the notes at a place', async () => {
+    await startedTab()
+    for (const [n, text] of [[2, 'a'], [3, 'b']] as const) await client.ok('tab.queueAdd', { tabId: 't1', text }, cmd(n))
+    const { note: x } = await client.ok('notes.save', { cwd: CWD, text: 'x' })
+    await client.ok('notes.save', { cwd: CWD, text: 'y' })
+    // The note goes into the queue at its place (the cmd id is its queueId) and leaves the notes.
+    expect(await client.ok('notes.toQueue', { tabId: 't1', noteId: x.noteId, index: 1 }, cmd(4))).toEqual({ queueId: cmd(4) })
+    await tick()
+    expect(meta(client)?.queue.map((message) => message.text)).toEqual(['a', 'x', 'b'])
+    expect((await client.ok('notes.list', { cwd: CWD })).notes.map((note) => note.text)).toEqual(['y'])
+    // Without a place: the end of the queue.
+    const { note: z } = await client.ok('notes.save', { cwd: CWD, text: 'z' })
+    await client.ok('notes.toQueue', { tabId: 't1', noteId: z.noteId }, cmd(5))
+    await tick()
+    expect(meta(client)?.queue.map((message) => message.text)).toEqual(['a', 'x', 'b', 'z'])
+    // A queued message becomes a note at its place and leaves the queue.
+    const { note } = await client.ok('tab.queueToNote', { tabId: 't1', queueId: cmd(3), index: 1 })
+    expect(note.text).toBe('b')
+    await tick()
+    expect(meta(client)?.queue.map((message) => message.text)).toEqual(['a', 'x', 'z'])
+    expect((await client.ok('notes.list', { cwd: CWD })).notes.map((each) => each.text)).toEqual(['y', 'b'])
+    expect(await client.fails('notes.toQueue', { tabId: 't1', noteId: 'missing' })).toMatchObject({ code: 'not_found' })
+    expect(await client.fails('tab.queueToNote', { tabId: 't1', queueId: 'missing' })).toMatchObject({ code: 'not_found' })
+    expect(meta(client)?.queue).toHaveLength(3)
+  })
+
   it('"send now" takes a message out of the queue and sends it at once, without interrupting', async () => {
     const session = await startedTab()
     await client.ok('tab.queueAdd', { tabId: 't1', text: 'urgent' }, cmd(2))

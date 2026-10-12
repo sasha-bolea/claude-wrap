@@ -214,6 +214,9 @@ export const COMMANDS = {
   'tab.queueEdit': { args: z.object({ tabId, queueId: z.string(), text: z.string() }), result: empty },
   'tab.queueMove': { args: z.object({ tabId, queueId: z.string(), index: z.number().int().nonnegative() }), result: empty },
   'tab.unqueue': { args: z.object({ tabId, queueId: z.string() }), result: empty },
+  // A queued message becomes a note of the tab's folder at a place of its notes (absent: on top) and leaves the queue;
+  // its images are not kept (notes are text). An image-only message is refused.
+  'tab.queueToNote': { args: z.object({ tabId, queueId: z.string(), index: z.number().int().nonnegative().optional() }), result: z.object({ note: noteSchema }) },
   // Stops the countdown of the next queued message: it leaves the queue and comes back (text, images) for the
   // composer; the rest of the queue waits (paused) until ▶.
   'tab.queueHold': { args: z.object({ tabId, queueId: z.string() }), result: z.object({ text: z.string(), images: z.array(imageSchema).optional() }) },
@@ -365,6 +368,9 @@ export const COMMANDS = {
   'notes.delete': { args: z.object({ cwd: z.string().min(1), noteId: z.string() }), result: empty },
   // A new order: the ids given first, in that order (unknown ones ignored), then the others as they were.
   'notes.reorder': { args: z.object({ cwd: z.string().min(1), noteIds: z.array(z.string()) }), result: empty },
+  // A note of the tab's folder goes into the tab's queue at a place (absent: the end; the cmd id is its queueId) and
+  // leaves the notes.
+  'notes.toQueue': { args: z.object({ tabId, noteId: z.string(), index: z.number().int().nonnegative().optional() }), result: z.object({ queueId: z.string() }) },
   // Colour palettes of the app, shared by every device. paletteId absent: a new palette.
   'palettes.save': { args: z.object({ paletteId: z.string().optional(), name: z.string().trim().min(1).max(40), colors: paletteColorsSchema }), result: z.object({ palette: paletteSchema }) },
   'palettes.delete': { args: z.object({ paletteId: z.string() }), result: empty },

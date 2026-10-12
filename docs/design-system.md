@@ -264,11 +264,11 @@ message is out of the queue: the stack, the queue sheet and the queue button's c
 screen (another screen, the app hidden, nobody connected) the queue goes at once, as before.
 Examples: [TouchComposer.tsx:38](../packages/ui/src/touch/TouchComposer.tsx#L38).
 
-### Queue — `.queue-tray`, `.q-front`, `.q-remove`, `.q-stack`, `.q-card` (`.k0-3`, `.m0-3`), `.q-line`, `.q-play`, `.q-sheet-item`
+### Queue — `.queue-tray`, `.q-front`, `.q-remove`, `.q-stack`, `.q-card` (`.k0-3`, `.m0-3`), `.q-line`, `.q-play`
 The deck under the composer: the first card shows the next message, the others peek out on the right; ▶/⏸ beside
 it. A bin (`.q-remove`, muted, 44 px) on the front card's right end removes the next message at once with a toast; it is
 a sibling of the stack button inside `.q-front` (buttons do not nest), and the front card keeps 44 px free for it. A tap
-elsewhere opens the queue sheet (edit, send now, move, remove).
+elsewhere opens the queue as a column of cards (see Trays).
 Examples: [queue.tsx:28](../packages/ui/src/touch/queue.tsx#L28), [queue.tsx:29](../packages/ui/src/touch/queue.tsx#L29).
 
 ### Files — `.refresh-note`, `.file-meta`, `.code` (`.line`, `.ln`, `hljs-*`), `.md-view`, `.preview-img`, `.preview-empty`, `.sticky-actions.two`, `.at`
@@ -285,15 +285,22 @@ accent `to-chat` icon (a bubble with an arrow in, dimmed while the note is empty
 Examples: [NotesScreen.tsx:51](../packages/ui/src/touch/NotesScreen.tsx#L51), [NotesScreen.tsx:152](../packages/ui/src/touch/NotesScreen.tsx#L152).
 These screens are for a folder without a chat (from its sessions screen); a chat shows its notes in the tray below.
 
-### Notes tray — `.notes-tray`, `.tray-list` (`li.dragging`), `.tray-note` (`.new`), `.tray-note-text`, `.tray-note-field`, `.tray-note-delete`, `.tray-note-send`
-The composer's Notes toggle shows the folder's notes as cards under the input bar (the bar moves up), one per row and
-as wide as it, at most ~45% of the height (then the list scrolls); on or off per device. The first card is fixed: a
-dashed empty field reading "Nuova nota" — left with text, it becomes a card on top and empties. A card shows up to six
-lines; a click edits it in place (saved as you type and on leaving, emptied it goes); the bin top right deletes it
-(with Restore), the accent `to-chat` icon bottom right puts it into the composer (linked as "Usa nel messaggio").
-Pressed and moved past 5 px a card is dragged (accent border, shadow) and takes the place of the card under the
-pointer; the order is the core's (`notes.reorder`), the same on every device.
-Examples: [NotesTray.tsx:25](../packages/ui/src/touch/NotesTray.tsx#L25), [NotesTray.tsx:178](../packages/ui/src/touch/NotesTray.tsx#L178), [TouchComposer.tsx:371](../packages/ui/src/touch/TouchComposer.tsx#L371).
+### Trays: notes and open queue — `.trays` (`.two`), `.tray` (`.notes-tray`, `.queue-column`), `.tray-head`, `.tray-close`, `.tray-list` (`.drop-target`, `li.dragging`), `.drop-marker`, `.tray-note` (`.new`, `.q`), `.tray-note-text`, `.tray-note-field`, `.tray-note-delete`, `.tray-note-queue`, `.tray-note-send`, `.q-images`
+What hangs under the input bar (the bar moves up): the folder's notes (the composer's Notes toggle) and the open queue
+(a tap on the queue's stack; its `.tray-close` ˅ turns it back into the stack); both open, they sit side by side —
+notes left, queue right — as tall as each other, each at most ~45% of the height and scrolling on its own under a
+sticky `.tray-head` ("Note"; ⏸/▶, "Coda · N", ˅). Open or closed is remembered per device. Cards share one look and
+behaviour (`TrayCard`): up to six lines; a click edits the text in place (saved as you type and on leaving); the bin
+top right. Notes: the first card is a dashed field reading "Nuova nota" (left with text, it becomes a card on top);
+emptied, a note goes; bottom right `queue` (send to the end of the queue, with Restore) and the accent `to-chat`
+(into the composer, linked as "Usa nel messaggio"). Queue cards (`.q`, `--surface-2`): photos as a `.q-images` chip,
+bottom right the round Send "Invia ora"; emptied, a text-only message leaves the queue. Pressed and moved past 5 px a
+card is dragged (accent border, shadow): over its own column it takes the place of the card under the pointer; over
+the other column a `.drop-marker` (3 px accent line) shows where it lands — a note dropped on the queue joins it there
+and leaves the notes (Restore), a queued message dropped on the notes becomes a note there and leaves the queue
+(photos are not kept). The orders are the core's (`notes.reorder`, `tab.queueMove`, `notes.toQueue`,
+`tab.queueToNote`), the same on every device.
+Examples: [Trays.tsx:13](../packages/ui/src/touch/Trays.tsx#L13), [NotesTray.tsx:20](../packages/ui/src/touch/NotesTray.tsx#L20), [NotesTray.tsx:57](../packages/ui/src/touch/NotesTray.tsx#L57), [queue.tsx:73](../packages/ui/src/touch/queue.tsx#L73), [TouchComposer.tsx:404](../packages/ui/src/touch/TouchComposer.tsx#L404).
 
 ### Terminal — `.terminal-screen`, `.terminal-host`, `.terminal-ended`, `.key-bar`, `.key` (`aria-pressed`)
 A shell of the backend (xterm.js, loaded on demand; colours from the tokens, its sheet imported by touch.css). Opened
