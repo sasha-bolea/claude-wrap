@@ -291,7 +291,9 @@ What hangs under the input bar (the bar moves up): the folder's notes (the compo
 notes left, queue right — as tall as each other, each at most ~45% of the height and scrolling on its own under a
 sticky `.tray-head` ("Note"; ⏸/▶, "Coda · N", ˅). Open or closed is remembered per device. Cards share one look and
 behaviour (`TrayCard`): up to six lines; a click edits the text in place (saved as you type and on leaving); the bin
-top right. Notes: the first card is a dashed field reading "Nuova nota" (left with text, it becomes a card on top);
+top right. Notes: the first card is a dashed field reading "Nuova nota" with an accent `check` Save bottom right
+(dimmed while empty; it keeps the focus in the field for the next note) — saved, or left with text, it becomes a card
+on top;
 emptied, a note goes; bottom right `queue` (send to the end of the queue, with Restore) and the accent `to-chat`
 (into the composer, linked as "Usa nel messaggio"). Queue cards (`.q`, `--surface-2`): photos as a `.q-images` chip,
 bottom right the round Send "Invia ora"; emptied, a text-only message leaves the queue. Pressed and moved past 5 px a

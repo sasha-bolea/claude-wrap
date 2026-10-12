@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Note } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { useTouch } from './context.tsx'
+import { Icon } from './icons.tsx'
 import { IconButton, noteTitle } from './parts.tsx'
 import type { TrayDrag, TrayList } from './trayDrag.ts'
 
@@ -94,8 +95,9 @@ export function TrayCard({ text, label, fieldLabel, list, id, drag, onSave, onEm
   )
 }
 
-// The first card: an empty field reading "Nuova nota". Left with some text (or the app hidden), the text becomes a note
-// on top of the others and the field empties. cwd: the folder.
+// The first card: an empty field reading "Nuova nota". Its Save button (bottom right), or leaving it with some text (or
+// the app hidden), makes the text a note on top of the others and empties the field (Save leaves the cursor there for
+// the next one). cwd: the folder.
 function NewNoteCard({ cwd }: { cwd: string }) {
   const { connection, fail } = useTouch()
   const [text, setText] = useState('')
@@ -127,6 +129,10 @@ function NewNoteCard({ cwd }: { cwd: string }) {
         onChange={(event) => ((latest.current = event.target.value), setText(event.target.value))}
         onBlur={keep}
       />
+      {/* Pressing it keeps the focus in the field: the note is saved by the click, not by the blur */}
+      <button className="icon-btn tray-note-send accent" aria-label={t('saveNote')} disabled={!text.trim()} onMouseDown={(event) => event.preventDefault()} onClick={keep}>
+        <Icon name="check" />
+      </button>
     </div>
   )
 }

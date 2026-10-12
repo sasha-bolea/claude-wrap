@@ -780,12 +780,17 @@ describe('PWA (fake SDK)', () => {
     // The first card is always the new note: written and left, it becomes a card on top and the field empties.
     const fresh = tray.getByRole('textbox', { name: 'New note' })
     const cards = tray.locator('.tray-note:not(.new)')
-    for (const text of ['first note', 'second note']) {
+    // Its Save button keeps it too (disabled while the field is empty), the field still ready for the next one.
+    const save = tray.getByRole('button', { name: 'Save the note' })
+    expect(await save.isDisabled()).toBe(true)
+    for (const [text, how] of [['first note', 'blur'], ['second note', 'save']] as const) {
       await fresh.fill(text)
-      await fresh.blur()
+      if (how === 'save') await save.click()
+      else await fresh.blur()
       await expect.poll(() => cards.first().textContent()).toContain(text)
       expect(await fresh.inputValue()).toBe('')
     }
+    expect(await fresh.evaluate((field) => field === document.activeElement)).toBe(true)
     // A click on a card edits it in place; leaving saves it.
     await cards.filter({ hasText: 'first note' }).locator('.tray-note-text').click()
     const editing = tray.getByRole('textbox', { name: 'Text of the note' })

@@ -437,6 +437,7 @@ export const en = {
   closeQueue: 'Close the queue',
   queuedText: 'Text of the queued message',
   toQueue: 'Send to the queue',
+  saveNote: 'Save the note',
   noteQueued: 'Note moved to the queue',
   removedFromQueue: 'Removed from the queue',
   text: 'Text',
