@@ -1,7 +1,8 @@
 // Desktop chat on the scripted fake SDK, in the touch app's wide arrangement. User stories:
 // I add a folder and chat (the answer streams in); I answer permissions, questions and plans; I interrupt
 // with Esc or Stop; I switch mode with Shift+Tab; a session waiting elsewhere is announced once; reloading the
-// window loses nothing; untrusted markdown cannot load remote content; the Home lists the folders of This PC.
+// window loses nothing; untrusted markdown cannot load remote content; the Home lists the folders of This PC; no
+// menu bar, only its zoom and F12 shortcuts kept.
 import { existsSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { addFolder, button, composer, launch, lastAnswer, openChat, openRows, send, showSessions, type App } from './harness.ts'
@@ -23,6 +24,37 @@ describe('desktop home (fake SDK)', () => {
     await page.getByRole('button', { name: 'project', exact: true }).waitFor({ state: 'detached' })
     await page.getByRole('status').filter({ hasText: 'taken off the list: its files stay' }).waitFor()
     expect(existsSync(ctx.projectDir)).toBe(true)
+  })
+
+  it('has no menu bar; Ctrl +/−/0 zoom, F12 opens the developer tools, Ctrl+R does not reload', async () => {
+    const { page, app } = ctx
+    await page.getByText('Open a session from the column on the left').waitFor()
+    expect(await app.evaluate(({ Menu }) => Menu.getApplicationMenu())).toBeNull()
+    // Keys as the OS sends them (Playwright's go straight to the page and skip the main process).
+    const press = (keyCode: string, ctrl = false) =>
+      app.evaluate(({ BrowserWindow }, [code, control]) => {
+        const contents = BrowserWindow.getAllWindows()[0]!.webContents
+        const modifiers = control ? (['control'] as const) : []
+        contents.sendInputEvent({ type: 'keyDown', keyCode: code, modifiers: [...modifiers] })
+        contents.sendInputEvent({ type: 'keyUp', keyCode: code, modifiers: [...modifiers] })
+      }, [keyCode, ctrl] as const)
+    const zoom = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.getZoomLevel())
+    await press('=', true)
+    await expect.poll(zoom).toBeGreaterThan(0)
+    await press('-', true)
+    await press('-', true)
+    await expect.poll(zoom).toBeLessThan(0)
+    await press('0', true)
+    await expect.poll(zoom).toBe(0)
+    const devTools = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.isDevToolsOpened())
+    await press('F12')
+    await expect.poll(devTools).toBe(true)
+    await press('F12')
+    await expect.poll(devTools).toBe(false)
+    await page.evaluate(() => ((window as unknown as { stayed: boolean }).stayed = true))
+    await press('R', true)
+    await page.waitForTimeout(500)
+    expect(await page.evaluate(() => (window as unknown as { stayed?: boolean }).stayed)).toBe(true)
   })
 })
 

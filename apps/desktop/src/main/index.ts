@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, MessageChannelMain, Notification, protocol, session, shell, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, MessageChannelMain, Notification, protocol, session, shell, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import { WIDGET_FRAME_CSP, WIDGET_FRAME_PATH } from '@athome/protocol'
@@ -126,6 +126,20 @@ function showNotice(notice: DesktopNotice, backendId: string): void {
   notification.show()
 }
 
+// The shortcuts kept from Electron's default menu (the app has no menu bar): Ctrl/Cmd +, − and 0 zoom, F12 the
+// developer tools. Ctrl+R and the rest reach the page. contents: the window's page. Returns nothing.
+function keepShortcuts(contents: Electron.WebContents): void {
+  contents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
+    const ctrl = input.control || input.meta
+    const step = ctrl && !input.alt ? ({ '=': 0.5, '+': 0.5, '-': -0.5, '0': 0 } as Record<string, number>)[input.key] : undefined
+    if (step !== undefined) contents.setZoomLevel(step ? contents.getZoomLevel() + step : 0)
+    else if (input.key === 'F12') contents.toggleDevTools()
+    else return
+    event.preventDefault()
+  })
+}
+
 // Creates the main window with the renderer locked down (no Node, no navigation, no new windows).
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -140,6 +154,7 @@ function createWindow(): void {
   })
   mainWindow.webContents.on('will-navigate', (event) => event.preventDefault())
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  keepShortcuts(mainWindow.webContents)
   void mainWindow.loadURL(DEV_URL ?? `${APP_ORIGIN}/index.html`)
 }
 
@@ -174,6 +189,7 @@ function startApp(): void {
   ipcMain.handle('choose-folder', chooseFolder)
   ipcMain.on('open-external', openExternal)
   quitGracefully()
+  Menu.setApplicationMenu(null)
   createWindow()
 }
 
