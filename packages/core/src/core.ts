@@ -37,7 +37,6 @@ async function start(config: CoreConfig): Promise<Runtime> {
   await sweepOrphans(store.data.livePids)
   await store.update((data) => (data.livePids = []))
   const workspace = new Workspace(config, store)
-  await Promise.all([workspace.callers.loaded, workspace.planStore.loaded])
   return { workspace, handlers: createHandlers(workspace, config.hostCommands) }
 }
 
@@ -96,10 +95,7 @@ export function createCore(config: CoreConfig): Core {
         if (frame.protocolVersion !== PROTOCOL_VERSION) {
           return refuse('incompatible_protocol', `core speaks protocol ${PROTOCOL_VERSION}, client ${frame.protocolVersion}`)
         }
-        // On the terminal socket a token is a caller's key (Petra): the connection becomes that caller.
-        const caller = identity?.terminal && frame.token ? started.workspace.callers.authenticate(frame.token) : undefined
-        if (identity?.terminal && frame.token && !caller) return refuse('unauthorized', 'unknown or revoked key')
-        connection = { clientId: frame.clientId, send, label: caller ?? identity?.label ?? frame.clientId, deviceId: identity?.deviceId, visible: frame.visible, ...(identity?.terminal ? { terminal: true } : {}), ...(caller ? { caller } : {}) }
+        connection = { clientId: frame.clientId, send, label: identity?.label ?? frame.clientId, deviceId: identity?.deviceId, visible: frame.visible, ...(identity?.terminal ? { terminal: true } : {}) }
         greeted.add(connection)
         send(welcome)
         return void resumeStreams(started, frame, connection)

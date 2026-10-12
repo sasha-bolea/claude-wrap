@@ -8,7 +8,6 @@ import { ConnectionBanner, Crumbs, IconButton, Title, UpdateBar, useQuery } from
 import { BackendSwitch } from './backends.tsx'
 import { pastOnly, SessionLists, useStartSession } from './sessions.tsx'
 import { OpenTerminals, useOpenTerminal } from './TerminalScreen.tsx'
-import { PlanCards } from './PlanCard.tsx'
 
 const VIEW_KEY = 'claude-wrap:homeView'
 type View = 'projects' | 'sessions'
@@ -136,7 +135,6 @@ export function HomeScreen({ view: asked }: { view?: View }) {
       {view === 'projects' && trail.length > 0 && <Crumbs parts={[root ? baseName(root) : t('thisComputer'), ...trail.map(baseName)]} onJump={(index) => setTrail((path) => path.slice(0, index))} />}
       <div className="scroll">
         <div className="pad tight">
-          <PlanCards />
           {view === 'sessions' ? (
             <>
               <OpenTerminals />

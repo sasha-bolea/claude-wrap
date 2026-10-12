@@ -305,29 +305,6 @@ A row "Compatta quando la conversazione arriva a" with five segments: Standard (
 it. A change restarts the live processes (idle now, working at the end of their turn) with the conversations kept.
 Examples: [SettingsScreen.tsx:215](../packages/ui/src/touch/SettingsScreen.tsx#L215).
 
-### Plan card (a caller's plan, on the Home) — `.card.plan-card`, `.plan-summary`, `.plan-steps`, `.plan-row` (`.depth-1/2`, `.plan-either/-branch/-repeat`, `.plan-ran/-next/-out`), `.plan-number`, `.plan-note`, `.plan-log` (`.plan-log-entry`, `.plan-time`, `.plan-reason`), `.chip.free`; existing `.card`, `.card-actions`, `.chip.accent`, `.button` (`.primary`, `.danger`, `.quiet`)
-A plan proposed by a caller with a key (Petra, through the `athome` command) sits on top of the Home, in both views,
-until answered or finished: a `.card.plan-card` (region "Piano di <caller>") with the heading ("petra propone un piano",
-then "Piano di petra · prossimo: passo N" or "… · segue una chat"), the caller's summary as it wrote it
-(`.plan-summary`, React text only), the line "Se approvi, potrà fare, in quest'ordine:" and the steps as `.plan-steps`
-rows (`.plan-row` with its `.plan-number`, the same numbering core uses) **in the app's own words**
-([plans.ts](../packages/ui/src/touch/plans.ts): what the core will enforce, never the caller's wording). In a step,
-free text the caller decides later is a dashed `.chip.free` ("testo libero"); a folder, chat (its title) or message
-that exists already is a `.chip.accent` with "· esistente", so the user sees where the plan touches what is there;
-a choice ("Una sola di queste strade:"), each branch ("Se <condizione>:") and a group ("Fino a N volte, <condizione>:")
-are label rows (`.plan-either` / `.plan-branch` / `.plan-repeat`, the caller's conditions as React text) with their steps
-indented (`.depth-1`, `.depth-2`); an optional step ends with an italic `.plan-note` ("· facoltativo: <condizione>").
-While running, a step that ran is `.plan-ran` (muted), one that may run next `.plan-next` (accent number), one that can
-no longer run (a branch not taken, a finished group) `.plan-out` (struck through). Under the steps, once the caller
-has run something, the region "Cosa ha fatto" (`.plan-log`) lists its commands live, newest first: the time
-(`.plan-time`, with seconds), an outcome chip ("in corso…" `.chip.accent`, "fatto" `.chip`, "rifiutato" / "fallito"
-`.chip.bad`), "passo N ·" when it was a step, the command in the app's words with the values it really had (no
-free-text or "esistente" marks), and for a refusal or failure core's reason (`.plan-reason`, danger colour, React text).
-`.card-actions`: Approva (primary) / Rifiuta (danger) while proposed; "Annulla il piano"
-(quiet) while running. Every answer gives a toast; a refusal goes through `fail`. The phone's notification for a new
-proposal says "<caller> propone un piano: approvalo in AtHome" and opens the app (no chat).
-Examples: [PlanCard.tsx:24](../packages/ui/src/touch/PlanCard.tsx#L24), [plans.ts:96](../packages/ui/src/touch/plans.ts#L96), [HomeScreen.tsx:135](../packages/ui/src/touch/HomeScreen.tsx#L135).
-
 ### Settings → chat widgets (existing `.list`, `SwitchRow`)
 "Widget in chat": one `SwitchRow` ("Claude può mostrare widget") whose hint says what widgets are, that /creawidget
 makes new ones, what turning them on costs (the guide's tokens in every new session, from `widgets.list`) and how many
