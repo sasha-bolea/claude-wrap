@@ -70,7 +70,7 @@ function QueuedCountdown({ text, images, until, onStop }: { text: string; images
 
 // The composer of the touch layout: one box floating over the chat — the text on top; under it + (photos and
 // files), permissions and the context gauge on the left; on the right Stop and Coda while Claude responds (Coda puts
-// what is written straight into the queue), then Send (the model and effort sheet is the brain button after the mode button; the Notes toggle after it shows the folder's notes as cards under the composer). `/` suggests
+// what is written straight into the queue), then Send (the model and effort sheet is the brain button after the mode button; the Notes toggle, first on the right, shows the folder's notes as cards under the composer). `/` suggests
 // commands, `@` files; `!` runs a shell command; long pastes collapse. Files that are not photos go to allegati/ and
 // are mentioned.
 // A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.
@@ -374,10 +374,10 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab }:
           <button className="icon-btn model-tool" aria-label={t('modelButtonLabel', { model: modelLabel(meta, models) })} onClick={() => openSheet({ title: t('modelAndEffort'), body: <ModelSheet tabId={tabId} /> })}>
             <Icon name="brain" />
           </button>
+          <GaugeButton meta={meta} />
           <button className={`icon-btn notes-toggle${notesOpen ? ' on' : ''}`} aria-label={t('notes')} aria-pressed={notesOpen} onClick={toggleNotes}>
             <Icon name="note" />
           </button>
-          <GaugeButton meta={meta} />
           {(running || requestOpen) && (
             <button className="send stop" aria-label={t('stopClaude')} onClick={stop} {...keepFocus}>
               <Icon name="stop" />

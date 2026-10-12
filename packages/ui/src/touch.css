@@ -613,8 +613,8 @@ li.dragging .tray-handle { cursor: grabbing; }
 .chat-bar .chat-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 0 8px; }
 .chat-bar .chat-title { flex: 1; min-width: 0; margin: 0; font-size: 15px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
 .input-tools .gauge-btn { margin-right: auto; }
-/* A new session has no gauge yet: the Notes toggle pushes Send to the right instead */
-.input-tools:not(:has(.gauge-btn)) .notes-toggle { margin-right: auto; }
+/* The Notes toggle opens the right-hand group; a new session has no gauge yet to push it there */
+.input-tools:not(:has(.gauge-btn)) .notes-toggle { margin-left: auto; }
 /* The composer's gauge: a ring filled to the highest of context, 5-hour and weekly use (no number beside it) */
 .gauge-btn { flex: none; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; border-radius: 12px; padding: 0; color: var(--text-muted); }
 .gauge-btn:active { background: var(--surface-2); }

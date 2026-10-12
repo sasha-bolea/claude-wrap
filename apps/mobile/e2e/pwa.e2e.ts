@@ -768,6 +768,9 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('.col-center .chat-bar').getByRole('button', { name: /^Folder notes/ }).count()).toBe(0)
     const toggle = page.locator('.composer').getByRole('button', { name: 'Notes', exact: true })
     expect(await toggle.getAttribute('aria-pressed')).toBe('false')
+    // On the right of the bar, just before Send.
+    const bar = (await page.locator('.input-box').boundingBox())!
+    expect((await toggle.boundingBox())!.x).toBeGreaterThan(bar.x + bar.width / 2)
     const before = (await page.locator('.input-box').boundingBox())!
     await toggle.click()
     expect(await toggle.getAttribute('aria-pressed')).toBe('true')
