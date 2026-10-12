@@ -321,7 +321,8 @@ function NotificationsGroup() {
   )
 }
 
-// Paired devices (the remote server only: other backends have none): last access, revoke, add one with a code.
+// Paired devices (the remote server only: other backends have none): last access, revoke, add one with a code; a tap
+// on a device renames it.
 function DevicesGroup() {
   const { connection, openSheet } = useTouch()
   const [devices, setDevices] = useState<Device[]>()
@@ -334,12 +335,12 @@ function DevicesGroup() {
       <ul className="list">
         {devices.map((device) => (
           <li key={device.deviceId} className="row end-pad">
-            <div className="row-main">
+            <button className="row-main" aria-label={t('renameDevice', { name: device.name })} onClick={() => openSheet({ title: t('rename'), field: true, body: <RenameDeviceSheet device={device} onDone={load} /> })}>
               <span className="row-title">
                 {device.name} {device.current && <span className="chip">{t('thisDevice')}</span>}
               </span>
               <span className="row-sub">{t('lastSeen', { when: device.lastSeenAt ? when(device.lastSeenAt) : '—' })}</span>
-            </div>
+            </button>
             {!device.current && (
               <button className="button danger" onClick={() => openSheet({ title: t('revokeTitle', { name: device.name }), body: <RevokeSheet device={device} devices={devices} onDone={load} /> })}>
                 {t('revoke')}
@@ -353,6 +354,29 @@ function DevicesGroup() {
         {t('addDevice')}
       </button>
     </div>
+  )
+}
+
+// A device's new name (1-60 characters): Save or Enter keeps it and closes the sheet.
+function RenameDeviceSheet({ device, onDone }: { device: Device; onDone: () => void }) {
+  const { connection, closeSheet, toast, fail } = useTouch()
+  const [name, setName] = useState(device.name)
+  const save = () => {
+    const value = name.trim()
+    if (!value) return
+    connection.request('devices.rename', { deviceId: device.deviceId, name: value }).then(() => {
+      closeSheet()
+      onDone()
+      toast(t('renamed'))
+    }, fail)
+  }
+  return (
+    <>
+      <input className="field" aria-label={t('newName')} maxLength={60} value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && save()} />
+      <button className="button primary block" disabled={!name.trim()} onClick={save}>
+        {t('save')}
+      </button>
+    </>
   )
 }
 

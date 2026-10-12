@@ -151,6 +151,7 @@ export const en = {
   useFolder: 'Use {path}',
 
   devicesTitle: 'Paired devices',
+  renameDevice: 'Rename {name}',
   thisDevice: 'this one',
   lastSeen: 'last seen {when}',
   revoke: 'Revoke',

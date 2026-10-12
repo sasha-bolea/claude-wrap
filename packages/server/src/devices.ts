@@ -97,6 +97,15 @@ export class DeviceStore {
     return { deviceId: device.deviceId, token }
   }
 
+  // Gives a device another name. Returns false when the device does not exist.
+  async rename(deviceId: string, name: string): Promise<boolean> {
+    const device = this.devices.find((candidate) => candidate.deviceId === deviceId)
+    if (!device) return false
+    device.name = name
+    await this.save()
+    return true
+  }
+
   // Stores (or, with undefined, removes) the push subscription of a device.
   async setPush(deviceId: string, push: PushTarget | undefined): Promise<void> {
     const device = this.devices.find((candidate) => candidate.deviceId === deviceId)

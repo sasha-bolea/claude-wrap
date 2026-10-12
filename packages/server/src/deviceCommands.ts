@@ -25,6 +25,10 @@ export function deviceCommands(devices: DeviceStore, disconnect: (deviceIds: str
       if (!revoked.length) throw new CoreError('not_found', 'no such device')
       disconnect(revoked)
       return {}
+    },
+    'devices.rename': async ({ deviceId, name }) => {
+      if (!(await devices.rename(deviceId, name))) throw new CoreError('not_found', 'no such device')
+      return {}
     }
   }
 }

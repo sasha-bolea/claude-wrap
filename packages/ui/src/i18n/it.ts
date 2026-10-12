@@ -152,6 +152,7 @@ export const it: Record<MessageKey, string> = {
   newFolderName: 'Nome della nuova cartella',
   useFolder: 'Usa {path}',
 
+  renameDevice: 'Rinomina {name}',
   devicesTitle: 'Dispositivi abbinati',
   thisDevice: 'questo',
   lastSeen: 'ultimo accesso {when}',

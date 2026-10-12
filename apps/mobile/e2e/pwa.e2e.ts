@@ -1529,6 +1529,24 @@ describe('PWA (fake SDK)', () => {
     await page.getByRole('listitem').filter({ hasText: 'gadget' }).waitFor()
   })
 
+  it('a tap on a paired device renames it, this one too; the server keeps the new name', async () => {
+    const page = await pairedPage(await newPhone(), backend, 'phone')
+    await pairedPage(await newPhone(), backend, 'tablet')
+    await button(page, 'Settings').click()
+    await button(page, 'Rename tablet').click()
+    const field = page.getByRole('dialog').getByRole('textbox', { name: 'New name' })
+    expect(await field.inputValue()).toBe('tablet')
+    await field.fill('iPad di casa')
+    await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('listitem').filter({ hasText: 'iPad di casa' }).waitFor()
+    expect(backend.devices.list().map((device) => device.name)).toEqual(['phone', 'iPad di casa'])
+    // This device too: Enter saves.
+    await button(page, 'Rename phone').click()
+    await page.getByRole('dialog').getByRole('textbox', { name: 'New name' }).fill('iPhone')
+    await page.keyboard.press('Enter')
+    await page.getByRole('listitem').filter({ hasText: 'iPhone' }).filter({ hasText: 'this one' }).waitFor()
+  })
+
   it('a device revoked from another one goes back to pairing', async () => {
     const first = await pairedPage(await newPhone(), backend, 'phone')
     const second = await pairedPage(await newPhone(), backend, 'tablet')

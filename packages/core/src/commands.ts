@@ -22,7 +22,7 @@ export type Connection = { clientId: string; send: Send; label: string; deviceId
 type Handler<N extends CommandName> = (args: CommandArgs<N>, connection: Connection, cmdId: string) => Promise<CommandResult<N>> | CommandResult<N>
 export type Handlers = { [N in CommandName]: Handler<N> }
 // Commands the host implements itself (the remote server's device management).
-export type HostCommands = Partial<Pick<Handlers, 'devices.list' | 'devices.pairStart' | 'devices.revoke' | 'push.config' | 'push.subscribe' | 'push.unsubscribe'>>
+export type HostCommands = Partial<Pick<Handlers, 'devices.list' | 'devices.pairStart' | 'devices.revoke' | 'devices.rename' | 'push.config' | 'push.subscribe' | 'push.unsubscribe'>>
 
 const notHere = () => {
   throw new CoreError('not_found', 'devices and push exist only on the remote server')
@@ -238,6 +238,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'devices.list': notHere,
     'devices.pairStart': notHere,
     'devices.revoke': notHere,
+    'devices.rename': notHere,
     'push.config': notHere,
     'push.subscribe': notHere,
     'push.unsubscribe': notHere,

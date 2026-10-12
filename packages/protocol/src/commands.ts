@@ -382,6 +382,8 @@ export const COMMANDS = {
   'devices.list': { args: empty, result: z.object({ devices: z.array(deviceSchema) }) },
   'devices.pairStart': { args: z.object({ name: z.string().trim().min(1).max(60) }), result: z.object({ code: z.string(), expiresAt: z.number() }) },
   'devices.revoke': { args: z.object({ deviceId: z.string() }), result: empty },
+  // Gives a paired device (any, this one too) another name.
+  'devices.rename': { args: z.object({ deviceId: z.string(), name: z.string().trim().min(1).max(60) }), result: empty },
   // Web Push of the asking device (remote server only): the server's public VAPID key and whether this device
   // has a subscription; subscribe stores the browser's PushSubscription for this device.
   'push.config': { args: empty, result: z.object({ publicKey: z.string(), subscribed: z.boolean() }) },

@@ -207,6 +207,18 @@ describe('remote server: pairing and devices', () => {
     expect((await laptop.request('devices.list', {})).devices.map((device) => device.name)).toEqual(['laptop'])
   })
 
+  it('devices.rename gives any device, this one too, another name; an empty name or an unknown device is refused', async () => {
+    const phone = connect(await pairDevice('phone'))
+    await until(phone, (s) => s.status === 'connected')
+    const laptop = connect(await pairDevice('laptop'))
+    const ids = Object.fromEntries((await laptop.request('devices.list', {})).devices.map((device) => [device.name, device.deviceId]))
+    await laptop.request('devices.rename', { deviceId: ids.phone!, name: '  iPhone di Sasha  ' })
+    await laptop.request('devices.rename', { deviceId: ids.laptop!, name: 'PC' })
+    expect((await phone.request('devices.list', {})).devices.map((device) => device.name)).toEqual(['iPhone di Sasha', 'PC'])
+    await expect(laptop.request('devices.rename', { deviceId: ids.phone!, name: '   ' })).rejects.toThrow()
+    await expect(laptop.request('devices.rename', { deviceId: 'nobody', name: 'x' })).rejects.toThrow()
+  })
+
   it('devices.revoke never removes the asking device, nor what it created; it refuses to revoke itself', async () => {
     const phone = connect(await pairDevice('phone'))
     await until(phone, (s) => s.status === 'connected')
