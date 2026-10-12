@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AtHome · blueprint chat e composer</title>
+<!-- Wireframe of AtHome's chat and composer as they are in the code (same elements, same places), phone and wide
+     window side by side. Edited together with Sasha; the page reloads by itself when this file changes. -->
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.35 system-ui, sans-serif; background: #e9e9e6; color: #222; }
+  header.page { position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 8px 12px; background: #fff; border-bottom: 1px solid #ccc; }
+  header.page h1 { margin: 0; font-size: 15px; }
+  header.page label { display: inline-flex; gap: 4px; align-items: center; white-space: nowrap; }
+  .stamp { color: #888; font-size: 11px; }
+  main { display: flex; flex-wrap: wrap; gap: 24px; padding: 16px; align-items: flex-start; }
+  figure { margin: 0; }
+  figcaption { font-weight: 600; margin-bottom: 6px; }
+
+  /* Frames */
+  .phone { width: 390px; height: 844px; }
+  .desk { width: 1280px; height: 800px; }
+  .frame { position: relative; overflow: hidden; background: #fafaf8; border: 2px solid #333; border-radius: 10px; display: flex; }
+  .phone.frame { border-radius: 28px; }
+
+  /* Generic wireframe pieces */
+  .box { border: 1px dashed #999; border-radius: 8px; background: #fff; }
+  .lbl { font-size: 10px; color: #b04a2a; font-family: ui-monospace, monospace; }
+  .btn { flex: none; min-width: 36px; min-height: 36px; padding: 0 6px; display: inline-grid; place-items: center; border: 1px solid #aaa; border-radius: 9px; background: #fff; font-size: 11px; text-align: center; line-height: 1.1; }
+  .btn.round { border-radius: 50%; }
+  .btn.dark { background: #333; color: #fff; }
+  .btn.accent { border-color: #c96442; color: #c96442; }
+  .btn.on { background: #f6e4dc; border-color: #c96442; color: #c96442; }
+  .row { display: flex; align-items: center; gap: 4px; }
+  .grow { flex: 1; min-width: 0; }
+
+  /* One column (screen) */
+  .col { position: relative; display: flex; flex-direction: column; min-width: 0; height: 100%; }
+  .col + .col { border-left: 1px solid #bbb; }
+  .topbar { flex: none; display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid #ccc; background: #fff; min-height: 52px; }
+  .topbar .title { flex: 1; min-width: 0; font-weight: 600; }
+  .badge { width: 10px; height: 10px; border-radius: 50%; background: #bbb; display: inline-block; margin-right: 6px; }
+  .working .badge { background: #c96442; }
+
+  /* Conversation */
+  .chat-body { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+  .conversation { position: absolute; inset: 0; padding: 12px 14px 0; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+  .desk .conversation { padding-inline: max(14px, calc((100% - 780px) / 2)); }
+  .msg-user { align-self: flex-end; max-width: 86%; padding: 8px 11px; border-radius: 14px 14px 4px 14px; background: #ecebe6; border: 1px dashed #999; }
+  .msg-ai { padding: 2px 0; }
+  .tool { border: 1px dashed #999; border-radius: 10px; padding: 6px 10px; background: #fff; }
+  .meta-line { align-self: flex-end; color: #888; font-size: 11px; }
+  .request { border: 2px solid #c96442; border-radius: 12px; padding: 8px; background: #fff; display: grid; gap: 6px; }
+  .working-line { color: #c96442; }
+  .ghost { position: absolute; top: 10px; right: 14px; left: 48px; display: flex; justify-content: flex-end; }
+  .desk .ghost { right: max(14px, calc((100% - 780px) / 2)); }
+  .ghost span { max-width: 92%; padding: 6px 10px; border: 1px dashed #999; border-radius: 14px; background: #f1f0ec; color: #777; }
+  .jump { position: absolute; right: 14px; bottom: 10px; }
+  .desk .jump { right: max(14px, calc((100% - 780px) / 2)); }
+  .scroll-thumb { position: absolute; right: 2px; top: 30%; width: 4px; height: 60px; border-radius: 2px; background: #bbb; }
+
+  /* Dock: composer and what hangs under it */
+  .dock { flex: none; padding: 6px 10px 10px; background: linear-gradient(transparent, #eee 40%); }
+  .desk .dock .composer { max-width: 808px; margin: 0 auto; }
+  .composer { display: grid; gap: 6px; }
+  .suggest { border: 1px dashed #999; border-radius: 10px; background: #fff; padding: 6px 10px; }
+  .attachments { display: flex; gap: 6px; }
+  .attachments .box { width: 54px; height: 54px; display: grid; place-items: center; }
+  .input-box { position: relative; border: 1.5px solid #555; border-radius: 20px; background: #fff; padding: 8px 8px 4px; display: grid; gap: 4px; }
+  .working-mini { position: absolute; top: -12px; left: 14px; background: #fff; border: 1px solid #c96442; color: #c96442; border-radius: 9px; padding: 0 6px; font-size: 10px; }
+  .field { min-height: 30px; color: #999; padding: 2px 6px; }
+  .tools { display: flex; align-items: center; gap: 3px; }
+  .tools .gauge { margin-right: auto; }
+  .queue-tray { display: flex; align-items: center; gap: 4px; }
+  .queue-tray .q-stack { flex: 1; height: 40px; border: 1px solid #999; border-radius: 12px; background: #fff; display: flex; align-items: center; padding: 0 10px; color: #888; box-shadow: 5px 0 0 -1px #ddd, 10px 0 0 -2px #ccc; }
+  .notes-tray { max-height: 45%; display: grid; gap: 6px; }
+  .tray-note { position: relative; min-height: 96px; border: 1px solid #999; border-radius: 12px; background: #fff; padding: 8px 46px 8px 12px; }
+  .tray-note.new { min-height: 38px; border-style: dashed; color: #999; padding-right: 12px; }
+  .tray-note .del { position: absolute; top: 4px; right: 4px; }
+  .tray-note .send { position: absolute; bottom: 4px; right: 4px; }
+
+  /* Sheets and popovers */
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.25); z-index: 10; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 11; background: #fff; border-radius: 16px 16px 0 0; border-top: 2px solid #333; padding: 10px 14px; display: grid; gap: 4px; }
+  .desk .sheet { left: auto; right: 12px; bottom: auto; top: 50px; width: 340px; border: 2px solid #333; border-radius: 12px; }
+  .sheet .item { padding: 7px 4px; border-bottom: 1px solid #eee; }
+  .sheet .card { border: 1px dashed #999; border-radius: 8px; padding: 6px 8px; color: #555; }
+
+  /* Wide: Home column on the left, right panel */
+  .col-left { width: 300px; flex: none; background: #f4f4f1; }
+  .col-center { flex: 1; }
+  .col-right { width: 380px; flex: none; background: #fff; }
+  .divider { position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; background: repeating-linear-gradient(#c96442 0 6px, transparent 6px 12px); opacity: .5; }
+  .list .box { padding: 10px; margin: 6px 10px; }
+  .label { margin: 10px 14px 2px; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .04em; }
+
+  /* State switches */
+  body:not(.s-working) .only-working { display: none !important; }
+  body.s-working .only-idle { display: none !important; }
+  body:not(.s-queue) .only-queue { display: none !important; }
+  body:not(.s-notes) .only-notes { display: none !important; }
+  body:not(.s-menu) .only-menu { display: none !important; }
+  body:not(.s-panel) .only-panel { display: none !important; }
+  body:not(.s-attach) .only-attach { display: none !important; }
+  body:not(.s-suggest) .only-suggest { display: none !important; }
+  body:not(.s-request) .only-request { display: none !important; }
+  body:not(.s-scrolled) .only-scrolled { display: none !important; }
+  body.s-notes .notes-off { display: none; }
+</style>
+</head>
+<body class="s-notes">
+<header class="page">
+  <h1>AtHome · chat e composer (blueprint)</h1>
+  <span class="stamp" id="stamp"></span>
+  <label><input type="checkbox" data-state="working"> Claude al lavoro</label>
+  <label><input type="checkbox" data-state="queue"> Messaggi in coda</label>
+  <label><input type="checkbox" data-state="notes" checked> Note aperte</label>
+  <label><input type="checkbox" data-state="request"> Richiesta di permesso</label>
+  <label><input type="checkbox" data-state="scrolled"> Scorso in alto (fantasmino)</label>
+  <label><input type="checkbox" data-state="attach"> Allegati</label>
+  <label><input type="checkbox" data-state="suggest"> Suggerimenti / e @</label>
+  <label><input type="checkbox" data-state="menu"> Menu ⋯</label>
+  <label><input type="checkbox" data-state="panel"> Pannello destro (desktop)</label>
+</header>
+
+<!-- The chat, written once and copied into both frames by the script below (phone and wide differ only by CSS and the
+     data-only attributes). -->
+<template id="chat">
+  <div class="col col-center chat">
+    <div class="topbar">
+      <span class="btn" data-only="phone" title="back">‹<br><span class="lbl">indietro</span></span>
+      <span class="title"><span class="badge"></span>Titolo della sessione</span>
+      <span class="btn" data-only="desk">File</span>
+      <span class="btn">↺<br><span class="lbl">torna indietro</span></span>
+      <span class="btn">⋯</span>
+    </div>
+    <div class="box only-update" style="display:none">Barra aggiornamento</div>
+    <div class="chat-body">
+      <div class="conversation">
+        <div class="msg-user">Messaggio dell'utente</div>
+        <div class="msg-ai">Risposta di Claude (testo, markdown, codice)…</div>
+        <div class="tool"><span class="lbl">.tool</span> Strumento: Read file.ts</div>
+        <div class="meta-line">1.2 s · $0.0100</div>
+        <div class="msg-user">Secondo messaggio</div>
+        <div class="msg-ai">Altra risposta di Claude…</div>
+        <div class="request only-request"><b>Claude chiede il permesso</b><span>Write notes.txt</span><div class="row"><span class="btn">Consenti</span><span class="btn">Sempre</span><span class="btn">Nega…</span></div></div>
+        <div class="working-line only-working">● Al lavoro · 12 s</div>
+      </div>
+      <div class="scroll-thumb only-scrolled" data-only="phone"></div>
+      <div class="ghost only-scrolled"><span>fantasmino: il tuo messaggio</span></div>
+      <span class="btn round jump only-scrolled">↓</span>
+    </div>
+    <div class="dock">
+      <div class="composer">
+        <div class="suggest only-suggest"><span class="lbl">suggerimenti</span><br>/comando · @file</div>
+        <div class="attachments only-attach"><span class="box">img</span><span class="box">file</span></div>
+        <div class="input-box">
+          <span class="working-mini only-working">● 12 s</span>
+          <div class="field">Scrivi a Claude…</div>
+          <div class="tools">
+            <span class="btn">+</span>
+            <span class="btn">⛨<br><span class="lbl">modo</span></span>
+            <span class="btn">🧠<br><span class="lbl">modello</span></span>
+            <span class="btn notes-toggle">Note</span>
+            <span class="btn round gauge">◔<br><span class="lbl">contesto</span></span>
+            <span class="btn round dark only-working">■<br><span class="lbl">stop</span></span>
+            <span class="btn round dark only-working">≡<br><span class="lbl">coda</span></span>
+            <span class="btn round accent">↑<br><span class="lbl">invia</span></span>
+          </div>
+        </div>
+        <div class="queue-tray only-queue"><span class="btn">⏸</span><span class="q-stack">prossimo messaggio in coda…</span><span class="btn">🗑</span></div>
+        <div class="notes-tray only-notes">
+          <div class="tray-note new">Nuova nota</div>
+          <div class="tray-note">Testo della nota (fino a 6 righe)<span class="btn del">🗑</span><span class="btn accent send">→💬</span></div>
+          <div class="tray-note">Un'altra nota<span class="btn del">🗑</span><span class="btn accent send">→💬</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="scrim only-menu"></div>
+    <div class="sheet only-menu">
+      <b>Menu della sessione (⋯)</b>
+      <div class="card">/percorso/della/cartella<br>Modello · impegno · modo</div>
+      <div class="item" data-only="phone">File della cartella</div>
+      <div class="item">Terminale</div>
+      <div class="item">Sposta in un'altra cartella…</div>
+      <div class="item">Torna indietro a un tuo messaggio</div>
+      <div class="item">Modello e impegno ›</div>
+      <div class="item">Account</div>
+      <div class="item">Rinomina</div>
+      <div class="item">Fork: copia in una nuova sessione</div>
+      <div class="item">Riavvia Claude</div>
+      <div class="item">Pannelli: Contesto · Consumo · Stato · MCP · Hook · Permessi · Memoria</div>
+      <div class="item">Pannelli · più avanti</div>
+      <div class="item">Chiudi sessione</div>
+    </div>
+  </div>
+</template>
+
+<main>
+  <figure>
+    <figcaption>Telefono (390 × 844)</figcaption>
+    <div class="frame phone" id="phone"></div>
+  </figure>
+  <figure>
+    <figcaption>Desktop / finestra larga (1280 × 800, tre colonne)</figcaption>
+    <div class="frame desk" id="desk">
+      <div class="col col-left">
+        <div class="box" style="margin:6px 8px;padding:6px" data-note="solo app desktop">Selettore backend ▾ (Questo PC / server)</div>
+        <div class="topbar"><span class="title">progetto<br><span class="lbl">/percorso</span></span><span class="btn">+📁</span><span class="btn">Sessioni</span><span class="btn">⚙</span></div>
+        <div class="label">cartelle</div>
+        <div class="list"><div class="box">cartella A · 1 sessione aperta</div><div class="box">cartella B</div><div class="box">Eliminati di recente</div></div>
+        <div class="label">di questa cartella</div>
+        <div class="row" style="padding:0 14px;gap:14px"><span>⟲ Sessioni passate</span><span>+ Nuova sessione</span></div>
+      </div>
+      <div class="col col-right only-panel" style="order:3">
+        <span class="divider"></span>
+        <div class="topbar"><span class="btn on">File</span><span class="btn">Terminale</span><span class="grow"></span><span class="btn">×</span></div>
+        <div class="list"><div class="box">file1.ts</div><div class="box">file2.md</div></div>
+      </div>
+    </div>
+  </figure>
+</main>
+
+<script>
+  // Copies the chat into both frames, keeping only the elements meant for that frame (data-only).
+  for (const [id, kind] of [['phone', 'phone'], ['desk', 'desk']]) {
+    const chat = document.getElementById('chat').content.cloneNode(true)
+    chat.querySelectorAll('[data-only]').forEach((element) => element.dataset.only !== kind && element.remove())
+    const frame = document.getElementById(id)
+    const right = frame.querySelector('.col-right')
+    frame.insertBefore(chat, right)
+  }
+  // The state switches: one class on the body each.
+  for (const box of document.querySelectorAll('[data-state]')) {
+    const apply = () => document.body.classList.toggle(`s-${box.dataset.state}`, box.checked)
+    box.addEventListener('change', () => (apply(), sessionStorage.setItem(`bp:${box.dataset.state}`, box.checked ? '1' : '0')))
+    const kept = sessionStorage.getItem(`bp:${box.dataset.state}`)
+    if (kept !== null) box.checked = kept === '1'
+    apply()
+  }
+  document.body.classList.toggle('working', document.body.classList.contains('s-working'))
+  document.querySelectorAll('.notes-toggle').forEach((button) => button.classList.toggle('on', document.body.classList.contains('s-notes')))
+  document.querySelectorAll('[data-state]').forEach((box) => box.addEventListener('change', () => {
+    document.querySelectorAll('.notes-toggle').forEach((button) => button.classList.toggle('on', document.body.classList.contains('s-notes')))
+    document.querySelectorAll('.chat').forEach((chat) => chat.classList.toggle('working', document.body.classList.contains('s-working')))
+  }))
+  document.querySelectorAll('.chat').forEach((chat) => chat.classList.toggle('working', document.body.classList.contains('s-working')))
+  // Live reload: when the file changes on the server, the page reloads (the switches are kept).
+  let seen
+  setInterval(async () => {
+    try {
+      const response = await fetch(location.pathname, { method: 'HEAD', cache: 'no-store' })
+      const tag = response.headers.get('etag') ?? response.headers.get('last-modified')
+      if (seen && tag && tag !== seen) location.reload()
+      seen = tag ?? seen
+    } catch {
+      // the server is restarting: try again at the next tick
+    }
+  }, 1000)
+  fetch(location.pathname, { method: 'HEAD', cache: 'no-store' }).then((r) => (document.getElementById('stamp').textContent = `aggiornato: ${new Date(r.headers.get('last-modified') ?? Date.now()).toLocaleString('it-IT')}`))
+</script>
+</body>
+</html>

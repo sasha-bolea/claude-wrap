@@ -1,0 +1,16 @@
+# Development preview of AtHome's UI blueprint (a wireframe of the chat and composer, edited live with Sasha).
+# Serves /srv/progetti/claude-wrap/docs/blueprint read-only on 127.0.0.1:3007; published through Tailscale Serve by Sasha.
+services:
+  blueprint:
+    image: nginx:1.27-alpine
+    container_name: claude-wrap-blueprint
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3007:80"
+    volumes:
+      - ../../docs/blueprint:/usr/share/nginx/html:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
