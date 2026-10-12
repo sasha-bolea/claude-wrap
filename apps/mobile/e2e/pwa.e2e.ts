@@ -605,7 +605,7 @@ describe('PWA (fake SDK)', () => {
     expect(await page.locator('details.tool').count()).toBe(0)
   })
 
-  it('the queue: the queue button puts what I wrote in the queue at once; Stop pauses the queue; ▶ sends the next message', async () => {
+  it('the queue: the queue button puts what I wrote in the queue at once; Stop pauses the queue; Claude done, it still adds to it; ▶ sends the next message', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
     await send(page, 'slow')
@@ -625,11 +625,20 @@ describe('PWA (fake SDK)', () => {
     await resume.waitFor()
     await page.locator('.working-line').waitFor({ state: 'detached' })
     expect(await page.locator('.msg-user').filter({ hasText: 'queued one' }).count()).toBe(0)
+    // Claude is done but the queue holds a message: the queue button stays, and what I write joins the queue.
+    expect(await page.locator('.send.stop').count()).toBe(0)
+    await composer(page).fill('queued two')
+    await button(page, /^Add to the queue \(1 queued/).click()
+    await button(page, /^Add to the queue \(2 queued/).waitFor()
+    expect(await page.locator('.msg-user').filter({ hasText: 'queued two' }).count()).toBe(0)
     await resume.click()
     // The chat is on screen: the message counts down in the composer before it goes.
     await page.getByRole('status').filter({ hasText: /From the queue: goes in \d+ s/ }).waitFor()
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toBe('Echo: queued one')
+    await expect.poll(() => lastAnswer(page).textContent(), { timeout: 30_000 }).toBe('Echo: queued two')
     await page.locator('.queue-tray').waitFor({ state: 'detached' })
+    // Nothing left in the queue and Claude done: no queue button.
+    expect(await page.locator('.queue-btn').count()).toBe(0)
   })
 
   it('the bin on the queue card removes the next queued message', async () => {
