@@ -1,8 +1,8 @@
 // Desktop chat on the scripted fake SDK, in the touch app's wide arrangement. User stories:
 // I add a folder and chat (the answer streams in); I answer permissions, questions and plans; I interrupt
 // with Esc or Stop; I switch mode with Shift+Tab; a session waiting elsewhere is announced once; reloading the
-// window loses nothing; untrusted markdown cannot load remote content; the Home lists the folders of This PC; no
-// menu bar, only its zoom and F12 shortcuts kept.
+// window loses nothing; untrusted markdown cannot load remote content; a code block copies; an address in inline
+// code is a link; the Home lists the folders of This PC; no menu bar, only its zoom and F12 shortcuts kept.
 import { existsSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { addFolder, button, composer, launch, lastAnswer, openChat, openRows, openTool, send, showSessions, type App } from './harness.ts'
@@ -76,8 +76,8 @@ describe('desktop chat (fake SDK)', () => {
     await showSessions(page)
     expect(await page.locator('.col-left .row.current').count()).toBe(1)
     expect(await page.locator('.col-center').getByRole('button', { name: 'Back', exact: true }).count()).toBe(0)
-    // File and Rewind are tools now: the chat's bar keeps only its ⋯.
-    expect(await page.locator('.chat-bar').getByRole('button').count()).toBe(1)
+    // File and Rewind are tools now: the chat's bar keeps only its ⋯ and the Tools button.
+    expect(await page.locator('.chat-bar').getByRole('button').count()).toBe(2)
   })
 
   it('the Terminal tool opens in the right panel a shell in the session folder (node-pty inside Electron)', async () => {
@@ -247,5 +247,15 @@ describe('desktop chat (fake SDK)', () => {
     expect(await lastAnswer(page).locator('img').count()).toBe(0)
     expect(await lastAnswer(page).getByRole('link', { name: 'tracker' }).count()).toBe(1)
     expect(requested.filter((url) => url.includes('example.com'))).toEqual([])
+  })
+
+  it('a code block copies to the system clipboard with a toast; an address in inline code is a link', async () => {
+    const { app, page } = ctx
+    await send(page, 'see `http://example.com/x` and `npm test`\n\n```\necho ciao\n```')
+    await lastAnswer(page).locator('.copy-code').click()
+    await page.getByText('Code copied').waitFor()
+    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('echo ciao\n')
+    expect(await lastAnswer(page).getByRole('link', { name: 'http://example.com/x' }).count()).toBe(1)
+    expect(await lastAnswer(page).getByRole('link', { name: 'npm test' }).count()).toBe(0)
   })
 })

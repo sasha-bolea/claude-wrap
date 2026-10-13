@@ -103,10 +103,11 @@ async function chooseFolder(event: IpcMainInvokeEvent): Promise<string | undefin
   return result.canceled ? undefined : result.filePaths[0]
 }
 
-// Opens a link from the conversation in the system browser, https only.
+// Opens a link from the conversation in the system browser, web addresses only (https, or http: the home server's
+// apps over Tailscale).
 function openExternal(event: IpcMainEvent, url: unknown): void {
   if (!fromOurPage(event) || typeof url !== 'string') return
-  if (URL.canParse(url) && new URL(url).protocol === 'https:') void shell.openExternal(url)
+  if (URL.canParse(url) && ['https:', 'http:'].includes(new URL(url).protocol)) void shell.openExternal(url)
 }
 
 // System notification for a notice of a backend, only while the window is not focused. Clicking it brings the
@@ -178,7 +179,8 @@ function startApp(): void {
   })
   // Windows needs an AppUserModelID for notifications.
   app.setAppUserModelId(APP_ID)
-  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => callback(permission === 'notifications'))
+  // Notifications, and writing to the clipboard (the copy buttons); nothing else.
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => callback(permission === 'notifications' || permission === 'clipboard-sanitized-write'))
   if (!DEV_URL) serveAppProtocol()
   backends = new BackendStore(join(app.getPath('userData'), 'backends.json'))
   core.start()

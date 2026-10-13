@@ -29,9 +29,9 @@ const enterSends = () => matchMedia('(hover: hover)').matches
 const ESCAPE_TWICE_MS = 600
 
 // tab: shown as a tab sticking out of the input box's top left edge (the working time while its line is out of view).
-// toolsOpen / onToggleTools: the Tools button (pressed while the Tools show); onOpenQueue: a tap on the queue's stack;
+// toolsOpen: the Tools show (the left buttons that are also tiles slide away); onOpenQueue: a tap on the queue's stack;
 // onSent: a message went (the chat comes back from the Tools).
-type ComposerProps = { meta: TabMeta; running: boolean; requestOpen: boolean; onFocusField: () => void; tab?: ReactNode; toolsOpen: boolean; onToggleTools: () => void; onOpenQueue: () => void; onSent: () => void }
+type ComposerProps = { meta: TabMeta; running: boolean; requestOpen: boolean; onFocusField: () => void; tab?: ReactNode; toolsOpen: boolean; onOpenQueue: () => void; onSent: () => void }
 
 // Ring of the countdown around Stop (SVG units, a 44×44 box).
 const RING_RADIUS = 20
@@ -71,11 +71,11 @@ function QueuedCountdown({ text, images, until, onStop }: { text: string; images
 
 // The composer of the touch layout: one box floating over the chat — the text on top; under it + (photos and
 // files), permissions and the context gauge on the left; on the right Stop while Claude responds and Coda always (it puts what is written
-// straight into the queue; into an empty queue while Claude is free it waits there, the queue paused), then Send (the model and effort sheet is the brain button after the mode button; the Tools button, first on the right, shows the chat's Tools — notes, queue — in place of the conversation). `/` suggests
+// straight into the queue; into an empty queue while Claude is free it waits there, the queue paused), then Send (the model and effort sheet is the brain button after the mode button; the chat's Tools, from the Tools button of its bar, show in place of the conversation). `/` suggests
 // commands, `@` files; `!` runs a shell command; long pastes collapse. Files that are not photos go to allegati/ and
 // are mentioned.
 // A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.
-export function TouchComposer({ meta, running, requestOpen, onFocusField, tab, toolsOpen, onToggleTools, onOpenQueue, onSent }: ComposerProps) {
+export function TouchComposer({ meta, running, requestOpen, onFocusField, tab, toolsOpen, onOpenQueue, onSent }: ComposerProps) {
   const { connection, backendId, openSheet, toast, snack, fail, inserts, clearInsert, go } = useTouch()
   const tabId = meta.tabId
   const models = useModels(tabId)
@@ -365,9 +365,7 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab, t
             <Icon name="brain" />
           </button>
           <GaugeButton meta={meta} />
-          <button className={`icon-btn tools-toggle${toolsOpen ? ' on' : ''}`} aria-label={t('tools')} aria-pressed={toolsOpen} onClick={onToggleTools}>
-            <Icon name="grid" />
-          </button>
+          <span className="input-spacer" aria-hidden="true" />
           {(running || requestOpen) && (
             <button className="send stop" aria-label={t('stopClaude')} onClick={stop} {...keepFocus}>
               <Icon name="stop" />

@@ -128,7 +128,7 @@ export const openRows = (page: Page) => page.locator('.col-left .row').filter({ 
 // Opens one of the chat's Tools: the composer's Tools button (unless they show already), back to their grid, then the
 // tile. page: the app's window. name: the tile's name (its start: a tile also says its count or state).
 export async function openTool(page: Page, name: string): Promise<void> {
-  const tools = page.locator('.composer').getByRole('button', { name: 'Tools', exact: true })
+  const tools = page.locator('.chat-bar').getByRole('button', { name: 'Tools', exact: true })
   if ((await tools.getAttribute('aria-pressed')) !== 'true') await tools.click()
   const back = page.getByRole('button', { name: 'All tools' })
   if (await back.isVisible()) await back.click()

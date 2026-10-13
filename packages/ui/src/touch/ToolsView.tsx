@@ -20,6 +20,7 @@ export type ToolsPage = 'grid' | 'notes' | 'queue'
 // list of cards in the same place, ‹ goes back to the grid; File, Terminale, Torna indietro, Account and Fork do what the
 // session menu used to (the folder's files, its terminal, the rewind, the account sheet).
 // Mode, model and context are the composer's own left buttons, which slide away while the Tools show.
+// The chat bar's Tools button (an X while they show) closes them.
 // Parameters: the chat's meta, the page shown and onPage (another page).
 export function ToolsView({ meta, page, onPage }: { meta: TabMeta; page: ToolsPage; onPage: (page: ToolsPage) => void }) {
   const { state, connection, announce, snack, fail, go, openSheet, toast } = useTouch()

@@ -43,7 +43,7 @@ contextBridge.exposeInMainWorld('athome', {
   connect,
   // Native folder picker (desktop only). Resolves to the path, or undefined if cancelled.
   chooseFolder: (): Promise<string | undefined> => ipcRenderer.invoke('choose-folder'),
-  // Opens an https link in the system browser (main re-checks the scheme).
+  // Opens an http(s) link in the system browser (main re-checks the scheme).
   openExternal: (url: string): void => ipcRenderer.send('open-external', url),
   // A notification was clicked: show that tab of that backend.
   onActivateTab: (listener: (tabId: string, backendId: string) => void) => listen('activate-tab', listener),

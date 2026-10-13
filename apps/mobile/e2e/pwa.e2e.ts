@@ -228,7 +228,7 @@ describe('PWA (fake SDK)', () => {
     for (const item of [back, title, more]) expect(Math.abs(item.y + item.height / 2 - mid)).toBeLessThan(4)
     expect(title.x).toBeGreaterThan(back.x + back.width - 1)
     expect(title.x + title.width).toBeLessThanOrEqual(more.x + 1)
-    expect(await page.locator('.chat-bar').getByRole('button').count()).toBe(2)
+    expect(await page.locator('.chat-bar').getByRole('button').count()).toBe(3)
     expect(await page.locator('.topbar .model-btn').count()).toBe(0)
     // The title is the chat's name only (no folder), plain text: tapping it opens nothing.
     expect(await page.locator('.chat-title').textContent()).not.toContain(' / ')
@@ -250,9 +250,9 @@ describe('PWA (fake SDK)', () => {
     const menu = page.getByRole('dialog').last()
     expect(await menu.getByRole('button', { name: /^Model and effort|^Effort/ }).count()).toBe(0)
     await page.keyboard.press('Escape')
-    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
+    await page.locator('.chat-bar').getByRole('button', { name: 'Tools', exact: true }).click()
     expect(await page.getByRole('region', { name: 'Tools' }).getByRole('button', { name: /^Model/ }).textContent()).toContain('high')
-    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
+    await page.locator('.chat-bar').getByRole('button', { name: 'Tools', exact: true }).click()
     await button(page, /^Permission mode/).click()
     const modeSheet = page.getByRole('dialog', { name: 'Permission mode' })
     expect(await modeSheet.getByRole('radiogroup', { name: 'Effort' }).count()).toBe(0)
@@ -745,7 +745,7 @@ describe('PWA (fake SDK)', () => {
   it('a note used in the message is linked to the draft and deleted at send', async () => {
     const page = await pairedPage(await newPhone(), backend)
     await openProject(page)
-    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
+    await page.locator('.chat-bar').getByRole('button', { name: 'Tools', exact: true }).click()
     await page.getByRole('region', { name: 'Tools' }).getByRole('button', { name: /^Notes/ }).click()
     const tray = page.getByRole('region', { name: 'Notes' })
     const text = 'Remember the milk, then the long list of everything else that keeps going on and on past the screen'
@@ -763,7 +763,7 @@ describe('PWA (fake SDK)', () => {
     await page.getByRole('status').filter({ hasText: 'used and deleted' }).waitFor()
     // Sending brought the chat back; the note is gone from the Tools.
     await tray.waitFor({ state: 'detached' })
-    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
+    await page.locator('.chat-bar').getByRole('button', { name: 'Tools', exact: true }).click()
     await expect.poll(() => page.getByRole('region', { name: 'Tools' }).getByRole('button', { name: /^Notes/ }).textContent()).toContain('0')
   })
 
@@ -778,10 +778,12 @@ describe('PWA (fake SDK)', () => {
     await menu.getByRole('button', { name: 'Rename', exact: true }).waitFor()
     for (const gone of ['Folder files', 'Terminal', 'Go back to one of your messages', /^Account/]) expect(await menu.getByRole('button', { name: gone, exact: typeof gone === 'string' }).count()).toBe(0)
     await page.keyboard.press('Escape')
-    // The Tools button, on the right of the bar, shows the grid in place of the conversation; again: the chat.
-    const tools = page.locator('.composer').getByRole('button', { name: 'Tools', exact: true })
-    const bar = (await page.locator('.input-box').boundingBox())!
-    expect((await tools.boundingBox())!.x).toBeGreaterThan(bar.x + bar.width / 2)
+    // The Tools button, in the chat bar's top right corner after ⋯, shows the grid in place of the conversation;
+    // pressed (its squares an X), again: the chat. The composer has no Tools button any more.
+    const tools = page.locator('.chat-bar').getByRole('button', { name: 'Tools', exact: true })
+    const more = (await page.locator('.chat-bar').getByRole('button', { name: 'More actions' }).boundingBox())!
+    expect((await tools.boundingBox())!.x).toBeGreaterThan(more.x)
+    expect(await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).count()).toBe(0)
     expect(await tools.getAttribute('aria-pressed')).toBe('false')
     await tools.click()
     expect(await tools.getAttribute('aria-pressed')).toBe('true')
@@ -885,7 +887,7 @@ describe('PWA (fake SDK)', () => {
     // Send now: that message leaves the queue and goes.
     await queued.filter({ hasText: 'q one' }).getByRole('button', { name: 'Send now' }).click()
     await expect.poll(() => queued.count()).toBe(2)
-    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
+    await page.locator('.chat-bar').getByRole('button', { name: 'Tools', exact: true }).click()
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toBe('Echo: q one')
   })
 
@@ -983,7 +985,7 @@ describe('PWA (fake SDK)', () => {
     await stopped.getByRole('button', { name: 'Continue' }).click()
     await expect.poll(() => lastAnswer(page).textContent(), { timeout: 20_000 }).toContain('Echo: continue')
     await stopped.waitFor({ state: 'detached' })
-    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
+    await page.locator('.chat-bar').getByRole('button', { name: 'Tools', exact: true }).click()
     await page.getByRole('region', { name: 'Tools' }).getByRole('button', { name: /^Account Second/ }).waitFor()
   })
 
@@ -1120,7 +1122,7 @@ describe('PWA (fake SDK)', () => {
     await page.locator('.col-right').getByRole('region', { name: 'Terminal' }).waitFor()
     await page.locator('.col-right').getByRole('button', { name: 'Close the panel' }).click()
     await page.locator('.col-right').waitFor({ state: 'detached' })
-    await page.locator('.composer').getByRole('button', { name: 'Tools', exact: true }).click()
+    await page.locator('.chat-bar').getByRole('button', { name: 'Tools', exact: true }).click()
     // Menus are popovers by their button: below one at the top, above the composer's (the model's too).
     await button(page, 'More actions').click()
     const menu = page.locator('.sheet.popover')

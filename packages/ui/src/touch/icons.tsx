@@ -97,6 +97,18 @@ export type IconName = keyof typeof SHAPES
 // The icon of a permission mode.
 export const modeIcon = (mode: PermissionMode): IconName => `mode-${mode}`
 
+// The Tools button's icon: four squares that, pressed (`.on` on the button), stretch, turn and meet in an X (close).
+export function ToolsIcon() {
+  return (
+    <svg className="i tools-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect className="q tl" x="4.5" y="4.5" width="6" height="6" />
+      <rect className="q tr" x="13.5" y="4.5" width="6" height="6" />
+      <rect className="q bl" x="4.5" y="13.5" width="6" height="6" />
+      <rect className="q br" x="13.5" y="13.5" width="6" height="6" />
+    </svg>
+  )
+}
+
 export function Icon({ name, className }: { name: IconName; className?: string }) {
   return (
     <svg className={className ? `i ${className}` : 'i'} viewBox="0 0 24 24" aria-hidden="true">

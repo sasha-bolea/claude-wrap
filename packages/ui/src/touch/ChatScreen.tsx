@@ -6,7 +6,7 @@ import { modeLabel } from '../modes.ts'
 import type { Answer } from '../chatHooks.ts'
 import { useScreen, useTouch, type LaterKey } from './context.tsx'
 import { Conversation, WorkingMini } from './Conversation.tsx'
-import { Icon } from './icons.tsx'
+import { Icon, ToolsIcon } from './icons.tsx'
 import { sessionState } from './model.ts'
 import { currentEffort, modelLabel, useModels } from './modelSheets.tsx'
 import { Badge, ConnectionBanner, IconButton, UpdateBar } from './parts.tsx'
@@ -388,6 +388,9 @@ export function ChatScreen({ tabId }: { tabId: string }) {
           <h1 className="chat-title">{meta.title}</h1>
         </div>
         <IconButton icon="more" label={t('moreActions')} onClick={openMenu} />
+        <button className={`icon-btn tools-toggle${tools ? ' on' : ''}`} aria-label={t('tools')} aria-pressed={Boolean(tools)} onClick={() => setTools(tools ? undefined : 'grid')}>
+          <ToolsIcon />
+        </button>
       </header>
       <UpdateBar />
       <ConnectionBanner />
@@ -422,7 +425,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
         )}
       </div>
       <div className="dock" ref={dock}>
-        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} toolsOpen={Boolean(tools)} onToggleTools={() => setTools(tools ? undefined : 'grid')} onOpenQueue={() => setTools('queue')} onSent={() => setTools(undefined)} onFocusField={() => (setFollow(true), settleBottom())} tab={<WorkingMini show={running && lineOut} since={meta.status === 'running' ? meta.workingSince : undefined} />} />
+        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} toolsOpen={Boolean(tools)} onOpenQueue={() => setTools('queue')} onSent={() => setTools(undefined)} onFocusField={() => (setFollow(true), settleBottom())} tab={<WorkingMini show={running && lineOut} since={meta.status === 'running' ? meta.workingSince : undefined} />} />
       </div>
     </section>
   )
