@@ -239,6 +239,15 @@ Examples: [Conversation.tsx:354](../packages/ui/src/touch/Conversation.tsx#L354)
 
 ### Conversation scroll indicator — `.scroll-thumb` (`.on`)
 On touch screens (`pointer: coarse`) the native indicator of `.conversation` is hidden (iOS draws it down behind the
+### Checklists — `li.task-list-item`, `.task-box`
+A markdown checklist (`- [ ]` / `- [x]`) shows its boxes without a bullet, in the accent colour. In Claude's replies in
+a chat each box takes a tap: `TaskBox` in [Markdown.tsx](../packages/ui/src/Markdown.tsx#L57) wraps it in a `label.task-box`
+that widens the touch target to about 40 px without moving the text. The tick shows at once and is kept by core with
+the session (`tab.setCheck`, `checks.json`), the same on every device and after a reload; a box never touched shows
+as Claude wrote it; a refused tick goes back with a toast (`useChecks` in [Conversation.tsx](../packages/ui/src/touch/Conversation.tsx#L250)).
+Everywhere else (plans, file previews, other sessions' messages) the boxes stay read only, as written.
+Example: [Conversation.tsx:275](../packages/ui/src/touch/Conversation.tsx#L275).
+
 dock's blur and cannot inset it); a thin thumb runs from the top of the chat to just above the dock, shows while
 scrolling and fades out. Mouse screens keep the native scrollbar.
 While it shows (`.on`) it can be grabbed like iOS's own: an invisible 44 px hit area on the right edge (the `::before`,

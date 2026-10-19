@@ -157,6 +157,10 @@ export const folderEntrySchema = z.object({ name: z.string(), path: z.string(), 
 export const fileEntrySchema = z.object({ name: z.string(), kind: z.enum(['file', 'folder']), size: z.number(), modified: z.number() })
 // Something deleted to the app's trash (remote server), restorable until expiresAt (ms).
 export const trashItemSchema = z.object({ id: z.string(), path: z.string(), kind: z.enum(['file', 'folder']), deletedAt: z.number(), expiresAt: z.number() })
+// The boxes ticked by hand in the checklists of Claude's messages: by item id, then by the box's place in the message
+// (0 = first); true ticked, false unticked (a box missing here shows as the message wrote it).
+export const CHECK_LIMITS = { boxes: 1000, itemId: 200 } as const
+export const checksSchema = z.record(z.string(), z.record(z.string(), z.boolean()))
 // A note of a folder; times in ms.
 export const noteSchema = z.object({ noteId: z.string(), text: z.string(), createdAt: z.number(), updatedAt: z.number() })
 // Args of a file command: its own fields plus where it works, a tab's folder or a folder of the Home (exactly one).
@@ -288,6 +292,10 @@ export const COMMANDS = {
   // Rewind a conversation to a specific message: restores conversation, code, or both. newTabId: set when rewinding
   // the conversation to the first message opens a new empty session.
   'tab.rewind': { args: z.object({ tabId, itemId: z.string(), mode: z.enum(['both', 'conversation', 'code']) }), result: z.object({ text: z.string().optional(), images: z.array(imageSchema).optional(), filesChanged: z.array(z.string()).optional(), skippedLinks: z.number().optional(), newTabId: z.string().optional() }) },
+  // The boxes ticked by hand in this session's messages (none before its first turn).
+  'tab.checks': { args: z.object({ tabId }), result: z.object({ checks: checksSchema }) },
+  // Ticks or unticks a box of a checklist in one of Claude's messages; kept with the session, on every device.
+  'tab.setCheck': { args: z.object({ tabId, itemId: z.string().min(1).max(CHECK_LIMITS.itemId), index: z.number().int().nonnegative().max(CHECK_LIMITS.boxes), checked: z.boolean() }), result: empty },
   // Reads the composer's gauges again (TabMeta.context, planLimits) from the session's live process, or (dormant) the
   // plan windows through a live session of the same account; starts none.
   // Claude Code's auto-compact window for every session (as /autocompact; tokens, clamped by the CLI to the model's
@@ -450,3 +458,4 @@ export type FolderEntry = z.infer<typeof folderEntrySchema>
 export type FileEntry = z.infer<typeof fileEntrySchema>
 export type TrashItem = z.infer<typeof trashItemSchema>
 export type Note = z.infer<typeof noteSchema>
+export type Checks = z.infer<typeof checksSchema>

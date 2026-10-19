@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react'
-import type { Element } from 'hast'
+import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
+import type { Element, Root, RootContent } from 'hast'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { t } from './i18n.ts'
@@ -35,6 +35,35 @@ function CodeBlock({ children }: { children?: ReactNode }) {
   )
 }
 
+// The ticks a message keeps for its checklist boxes (by the box's place in the message, 0 = first; a box missing shows
+// as written) and how a tap changes one. Absent: the boxes are read only.
+export type TaskChecks = { ticked?: Record<string, boolean>; toggle: (index: number, checked: boolean) => void }
+const TaskContext = createContext<TaskChecks | undefined>(undefined)
+
+// Numbers the checklist boxes of the rendered tree in document order (the `index` property of each checkbox input).
+function numberBoxes() {
+  return (tree: Root) => {
+    let next = 0
+    const visit = (node: Root | RootContent) => {
+      if (node.type === 'element' && node.tagName === 'input' && node.properties.type === 'checkbox') node.properties.index = next++
+      if ('children' in node) node.children.forEach(visit)
+    }
+    visit(tree)
+  }
+}
+
+// One box of a checklist: read only as written, or (with ticks to keep) a box a tap changes, its kept tick shown.
+// The label around it widens the touch target past the small box. index: its place; written: ticked in the text.
+function TaskBox({ index, written }: { index: number; written: boolean }) {
+  const checks = useContext(TaskContext)
+  if (!checks) return <input type="checkbox" checked={written} disabled readOnly />
+  return (
+    <label className="task-box">
+      <input type="checkbox" data-index={index} checked={checks.ticked?.[index] ?? written} onChange={(event) => checks.toggle(index, event.target.checked)} />
+    </label>
+  )
+}
+
 // A web address alone, as Claude often writes one in inline code (`https://…`): no spaces, http or https.
 const BARE_URL = /^https?:\/\/\S+$/
 
@@ -54,7 +83,9 @@ function textOf(element: Element): string {
 // openExternal: opens an http(s) link in the system browser (desktop); absent → links are inert text.
 // renderBlock: shows some fenced blocks another way (assistant replies: widgets). Keep it stable: the components are
 // memoised on it, so a streaming reply does not remount what is already shown (a widget's frame would reload).
-export function Markdown({ text, openExternal, renderBlock }: { text: string; openExternal?: (url: string) => void; renderBlock?: RenderBlock }) {
+// checks: the message's checklist ticks (Claude's replies in a chat); absent, the boxes are read only. It goes through
+// a context, not the components, so a tick never remounts the message.
+export function Markdown({ text, openExternal, renderBlock, checks }: { text: string; openExternal?: (url: string) => void; renderBlock?: RenderBlock; checks?: TaskChecks }) {
   const source = useRef(text)
   source.current = text
   const components = useMemo<Components>(() => {
@@ -92,6 +123,7 @@ export function Markdown({ text, openExternal, renderBlock }: { text: string; op
           {children}
         </a>
       ),
+      input: ({ node, type, checked }) => (type === 'checkbox' ? <TaskBox index={Number(node?.properties.index)} written={checked === true} /> : null),
       img: ({ src, alt }) => {
         const href = typeof src === 'string' ? src : undefined
         return (
@@ -103,8 +135,10 @@ export function Markdown({ text, openExternal, renderBlock }: { text: string; op
     }
   }, [openExternal, renderBlock])
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-      {text}
-    </ReactMarkdown>
+    <TaskContext.Provider value={checks}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[numberBoxes]} components={components}>
+        {text}
+      </ReactMarkdown>
+    </TaskContext.Provider>
   )
 }

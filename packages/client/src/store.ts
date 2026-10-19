@@ -33,12 +33,14 @@ export type StoreState = {
   transcripts: Record<string, TabView>
   // Bumped when a folder's notes change (by folder): a screen showing them reads them again.
   notesVersion: Record<string, number>
+  // Bumped when the ticked boxes of a tab's checklists change (by tabId): its chat reads them again.
+  checksVersion: Record<string, number>
 }
 
 // Client-side copy of the core state the UI displays. Every change produces a new state object
 // (useSyncExternalStore-ready: getSnapshot/subscribe).
 export class Store {
-  private state: StoreState = { status: 'connecting', palettes: [], terminals: [], transcripts: {}, notesVersion: {} }
+  private state: StoreState = { status: 'connecting', palettes: [], terminals: [], transcripts: {}, notesVersion: {}, checksVersion: {} }
   private readonly listeners = new Set<() => void>()
 
   getSnapshot = (): StoreState => this.state
@@ -88,6 +90,7 @@ export class Store {
       const notesVersion = { ...this.state.notesVersion, [ev.cwd]: (this.state.notesVersion[ev.cwd] ?? 0) + 1 }
       this.set({ ...this.state, notesVersion })
     }
+    if (ev.type === 'checks.changed') this.set({ ...this.state, checksVersion: { ...this.state.checksVersion, [ev.tabId]: (this.state.checksVersion[ev.tabId] ?? 0) + 1 } })
   }
 
   applyTabEvent(tabId: string, ev: TabEvent): void {

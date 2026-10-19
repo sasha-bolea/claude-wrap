@@ -218,6 +218,12 @@ input, textarea, select { font-size: 16px; }
 .msg-peer { align-self: flex-start; max-width: 92%; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 4px 16px 16px 16px; padding: 9px 12px; overflow-wrap: anywhere; }
 .msg-peer .from { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
 .msg-peer .from svg.i { width: 15px; height: 15px; }
+/* Checklists: no bullet before a box; in Claude's replies the box takes a tap, its label widening the touch target to
+   about 40 px without moving the text */
+.msg-ai li.task-list-item, .msg-peer li.task-list-item { list-style: none; }
+.msg-ai ul.contains-task-list, .msg-peer ul.contains-task-list { padding-left: 4px; }
+.task-list-item input { width: 18px; height: 18px; margin: 0 8px 0 0; vertical-align: -3px; accent-color: var(--accent); }
+.task-box { display: inline-flex; padding: 11px; margin: -11px -3px -11px -11px; cursor: pointer; }
 details.think, details.tool { border-radius: 12px; }
 details.think > summary { color: var(--text-muted); font-style: italic; font-size: 13px; cursor: pointer; padding: 4px 0; list-style: none; }
 details.think p { color: var(--text-muted); font-style: italic; border-left: 3px solid var(--border); padding-left: 10px; margin: 4px 0; font-size: 14px; white-space: pre-wrap; }

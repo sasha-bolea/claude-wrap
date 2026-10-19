@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { TabView } from '@athome/client'
-import type { Image, ImageRef, Item, Request, TabMeta } from '@athome/protocol'
+import type { Checks, Image, ImageRef, Item, Request, TabMeta } from '@athome/protocol'
 import { t } from '../i18n.ts'
 import { dataUrl } from '../images.ts'
-import { Markdown, type FencedBlock } from '../Markdown.tsx'
+import { Markdown, type FencedBlock, type TaskChecks } from '../Markdown.tsx'
 import type { Answer } from '../chatHooks.ts'
 import { ContinueCard, LimitCard } from './accounts.tsx'
 import { useTouch } from './context.tsx'
@@ -13,6 +13,7 @@ import { actionWords, widgetSpec } from './widget.ts'
 import { useWidgetActions } from './widgetActions.ts'
 import { answeredQuestions, durationLabel, modelShortName } from './model.ts'
 import { effortLabel } from './modelSheets.tsx'
+import { useQuery } from './parts.tsx'
 
 type LoadImage = (imageId: string) => Promise<Image>
 type ToolCall = Extract<Item, { kind: 'toolCall' }>
@@ -240,17 +241,49 @@ function entries(items: Item[]): Entry[] {
   return out
 }
 
-// A reply of Claude: markdown, with its widget blocks shown as widgets acting on this chat.
-function AssistantText({ tabId, text }: { tabId: string; text: string }) {
+// The checklist ticks of a chat's messages and how a tap changes one (see useChecks).
+type ChatChecks = { checks: Checks; toggle: (itemId: string, index: number, checked: boolean) => void }
+const ChecksContext = createContext<ChatChecks | undefined>(undefined)
+
+// The checklist ticks of a chat, kept by the core with its session: read again whenever any device changes them. A tap
+// shows at once; a refused one goes back (with the reason as a toast). tabId: the chat's tab.
+function useChecks(tabId: string): ChatChecks {
+  const { state, connection, fail } = useTouch()
+  const kept = useQuery(() => connection.request('tab.checks', { tabId }), [connection, tabId, state.checksVersion[tabId]])
+  // Taps not read back from the core yet: cleared when the core's ticks arrive again.
+  const [taps, setTaps] = useState<Checks>({})
+  useEffect(() => setTaps({}), [kept.data])
+  const checks = useMemo(() => {
+    const merged = structuredClone(kept.data?.checks ?? {})
+    for (const [itemId, boxes] of Object.entries(taps)) merged[itemId] = { ...merged[itemId], ...boxes }
+    return merged
+  }, [kept.data, taps])
+  const tap = (itemId: string, index: number, checked: boolean | undefined) =>
+    setTaps((current) => {
+      const { [index]: _gone, ...rest } = current[itemId] ?? {}
+      return { ...current, [itemId]: checked === undefined ? rest : { ...rest, [index]: checked } }
+    })
+  const toggle = (itemId: string, index: number, checked: boolean) => {
+    tap(itemId, index, checked)
+    connection.request('tab.setCheck', { tabId, itemId, index, checked }).catch((error: unknown) => (tap(itemId, index, undefined), fail(error)))
+  }
+  return { checks, toggle }
+}
+
+// A reply of Claude: markdown, with its widget blocks shown as widgets acting on this chat and its checklist boxes
+// ticked by a tap. itemId: the reply's item (the key of its ticks).
+function AssistantText({ tabId, itemId, text }: { tabId: string; itemId: string; text: string }) {
   const { capabilities } = useTouch()
   const onAction = useWidgetActions(tabId)
+  const chat = useContext(ChecksContext)
   const renderBlock = useCallback(({ className, body, closed }: FencedBlock) => {
     const spec = widgetSpec(className, body)
     return spec && <WidgetBlock spec={spec} closed={closed} onAction={onAction} />
   }, [onAction])
+  const checks: TaskChecks | undefined = chat && { ticked: chat.checks[itemId], toggle: (index, checked) => chat.toggle(itemId, index, checked) }
   return (
     <div className="msg-ai">
-      <Markdown text={text} openExternal={capabilities.openExternal} renderBlock={renderBlock} />
+      <Markdown text={text} openExternal={capabilities.openExternal} renderBlock={renderBlock} checks={checks} />
     </div>
   )
 }
@@ -283,7 +316,7 @@ function ItemView({ tabId, item, readAt, loadImage, onActions, onSendNow, onUnse
     case 'user':
       return <UserMessage item={item} readAt={readAt} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} onUnsend={onUnsend} />
     case 'assistantText':
-      return <AssistantText tabId={tabId} text={item.text} />
+      return <AssistantText tabId={tabId} itemId={item.itemId} text={item.text} />
     case 'thinking':
       return (
         <details className="think">
@@ -405,8 +438,9 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
   const items = view?.items ?? []
   const readAt = useReadTimes(items)
   const request = view?.requests[0]
+  const checks = useChecks(meta.tabId)
   return (
-    <>
+    <ChecksContext.Provider value={checks}>
       {entries(items).map((entry) =>
         'item' in entry ? (
           <ItemView key={entry.item.itemId} tabId={meta.tabId} item={entry.item} readAt={readAt[entry.item.itemId]} loadImage={loadImage} onActions={onActions} onSendNow={onSendNow} onUnsend={onUnsend} />
@@ -436,7 +470,7 @@ export function Conversation({ meta, view, loadImage, onAnswer, onRestart, onTru
           </button>
         </div>
       )}
-    </>
+    </ChecksContext.Provider>
   )
 }
 

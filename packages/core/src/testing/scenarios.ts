@@ -12,6 +12,7 @@ import { sdk, stored } from './messages.ts'
 //   slow       → streams a long answer, word by word, until interrupted
 //   infinito   → streams words (a new paragraph every 40) and never ends by itself: only Stop ends it
 //   markdown   → answers with a remote image and a link (rendering safety checks)
+//   checklist  → answers with a checklist of three boxes, the second already ticked
 //   widget     → answers with an inline chat widget: a Vai button (athome.send), a Nuovo progetto button
 //                (athome.createProject('idea'), its outcome in #project) and a probe of its frame (runtime, theme,
 //                storage, network, an action tried on load) written in #probe; widget <name> → a ```widget:<name> block
@@ -55,7 +56,7 @@ const imageCount = (message: SDKUserMessage) => (typeof message.message.content 
 // One fake turn in progress: knows whether it was interrupted, stores what it says like the CLI's JSONL, and reads
 // the messages sent meanwhile (fold: the text they add to the answer).
 // peer: a message from another session arrives (stored, then the CLI starts its turn); returns its uuid.
-type Turn = { session: FakeSession; interrupted: () => boolean; options: ScenarioOptions; store: (text: string) => void; fold: () => string; peer: (name: string, body: string) => string; edited: (file: string, lines: number) => void }
+type Turn = { session: FakeSession; interrupted: () => boolean; options: ScenarioOptions; store: (text: string, messageId?: string) => void; fold: () => string; peer: (name: string, body: string) => string; edited: (file: string, lines: number) => void }
 
 // Streams text word by word, reads what was sent meanwhile, then the final frame and a success result (or an aborted
 // result if interrupted).
@@ -69,7 +70,7 @@ async function stream({ session, interrupted, options, store, fold }: Turn, text
   }
   if (interrupted()) return session.emit(sdk.aborted())
   const answer = text + fold()
-  store(answer)
+  store(answer, messageId)
   session.emit(sdk.assistant(messageId, [{ type: 'text', text: answer }]), sdk.success())
 }
 
@@ -175,6 +176,7 @@ async function respond(turn: Turn, text: string, images: number): Promise<void> 
   }
   if (keyword === 'widget') return stream(turn, `Here it is:\n\n\`\`\`widget\n${WIDGET_HTML}\n\`\`\`\n\nTap it.`)
   if (keyword.startsWith('widget ')) return stream(turn, `\`\`\`widget:${keyword.slice(7)}\n{"text":"vai"}\n\`\`\``)
+  if (keyword === 'checklist') return stream(turn, 'To do:\n\n- [ ] Write the tests\n- [x] Read the code\n- [ ] Push')
   if (keyword === 'markdown') return stream(turn, 'Image: ![tracker](https://example.com/pixel.png) and a [link](https://example.com).')
   if (keyword === 'peer') {
     // After this answer, another session sends a message (SendMessage): the CLI starts a turn for it by itself.
@@ -247,7 +249,8 @@ async function drive(fake: FakeSdk, session: FakeSession, options: ScenarioOptio
   session.onInterrupt(() => (interrupted = true))
   const lifecycle = (message: SDKUserMessage, state: 'queued' | 'started' | 'completed') => message.uuid && session.emit(sdk.lifecycle(message.uuid, state))
   session.onReceive((message) => lifecycle(message, 'queued'))
-  const store = (text: string) => fake.record(sessionId, cwd, stored.assistant(randomUUID(), `msg_${randomUUID()}`, [{ type: 'text', text }]))
+  // Stored under the streamed message's id when given, as the CLI does (the chat's items keep their ids on a reload).
+  const store = (text: string, messageId = `msg_${randomUUID()}`) => fake.record(sessionId, cwd, stored.assistant(randomUUID(), messageId, [{ type: 'text', text }]))
   const remember = (message: SDKUserMessage) => fake.record(sessionId, cwd, stored.user(message.uuid ?? randomUUID(), message.message.content))
   const peer = (name: string, body: string) => {
     const id = randomUUID()

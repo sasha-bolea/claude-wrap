@@ -23,6 +23,14 @@ describe('Store', () => {
     expect(store.getSnapshot()).toMatchObject({ home: { kind: 'root', path: '/srv' }, projects: ['/srv/a'], notesVersion: { '/srv/a': 2 } })
   })
 
+  // A tick in a chat's checklist on another device bumps that tab's version: its chat reads the ticks again.
+  it('keeps a version of each tab ticks', () => {
+    const store = new Store()
+    store.applyWorkspaceEvent({ type: 'checks.changed', tabId: 't1' })
+    store.applyWorkspaceEvent({ type: 'checks.changed', tabId: 't1' })
+    expect(store.getSnapshot().checksVersion).toEqual({ t1: 2 })
+  })
+
   it('keeps the Claude accounts and the default one', () => {
     const store = new Store()
     store.applyWorkspaceReset({ kind: 'workspace', tabs: [], home: { kind: 'root', path: '/srv' }, projects: [], accounts: [], terminals: [] })

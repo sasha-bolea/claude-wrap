@@ -1234,6 +1234,31 @@ describe('PWA (fake SDK)', () => {
     expect(await background()).toBe('#faf9f7')
   })
 
+  it('the boxes of a checklist in an answer take a tap; the ticks are the same on another device and after a reload', async () => {
+    const first = await pairedPage(await newPhone(), backend, 'phone')
+    await openProject(first)
+    await send(first, 'checklist')
+    await expect.poll(() => lastAnswer(first).textContent()).toContain('Push')
+    const boxes = (page: Page) => lastAnswer(page).locator('input[type=checkbox]')
+    const ticks = (page: Page) => boxes(page).evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).checked))
+    // As Claude wrote them, then the first ticked by hand.
+    expect(await ticks(first)).toEqual([false, true, false])
+    await boxes(first).nth(0).click()
+    expect(await ticks(first)).toEqual([true, true, false])
+    // The same on another device; unticked there, unticked here.
+    const second = await pairedPage(await newPhone(), backend, 'tablet')
+    await button(second, /^Show sessions/).click()
+    await second.getByRole('button', { name: /^checklist / }).click()
+    await expect.poll(() => ticks(second)).toEqual([true, true, false])
+    await boxes(second).nth(1).click()
+    await expect.poll(() => ticks(first)).toEqual([true, false, false])
+    // Kept after a reload.
+    await first.reload()
+    await button(first, /^Show sessions/).click()
+    await first.getByRole('button', { name: /^checklist / }).click()
+    await expect.poll(() => ticks(first)).toEqual([true, false, false])
+  })
+
   it('a code block in an answer has a copy button: it copies the code and shows a tick for a moment', async () => {
     const context = await newPhone()
     const page = await pairedPage(context, backend)

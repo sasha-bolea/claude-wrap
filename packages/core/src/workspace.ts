@@ -11,6 +11,7 @@ import { ActivityFile } from './activity.ts'
 import type { CoreConfig, Notice, SdkApi } from './config.ts'
 import { CoreError } from './errors.ts'
 import { NoteStore } from './notes.ts'
+import { CheckStore } from './checks.ts'
 import { PaletteStore } from './palettes.ts'
 import { waitForCleanups } from './process.ts'
 import { PromptHistory } from './promptHistory.ts'
@@ -70,6 +71,8 @@ export class Workspace {
   readonly terminalPolicy: TerminalPolicy
   readonly actionLog: ActionLog
   readonly notes: NoteStore
+  // The boxes ticked by hand in Claude's checklists, per session.
+  readonly checks: CheckStore
   readonly accounts: AccountStore
   readonly palettes: PaletteStore
   readonly terminals: Terminals
@@ -105,6 +108,7 @@ export class Workspace {
     this.actionLog = new ActionLog(config.stateDir && join(config.stateDir, 'actions.jsonl'))
     this.prompts = new PromptHistory(config.stateDir && join(config.stateDir, 'history.jsonl'), join(this.claudeDir, 'history.jsonl'))
     this.notes = new NoteStore(config.stateDir && join(config.stateDir, 'notes.json'))
+    this.checks = new CheckStore(config.stateDir && join(config.stateDir, 'checks.json'))
     this.stream = new Stream(
       WORKSPACE_STREAM,
       () => ({

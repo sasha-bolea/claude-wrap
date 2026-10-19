@@ -80,6 +80,7 @@ async function deleteSession(workspace: Workspace, { cwd, sessionId }: CommandAr
   if (owner && owner.status !== 'closing') throw new CoreError('session_busy', 'close the tab of this session first')
   await owner?.close()
   await workspace.sdk.deleteSession(sessionId, { dir: cwd })
+  await workspace.checks.drop(sessionId)
   return {}
 }
 
@@ -194,6 +195,18 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
     'tab.rewindPoints': ({ tabId }) => ({ points: tabOf(tabId).rewindPoints() }),
     'tab.rewindPreview': ({ tabId, itemId }) => tabOf(tabId).rewindPreview(itemId),
     'tab.rewind': (args) => rewind(workspace, args),
+    'tab.checks': async ({ tabId }) => {
+      const { sessionId } = tabOf(tabId)
+      return { checks: sessionId ? await workspace.checks.list(sessionId) : {} }
+    },
+    // Ticks live with the session: none can exist before its first turn stored a message.
+    'tab.setCheck': async ({ tabId, itemId, index, checked }) => {
+      const { sessionId } = tabOf(tabId)
+      if (!sessionId) throw new CoreError('not_found', 'no message to tick yet')
+      await workspace.checks.set(sessionId, itemId, index, checked)
+      workspace.stream.emit({ type: 'checks.changed', tabId })
+      return {}
+    },
     'settings.setAutoCompactWindow': async ({ tokens }) => (await workspace.setAutoCompactWindow(tokens), {}),
     'settings.setDefaultEffort': async ({ effort }) => (await workspace.setDefaultEffort(effort), {}),
     'settings.setDefaultMode': async ({ mode }) => (await workspace.setDefaultMode(mode), {}),

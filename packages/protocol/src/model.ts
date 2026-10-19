@@ -157,6 +157,8 @@ export const workspaceEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('folders.updated'), home: homeSchema, projects: z.array(z.string()) }),
   // The notes of a folder changed: clients showing them read them again.
   z.object({ type: z.literal('notes.changed'), cwd: z.string() }),
+  // The ticked boxes of a tab's checklists changed: clients showing its chat read them again.
+  z.object({ type: z.literal('checks.changed'), tabId: z.string() }),
   // The accounts or the default one changed (defaultAccount undefined = Claude Code's own login).
   // The saved colour palettes changed (all of them as they now are).
   z.object({ type: z.literal('palettes.updated'), palettes: z.array(paletteSchema) }),
