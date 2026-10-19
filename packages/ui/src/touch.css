@@ -192,7 +192,11 @@ input, textarea, select { font-size: 16px; }
 .sticky-actions { padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--border); display: grid; gap: 8px; }
 
 /* Chat */
-.conversation { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px 14px calc(var(--dock-h, 90px) + 10px); display: flex; flex-direction: column; gap: 12px; }
+.conversation { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px 14px 0; display: flex; flex-direction: column; gap: 12px; }
+/* The room under the last message for the dock floating over it (its height + 10 px, after the 12 px gap): a spacer,
+   not padding — iOS Safari leaves a flex scroller's bottom padding out of what can be scrolled, so a chat ending
+   behind the dock did not scroll at all */
+.conversation::after { content: ''; flex: none; height: calc(var(--dock-h, 90px) - 2px); }
 .msg-user { align-self: flex-end; max-width: 86%; background: var(--surface-2); border-radius: 16px 16px 4px 16px; padding: 9px 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .msg-user .from { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
 .thumbs { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
@@ -728,7 +732,7 @@ textarea.tray-note-field:focus-visible { outline: none; }
 .kb-open .sheet { padding-bottom: 12px; }
 /* Typing in a request card: the composer steps aside, the card gets the room */
 .kb-open .chat-screen:has(.request :focus) .dock { display: none; }
-.kb-open .chat-screen:has(.request :focus) .conversation { padding-bottom: 12px; }
+.kb-open .chat-screen:has(.request :focus) .conversation::after { height: 0; }
 /* Portrait only: a phone turned sideways (html[data-landscape], set by the PWA host) gets this notice over the app */
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 

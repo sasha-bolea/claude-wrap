@@ -67,7 +67,9 @@ the device):
 6. **iPhone keyboard** (decision 10): the composer floats over the chat (`.dock`, its height in `--dock-h`), the field
    takes focus on `touchend` with `preventScroll`, the keyboard height comes from `visualViewport`
    ([keyboard.ts](../packages/ui/src/touch/keyboard.ts)) and `.device.kb-open` drops the bottom safe area; drags on the
-   dock never scroll the page. A field that must open the keyboard from a tap on another screen is focused in the same
+   dock never scroll the page. The room under the last message for the dock is the `.conversation::after` spacer, never
+   bottom padding (iOS Safari does not scroll a flex scroller's bottom padding: a chat ending behind the dock stood
+   still). A field that must open the keyboard from a tap on another screen is focused in the same
    tap (`flushSync` then `focus`), as in New note.
 7. **Toasts and the undo bar**: `toast(text)` for outcomes; `snack(text, undo)` with Restore for deletions that can be
    undone (5 s). Failures: `fail(error)` (toast with the reason).
