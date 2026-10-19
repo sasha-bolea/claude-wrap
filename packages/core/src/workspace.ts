@@ -647,9 +647,14 @@ export class Workspace {
       closeTimeoutMs: config.closeTimeoutMs ?? 3000,
       queueCountdownMs: config.queueCountdownMs ?? 10_000,
       watched: (tabId) => config.watching?.(tabId) ?? false,
+      // At the limit, the least recently used idle chat gives its process back (it starts again on its next message);
+      // refused only when every live chat is working, waiting or running background work.
       checkCanStart: () => {
-        const live = [...this.tabs.values()].filter((tab) => tab.holdsProcess).length
-        if (live >= maxLiveSessions) throw new CoreError('limit_reached', `at most ${maxLiveSessions} live sessions`)
+        const live = [...this.tabs.values()].filter((tab) => tab.holdsProcess)
+        if (live.length < maxLiveSessions) return
+        const idle = live.filter((tab) => tab.releasable).sort((a, b) => (a.lastUsedAt ?? 0) - (b.lastUsedAt ?? 0))[0]
+        if (!idle) throw new CoreError('limit_reached', `at most ${maxLiveSessions} live sessions, all of them busy`)
+        void idle.release().catch(() => undefined)
       },
       prepareStart: async (cwd) => {
         const folder = await this.folderOf(cwd).catch(async (error: unknown) => {

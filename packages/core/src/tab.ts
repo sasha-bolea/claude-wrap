@@ -268,6 +268,9 @@ export class Tab {
   private liveStarted = false
   // A rewind is in progress (the tab counts as busy; sending and starting a queued message wait).
   private rewinding = false
+  // The process runs background work (a shell, a Monitor, a subagent; watchers excluded), as its last
+  // background_tasks_changed said: it must not be stopped to make room.
+  private backgroundWork = false
   // The stored message the next process resumes at, from a conversation rewind until that process reports init.
   private resumeAt?: string
   // The model changes shown in the chat, put back in place at each history load.
@@ -317,6 +320,17 @@ export class Tab {
   // True while a CLI process exists or is about to (counts against maxLiveSessions).
   get holdsProcess(): boolean {
     return this.session !== undefined || this.lifecycle === 'starting'
+  }
+
+  // The process may be stopped to make room for another chat: Claude is idle with nothing waiting (no request, queue,
+  // held or `!` command, account switch) and no background work. The tab stays and starts again on its next message.
+  get releasable(): boolean {
+    return this.lifecycle === 'live' && this.session !== undefined && !this.busy && !this.turnRunning && !this.requests.size && !this.queue.length && !this.held.size && !this.shellAbort && !this.switchPending && !this.backgroundWork
+  }
+
+  // Stops the process to make room for another chat (see releasable); the tab turns dormant at once.
+  release(): Promise<void> {
+    return this.releaseProcess()
   }
 
   // A process is starting or running a turn (fork and session deletion are refused meanwhile).
@@ -1130,6 +1144,8 @@ export class Tab {
       })
       this.session = session
       this.liveStarted = true
+      // The background tasks are per process: a new one starts with none.
+      this.backgroundWork = false
       void session.exited.then((error) => this.onExit(session, error))
       this.lifecycle = 'live'
       this.error = undefined
@@ -1322,6 +1338,8 @@ export class Tab {
       this.adoptMode(message.permissionMode, true)
     } else if (message.type === 'system' && message.subtype === 'status' && message.permissionMode) {
       this.adoptMode(message.permissionMode, true)
+    } else if (message.type === 'system' && message.subtype === 'background_tasks_changed') {
+      this.backgroundWork = message.tasks.some((task) => !task.ambient)
     } else if (message.type === 'system' && message.subtype === 'commands_changed') {
       this.cachedCommands = visibleCommands(message.commands)
     } else if (message.type === 'conversation_reset') {
