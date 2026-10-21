@@ -20,7 +20,7 @@ a phone, three columns from 1024 px. Details per session: [storico-sessioni.md](
   live server on 2026-10-08 evening. Guide for Petra: [reference/athome-command.md](reference/athome-command.md);
   design: [architettura.md](architettura.md) §9.13–9.14.
 - **Repo:** public on GitHub (`main` only). Several Claude sessions push to `main` (the PC one and the ones in the
-  server dev clone `/srv/progetti/claude-wrap`, which push over SSH): pull before working and before committing, and
+  server dev clone `/srv/progetti/server/claude-wrap`, which push over SSH): pull before working and before committing, and
   commit only your own paths — from a temporary index when another session has staged work ([procedure.md](procedure.md)).
 - **Tests (2026-10-08, home server):** `npm test` 410 passed (+2 skipped); PWA e2e 96/96 (Playwright's Chromium);
   desktop e2e 39/39 (Electron under `xvfb-run`). Real CLI: `smoke:rewind` and `smoke:inspect` pass (2026-10-07); the

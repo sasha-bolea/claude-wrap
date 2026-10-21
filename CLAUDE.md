@@ -81,7 +81,7 @@ deploy/             install.sh (--when-idle), rollback.sh, systemd units (servic
 - UI: follow [docs/design-system.md](docs/design-system.md) before building or changing any interface.
 - Host changes on the home server follow the server knowledge base `~/claude-config/server/` (protocol, inventory) and
   update it in the same change; anything that needs root: prepare the exact command and ask Sasha to run it.
-- A second Claude session (server dev clone `/srv/progetti/claude-wrap`) also pushes to `main`: `git pull --ff-only` before working and before committing, push promptly.
+- A second Claude session (server dev clone `/srv/progetti/server/claude-wrap`) also pushes to `main`: `git pull --ff-only` before working and before committing, push promptly.
   More than one session can work in that same clone at once: commit only the files you touched (`git add <paths>`,
   never `-A`), and check `git status` first.
 - Do not run multi-agent review workflows without telling Sasha the cost first (they exhausted the 5-hour subscription quota before).

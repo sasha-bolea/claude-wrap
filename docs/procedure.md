@@ -189,7 +189,7 @@ backends only by editing the palette in the app.
 4. The automated version of this is `packages/server/src/athomeCli.test.ts` and `terminalSocket.test.ts`.
 
 ## Committing from the shared server clone while another session has staged work
-**When:** `git status` shows `MM` files you did not touch (another session's staged hunks) in `/srv/progetti/claude-wrap`.
+**When:** `git status` shows `MM` files you did not touch (another session's staged hunks) in `/srv/progetti/server/claude-wrap`.
 1. List your files: `git status --short | grep -v '^MM' | awk '{print $2}' > /tmp/mine.txt`; a file you both touched
    (e.g. `touch.css`) needs only your unstaged hunks: `git diff -- <file> | git apply --cached` inside the temporary index.
 2. `export GIT_INDEX_FILE=/tmp/my-index && git read-tree HEAD && xargs git add -- < /tmp/mine.txt && git commit -F msg`

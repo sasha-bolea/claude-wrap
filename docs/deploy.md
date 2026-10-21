@@ -62,7 +62,7 @@ never copy them into the repo or a ticket. Revoking a device (phone Settings) al
 3. **A commit that changes the build command** (e.g. the `@athome/*` workspace rename of 2026-10-06): the timer builds
    it with the live release's old `install.sh`, fails and marks it `.failed`. Run the new script from the repo once,
    so it builds with its own commands and switches only when no session works:
-   `rm /srv/apps/claude-wrap/releases/<commit>/.failed && /srv/progetti/claude-wrap/deploy/install.sh main --when-idle`
+   `rm /srv/apps/claude-wrap/releases/<commit>/.failed && /srv/progetti/server/claude-wrap/deploy/install.sh main --when-idle`
    (from SSH: the switch restarts the service and ends the sessions inside AtHome).
 
 ## Rollback
