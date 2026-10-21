@@ -679,6 +679,7 @@ export const en = {
   compactNow: 'Compact now',
   queuedGoesIn: 'From the queue: goes in {seconds} s',
   stopQueued: 'Stop: it comes back into the field',
+  queuedGoNow: 'Send it now',
   queuedStopped: 'Stopped: the message is back in the field, the queue waits',
   imagesCount: '[{count} images]',
   autoCompactTitle: 'Automatic compaction',

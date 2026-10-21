@@ -670,6 +670,24 @@ describe('queue', () => {
     expect(await client.fails('tab.queueHold', { tabId: 't1', queueId: cmd(3) })).toMatchObject({ code: 'request_resolved' })
   })
 
+  it('a queued message counting down can go at once, exactly as at the end of the countdown', async () => {
+    core = makeCore({ queueCountdownMs: 5000 })
+    client = await connect(core)
+    const session = await startedTab()
+    await client.ok('client.watch', { tabId: 't1' })
+    await client.ok('tab.queueAdd', { tabId: 't1', text: 'first' }, cmd(2))
+    await client.ok('tab.queueAdd', { tabId: 't1', text: 'second' }, cmd(3))
+    session.emit(sdk.success())
+    await client.waitFor(() => meta(client)?.queueCountdown?.queueId === cmd(2))
+    await client.ok('tab.queueGo', { tabId: 't1', queueId: cmd(2) })
+    await session.waitForInput(2)
+    expect(session.received[1]).toMatchObject({ uuid: cmd(2) })
+    expect(meta(client)?.queueCountdown).toBeUndefined()
+    expect(meta(client)?.queue.map((message) => message.text)).toEqual(['second'])
+    expect(meta(client)?.queuePause).toBeUndefined()
+    expect(await client.fails('tab.queueGo', { tabId: 't1', queueId: cmd(2) })).toMatchObject({ code: 'request_resolved' })
+  })
+
   it('nobody watching (or the chat left, or the page hidden): the queue goes at once', async () => {
     core = makeCore({ queueCountdownMs: 5000 })
     client = await connect(core)

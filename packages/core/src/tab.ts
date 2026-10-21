@@ -451,6 +451,14 @@ export class Tab {
     return { text, ...(images?.length ? { images } : {}) }
   }
 
+  // Ends the countdown of the next queued message early: it goes now, exactly as when the countdown reaches 0.
+  goQueued(queueId: string): void {
+    if (this.countdown?.queueId !== queueId) throw new CoreError('request_resolved', 'that message is no longer waiting to go')
+    this.stopCountdown()
+    if (this.queueFree() && this.queue[0]?.queueId === queueId) this.sendFirstQueued()
+    else this.dispatchNext()
+  }
+
   // Takes a message out of the queue and sends it now: read at Claude's next step, nothing interrupted.
   async sendNow(queueId: string): Promise<void> {
     const message = this.queued(queueId)

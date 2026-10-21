@@ -681,6 +681,7 @@ export const it: Record<MessageKey, string> = {
   compactNow: 'Compatta ora',
   queuedGoesIn: 'Dalla coda: parte tra {seconds} s',
   stopQueued: 'Ferma: torna nel campo di scrittura',
+  queuedGoNow: 'Invia subito',
   queuedStopped: 'Fermato: il messaggio è tornato nel campo, la coda aspetta',
   imagesCount: '[{count} immagini]',
   autoCompactTitle: 'Compattazione automatica',

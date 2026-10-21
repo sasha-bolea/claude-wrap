@@ -226,6 +226,8 @@ export const COMMANDS = {
   // Stops the countdown of the next queued message: it leaves the queue and comes back (text, images) for the
   // composer; the rest of the queue waits (paused) until ▶.
   'tab.queueHold': { args: z.object({ tabId, queueId: z.string() }), result: z.object({ text: z.string(), images: z.array(imageSchema).optional() }) },
+  // Ends the countdown of the next queued message early: it goes at once, as it would at 0.
+  'tab.queueGo': { args: z.object({ tabId, queueId: z.string() }), result: empty },
   // Takes a message out of the queue and sends it now (read at Claude's next step: nothing is interrupted).
   'tab.sendNow': { args: z.object({ tabId, queueId: z.string() }), result: empty },
   // ⏸ / ▶ of the queue (▶ also ends a pause after Stop or a usage limit).

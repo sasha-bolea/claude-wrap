@@ -708,6 +708,12 @@ describe('PWA (fake SDK)', () => {
     await expect.poll(() => composer(page).inputValue()).toBe('wait for me')
     await page.waitForTimeout(6000)
     expect(await page.locator('.msg-user').filter({ hasText: 'wait for me' }).count()).toBe(0)
+    // Resumed, the next one counts down; Send makes it go at once.
+    await button(page, 'Queue paused: Resume').click()
+    const next = page.getByRole('status').filter({ hasText: 'after me' })
+    await next.getByRole('button', { name: 'Send it now' }).click()
+    await page.locator('.msg-user').filter({ hasText: 'after me' }).waitFor({ timeout: 3000 })
+    await next.waitFor({ state: 'detached' })
   })
 
   it("the File tool opens the session's folder in the Home; its files: browse, preview with colours, upload, trash with undo; Back goes back to the chat", async () => {

@@ -39,9 +39,9 @@ const RING_LENGTH = 2 * Math.PI * RING_RADIUS
 // How often the countdown's seconds and ring move (ms).
 const COUNTDOWN_TICK = 200
 
-// The next queued message in the composer while it counts down to go: its text (and how many images), "parte tra N s"
-// and Stop inside a ring that empties until it goes.
-function QueuedCountdown({ text, images, until, onStop }: { text: string; images?: number; until: number; onStop: () => void }) {
+// The next queued message in the composer while it counts down to go: its text (and how many images), "parte tra N s",
+// Stop inside a ring that empties until it goes, and Send to make it go at once.
+function QueuedCountdown({ text, images, until, onStop, onGo }: { text: string; images?: number; until: number; onStop: () => void; onGo: () => void }) {
   const [now, setNow] = useState(() => Date.now())
   const total = useRef(Math.max(1, until - Date.now()))
   useEffect(() => {
@@ -63,6 +63,9 @@ function QueuedCountdown({ text, images, until, onStop }: { text: string; images
             <circle cx="22" cy="22" r={RING_RADIUS} strokeDasharray={RING_LENGTH} strokeDashoffset={RING_LENGTH * (1 - left / total.current)} />
           </svg>
           <Icon name="stop" />
+        </button>
+        <button className="send" aria-label={t('queuedGoNow')} onClick={onGo}>
+          <Icon name="send" />
         </button>
       </div>
     </div>
@@ -106,6 +109,8 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab, t
       if (heldImages?.length) draft.setImages([...heldImages, ...images])
       toast(t('queuedStopped'))
     }, fail)
+  // Send in the countdown: the message goes now, as at the end of the countdown.
+  const goQueued = () => countdown && connection.request('tab.queueGo', { tabId, queueId: countdown.queueId }).catch(fail)
 
   const setLinked = (note: LinkedNote | undefined) => {
     setLinkedState(note)
@@ -337,7 +342,7 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab, t
       {shellMode && <div className="shell-hint">{t('shellHintShort')}</div>}
       <div className="input-box">
         {tab}
-        {waiting && countdown && <QueuedCountdown text={waiting.text} images={waiting.images} until={countdown.until} onStop={hold} />}
+        {waiting && countdown && <QueuedCountdown text={waiting.text} images={waiting.images} until={countdown.until} onStop={hold} onGo={goQueued} />}
         <textarea
           key={undoReset}
           hidden={Boolean(waiting)}

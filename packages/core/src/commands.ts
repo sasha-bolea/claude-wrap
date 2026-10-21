@@ -139,6 +139,7 @@ export function createHandlers(workspace: Workspace, host: HostCommands = {}): H
       return { note }
     },
     'tab.queueHold': ({ tabId, queueId }) => tabOf(tabId).holdQueued(queueId),
+    'tab.queueGo': ({ tabId, queueId }) => (tabOf(tabId).goQueued(queueId), {}),
     'tab.sendNow': async ({ tabId, queueId }) => (await tabOf(tabId).sendNow(queueId), {}),
     'tab.queuePause': ({ tabId, paused }) => (tabOf(tabId).setQueuePaused(paused), {}),
     'tab.shell': ({ tabId, command }, _connection, cmdId) => tabOf(tabId).shell(command, cmdId),

@@ -275,8 +275,9 @@ Examples: [ChatScreen.tsx:314](../packages/ui/src/touch/ChatScreen.tsx#L314), [T
 
 ### Queue countdown — `.countdown`, `.countdown-text`, `.countdown-label`, `.countdown-stop`, `.countdown-ring`
 While the chat is on screen, the next queued message does not go at once: the composer shows its text, "Dalla coda:
-parte tra N s" and a danger Stop inside a ring that empties in 10 s (`role="status"`). Stop puts the message back into
-the field (before what was being written) and the rest of the queue waits for ▶; at 0 it goes. While it counts down the
+parte tra N s", a danger Stop inside a ring that empties in 10 s and the accent `.send` button "Invia subito"
+(`role="status"`). Stop puts the message back into the field (before what was being written) and the rest of the queue
+waits for ▶; at 0 it goes, and Invia subito makes it go at once the same way (`tab.queueGo`). While it counts down the
 message is out of the queue: the stack, the queue sheet and the queue button's count show only the ones after it (`waitingQueue` in queue.tsx). With the chat not on
 screen (another screen, the app hidden, nobody connected) the queue goes at once, as before.
 Examples: [TouchComposer.tsx:38](../packages/ui/src/touch/TouchComposer.tsx#L38).
