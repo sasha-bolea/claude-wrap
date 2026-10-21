@@ -241,6 +241,7 @@ describe('from the terminal (athome command)', () => {
     const { append } = fake.last().options.systemPrompt as { append?: string }
     expect(append).toContain('athome session move <folder>')
     expect(append).toContain('athome terminal write')
+    expect(append).toContain('AtHome queue')
   })
 
   it('every action is in the log with its source and outcome', async () => {

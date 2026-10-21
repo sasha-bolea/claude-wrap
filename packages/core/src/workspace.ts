@@ -36,7 +36,11 @@ move there at the end of your turn. Give the command a timeout of a few minutes 
 The user can watch a terminal of this session in the app. \`athome terminal read [--lines <n>]\` prints what it shows;
 \`athome terminal write <text> [--enter]\` types text in it (with --enter it runs), opening one in this session's folder
 if none is open; the user allows writing in this chat (once, or for the whole session). Use it when the user should
-see or take over a command (a server, an interactive program); use your own Bash tool for everything else.`
+see or take over a command (a server, an interactive program); use your own Bash tool for everything else.
+The user can queue messages in AtHome: they reach you one turn at a time, and an "AtHome queue" system reminder tells
+you how many wait after the current one. While some wait, don't stop on a question you can settle yourself (pick a
+sensible default and say which), keep each reply short, and keep the explanations, details and summaries for the last
+queued message, where you give them for the whole queue.`
 
 // Upper bound for closing everything on quit.
 const QUIT_CAP_MS = 8000

@@ -15,6 +15,7 @@ import { createCore, type Core, type CoreConfig, type Notice } from './core.ts'
 import { createFakeSdk, type FakeSdk } from './testing/fakeQuery.ts'
 import { RawClient } from './testing/rawClient.ts'
 import { sdk, stored } from './testing/messages.ts'
+import { QUEUE_LAST, queueMore } from './queueAware.ts'
 
 // A real folder (prepareStart checks it exists), trusted in every core the tests build.
 const CWD = join(mkdtempSync(join(tmpdir(), 'cw-core-')), 'demo')
@@ -570,6 +571,35 @@ describe('queue', () => {
     expect(session.count('interrupt')).toBe(0)
     await tick()
     expect(meta(client)?.queue).toEqual([])
+  })
+
+  it('Claude is told through its hooks how many messages wait, and when the last queued one starts', async () => {
+    // The hidden context a hook of the session's options returns (undefined when it says nothing).
+    const told = async (event: 'UserPromptSubmit' | 'PostToolUse') => {
+      const hook = fake.last().options.hooks![event]!.at(-1)!.hooks[0]!
+      const output = (await hook({ hook_event_name: event } as never, undefined, { signal: new AbortController().signal })) as { hookSpecificOutput?: { additionalContext?: string } }
+      return output.hookSpecificOutput?.additionalContext
+    }
+    const session = await startedTab()
+    expect(await told('UserPromptSubmit')).toBeUndefined()
+    await client.ok('tab.queueAdd', { tabId: 't1', text: 'a' }, cmd(2))
+    await client.ok('tab.queueAdd', { tabId: 't1', text: 'b' }, cmd(3))
+    expect(await told('PostToolUse')).toBe(queueMore(2))
+    session.emit(sdk.success())
+    await session.waitForInput(2)
+    expect(await told('UserPromptSubmit')).toBe(queueMore(1))
+    session.emit(sdk.success())
+    await session.waitForInput(3)
+    expect(await told('UserPromptSubmit')).toBe(QUEUE_LAST)
+    session.emit(sdk.success())
+    await tick()
+    await client.ok('tab.send', { tabId: 't1', text: 'alone' }, cmd(4))
+    await session.waitForInput(4)
+    expect(await told('UserPromptSubmit')).toBeUndefined()
+    // A paused queue does not wait after the current message.
+    await client.ok('tab.queueAdd', { tabId: 't1', text: 'later' }, cmd(5))
+    await client.ok('tab.queuePause', { tabId: 't1', paused: true })
+    expect(await told('PostToolUse')).toBeUndefined()
   })
 
   it('waits after Stop and when paused by hand; ▶ resumes it', async () => {

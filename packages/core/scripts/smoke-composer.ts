@@ -1,9 +1,9 @@
 // Phase 2 and sub-phase B check on the real CLI (`npm run smoke:composer`, a few haiku tokens): through core + client,
 // runs palette commands and reports what each one shows, sends an image and checks the model sees it, runs a `!`
 // command and checks it starts no turn but reaches the model, sends a message while a tool runs and checks it is read
-// in the same turn, presses "Invia ora" on a message waiting during a long tool and checks Claude reads it at once,
-// applies an effort level, checks the session's name for the other sessions follows the tab's title (after the first
-// prompt, then a rename), and reopens the stored session to check its history.
+// in the same turn, checks Claude is told about the queue, presses "Invia ora" on a message waiting during a long tool
+// and checks Claude reads it at once, applies an effort level, checks the session's name for the other sessions
+// follows the tab's title (after the first prompt, then a rename), and reopens the stored session to check its history.
 // Works in a temp folder and deletes the sessions after. Runs directly on Node 24 (type stripping).
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
@@ -149,6 +149,33 @@ async function checkMidTurn(): Promise<void> {
   if (!items().some((item) => item.kind === 'assistantText' && item.text.includes('PINEAPPLE'))) problems.push('the model did not read the message sent mid-turn')
 }
 
+// Claude knows about the queue: two messages queued while a tool runs are told at the next tool step ("2 more"), the
+// first queued one starts with "1 more", the second with "the last queued message"; core's hooks stay out of the
+// Hooks panel's runs.
+const QUOTE = 'Then quote verbatim every "AtHome queue" system reminder you received since my last message, or say NONE.'
+async function checkQueueAware(): Promise<void> {
+  const answers = () => items().filter((item) => item.kind === 'assistantText').map((item) => ('text' in item ? item.text : ''))
+  const ends = () => items().filter((item) => item.kind === 'turnEnd').length
+  const before = ends()
+  const seen = answers().length
+  await connection.request('tab.send', { tabId: TAB_ID, text: `Run exactly this Bash command: sleep 5 && echo queue-done. ${QUOTE}` })
+  const requests = () => connection.store.getSnapshot().transcripts[TAB_ID]?.requests ?? []
+  const toolRunning = () => items().some((item) => item.kind === 'toolCall' && item.name === 'Bash' && item.result === undefined)
+  await until(() => toolRunning() || requests().length > 0, 60_000)
+  const [request] = requests()
+  if (request) await connection.request('request.answer', { tabId: TAB_ID, requestId: request.requestId, decision: 'allow' })
+  await connection.request('tab.queueAdd', { tabId: TAB_ID, text: `First queued. ${QUOTE}` })
+  await connection.request('tab.queueAdd', { tabId: TAB_ID, text: `Second queued. ${QUOTE}` })
+  await until(() => ends() >= before + 3 && meta()?.status === 'idle', 120_000)
+  const replies = answers().slice(seen).join('\n---\n')
+  console.log(`> queue awareness: replies:\n${replies}`)
+  if (!/2 more messages/.test(replies)) problems.push('queue: the change during the tool step was not told ("2 more")')
+  if (!/1 more message/.test(replies)) problems.push('queue: the first queued message did not start with "1 more"')
+  if (!/last queued message/.test(replies)) problems.push('queue: the last queued message was not told')
+  const { runs } = await connection.request('tab.hooks', { tabId: TAB_ID })
+  console.log(`> queue awareness: hook runs ${runs.map((run) => `${run.event}:${run.name}`).join(', ') || 'none'}`)
+}
+
 // "Invia ora" on a message waiting during a long tool: the CLI's own send-now makes Claude read it well before the
 // tool would have ended.
 async function checkSendNow(): Promise<void> {
@@ -286,6 +313,7 @@ async function main(): Promise<void> {
   await checkImage()
   await checkShell()
   await checkMidTurn()
+  await checkQueueAware()
   await checkSendNow()
   await checkUnsend()
   await checkEffort()

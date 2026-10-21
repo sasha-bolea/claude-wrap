@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { basename, isAbsolute, relative } from 'node:path'
-import type { Options, Query, SDKMessage, SDKResultMessage, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { HookCallbackMatcher, Options, Query, SDKMessage, SDKResultMessage, SDKUserMessage, SessionMessage } from '@anthropic-ai/claude-agent-sdk'
 import {
   EFFORT_LEVELS,
   tabStream,
@@ -37,6 +37,7 @@ import { Session } from './session.ts'
 import type { PersistedTab } from './state.ts'
 import type { Send } from './stream.ts'
 import { Transcript, type TranscriptOptions } from './transcript.ts'
+import { QueueAwareness } from './queueAware.ts'
 import { planLimitsFromEvent, readUsage, toContextGauge, toContextUsage, toPlanLimits, toUsage } from './usage.ts'
 
 // Options every session gets (architettura.md; same as the first attempt).
@@ -241,6 +242,8 @@ export class Tab {
   private error?: string
   private queue: Outgoing[]
   private queuePause?: QueuePause
+  // What Claude is told about this queue (its hooks): the messages that will go after the current one.
+  private readonly queueAware = new QueueAwareness(() => (this.queuePause ? 0 : this.queue.length))
   // Messages the CLI holds (command_lifecycle), from queued or started until completed or cancelled.
   private readonly held = new Map<string, 'queued' | 'started'>()
   // The message the running turn answers when the CLI started it by itself (e.g. a message from another session).
@@ -1176,6 +1179,7 @@ export class Tab {
       effort: this.effort,
       ...(autoCompactWindow ? { settings: { autoCompactWindow } } : {}),
       ...(append ? { systemPrompt: { type: 'preset', preset: 'claude_code', append } } : {}),
+      hooks: withHooks(this.env.sdkOptions.hooks, this.queueAware.hooks()),
       permissionMode: this.mode,
       canUseTool: this.requests.ask
     }
@@ -1251,6 +1255,7 @@ export class Tab {
   // Sends the first queued message (back at the head of the queue if it cannot go).
   private sendFirstQueued(): void {
     const next = this.queue.shift()!
+    this.queueAware.startedFromQueue()
     this.changed()
     this.deliver(next).catch((error: unknown) => {
       this.queue.unshift(next)
@@ -1385,6 +1390,7 @@ export class Tab {
     for (const [uuid, state] of this.held) if (state === 'started') this.held.delete(uuid)
     if (this.held.size) return this.changed()
     this.turnRunning = false
+    this.queueAware.turnEnded()
     this.env.turnFinished(this)
     this.env.notify(this, 'turnFinished')
     void this.refreshGauges()
@@ -1518,6 +1524,13 @@ const transcriptOnly = (uuid: string, content: string): SDKUserMessage => ({
   parent_tool_use_id: null,
   shouldQuery: false
 })
+
+// The hooks of the embedder's options with core's own added after them, event by event.
+function withHooks(base: Options['hooks'], own: NonNullable<Options['hooks']>): Options['hooks'] {
+  const merged = { ...base }
+  for (const [event, matchers] of Object.entries(own) as [keyof typeof own, HookCallbackMatcher[]][]) merged[event] = [...(base?.[event] ?? []), ...matchers]
+  return merged
+}
 
 // Commands without the CLI's internal `__` ones.
 const visibleCommands = (commands: SlashCommand[]) => commands.filter((command) => !command.name.startsWith('__'))
