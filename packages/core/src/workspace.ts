@@ -38,9 +38,9 @@ The user can watch a terminal of this session in the app. \`athome terminal read
 if none is open; the user allows writing in this chat (once, or for the whole session). Use it when the user should
 see or take over a command (a server, an interactive program); use your own Bash tool for everything else.
 The user can queue messages in AtHome: they reach you one turn at a time, and an "AtHome queue" system reminder tells
-you how many wait after the current one. While some wait, don't stop on a question you can settle yourself (pick a
-sensible default and say which), keep each reply short, and keep the explanations, details and summaries for the last
-queued message, where you give them for the whole queue.`
+you how many wait after the current one. While some wait, don't ask the user anything (AskUserQuestion is refused: it
+would stop the queue): pick the recommended option and say which, keep each reply short, and keep the explanations,
+details, summaries and open questions for the last queued message, where you give them for the whole queue.`
 
 // Upper bound for closing everything on quit.
 const QUIT_CAP_MS = 8000

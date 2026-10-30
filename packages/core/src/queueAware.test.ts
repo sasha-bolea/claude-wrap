@@ -71,4 +71,17 @@ describe('queue awareness', () => {
     expect(queueMore(1)).toContain('1 more message from the user is waiting')
     expect(queueMore(2)).toContain('2 more messages from the user are waiting')
   })
+
+  it('the notes say what to do: no questions while messages wait, the held-back ones at the end', () => {
+    expect(queueMore(1)).toContain("Don't ask the user anything now")
+    expect(queueMore(1)).toContain('AskUserQuestion')
+    expect(QUEUE_LAST).toContain('questions you held back')
+  })
+
+  it('AskUserQuestion is refused while messages wait, allowed otherwise', () => {
+    const { state, aware } = setup(1)
+    expect(aware.askAllowed()).toBe(false)
+    state.waiting = 0
+    expect(aware.askAllowed()).toBe(true)
+  })
 })

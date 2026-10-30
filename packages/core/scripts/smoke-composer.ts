@@ -150,8 +150,8 @@ async function checkMidTurn(): Promise<void> {
 }
 
 // Claude knows about the queue: two messages queued while a tool runs are told at the next tool step ("2 more"), the
-// first queued one starts with "1 more", the second with "the last queued message"; core's hooks stay out of the
-// Hooks panel's runs.
+// first queued one starts with "1 more" and its AskUserQuestion is refused (no request reaches the app), the second
+// starts with "the last queued message"; core's hooks stay out of the Hooks panel's runs.
 const QUOTE = 'Then quote verbatim every "AtHome queue" system reminder you received since my last message, or say NONE.'
 async function checkQueueAware(): Promise<void> {
   const answers = () => items().filter((item) => item.kind === 'assistantText').map((item) => ('text' in item ? item.text : ''))
@@ -164,9 +164,16 @@ async function checkQueueAware(): Promise<void> {
   await until(() => toolRunning() || requests().length > 0, 60_000)
   const [request] = requests()
   if (request) await connection.request('request.answer', { tabId: TAB_ID, requestId: request.requestId, decision: 'allow' })
-  await connection.request('tab.queueAdd', { tabId: TAB_ID, text: `First queued. ${QUOTE}` })
+  await connection.request('tab.queueAdd', { tabId: TAB_ID, text: `First queued. Use the AskUserQuestion tool to ask me whether I prefer red or blue. ${QUOTE}` })
   await connection.request('tab.queueAdd', { tabId: TAB_ID, text: `Second queued. ${QUOTE}` })
-  await until(() => ends() >= before + 3 && meta()?.status === 'idle', 120_000)
+  let asked = false
+  await until(() => {
+    asked ||= requests().some((pending) => pending.kind === 'question')
+    return ends() >= before + 3 && meta()?.status === 'idle'
+  }, 120_000)
+  const askCalls = items().filter((item) => item.kind === 'toolCall' && item.name === 'AskUserQuestion').length
+  console.log(`> queue awareness: AskUserQuestion calls ${askCalls}, a question reached the app ${asked}`)
+  if (asked) problems.push('queue: AskUserQuestion reached the app while messages waited')
   const replies = answers().slice(seen).join('\n---\n')
   console.log(`> queue awareness: replies:\n${replies}`)
   if (!/2 more messages/.test(replies)) problems.push('queue: the change during the tool step was not told ("2 more")')

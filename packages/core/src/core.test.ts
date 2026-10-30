@@ -15,7 +15,7 @@ import { createCore, type Core, type CoreConfig, type Notice } from './core.ts'
 import { createFakeSdk, type FakeSdk } from './testing/fakeQuery.ts'
 import { RawClient } from './testing/rawClient.ts'
 import { sdk, stored } from './testing/messages.ts'
-import { QUEUE_LAST, queueMore } from './queueAware.ts'
+import { QUEUE_LAST, QUEUE_NO_ASK, queueMore } from './queueAware.ts'
 
 // A real folder (prepareStart checks it exists), trusted in every core the tests build.
 const CWD = join(mkdtempSync(join(tmpdir(), 'cw-core-')), 'demo')
@@ -600,6 +600,19 @@ describe('queue', () => {
     await client.ok('tab.queueAdd', { tabId: 't1', text: 'later' }, cmd(5))
     await client.ok('tab.queuePause', { tabId: 't1', paused: true })
     expect(await told('PostToolUse')).toBeUndefined()
+  })
+
+  it('AskUserQuestion is refused while queued messages wait (it would stop the queue)', async () => {
+    // The decision of the session's PreToolUse hook for AskUserQuestion (undefined: no decision, the tool goes on).
+    const decision = async () => {
+      const matcher = fake.last().options.hooks!.PreToolUse!.find((entry) => entry.matcher === 'AskUserQuestion')!
+      const output = (await matcher.hooks[0]!({ hook_event_name: 'PreToolUse', tool_name: 'AskUserQuestion' } as never, 'toolu_1', { signal: new AbortController().signal })) as { hookSpecificOutput?: { permissionDecision?: string; permissionDecisionReason?: string } }
+      return output.hookSpecificOutput
+    }
+    await startedTab()
+    expect(await decision()).toBeUndefined()
+    await client.ok('tab.queueAdd', { tabId: 't1', text: 'next' }, cmd(2))
+    expect(await decision()).toMatchObject({ permissionDecision: 'deny', permissionDecisionReason: QUEUE_NO_ASK })
   })
 
   it('waits after Stop and when paused by hand; ▶ resumes it', async () => {
