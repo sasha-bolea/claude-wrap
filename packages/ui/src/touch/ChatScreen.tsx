@@ -311,6 +311,21 @@ export function ChatScreen({ tabId }: { tabId: string }) {
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
+  // The conversation changes height (the keyboard opens or closes, a rotation): at the bottom it stays at the bottom;
+  // scrolled up it keeps its place — opening the keyboard never takes you down.
+  useEffect(() => {
+    const box = conversation.current
+    if (!box || !window.ResizeObserver) return
+    let height = box.clientHeight
+    const observer = new ResizeObserver(() => {
+      if (box.clientHeight === height) return
+      height = box.clientHeight
+      if (following.current) settleBottom()
+      placeThumb(false)
+    })
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [])
   // A drag on the dock never scrolls the page (only the text inside the field, when it overflows). With text selected
   // in the field nothing is blocked: the drag may be a selection handle (iOS draws them past the field's edges too).
   useEffect(() => {
@@ -425,7 +440,7 @@ export function ChatScreen({ tabId }: { tabId: string }) {
         )}
       </div>
       <div className="dock" ref={dock}>
-        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} toolsOpen={Boolean(tools)} onOpenQueue={() => setTools('queue')} onSent={() => setTools(undefined)} onFocusField={() => (setFollow(true), settleBottom())} tab={<WorkingMini show={running && lineOut} since={meta.status === 'running' ? meta.workingSince : undefined} />} />
+        <TouchComposer meta={meta} running={running} requestOpen={Boolean(request)} toolsOpen={Boolean(tools)} onOpenQueue={() => setTools('queue')} onSent={() => setTools(undefined)} tab={<WorkingMini show={running && lineOut} since={meta.status === 'running' ? meta.workingSince : undefined} />} />
       </div>
     </section>
   )

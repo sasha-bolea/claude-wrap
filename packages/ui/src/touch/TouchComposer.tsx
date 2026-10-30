@@ -31,7 +31,7 @@ const ESCAPE_TWICE_MS = 600
 // tab: shown as a tab sticking out of the input box's top left edge (the working time while its line is out of view).
 // toolsOpen: the Tools show (the left buttons that are also tiles slide away); onOpenQueue: a tap on the queue's stack;
 // onSent: a message went (the chat comes back from the Tools).
-type ComposerProps = { meta: TabMeta; running: boolean; requestOpen: boolean; onFocusField: () => void; tab?: ReactNode; toolsOpen: boolean; onOpenQueue: () => void; onSent: () => void }
+type ComposerProps = { meta: TabMeta; running: boolean; requestOpen: boolean; tab?: ReactNode; toolsOpen: boolean; onOpenQueue: () => void; onSent: () => void }
 
 // Ring of the countdown around Stop (SVG units, a 44×44 box).
 const RING_RADIUS = 20
@@ -78,7 +78,7 @@ function QueuedCountdown({ text, images, until, onStop, onGo }: { text: string; 
 // commands, `@` files; `!` runs a shell command; long pastes collapse. Files that are not photos go to allegati/ and
 // are mentioned.
 // A note used in the message is deleted at send when at least 20% of it is still there. Prototype: NOTE-CONSEGNA §3.
-export function TouchComposer({ meta, running, requestOpen, onFocusField, tab, toolsOpen, onOpenQueue, onSent }: ComposerProps) {
+export function TouchComposer({ meta, running, requestOpen, tab, toolsOpen, onOpenQueue, onSent }: ComposerProps) {
   const { connection, backendId, openSheet, toast, snack, fail, inserts, clearInsert, go } = useTouch()
   const tabId = meta.tabId
   const models = useModels(tabId)
@@ -358,7 +358,6 @@ export function TouchComposer({ meta, running, requestOpen, onFocusField, tab, t
           onKeyDown={onKeyDown}
           onPaste={onPaste}
           onTouchEnd={onTouchEnd}
-          onFocus={onFocusField}
           onBlur={() => suggestions.close()}
         />
         <div className={`input-tools${toolsOpen ? ' tools-open' : ''}`} hidden={Boolean(waiting)}>
